@@ -17,7 +17,14 @@ class MTSET_call():
 
     def GenerateProcess(self, dummy):
         """
-        
+        -----
+        Create MTSET subprocess
+        -----
+
+        Simple function to create an MTSET subprocress using the defined
+        executable path and analysis name in the class initialization. 
+        The defined subprocess has the inputs, outputs, and error file 
+        handles sent to PIPE for direct interaction within the Python code.  
         """
 
         self.process = subprocess.Popen([self.fPath, self.analysisName], 
@@ -29,25 +36,46 @@ class MTSET_call():
         return
     
 
-    def GridRefinement(self, dummy):
+    def GridGenerator(self, dummy):
         """
-        
+        -----
+        Automatic grid generator and grid refinement
+        -----
+
+
         """
+
+        # There are axisymmetric bodies - the center body and the duct. 
+        # Both need to be loaded in the startup of MTSET
+
+        # -----
+        # TO DO 
+        # include handling of updated spacing; detect number of bodies and handle appropriately
+        # get current number of streamwise gridpoints
+        # -----
+
+        self.process.stdin.write("\n \n") 
+        self.process.stdin.flush()  # Send return commands to MTSET
+
+        # Exit grid spacing definition routine and modify grid parameters to
+        # increase the number of streamlines and streamwise gridpoints
+        self.process.stdin.write("\n")
+        self.process.stdin.flush()
 
         pass
     
 
     def GridSmoothing(self, dummy):
         """
-        ----------
-        Elliptic Grid Smoothing
-        ----------
+        -----
+        Elliptic grid smoothing function
+        -----
+        
         Performs elliptic grid smoothing on the created grid until converged. 
         Convergence is measured by checking the last pass in the smoothing process 
         for the presence of Dmax in the terminal output. 
         If Dmax is no longer present within the grid, set smoothing to false 
-        and continue.
-        ----------
+        and exit the routine.
         """
 
         # Define controlling booleans for the smoothing process
@@ -79,9 +107,29 @@ class MTSET_call():
 
     def fileGenerator(self, dummy):
         """
-        
+        -----
+        Generation of required files and outputs from MTSET to use in 
+        further analyses
+        -----
+
+        This is a very simple function to handle the end-of-procedure steps in MTSET, generating the output files.
+        These output files can then be used in later analyses. Two files are generated:
+        mtgpar.xxx and tdat.xxx, where xxx is the analysis name
+
+        mtgpar contains the grid parameters of the created grid, while tdat is a (binary) solution storage file, 
+        containing an incompressible, inviscid flow solution as starting point for the MTFLO field parameter 
+        specification or MTSOL solver. Both files are created using standard, built-in functions within MTSET.
+
+        Function returns the exit code of the subprocess. 
         """
 
+        # Create mtgpar.xxx file
+        self.process.stdin.write("s\n")
+
+        # Create tdat.xxx file
+        # Note that MTSET automatically closes after writing the tdat file!
+        self.process.stdin.write("w\n")
+        self.process.stdin.flush()  # Flush inputs to make sure they are passed to MTSET immediately
         return
 
     def test(self):
@@ -91,37 +139,20 @@ class MTSET_call():
         
         self.GenerateProcess(self)  # Create subprocess for the MTSET tool
 
-        # There are axisymmetric bodies - the center body and the duct. 
-        # Both need to be loaded in the startup of MTSET
-
-        # -----
-        # TO DO 
-        # include handling of updated spacing; detect number of bodies and handle appropriately
-        # get current number of streamwise gridpoints
-        # -----
-
-        self.process.stdin.write("\n \n") 
-        self.process.stdin.flush()  # Send return commands to MTSET
-
-        # Exit grid spacing definition routine and modify grid parameters to
-        # increase the number of streamlines and streamwise gridpoints
-        self.process.stdin.write("\n")
-        self.process.stdin.flush()
-
-        self.GridRefinement(self)  # Refine MTSET grid
+        self.GridGenerator(self)
 
         self.GridSmoothing(self)  # Perform elliptical grid smoothing
 
         self.fileGenerator(self)  # Generate files           
 
-
-        self.process.stdin.write("s\n")  # Write current grid parameters to mtgpar.analysisName
-        
-        self.process.stdin.write("w\n")
-        
-        
-
-        return None
+        # Check that MTSET has closed successfully 
+        if self.process.poll() == None:
+            self.process.kill()
+            raise OSError("Something went wrong in the MTSET call. \
+                          MTSET was not closed following end of file generation. \
+                          Run terminated.")
+        else:    
+            return self.process.returncode
 
 if __name__ == "__main__":
     caller = MTSET_call(r"mtset.exe", "dprop")
