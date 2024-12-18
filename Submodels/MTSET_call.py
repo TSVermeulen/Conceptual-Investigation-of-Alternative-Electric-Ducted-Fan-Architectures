@@ -152,7 +152,7 @@ class MTSET_call:
         return self
 
 
-    def fileGenerator(self, 
+    def FileGenerator(self, 
                       dummy: None, 
                       ):
         """
@@ -206,7 +206,7 @@ class MTSET_call:
         self.GridSmoothing(self)  
 
         # Generate files 
-        self.fileGenerator(self)   
+        self.FileGenerator(self)   
 
         return self.process.returncode         
 
