@@ -20,9 +20,9 @@ class MTSET_call:
 
 
     def __init__(self, *args):
-        filePath, analysisName = args
-        self.fPath = filePath
-        self.analysisName = analysisName
+        file_path, analysis_name = args
+        self.fpath = file_path
+        self.analysisName = analysis_name
 
         return None
 
@@ -41,7 +41,7 @@ class MTSET_call:
         handles sent to PIPE for direct interaction within the Python code.  
         """
 
-        self.process = subprocess.Popen([self.fPath, self.analysisName], 
+        self.process = subprocess.Popen([self.fpath, self.analysis_name], 
                                  stdin=subprocess.PIPE, 
                                  stdout=subprocess.PIPE, 
                                  stderr=subprocess.PIPE,
@@ -84,7 +84,7 @@ class MTSET_call:
         # The second(+) elements are preceded by line containing [999. 999.], 
         # which can be used to count the number of elements to be loaded in by MTSET
         element_count = 1  # There is a minimum of 1 element present
-        with open(r'walls.' + self.analysisName, 'r') as file: 
+        with open(r'walls.' + self.analysis_name, 'r') as file: 
             for index, line in enumerate(file): 
                 if index < 2:  # Skip the first two lines (0 and 1) - these contain the analysis name and grid size. 
                     continue 

@@ -17,6 +17,14 @@ class AxiWallFileGenerator():
     """
 
 
-    def __init__(self):
-        
+    def __init__(self, *args):
+        identifier, analysis_name, element_count = args
+
+        self.identifier = identifier  # Identifier of the population member for which the walls.xxx file is being generated
+        self.fileExtension
         pass
+
+    
+    def fileWriter(self):
+
+        return 
