@@ -18,9 +18,8 @@ Changelog:
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import interpolate, optimize
-from typing import Tuple
 
-class AirfoilParameterization():
+class AirfoilParameterization:
     """
     This class calculates airfoil parameterizations using Bezier curves.
     
@@ -64,7 +63,8 @@ class AirfoilParameterization():
         -------
         None
         """
-        pass
+        
+        return
 
 
     def BezierCurve3(self,
@@ -283,7 +283,7 @@ class AirfoilParameterization():
                                   b_15: float,
                                   r_LE: float,
                                   trailing_wedge_angle: float
-                                  ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+                                  ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         
         """
         Calculate the control points for the thickness distribution Bezier curves.
@@ -456,7 +456,7 @@ class AirfoilParameterization():
 
     def FindInitialParameterization(self, 
                                     reference_file: str,
-                                    plot: bool = False) -> Tuple[float]:
+                                    plot: bool = False) -> tuple[float, float, float, float, float, float, float, float, float]:
         """
         Find the initial parameterization for the profile.
 
@@ -594,7 +594,7 @@ class AirfoilParameterization():
                                  r_LE: float,
                                  trailing_wedge_angle: float,
                                  trailing_camberline_angle: float,
-                                 leading_edge_direction: float):
+                                 leading_edge_direction: float) -> None:
             """
             Check the optimized result by plotting the thickness and camber distributions, and the airfoil shape.
 
