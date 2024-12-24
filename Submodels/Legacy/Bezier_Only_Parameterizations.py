@@ -1,5 +1,8 @@
 """
 
+This module contains the AirfoilParameterization class, which provides methods for calculating airfoil parameterizations using Bezier curves.
+It is a simplified version of the full BP3434 parameterization, in that it only matches the bezier coefficients to the input data, while keeping
+the airfoil parameters constant at their estimated values. 
 
 
 """
@@ -66,7 +69,7 @@ class AirfoilParameterization():
 
         #Input checking
         if len(coeff) != 4:
-            raise ValueError("Coefficient list must contain exactly 4 elements.")
+            raise ValueError(f"Coefficient list must contain exactly 4 elements. Coefficient list contains {len(coeff)} elements")
     
         # Calculate the value of y at u using a 3rd degree Bezier curve
         y = coeff[0] * (1 - u) ** 3 + \
@@ -99,7 +102,7 @@ class AirfoilParameterization():
 
         # Input checking
         if len(coeff) != 5:
-            raise ValueError("Coefficient list must contain exactly 5 elements.")
+            raise ValueError(f"Coefficient list must contain exactly 5 elements. Coefficient list contains {len(coeff)} elements.")
             
         # Calculate the value of y at u using a 4th degree Bezier curve
         y = coeff[0] * (1 - u) ** 4 + \
@@ -389,10 +392,7 @@ class AirfoilParameterization():
         thickness_distribution = np.zeros(len(thickness_x))
         thickness_interpolation = interpolate.CubicSpline(thickness_x, thickness)  # Interpolation of bezier thickness distribution
         for i in range(len(thickness_x)):
-            if camber_x[i] == thickness_x[i]:
-                thickness_distribution[i] = thickness[i]
-            else:
-                thickness_distribution[i] = thickness_interpolation(camber_x[i])  # In case coordinates do not line up, take interpolated value
+            thickness_distribution[i] = thickness_interpolation(camber_x[i])  # Use interpolation to get value of thickness at camber point
 
         # Calculate gradient of camber angle line
         theta = self.GetCamberAngleDistribution(camber_x, camber)

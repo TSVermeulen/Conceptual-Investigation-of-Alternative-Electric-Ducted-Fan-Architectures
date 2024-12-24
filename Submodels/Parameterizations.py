@@ -5,9 +5,10 @@ Contains full parameterization, including least-squares estimation of the leadin
 
 @author: T.S. Vermeulen
 @email: thomas0708.vermeulen@gmail.com / T.S.Vermeulen@student.tudelft.nl
-@version: 1.0
+@version: 1.1
 
 Changelog:
+- V1.1: Updated with comments from coderabbitAI. 
 - V1.0: Adapted version of a parameterization using only the bezier coefficients to give an improved fit to the reference data. 
 
 """
@@ -92,7 +93,7 @@ class AirfoilParameterization():
 
         #Input checking
         if len(coeff) != 4:
-            raise ValueError("Coefficient list must contain exactly 4 elements.")
+            raise ValueError(f"Coefficient list must contain exactly 4 elements. Coefficient list contains {len(coeff)} elements")
     
         # Calculate the value of y at u using a 3rd degree Bezier curve
         y = coeff[0] * (1 - u) ** 3 + \
@@ -125,7 +126,7 @@ class AirfoilParameterization():
 
         # Input checking
         if len(coeff) != 5:
-            raise ValueError("Coefficient list must contain exactly 5 elements.")
+            raise ValueError(f"Coefficient list must contain exactly 5 elements. Coefficient list contains {len(coeff)} elements.")
             
         # Calculate the value of y at u using a 4th degree Bezier curve
         y = coeff[0] * (1 - u) ** 4 + \
@@ -187,14 +188,18 @@ class AirfoilParameterization():
         # surface.
         # Final assumption: profile shape must be provided in input file with unit chord length
         # Skips the first row of the profile file as it contains the profile name
-        reference_coordinates = np.genfromtxt(reference_file, dtype=float, skip_header=1) 
+        try:
+            reference_coordinates = np.genfromtxt(reference_file, dtype=float, skip_header=1)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"The data input file {reference_file} does not exist in the current working directory.")
+         
 
         # Find index of LE coordinate and compute the camber and thickness distributions. 
         #If number of coordinate points is even, use the middle of the array as the LE coordinate
         if len(reference_coordinates[:,0]) % 2 == 0:  
             self.idx_LE = len(reference_coordinates[:,0]) // 2
         else:  # LE coordinate index must be the index for x,y = 0,0.
-            self.idx_LE = np.where(reference_coordinates[:,0] == 0)[0][0]
+            self.idx_LE = (np.abs(reference_coordinates[:,0] - 0)).argmin() 
 
         # Calculate camber x & y, and slope of the camber line
         x_camber = (np.flip(reference_coordinates[:self.idx_LE + 1, 0]) + reference_coordinates[self.idx_LE:, 0]) / 2
@@ -439,10 +444,7 @@ class AirfoilParameterization():
         thickness_distribution = np.zeros(len(thickness_x))
         thickness_interpolation = interpolate.CubicSpline(thickness_x, thickness)  # Interpolation of bezier thickness distribution
         for i in range(len(thickness_x)):
-            if camber_x[i] == thickness_x[i]:
-                thickness_distribution[i] = thickness[i]
-            else:
-                thickness_distribution[i] = thickness_interpolation(camber_x[i])  # In case coordinates do not line up, take interpolated value
+            thickness_distribution[i] = thickness_interpolation(camber_x[i])  # Use interpolation to get value of thickness at camber point
 
         # Calculate gradient of camber angle line
         theta = self.GetCamberAngleDistribution(camber_x, camber)
@@ -579,6 +581,14 @@ class AirfoilParameterization():
             
             interpolated_lower_surface_data = interpolate.CubicSpline(self.reference_data[self.idx_LE:, 0], 
                                                                       self.reference_data[self.idx_LE:, 1])(lower_x)
+            
+            # Calculate the squared fit errors of the upper and lower surfaces and sum them to obtain the objective function
+            squared_fit_error_upper_surface = np.sum((upper_y - interpolated_upper_surface_data) ** 2)
+            squared_fit_error_lower_surface = np.sum((lower_y - interpolated_lower_surface_data) ** 2)
+
+            squared_fit_error = squared_fit_error_upper_surface + squared_fit_error_lower_surface
+
+            return squared_fit_error
             
         def CheckOptimizedResult(b_0: float,
                                  b_2: float, 
@@ -758,7 +768,7 @@ class AirfoilParameterization():
 if __name__ == "__main__":
     call_class = AirfoilParameterization()
     
-    call_class.FindInitialParameterization('coordinates.test',
+    call_class.FindInitialParameterization(r'Test Airfoils\N2415.test',
                                            plot=True)
     
     
