@@ -53,7 +53,7 @@ class AirfoilParameterization:
         Find the initial parameterization for the airfoil.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize the AirfoilParameterization class.
         
@@ -64,7 +64,7 @@ class AirfoilParameterization:
         None
         """
         
-        return
+        return None
 
 
     def BezierCurve3(self,
@@ -92,13 +92,8 @@ class AirfoilParameterization:
             raise ValueError(f"Coefficient list must contain exactly 4 elements. Coefficient list contains {len(coeff)} elements")
     
         # Calculate the value of y at u using a 3rd degree Bezier curve
-        y = coeff[0] * (1 - u) ** 3 + \
-            3 * coeff[1] * u * (1 - u) ** 2 + \
-            3 * coeff[2] * u ** 2 * (1 - u) + \
-            coeff[3] * u ** 3
-    
-        return y
-    
+        return coeff[0] * (1 - u) ** 3 + 3 * coeff[1] * u * (1 - u) ** 2 + 3 * coeff[2] * u ** 2 * (1 - u) + coeff[3] * u ** 3
+        
 
     def BezierCurve4(self,
                      coeff: list[float], 
@@ -122,16 +117,9 @@ class AirfoilParameterization:
 
         # Input checking
         if len(coeff) != 5:
-            raise ValueError(f"Coefficient list must contain exactly 5 elements. Coefficient list contains {len(coeff)} elements.")
-            
-        # Calculate the value of y at u using a 4th degree Bezier curve
-        y = coeff[0] * (1 - u) ** 4 + \
-            4 * coeff[1] * u * (1 - u) ** 3 + \
-            6 * coeff[2] * u ** 2 * (1 - u) ** 2 + \
-            4 * coeff[3] * u ** 3 * (1 - u) + \
-            coeff[4] * u ** 4      
+            raise ValueError(f"Coefficient list must contain exactly 5 elements. Coefficient list contains {len(coeff)} elements.")     
 
-        return y
+        return coeff[0] * (1 - u) ** 4 + 4 * coeff[1] * u * (1 - u) ** 3 + 6 * coeff[2] * u ** 2 * (1 - u) ** 2 + 4 * coeff[3] * u ** 3 * (1 - u) + coeff[4] * u ** 4
 
 
     def GetCamberAngleDistribution(self,
@@ -155,9 +143,8 @@ class AirfoilParameterization:
         """
 
         camber_gradient = np.gradient(Y, X)
-        theta = np.arctan(camber_gradient)
 
-        return theta
+        return np.arctan(camber_gradient)
     
 
     def GetReferenceThicknessCamber(self, 
@@ -356,7 +343,6 @@ class AirfoilParameterization:
             Control point for the camber.
         b_2 : float
             Control point for the camber.
-        b_17 : float
         b_17 : float
             Control point for the camber.
         leading_edge_direction : float
