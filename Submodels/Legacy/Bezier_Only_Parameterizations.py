@@ -160,7 +160,10 @@ class AirfoilParameterization():
         # surface.
         # Final assumption: profile shape must be provided in input file with unit chord length
         # Skips the first row of the profile file as it contains the profile name
-        reference_coordinates = np.genfromtxt(reference_file, dtype=float, skip_header=1) 
+        try:
+            reference_coordinates = np.genfromtxt(reference_file, dtype=float, skip_header=1)
+        except FileNotFoundError as err:
+            raise FileNotFoundError(f"The data input file {reference_file} does not exist in the current working directory.") from err
 
         # Find index of LE coordinate and compute the camber and thickness distributions. 
         #If number of coordinate points is even, use the middle of the array as the LE coordinate

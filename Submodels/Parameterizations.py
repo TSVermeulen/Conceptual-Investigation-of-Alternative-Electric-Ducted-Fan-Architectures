@@ -74,10 +74,6 @@ class AirfoilParameterization():
         """
         Calculate a 3rd degree Bezier curve.
 
-        Returns
-        -------
-        None
-
         Parameters
          ----------
         coeff : list[float]
@@ -190,8 +186,8 @@ class AirfoilParameterization():
         # Skips the first row of the profile file as it contains the profile name
         try:
             reference_coordinates = np.genfromtxt(reference_file, dtype=float, skip_header=1)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"The data input file {reference_file} does not exist in the current working directory.")
+        except FileNotFoundError as err:
+            raise FileNotFoundError(f"The data input file {reference_file} does not exist in the current working directory.") from err
          
 
         # Find index of LE coordinate and compute the camber and thickness distributions. 
