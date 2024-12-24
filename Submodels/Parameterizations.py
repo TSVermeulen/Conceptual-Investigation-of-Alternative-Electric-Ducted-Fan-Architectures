@@ -63,7 +63,7 @@ class AirfoilParameterization:
 
     def BezierCurve3(self,
                      coeff: list[float], 
-                     u: float
+                     u: float,
                      ) -> np.ndarray|float:
         """
         Calculate a 3rd degree Bezier curve.
@@ -91,7 +91,7 @@ class AirfoilParameterization:
 
     def BezierCurve4(self,
                      coeff: list[float], 
-                     u: float
+                     u: float,
                      ) -> np.ndarray|float:
         """
         Calculate a 4th degree Bezier curve.
@@ -118,7 +118,7 @@ class AirfoilParameterization:
 
     def GetCamberAngleDistribution(self,
                        X: np.ndarray|float,
-                       Y: np.ndarray|float
+                       Y: np.ndarray|float,
                        ) -> np.ndarray|float:
         """
         Calculate the camber angle distribution over the length of the airfoil.
@@ -142,13 +142,10 @@ class AirfoilParameterization:
     
 
     def GetReferenceThicknessCamber(self, 
-                                    reference_file: str) -> None:
+                                    reference_file: str,
+                                    ) -> None:
         """
         Obtain the thickness and camber distributions from the reference profile shape.
-
-        Returns
-        -------
-        None
 
         Parameters
         ----------
@@ -236,7 +233,9 @@ class AirfoilParameterization:
         self.dz_TE = self.thickness_distribution[-1]  # Half thickness of the trailing edge
 
         # To find the radius of curvature of the leading edge, we fit a circle to the points within the first 2 % of the upper surface      
-        def GetLeadingEdgeRadius(params, x, y):
+        def GetLeadingEdgeRadius(params: tuple[float, float, float], 
+                                 x: np.ndarray, 
+                                 y: np.ndarray) -> np.ndarray:
             xc, yc, r = params
             return np.sqrt((x - xc) ** 2 + (y - yc) ** 2) - r
         
@@ -261,7 +260,7 @@ class AirfoilParameterization:
                                   b_8: float,
                                   b_15: float,
                                   r_LE: float,
-                                  trailing_wedge_angle: float
+                                  trailing_wedge_angle: float,
                                   ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         
         """
@@ -387,7 +386,7 @@ class AirfoilParameterization:
                                          thickness_x: np.ndarray[float],
                                          thickness: np.ndarray[float],
                                          camber_x: np.ndarray[float],
-                                         camber: np.ndarray[float]
+                                         camber: np.ndarray[float],
                                          ) -> tuple[np.ndarray[float], np.ndarray[float], np.ndarray[float], np.ndarray[float]]:
         """
         Convert Bezier curves to airfoil coordinates.
@@ -453,7 +452,7 @@ class AirfoilParameterization:
         Tuple of optimized Bezier control points for the airfoil parameterization.
         """
 
-        def Objective(x: list[float]
+        def Objective(x: list[float],
                       ) -> float:
             """
             Objective function for least-squares minimization.
@@ -570,7 +569,8 @@ class AirfoilParameterization:
                                  r_LE: float,
                                  trailing_wedge_angle: float,
                                  trailing_camberline_angle: float,
-                                 leading_edge_direction: float) -> None:
+                                 leading_edge_direction: float,
+                                 ) -> None:
             """
             Check the optimized result by plotting the thickness and camber distributions, and the airfoil shape.
 
@@ -715,7 +715,7 @@ class AirfoilParameterization:
                                                         gtol=1e-12,
                                                         ftol=1e-12,
                                                         xtol=1e-12,
-                                                        max_nfev = 1000
+                                                        max_nfev = 1000,
                                                         )
         
         # Write found coefficients to variables
