@@ -12,6 +12,10 @@ and orientation.
 We pledge to act and interact in ways that contribute to an open, welcoming,
 diverse, inclusive, and healthy community.
 
+Additionally, as this is an academic project, we pledge to disclose all 
+references and sources used, no matter how small, and to give appropriate credit 
+where such is due. 
+
 ## Our Standards
 
 Examples of behavior that contributes to a positive environment for our
