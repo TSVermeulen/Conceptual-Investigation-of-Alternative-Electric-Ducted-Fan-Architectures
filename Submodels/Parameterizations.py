@@ -39,15 +39,11 @@ class AirfoilParameterization:
         Obtain the thickness and camber distributions from the reference airfoil shape.
     - GetReferenceParameters()
         Extract key parameters of the reference profile from the thickness and camber distributions.
-
-        Returns
-        -------
-        None
-    - GetThicknessControlPoints(b_8, b_15)
+    - GetThicknessControlPoints(b_8, b_15, r_LE, trailing_wedge_angle)
         Calculate the control points for the thickness distribution Bezier curves.
-    - GetCamberControlPoints(b_0, b_2, b_17)
+    - GetCamberControlPoints(b_0, b_2, b_17, leading_edge_direction, trailing_camberline_angle)
         Calculate the control points for the camber distribution Bezier curves.
-    - ConvertBezier2AirfoilCoordinates(thickness_x, thickness, camber_x, camber, theta)
+    - ConvertBezier2AirfoilCoordinates(thickness_x, thickness, camber_x, camber)
         Convert Bezier curves to airfoil coordinates.
     - FindInitialParameterization(reference_file)
         Find the initial parameterization for the airfoil.
@@ -64,8 +60,6 @@ class AirfoilParameterization:
         None
         """
         
-        return None
-
 
     def BezierCurve3(self,
                      coeff: list[float], 
@@ -205,11 +199,9 @@ class AirfoilParameterization:
                                                                                y_thickness)
         self.thickness_distribution = y_thickness
         self.reference_data = reference_coordinates
-
-        return None
     
 
-    def GetReferenceParameters(self) -> None:
+    def GetReferenceParameters(self) -> tuple[float, float, float, float]:
         """
         Extract key parameters of the reference profile from the thickness and camber distributions.
 
@@ -283,7 +275,7 @@ class AirfoilParameterization:
             Control point for the thickness curve.
         r_LE : float
             Leading edge radius.
-        trailing_wed_angle : float
+        trailing_wedge_angle : float
             The trailing edge wedge angle.
 
         Returns
@@ -568,9 +560,7 @@ class AirfoilParameterization:
             squared_fit_error_upper_surface = np.sum((upper_y - interpolated_upper_surface_data) ** 2)
             squared_fit_error_lower_surface = np.sum((lower_y - interpolated_lower_surface_data) ** 2)
 
-            squared_fit_error = squared_fit_error_upper_surface + squared_fit_error_lower_surface
-
-            return squared_fit_error
+            return squared_fit_error_upper_surface + squared_fit_error_lower_surface
             
         def CheckOptimizedResult(b_0: float,
                                  b_2: float, 
