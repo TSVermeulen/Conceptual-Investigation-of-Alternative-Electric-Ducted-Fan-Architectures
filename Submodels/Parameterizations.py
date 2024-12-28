@@ -198,7 +198,7 @@ class AirfoilParameterization:
         self.reference_data = reference_coordinates
     
 
-    def GetReferenceParameters(self) -> tuple[float, float, float, float]:
+    def GetReferenceParameters(self) -> dict:
         """
         Extract key parameters of the reference profile from the thickness and camber distributions.
 
@@ -211,26 +211,40 @@ class AirfoilParameterization:
 
         Returns
         -------
-        r_LE : float
-            Leading edge radius.
-        leading_edge_direction : float
-            Angle of the leading edge direction.
-        trailing_wedge_angle : float
-            Trailing edge wedge angle.
-        trailing_camberline_angle : float
-            Trailing edge camber line angle.
+        output: dict
+            Dictionary containing the following parameters:
+                x_t : float
+                    X-coordinate of maximum thickness.
+                y_t : float
+                    Maximum thickness.
+                x_c : float
+                    X-coordinate of maximum camber.
+                y_c : float
+                    Maximum camber.
+                z_TE : float
+                    Trailing edge vertical displacement.
+                dz_TE : float
+                    Half thickness of the trailing edge.    
+                r_LE : float
+                    Leading edge radius.
+                leading_edge_direction : float
+                    Angle of the leading edge direction.
+                trailing_wedge_angle : float
+                    Trailing edge wedge angle.
+                trailing_camberline_angle : float
+                    Trailing edge camber line angle.
         """
 
         # Find the indices for the points of maximum thickness and maximum camber
         self.idx_maxT = np.where(self.thickness_distribution == np.max(self.thickness_distribution))[0][0]
         self.idx_maxC = np.where(self.camber_distribution == np.max(self.camber_distribution))[0][0]
         
-        self.x_t = self.x_points_thickness[self.idx_maxT]  # X-coordinate of maximum thickness
-        self.y_t = self.thickness_distribution[self.idx_maxT]  # Maximum thickness
-        self.x_c = self.x_points_camber[self.idx_maxC]  # X-coordinate of maximum camber
-        self.y_c = self.camber_distribution[self.idx_maxC]  # Maximum camber
-        self.z_TE = self.camber_distribution[-1]  # Trailing edge vertical displacement
-        self.dz_TE = self.thickness_distribution[-1]  # Half thickness of the trailing edge
+        x_t = self.x_points_thickness[self.idx_maxT]  # X-coordinate of maximum thickness
+        y_t = self.thickness_distribution[self.idx_maxT]  # Maximum thickness
+        x_c = self.x_points_camber[self.idx_maxC]  # X-coordinate of maximum camber
+        y_c = self.camber_distribution[self.idx_maxC]  # Maximum camber
+        z_TE = self.camber_distribution[-1]  # Trailing edge vertical displacement
+        dz_TE = self.thickness_distribution[-1]  # Half thickness of the trailing edge
 
         # To find the radius of curvature of the leading edge, we fit a circle to the points within the first 2 % of the upper surface      
         def GetLeadingEdgeRadius(params: tuple[float, float, float], 
@@ -253,14 +267,27 @@ class AirfoilParameterization:
         trailing_wedge_angle = np.atan(-1 * self.thickness_gradient_distribution[-1])  # Multiply gradient by -1 to comply with sign convention
         trailing_camberline_angle = np.atan(-1 * self.camber_gradient_distribution[-1])  # Multiply gradient by -1 to comply with sign convention
 
-        return r_LE, leading_edge_direction, trailing_wedge_angle, trailing_camberline_angle
+        # Construct output dictionary
+        output = {
+            "x_t": x_t,
+            "y_t": y_t,
+            "x_c": x_c,
+            "y_c": y_c,
+            "z_TE": z_TE,
+            "dz_TE": dz_TE,
+            "r_LE": r_LE,
+            "leading_edge_direction": leading_edge_direction,
+            "trailing_wedge_angle": trailing_wedge_angle,
+            "trailing_camberline_angle": trailing_camberline_angle,
+        }
+
+        return output
 
 
     def GetThicknessControlPoints(self,
                                   b_8: float,
                                   b_15: float,
-                                  r_LE: float,
-                                  trailing_wedge_angle: float,
+                                  airfoil_params: dict,
                                   ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         
         """
@@ -272,10 +299,18 @@ class AirfoilParameterization:
             Control point for the thickness curve.
         b_15 : float
             Control point for the thickness curve.
-        r_LE : float
-            Leading edge radius.
-        trailing_wedge_angle : float
-            The trailing edge wedge angle.
+        airfoil_params : dict
+            Dictionary containing the following parameters:
+                x_t : float
+                    X-coordinate of maximum thickness.
+                y_t : float
+                    Maximum thickness.
+                r_LE : float
+                    Leading edge radius.
+                dz_TE : float
+                    Half thickness of the trailing edge.
+                trailing_wedge_angle : float
+                    The trailing edge wedge angle.
 
         Returns
         -------
@@ -292,28 +327,28 @@ class AirfoilParameterization:
         # Construct leading edge x coefficients
         x_leading_edge_thickness_coeff = np.array([0,
                                                    0,
-                                                   (-3 * b_8 ** 2) / (2 * r_LE),
-                                                   self.x_t])
+                                                   (-3 * b_8 ** 2) / (2 * airfoil_params["r_LE"]),
+                                                   airfoil_params["x_t"]])
         
         # Construct leading edge y coefficients
         y_leading_edge_thickness_coeff = np.array([0,
                                                    b_8,
-                                                   self.y_t,
-                                                   self.y_t])
+                                                   airfoil_params["y_t"],
+                                                   airfoil_params["y_t"]])
         
         # Contruct trailing edge x coefficients
-        x_trailing_edge_thickness_coeff = np.array([self.x_t,
-                                                    (7 * self.x_t + (9 * b_8 ** 2) / (2 * r_LE)) / 4,
-                                                    3 * self.x_t + (15 * b_8 ** 2) / (4 * r_LE),
+        x_trailing_edge_thickness_coeff = np.array([airfoil_params["x_t"],
+                                                    (7 * airfoil_params["x_t"] + (9 * b_8 ** 2) / (2 * airfoil_params["r_LE"])) / 4,
+                                                    3 * airfoil_params["x_t"] + (15 * b_8 ** 2) / (4 * airfoil_params["r_LE"]),
                                                     b_15,
                                                     1])
         
         # Construct trailing edge y coefficients
-        y_trailing_edge_thickness_coeff = np.array([self.y_t,
-                                                    self.y_t,
-                                                    (self.y_t + b_8) / 2,
-                                                    self.dz_TE + (1 - b_15) * np.tan(trailing_wedge_angle),
-                                                    self.dz_TE])
+        y_trailing_edge_thickness_coeff = np.array([airfoil_params["y_t"],
+                                                    airfoil_params["y_t"],
+                                                    (airfoil_params["y_t"] + b_8) / 2,
+                                                    airfoil_params["dz_TE"] + (1 - b_15) * np.tan(airfoil_params["trailing_wedge_angle"]),
+                                                    airfoil_params["dz_TE"]])
     
         return x_leading_edge_thickness_coeff, y_leading_edge_thickness_coeff, x_trailing_edge_thickness_coeff, y_trailing_edge_thickness_coeff
 
@@ -322,8 +357,7 @@ class AirfoilParameterization:
                                b_0: float,
                                b_2: float,
                                b_17: float,
-                               leading_edge_direction: float,
-                               trailing_camberline_angle: float,
+                               airfoil_params: dict,
                                ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Calculate the control points for the camber distribution Bezier curves.
@@ -336,10 +370,18 @@ class AirfoilParameterization:
             Control point for the camber.
         b_17 : float
             Control point for the camber.
-        leading_edge_direction : float
-            Angle of the leading edge direction.
-        trailing_camberline_angle : float
-            Angle of the trailing edge camber line.
+        airfoil_params : dict
+            Dictionary containing the following parameters:
+                x_c : float
+                    X-coordinate of maximum camber.
+                y_c : float
+                    Maximum camber.
+                z_TE : float
+                    Trailing edge vertical displacement.
+                leading_edge_direction : float
+                    Angle of the leading edge direction.
+                trailing_camberline_angle : float
+                    Angle of the trailing edge camber line.
 
         Returns
         -------
@@ -357,27 +399,27 @@ class AirfoilParameterization:
         x_leading_edge_camber_coeff = np.array([0,
                                                 b_0,
                                                 b_2,
-                                                self.x_c])
+                                                airfoil_params["x_c"]])
         
         # Construct leading edge y coefficients
         y_leading_edge_camber_coeff = np.array([0,
-                                                b_0 * np.tan(leading_edge_direction),
-                                                self.y_c,
-                                                self.y_c])
+                                                b_0 * np.tan(airfoil_params["leading_edge_direction"]),
+                                                airfoil_params["y_c"],
+                                                airfoil_params["y_c"]])
         
         # Construct trailing edge x coefficients
-        x_trailing_edge_camber_coeff = np.array([self.x_c,
-                                                 (3 * self.x_c - self.y_c / np.tan(leading_edge_direction)) / 2,
-                                                 (-8 * self.y_c / np.tan(leading_edge_direction) + 13 * self.x_c) / 6,
+        x_trailing_edge_camber_coeff = np.array([airfoil_params["x_c"],
+                                                 (3 * airfoil_params["x_c"] - airfoil_params["y_c"] / np.tan(airfoil_params["leading_edge_direction"])) / 2,
+                                                 (-8 * airfoil_params["y_c"] / np.tan(airfoil_params["leading_edge_direction"]) + 13 * airfoil_params["x_c"]) / 6,
                                                  b_17,
                                                  1])
         
         # Construct trailing edge y coefficients
-        y_trailing_edge_camber_coeff = np.array([self.y_c,
-                                                 self.y_c,
-                                                 5 * self.y_c / 6,
-                                                 self.z_TE + (1 - b_17) * np.tan(trailing_camberline_angle),
-                                                 self.z_TE])
+        y_trailing_edge_camber_coeff = np.array([airfoil_params["y_c"],
+                                                 airfoil_params["y_c"],
+                                                 5 * airfoil_params["y_c"] / 6,
+                                                 airfoil_params["z_TE"] + (1 - b_17) * np.tan(airfoil_params["trailing_camberline_angle"]),
+                                                 airfoil_params["z_TE"]])
         
         return x_leading_edge_camber_coeff, y_leading_edge_camber_coeff, x_trailing_edge_camber_coeff, y_trailing_edge_camber_coeff
 
@@ -432,7 +474,8 @@ class AirfoilParameterization:
 
 
     def ComputeProfileCoordinates(self,
-                                  x: np.ndarray[float],
+                                  b_coeff: np.ndarray[float],
+                                  airfoil_params: dict,
                                   ) -> tuple[np.ndarray[float], np.ndarray[float], np.ndarray[float], np.ndarray[float]]:
         """
         
@@ -440,17 +483,12 @@ class AirfoilParameterization:
         
         """
 
-        # Extract the design variables from the design vector x
-        # [b_8, b_15, b_0, b_2, b_17, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction]
-        b_8 = x[0]
-        b_15 = x[1]
-        b_0 = x[2]
-        b_2 = x[3]
-        b_17 = x[4]
-        r_LE = x[5]
-        trailing_wedge_angle = x[6]
-        trailing_camberline_angle = x[7]
-        leading_edge_direction = x[8]
+        # Extract the bezier coefficients from the input array
+        b_0 = b_coeff[0]
+        b_2 = b_coeff[1]
+        b_8 = b_coeff[2]
+        b_15 = b_coeff[3]
+        b_17 = b_coeff[4]
 
         # Create u-vectors for Bezier curve generation
         # Use 100 points
@@ -465,14 +503,12 @@ class AirfoilParameterization:
         # Calculate the Bezier curve coefficients for the thickness curves
         x_LE_thickness_coeff, y_LE_thickness_coeff, x_TE_thickness_coeff, y_TE_thickness_coeff = self.GetThicknessControlPoints(b_8, 
                                                                                                                                 b_15,
-                                                                                                                                r_LE,
-                                                                                                                                trailing_wedge_angle)
+                                                                                                                                airfoil_params)
         # Calculate the Bezier curve coefficients for the camber curves
         x_LE_camber_coeff, y_LE_camber_coeff, x_TE_camber_coeff, y_TE_camber_coeff = self.GetCamberControlPoints(b_0,
                                                                                                                  b_2,
                                                                                                                  b_17,
-                                                                                                                 leading_edge_direction,
-                                                                                                                 trailing_camberline_angle)
+                                                                                                                 airfoil_params)
         # Calculate the leading edge thickness distribution
         y_LE_thickness = self.BezierCurve3(y_LE_thickness_coeff, 
                                            u_leading_edge)  # Leading edge thickness represented by 3rd order Bezier curve
@@ -514,9 +550,9 @@ class AirfoilParameterization:
             
         # Calculate the upper and lower surface coordinates from the bezier coordinates
         upper_x, upper_y, lower_x, lower_y = self.ConvertBezier2AirfoilCoordinates(bezier_thickness_x,
-                                                                                       bezier_thickness,
-                                                                                       bezier_camber_x,
-                                                                                       bezier_camber)
+                                                                                   bezier_thickness,
+                                                                                   bezier_camber_x,
+                                                                                   bezier_camber)
 
         return upper_x, upper_y, lower_x, lower_y
 
@@ -550,7 +586,7 @@ class AirfoilParameterization:
             Parameters
             ----------
             x : list[float]
-                List of design variables [b_8, b_15, b_0, b_2, b_17, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction].
+                List of design variables [b_0, b_2, b_8, b_15, b_17, x_t, y_t, x_c, y_c, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction].
 
             Returns
             -------
@@ -558,7 +594,21 @@ class AirfoilParameterization:
                 Sum of squared fit errors of the upper and lower surfaces.
             """
 
-            upper_x, upper_y, lower_x, lower_y = self.ComputeProfileCoordinates(x)
+            b_coeff = x[0:5]
+
+            airfoil_params = {"x_t": x[5],
+                              "y_t": x[6],
+                              "x_c": x[7],
+                              "y_c": x[8],
+                              "z_TE": x[9],
+                              "dz_TE": x[10],
+                              "r_LE": x[11],
+                              "trailing_wedge_angle": x[12],
+                              "trailing_camberline_angle": x[13],
+                              "leading_edge_direction": x[14]}
+
+            upper_x, upper_y, lower_x, lower_y = self.ComputeProfileCoordinates(b_coeff,
+                                                                                airfoil_params)
 
             #Need to create interpolation of upper and lower surfaces to ensure we take data from same x-coordinates
             interpolated_upper_surface_data = interpolate.CubicSpline(np.flip(self.reference_data[:self.idx_LE + 1, 0]), 
@@ -574,15 +624,8 @@ class AirfoilParameterization:
 
             return squared_fit_error_upper_surface + squared_fit_error_lower_surface
             
-        def CheckOptimizedResult(b_0: float,
-                                 b_2: float, 
-                                 b_8: float, 
-                                 b_15: float, 
-                                 b_17: float,
-                                 r_LE: float,
-                                 trailing_wedge_angle: float,
-                                 trailing_camberline_angle: float,
-                                 leading_edge_direction: float,
+        def CheckOptimizedResult(b_coeff: np.ndarray[float],
+                                 airfoil_params: dict,
                                  ) -> None:
             """
             Check the optimized result by plotting the thickness and camber distributions, and the airfoil shape.
@@ -612,7 +655,14 @@ class AirfoilParameterization:
             -------
             None
             """
-            
+
+            # Extract the bezier coefficients from the input array
+            b_0 = b_coeff[0]
+            b_2 = b_coeff[1]
+            b_8 = b_coeff[2]
+            b_15 = b_coeff[3]
+            b_17 = b_coeff[4]  
+
             # Create u-vectors for Bezier curve generation
             # Use 100 points
             n_points = 100
@@ -626,14 +676,12 @@ class AirfoilParameterization:
             # Calculate the Bezier curve coefficients for the thickness curves
             x_LE_thickness_coeff, y_LE_thickness_coeff, x_TE_thickness_coeff, y_TE_thickness_coeff = self.GetThicknessControlPoints(b_8, 
                                                                                                                                     b_15,
-                                                                                                                                    r_LE,
-                                                                                                                                    trailing_wedge_angle)
+                                                                                                                                    airfoil_params)
             # Calculate the Bezier curve coefficients for the camber curves
             x_LE_camber_coeff, y_LE_camber_coeff, x_TE_camber_coeff, y_TE_camber_coeff = self.GetCamberControlPoints(b_0,
                                                                                                                      b_2,
                                                                                                                      b_17,
-                                                                                                                     leading_edge_direction,
-                                                                                                                     trailing_camberline_angle)
+                                                                                                                     airfoil_params)
 
             # Calculate the leading edge thickness distribution
             y_LE_thickness = self.BezierCurve3(y_LE_thickness_coeff, 
@@ -708,19 +756,63 @@ class AirfoilParameterization:
 
         # Load in the reference profile shape and obtain the relevant parameters
         self.GetReferenceThicknessCamber(reference_file)
-        r_LE, leading_edge_direction, trailing_wedge_angle, trailing_camberline_angle = self.GetReferenceParameters()
+        airfoil_params = self.GetReferenceParameters()
         
         # First define the upper and lower bounds on the bezier parameters 
-        # b_8 MUST be within the bounds, exclusive of the bounds, so hence 1E-5 is subtracted from both bounds
-        # [b_8, b_15, b_0, b_2, b_17, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction]
-        upper_bounds = [min(self.y_t, np.sqrt(-2 * r_LE * self.x_t / 3)) - 1E-5, np.inf, np.inf, np.inf, np.inf, 0, np.pi, np.pi, np.pi]
-        lower_bounds = [1E-5, -np.inf, -np.inf, -np.inf, -np.inf, -0.5, -np.pi, -np.pi, -np.pi]
-        bounds = (lower_bounds, upper_bounds)
+        # [b_0, b_2, b_8, b_15, b_17, x_t, y_t, x_c, y_c, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction]
+        u_bounds = [np.inf, 
+                    np.inf, 
+                    min(airfoil_params["y_t"], np.sqrt(-2 * airfoil_params["r_LE"] * airfoil_params["x_t"] / 3)),
+                    np.inf, 
+                    np.inf,
+                    1,
+                    1,
+                    1,
+                    np.inf,
+                    np.inf,
+                    np.inf,
+                    0,
+                    np.pi / 2,
+                    np.pi / 2,
+                    np.pi / 2,
+                    ]
+        l_bounds = [-np.inf,
+                    -np.inf,
+                    0,
+                    -np.inf,
+                    -np.inf,
+                    0,
+                    0,
+                    0,
+                    -np.inf,
+                    -np.inf,
+                    0, 
+                    -np.inf,
+                    -np.pi / 2,
+                    -np.pi / 2,
+                    -np.pi / 2,
+                    ]
+        
+        bounds = (l_bounds, u_bounds)
 
         # Perform non-linear least-squares regression
-        guess_design_vector = [0.7 * upper_bounds[0], 0.75, self.y_c, self.y_c, 0.7, 
-                               r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction]  
-
+        guess_design_vector = [0.1 * airfoil_params["x_c"],
+                               0.5 * airfoil_params["x_c"],
+                               0.7 * u_bounds[2],
+                               0.75,
+                               0.8,
+                               airfoil_params["x_t"],
+                               airfoil_params["y_t"],
+                               airfoil_params["x_c"],
+                               airfoil_params["y_c"],
+                               airfoil_params["z_TE"],
+                               airfoil_params["dz_TE"],
+                               airfoil_params["r_LE"],
+                               airfoil_params["trailing_wedge_angle"],
+                               airfoil_params["trailing_camberline_angle"],
+                               airfoil_params["leading_edge_direction"],
+                              ]
+        
         optimized_coefficients = optimize.least_squares(Objective, 
                                                         x0=guess_design_vector, 
                                                         bounds=bounds,
@@ -733,29 +825,33 @@ class AirfoilParameterization:
         
         # Write found coefficients to variables
         optimized_coefficients.x = optimized_coefficients.x.astype(float)
-        b_8 = optimized_coefficients.x[0]
-        b_15 = optimized_coefficients.x[1]
-        b_0 = optimized_coefficients.x[2]
-        b_2 = optimized_coefficients.x[3]
-        b_17 = optimized_coefficients.x[4]
-        r_LE = optimized_coefficients.x[5] 
-        trailing_wedge_angle = optimized_coefficients.x[6] 
-        trailing_camberline_angle = optimized_coefficients.x[7] 
-        leading_edge_direction = optimized_coefficients.x[8]
+        b_coeff_optimized = optimized_coefficients.x[:5]
+        airfoil_params_optimized = {"x_t": optimized_coefficients.x[5],
+                                    "y_t": optimized_coefficients.x[6],
+                                    "x_c": optimized_coefficients.x[7],
+                                    "y_c": optimized_coefficients.x[8],
+                                    "z_TE": optimized_coefficients.x[9],
+                                    "dz_TE": optimized_coefficients.x[10],
+                                    "r_LE": optimized_coefficients.x[11],
+                                    "trailing_wedge_angle": optimized_coefficients.x[12],
+                                    "trailing_camberline_angle": optimized_coefficients.x[13],
+                                    "leading_edge_direction": optimized_coefficients.x[14]}
         
-        # Generate
+        # Generate plots if requested
         if plot:
-            CheckOptimizedResult(b_0, b_2, b_8, b_15, b_17, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction)
+            CheckOptimizedResult(b_coeff_optimized,
+                                 airfoil_params_optimized)
 
-        return b_0, b_2, b_8, b_15, b_17, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction
+        return b_coeff_optimized, airfoil_params_optimized
 
 
 if __name__ == "__main__":
     call_class = AirfoilParameterization()
     
-    call_class.FindInitialParameterization(r'Test Airfoils\N2415.test',
-                                           plot=True)
+    coefficients = call_class.FindInitialParameterization(r'Test Airfoils\n24012.test',
+                                                          plot=True)
     
+    print(coefficients)
     
     
 
