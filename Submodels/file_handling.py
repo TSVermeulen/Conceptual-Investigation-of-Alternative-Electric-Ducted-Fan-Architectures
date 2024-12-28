@@ -128,19 +128,25 @@ class fileHandling:
                 A tuple containing two numpy arrays: the x-coordinates and y-coordinates of the airfoil profile. 
             """
             
-            # Calculate coordinates of profile based on parameterization
-            parameterization = np.array([x["b_8"], 
-                                         x["b_15"], 
-                                         x["b_0"], 
-                                         x["b_2"], 
-                                         x["b_17"], 
-                                         x["r_LE"], 
-                                         x["trailing_wedge_angle"], 
-                                         x["trailing_camberline_angle"], 
-                                         x["leading_edge_direction"],
-                                        ])
-            print(parameterization)
-            upper_x, upper_y, lower_x, lower_y = AirfoilParameterization.ComputeProfileCoordinates(parameterization)
+            # Restructure the input dictionary to a numpy array for the airfoil parameterization and a parameterization dictionary
+            b_coeff = np.array([x["b_0"], x["b_2"], x["b_8"], x["b_15"], x["b_17"]])
+
+            parameterization = {"x_t": x["x_t"],
+                                "y_t": x["y_t"],
+                                "x_c": x["x_c"],
+                                "y_c": x["y_c"], 
+                                "z_TE": x["z_TE"],
+                                "dz_TE": x["dz_TE"],
+                                "r_LE": x["r_LE"], 
+                                "trailing_wedge_angle": x["trailing_wedge_angle"], 
+                                "trailing_camberline_angle": x["trailing_camberline_angle"], 
+                                "leading_edge_direction": x["leading_edge_direction"],
+                                }
+
+            airfoil_class = AirfoilParameterization()
+            upper_x, upper_y, lower_x, lower_y = airfoil_class.ComputeProfileCoordinates(b_coeff,
+                                                                                         parameterization,
+                                                                                         )
             
             # Multiply with chord length to get correct profile dimensions
             upper_x = upper_x * x["Chord Length"]
@@ -157,31 +163,35 @@ class fileHandling:
 
             # Construct overall profile coordinates data, 
             # in-line with required format of MTFLOW            
-            # Check if arrays are sorted
-            upper_x_sorted = np.all(np.diff(upper_x) >= 0)
-            lower_x_sorted = np.all(np.diff(lower_x) >= 0)
+            # Check if arrays are sorted and construct the profile coordinates if so
+            upper_x_sorted = np.all((np.diff(upper_x) >= 0)[1:])
+            lower_x_sorted = np.all((np.diff(lower_x) >= 0)[1:])
 
-            # Determine x and y based on the sorting checks
-            if upper_x_sorted and lower_x_sorted:
-                x = np.concatenate((np.flip(upper_x), lower_x), axis=0)
-                y = np.concatenate((np.flip(upper_y), lower_y), axis=0)
-            elif upper_x_sorted and not lower_x_sorted:
-                x = np.concatenate((np.flip(upper_x), np.flip(lower_x)), axis=0)
-                y = np.concatenate((np.flip(upper_y), np.flip(lower_y)), axis=0)
-            elif not upper_x_sorted and lower_x_sorted:
-                x = np.concatenate((upper_x, lower_x), axis=0)
-                y = np.concatenate((upper_y, lower_y), axis=0)
-            else:
-                x = np.concatenate((upper_x, np.flip(lower_x)), axis=0)
-                y = np.concatenate((upper_y, np.flip(lower_y)), axis=0)
+            if not upper_x_sorted:
+                raise ValueError(f"Upper x-coordinates are not sorted. This indicates an error in the profile generation!")
+            if not lower_x_sorted:
+                raise ValueError("Lower x-coordinates are not sorted. This indicates an error in the profile generation!")
+            
+            x = np.concatenate((np.flip(upper_x), lower_x), axis=0)
+            y = np.concatenate((np.flip(upper_y), lower_y), axis=0)
 
-            return np.vstack(x, y).T
+            return np.vstack((x, y)).T
         
         
         def GenerateMTSETInput(self,
                                domain_boundaries: np.ndarray[float]) -> None:
             """
-            
+            Write the MTSET input file walls.xxx for the given case. 
+
+            Parameters:
+            -----------
+            domain_boundaries : np.ndarray[float]
+                Array containing the domain boundaries in the format [XFRONT, XREAR, YBOT, YTOP]
+
+            Returns:
+            --------
+            None
+                Output of function is the input file to MTSET, walls.xxx, where xxx is equal to self.case_name
             """
 
             # Get profiles of centerbody and duct
@@ -190,26 +200,30 @@ class fileHandling:
                                                  self.ducted_fan_design_params["Duct Leading Edge Coordinates"])
             
             # Generate walls.xxx input data structure
-            walls = np.array([])
-            walls = np.append(walls, [f"{self.case_name}"])  # First line of the input file contains the case name
-            walls = np.append(walls, [domain_boundaries])  # Second line contains the domain boundaries [XINL XOUT YBOT YTOP]
-            walls = np.append(walls, [xy_centerbody])  # Third item contains the centerbody profile coordinates
-            walls = np.append(walls, [999., 999.])  # Elements are separated by a line containing 999. 999.
-            walls = np.append(walls, [xy_duct])  # Fifth item contains the duct profile coordinates
+            file_name = "walls." + self.case_name
+            with open(file_name, "w") as file:
+                # Write opening lines of the file
+                file.write(self.case_name + '\n')
+                file.write('    '.join(map(str, domain_boundaries)) + '\n')
 
-            print(walls)
+                # Write centerbody profile coordinates, using a tab delimiter
+                for row in xy_centerbody:
+                    file.write('    '.join(map(str, row)) + '\n')
+                
+                # Write separator line, using a tab delimiter
+                file.write('    '.join(map(str, [999., 999.])) + '\n')
 
+                # Write duct profile coordinates, using a tab delimiter
+                for row in xy_duct:
+                    file.write('    '.join(map(str, row)) + '\n')
 
-            return
+            return None
 
 
 if __name__ == "__main__":
 
-    n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 1.0}
-    n24112_coeff = {"b_0": -0.00010682822799885562, "b_2": 0.04399164709308923, "b_8": 0.04206606421133544, "b_15": 0.749999789203726, "b_17": 0.6999996858370111, "r_LE": -0.01732927766979101, "trailing_wedge_angle": 0.1384158688629374, "trailing_camberline_angle": -0.002415556195819632, "leading_edge_direction": 0.8454188491190011, "Chord Length": 1.0}
+    n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017094989769520816, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 1.0}
     design_params = {"Duct Leading Edge Coordinates": (0, 2)}
 
-
-    call_class = fileHandling.fileHandlingMTSET(n24112_coeff, n2415_coeff, design_params, "test_case")
-    call_class.GenerateMTSETInput([0, 1, 0, 1])
-    pass
+    call_class = fileHandling.fileHandlingMTSET(n2415_coeff, n2415_coeff, design_params, "test_case")
+    call_class.GenerateMTSETInput([0, 1, 0, 3])

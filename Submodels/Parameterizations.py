@@ -473,6 +473,10 @@ class AirfoilParameterization:
         return upper_x, upper_y, lower_x, lower_y
 
 
+    def test(self, in1, in2):
+
+        return in1 + in2
+
     def ComputeProfileCoordinates(self,
                                   b_coeff: np.ndarray[float],
                                   airfoil_params: dict,
@@ -848,7 +852,7 @@ class AirfoilParameterization:
 if __name__ == "__main__":
     call_class = AirfoilParameterization()
     
-    coefficients = call_class.FindInitialParameterization(r'Test Airfoils\n24012.test',
+    coefficients = call_class.FindInitialParameterization(r'Test Airfoils\n2412.dat',
                                                           plot=True)
     
     print(coefficients)
