@@ -473,10 +473,6 @@ class AirfoilParameterization:
         return upper_x, upper_y, lower_x, lower_y
 
 
-    def test(self, in1, in2):
-
-        return in1 + in2
-
     def ComputeProfileCoordinates(self,
                                   b_coeff: np.ndarray[float],
                                   airfoil_params: dict,
@@ -559,7 +555,93 @@ class AirfoilParameterization:
                                                                                    bezier_camber)
 
         return upper_x, upper_y, lower_x, lower_y
+    
 
+    def GetBladeParameters(self,
+                           b_coeff: np.ndarray[float],
+                           airfoil_params: dict,
+                           ) -> tuple[float, float]:
+        """
+        
+        Obtain the fan blade parameters from the Bezier control points. Works for both rotor and stator blades. 
+
+        Calculates the circumferential blade thickness and blade slope for the blade profile.
+
+        TO DO:
+        - Include entropy distribution calculation, if needed
+        """
+
+        # Extract the bezier coefficients from the input array
+        b_0 = b_coeff[0]
+        b_2 = b_coeff[1]
+        b_8 = b_coeff[2]
+        b_15 = b_coeff[3]
+        b_17 = b_coeff[4]
+
+        # Create u-vectors for Bezier curve generation
+        # Use 100 points
+        n_points = 100
+        u_leading_edge = np.zeros(n_points)
+        u_trailing_edge = np.zeros(n_points)
+
+        for i in range(n_points):
+            u_leading_edge[i] = np.abs(1-np.cos((i*np.pi)/(2*(n_points-1))))  # Space points using a cosine spacing for increased resolution at LE
+            u_trailing_edge[i] = np.abs(np.sin((i*np.pi)/(2*(n_points-1))))  # Space points using a sine spacing for increased resolution at TE
+
+        # Calculate the Bezier curve coefficients for the thickness curves
+        x_LE_thickness_coeff, y_LE_thickness_coeff, x_TE_thickness_coeff, y_TE_thickness_coeff = self.GetThicknessControlPoints(b_8, 
+                                                                                                                                b_15,
+                                                                                                                                airfoil_params)
+        # Calculate the Bezier curve coefficients for the camber curves
+        x_LE_camber_coeff, y_LE_camber_coeff, x_TE_camber_coeff, y_TE_camber_coeff = self.GetCamberControlPoints(b_0,
+                                                                                                                 b_2,
+                                                                                                                 b_17,
+                                                                                                                 airfoil_params)
+        # Calculate the leading edge thickness distribution
+        y_LE_thickness = self.BezierCurve3(y_LE_thickness_coeff, 
+                                           u_leading_edge)  # Leading edge thickness represented by 3rd order Bezier curve
+
+        x_LE_thickness = self.BezierCurve3(x_LE_thickness_coeff,
+                                           u_leading_edge)  # Leading edge thickness bezier x-coordinates, represented by a 3rd order curve
+        
+        # Calculate the trailing edge thickness distribution
+        y_TE_thickness = self.BezierCurve4(y_TE_thickness_coeff,
+                                           u_trailing_edge[1:])  # Trailing edge thickness represented by 4th order Bezier curve      
+            
+        x_TE_thickness = self.BezierCurve4(x_TE_thickness_coeff,
+                                           u_trailing_edge[1:])  # Trailing edge bezier x-coordinates, represented by 4th order curve    
+
+        # Calculate the leading edge camber distribution            
+        y_LE_camber = self.BezierCurve3(y_LE_camber_coeff, 
+                                        u_leading_edge)  # Leading edge camber represented by 3rd order Bezier curve
+
+        x_LE_camber = self.BezierCurve3(x_LE_camber_coeff,
+                                        u_leading_edge)  # Leading edge camber bezier x-coordinates, represented by a 3rd order curve
+
+        # Calculate the trailing edge camber distribution using the parameter b_17
+        y_TE_camber = self.BezierCurve4(y_TE_camber_coeff, 
+                                        u_trailing_edge[1:])  # Trailing edge camber represented by 4th order Bezier curve
+
+        x_TE_camber = self.BezierCurve4(x_TE_camber_coeff,
+                                        u_trailing_edge[1:])  # Trailing edge camber bezier x-coordinates, represented by a 4th order curve
+            
+        # Construct full curves by combining LE and TE data
+        bezier_thickness = np.concatenate((y_LE_thickness, y_TE_thickness), 
+                                          axis = 0)  # Construct complete thickness curve over length of profile
+        bezier_thickness_x = np.concatenate((x_LE_thickness, x_TE_thickness), 
+                                            axis = 0)  # Construct complete array of x-coordinates over length of profile
+            
+        bezier_camber = np.concatenate((y_LE_camber, y_TE_camber),
+                                       axis = 0)  # Construct complete camber curve over length of profile
+        bezier_camber_x = np.concatenate((x_LE_camber, x_TE_camber),
+                                         axis = 0)  # Construct complete array of x-coordinates over length of profile
+
+        # Calculate the geometric blade slope along the blade chord
+        # This is used to define the imposed field within MTFLO
+        # This is slightly different from the camberangledistribution function, as it is the direct angle rather than the gradient of the angle
+        geometric_blade_slope = np.atan(bezier_camber, bezier_camber_x)
+
+        return bezier_thickness, bezier_thickness_x, geometric_blade_slope, bezier_camber_x
 
     def FindInitialParameterization(self, 
                                     reference_file: str,

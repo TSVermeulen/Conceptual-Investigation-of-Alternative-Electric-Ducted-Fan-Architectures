@@ -106,7 +106,17 @@ class fileHandling:
             X_AFT = CONST_3 * MAX LENGTH (3?)
             """
 
-            pass
+            # Calculate Y-domain boundaries based on ducted fan design parameters. 
+            # Y_bottom is always 0 as it is the symmetry line
+            Y_TOP = 2.5 * self.ducted_fan_design_params["Duct Outer Diameter"]
+            Y_BOT = 0
+
+            # Calculate X-domain boundaries based on ducted fan design parameters.
+            # X_FRONT is taken as 1m ahead of the leading edge of the duct.
+            X_FRONT = self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0] - 1
+            X_AFT = self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0] + self.duct_params["Chord Length"] + 3
+
+            return [X_FRONT, X_AFT, Y_BOT, Y_TOP]
 
 
         def GetProfileCoordinates(self,
@@ -179,7 +189,7 @@ class fileHandling:
         
         
         def GenerateMTSETInput(self,
-                               domain_boundaries: np.ndarray[float]) -> None:
+                               ) -> None:
             """
             Write the MTSET input file walls.xxx for the given case. 
 
@@ -193,6 +203,8 @@ class fileHandling:
             None
                 Output of function is the input file to MTSET, walls.xxx, where xxx is equal to self.case_name
             """
+
+            domain_boundaries = self.GetGridSize()
 
             # Get profiles of centerbody and duct
             xy_centerbody = self.GetProfileCoordinates(self.centerbody_params)
@@ -218,6 +230,89 @@ class fileHandling:
                     file.write('    '.join(map(str, row)) + '\n')
 
             return None
+
+
+    class fileHandlingMTFLO:
+
+        def __init__(self):
+            pass
+
+        def GetBladeParameters(self,
+                               design_params: dict,
+                               ) -> dict:
+            """
+
+            Based on the blade design parameters, determine the blade geometry parameters needed
+            
+
+
+            """
+
+            # Initialize the airfoil parameterization class
+            profileParameterizationClass = AirfoilParameterization()
+
+            # Extract the profile parameters from the design parameters
+            # Restructure the input dictionary to a numpy array for the airfoil parameterization and a parameterization dictionary
+            b_coeff = np.array([design_params["b_0"], design_params["b_2"], design_params["b_8"], design_params["b_15"], design_params["b_17"]])
+
+            parameterization = {"x_t": design_params["x_t"],
+                                "y_t": design_params["y_t"],
+                                "x_c": design_params["x_c"],
+                                "y_c": design_params["y_c"], 
+                                "z_TE": design_params["z_TE"],
+                                "dz_TE": design_params["dz_TE"],
+                                "r_LE": design_params["r_LE"], 
+                                "trailing_wedge_angle": design_params["trailing_wedge_angle"], 
+                                "trailing_camberline_angle": design_params["trailing_camberline_angle"], 
+                                "leading_edge_direction": design_params["leading_edge_direction"],
+                                }
+            
+            # Calculate the thickness and blade slope distributions along the blade profiles. 
+            # All parameters are nondimensionalized by the chord length, so they are then multiplied by the chord length to get the correct dimensions
+            thickness_distr, thickness_data_points, geometric_blade_slope, blade_slope_points = profileParameterizationClass.ComputeProfileCoordinates(b_coeff,
+                                                                                                                                                       parameterization)
+            thickness_distr = thickness_distr * design_params["Chord Length"]
+            thickness_data_points = thickness_data_points * design_params["Chord Length"]
+            geometric_blade_slope = geometric_blade_slope * design_params["Chord Length"]
+            blade_slope_points = blade_slope_points * design_params["Chord Length"]
+            
+                        
+
+
+
+
+            pass
+
+        def ConstructBlades(self,
+                            blading_params: dict,
+                            design_params: np.ndarray[dict]):
+            """
+
+            interpolate between the airfoils to create the blade geometry inputs needed to create the MTFLO input file
+            Uses a rectangular bivariate spine interpolation on (r,x) to obtain the blade geometry at each radial, and axial station 
+    
+            """
+
+            # Collect blade geometry at each of the radial stations
+            blade_geometry = np.zeros(len(design_params))
+            for station in range(len(design_params)):
+                blade_geometry[station] = self.GetBladeParameters(design_params[station])
+
+
+
+            pass
+
+        def GenerateMTFLOInput(self,
+                               operating_conditions: dict,
+                               ) -> None:
+            """
+
+            Write the MTFLO input file for the given case
+
+            """
+
+            return None
+
 
 
 if __name__ == "__main__":
