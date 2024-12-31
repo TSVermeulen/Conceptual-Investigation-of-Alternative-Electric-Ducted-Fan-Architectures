@@ -840,51 +840,69 @@ class AirfoilParameterization:
 
             return
 
+        def GetBounds(x):
+            """
+            Get the bounds for the optimization problem.
+
+            Parameters
+            ----------
+            x : np.ndarray[float]
+                Array of design variables.
+
+            Returns
+            -------
+            l_bounds : np.ndarray[float]
+                Lower bounds for the design variables.
+            u_bounds : np.ndarray[float]
+                Upper bounds for the design variables.
+            """
+
+            # First define the upper and lower bounds on the bezier parameters 
+            # [b_0, b_2, b_8, b_15, b_17, x_t, y_t, x_c, y_c, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction]
+            u_bounds = [np.inf, 
+                        np.inf, 
+                        min(x[6], np.sqrt(-2 * x[11] * x[5] / 3)),
+                        np.inf, 
+                        np.inf,
+                        1,
+                        1,
+                        1,
+                        np.inf,
+                        np.inf,
+                        np.inf,
+                        0,
+                        np.pi / 2,
+                        np.pi / 2,
+                        np.pi / 2,
+                        ]
+            l_bounds = [-np.inf,
+                        -np.inf,
+                        0,
+                        -np.inf,
+                        -np.inf,
+                        0,
+                        0,
+                        0,
+                        -np.inf,
+                        -np.inf,
+                        0, 
+                        -np.inf,
+                        -np.pi / 2,
+                        -np.pi / 2,
+                        -np.pi / 2,
+                        ]           
+
+            return optimize.Bounds(l_bounds, u_bounds, keep_feasible=True)
+
+
         # Load in the reference profile shape and obtain the relevant parameters
         self.GetReferenceThicknessCamber(reference_file)
         airfoil_params = self.GetReferenceParameters()
         
-        # First define the upper and lower bounds on the bezier parameters 
-        # [b_0, b_2, b_8, b_15, b_17, x_t, y_t, x_c, y_c, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction]
-        u_bounds = [np.inf, 
-                    np.inf, 
-                    min(airfoil_params["y_t"], np.sqrt(-2 * airfoil_params["r_LE"] * airfoil_params["x_t"] / 3)),
-                    np.inf, 
-                    np.inf,
-                    1,
-                    1,
-                    1,
-                    np.inf,
-                    np.inf,
-                    np.inf,
-                    0,
-                    np.pi / 2,
-                    np.pi / 2,
-                    np.pi / 2,
-                    ]
-        l_bounds = [-np.inf,
-                    -np.inf,
-                    0,
-                    -np.inf,
-                    -np.inf,
-                    0,
-                    0,
-                    0,
-                    -np.inf,
-                    -np.inf,
-                    0, 
-                    -np.inf,
-                    -np.pi / 2,
-                    -np.pi / 2,
-                    -np.pi / 2,
-                    ]
-        
-        bounds = (l_bounds, u_bounds)
-
         # Perform non-linear least-squares regression
         guess_design_vector = [0.1 * airfoil_params["x_c"],
                                0.5 * airfoil_params["x_c"],
-                               0.7 * u_bounds[2],
+                               0.7 * min(airfoil_params["y_t"], np.sqrt(-2 * airfoil_params["r_LE"] * airfoil_params["x_t"] / 3)),
                                0.75,
                                0.8,
                                airfoil_params["x_t"],
@@ -901,7 +919,7 @@ class AirfoilParameterization:
         
         optimized_coefficients = optimize.least_squares(Objective, 
                                                         x0=guess_design_vector, 
-                                                        bounds=bounds,
+                                                        bounds=GetBounds(guess_design_vector),
                                                         verbose=1,
                                                         gtol=1e-12,
                                                         ftol=1e-12,

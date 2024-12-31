@@ -269,6 +269,7 @@ class fileHandling:
             
             # Calculate the thickness and blade slope distributions along the blade profiles. 
             # All parameters are nondimensionalized by the chord length, so they are then multiplied by the chord length to get the correct dimensions
+            # Additionally, offsets the profiles to the correct spatial coordinate (x,r)
             thickness_distr, thickness_data_points, geometric_blade_slope, blade_slope_points = profileParameterizationClass.ComputeProfileCoordinates(b_coeff,
                                                                                                                                                        parameterization)
             thickness_distr = thickness_distr * design_params["Chord Length"]
