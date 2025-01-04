@@ -639,7 +639,7 @@ class AirfoilParameterization:
         # Calculate the geometric blade slope along the blade chord
         # This is used to define the imposed field within MTFLO
         # This is slightly different from the camberangledistribution function, as it is the direct angle rather than the gradient of the angle
-        geometric_blade_slope = np.atan(bezier_camber, bezier_camber_x)
+        geometric_blade_slope = np.atan2(bezier_camber, bezier_camber_x)
 
         return bezier_thickness, bezier_thickness_x, geometric_blade_slope, bezier_camber_x
 
