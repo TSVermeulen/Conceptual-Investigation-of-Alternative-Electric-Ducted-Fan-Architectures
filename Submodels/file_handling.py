@@ -38,7 +38,6 @@ Any references used in the module.
 """
 
 import numpy as np
-import os
 from scipy import interpolate
 from Parameterizations import AirfoilParameterization
 
@@ -75,7 +74,6 @@ class fileHandling:
             Returns
             -------
             None
-
             """
 
             # Extract center body and duct parameterization parameters and Ducted fan design parameters
@@ -237,7 +235,13 @@ class fileHandling:
 
         def __init__(self, *args) -> None:
             """
-            
+            Initialize the fileHandlingMTFLO class.
+
+            This method sets up the initial state of the class.
+
+            Returns
+            -------
+            None
             """
 
             stage_count, case_name = args 
@@ -248,9 +252,10 @@ class fileHandling:
 
         def GetBladeParameters(self, 
                                design_params: dict,
+                               twist_angle: float,
                                ) -> dict:
             """
-            Calculate the thickness and blade slope distributions along the blade profiles based on the given design parameters.
+            Calculate the thickness and blade slope distributions along the blade profile based on the given design parameters.
 
             Parameters:
             -----------
@@ -297,12 +302,10 @@ class fileHandling:
             # Calculate the thickness and blade slope distributions along the blade profiles. 
             # All parameters are nondimensionalized by the chord length
             thickness_distr, thickness_data_points, geometric_blade_slope, blade_slope_points = profileParameterizationClass.GetBladeParameters(b_coeff,
-                                                                                                                                                parameterization)
-            thickness_distr = thickness_distr
-            thickness_data_points = thickness_data_points
-            geometric_blade_slope = geometric_blade_slope
-            blade_slope_points = blade_slope_points
-            
+                                                                                                                                                parameterization,
+                                                                                                                                                twist_angle,
+                                                                                                                                                )
+                        
             # Construct output dictionary
             # Output dictionary contains cubic spline interpolated functions of the thickness and blade slope. 
             # Cubic spline extrapolation is allowed, but not recommended. Extrapolation is only used to handle round off errors (i.e. if x=0.99, to obtain the value at x=1)
@@ -324,36 +327,62 @@ class fileHandling:
                             design_params: np.ndarray[dict],
                             ) -> dict:
             """
-
-            interpolate between the airfoils to create the blade geometry inputs needed to create the MTFLO input file
-            Uses a rectangular bivariate spine interpolation on (r,x) to obtain the blade geometry at each radial, and axial station 
+            Construct interpolants for the blade geometry using the x,r, thickness, camber, and entropy distributions. 
 
             TO DO:
+            ------
             - Implement entropy calculation
 
+            Parameters:
+            -----------
+            - blading_params : dict
+                Dictionary containing the blading parameters for the blade. The dictionary should include the following keys:
+                    - "rotational_rate": The rotational rate of the blade.
+                    - "blade_count": The number of blades.
+                    - "radial_stations": Numpy array of the radial stations along the blade span.
+                    - "chord_length": Numpy array of the chord length distribution along the blade span.
+                    - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
+                    - "twist_angle": Numpy array of the twist angle distribution along the blade span.
+            - design_params : np.ndarray[dict]
+                Numpy array containing an equal amount of dictionary entries as there are radial stations. Each dictionary must contain 
+                the following keys:
+                    - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
+                    - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
+                    - "z_TE", "dz_TE": Trailing edge parameters.
+                    - "r_LE": Leading edge radius.
+                    - "trailing_wedge_angle": Trailing wedge angle.
+                    - "trailing_camberline_angle": Trailing camberline angle.
+                    - "leading_edge_direction": Leading edge direction.
+                    - "Chord Length": The chord length of the blade.
+
+            Returns:
+            --------
+            - constructed_blade : dict
+                Dictionary containing the constructed blade geometry. The dictionary includes the following keys:
+                    - "chord_distribution": Cubic spline interpolant for the chord length distribution along the blade span.
+                    - "sweep_distribution": Cubic spline interpolant for the sweep angle distribution along the blade span.
+                    - "thickness_distribution": Bivariate spline interpolant for the thickness distribution along the blade profile.
+                    - "slope_distribution": Bivariate spline interpolant for the blade slope distribution along the blade profile.
+                    - "entropy_distribution": Bivariate spline interpolant for the entropy distribution along the blade profile.
             """
 
             # Collect blade geometry at each of the radial stations
             # Note that the blade geometry is a dictionary containing the thickness and blade slope interpolated distributions
             blade_geometry = [None] * len(design_params)
             for station in range(len(design_params)):
-                blade_geometry[station] = self.GetBladeParameters(design_params[station])
-            
+                blade_geometry[station] = self.GetBladeParameters(design_params[station],
+                                                                  blading_params["twist_angle"][station])
+                
             # Construct the chord length distribution
             chord_distribution = interpolate.CubicSpline(blading_params["radial_stations"], 
                                                          blading_params["chord_length"], 
                                                          extrapolate=True,
                                                          )
             
-            # Construct the sweep angle distribution
+            # Construct the sweep distribution
+            # Note that this is not the sweep angle, but rather the leading edge offset, measured from the root
             sweep_distribution = interpolate.CubicSpline(blading_params["radial_stations"],
-                                                         blading_params["sweep_angle"],
-                                                         extrapolate=True,
-                                                         )
-
-            # Construct the twist angle distribution
-            twist_distribution = interpolate.CubicSpline(blading_params["radial_stations"],
-                                                         blading_params["twist_angle"],
+                                                         blading_params["root_LE_coordinate"] + blading_params["radial_stations"] * np.sin(blading_params["sweep_angle"]),
                                                          extrapolate=True,
                                                          )
             
@@ -413,7 +442,6 @@ class fileHandling:
             # Construct output data
             constructed_blade = {"chord_distribution": chord_distribution,
                                  "sweep_distribution": sweep_distribution,
-                                 "twist_distribution": twist_distribution,
                                  "thickness_distribution": thickness_distribution,
                                  "slope_distribution": slope_distribution,
                                  "entropy_distribution": entropy_distribution,
@@ -426,12 +454,37 @@ class fileHandling:
                                design_params: np.ndarray[dict],
                                ) -> None:
             """
+            Write the MTFLO input file for the given case.
 
-            Write the MTFLO input file for the given case
+            Parameters:
+            -----------
+            - blading_params : np.ndarray[dict]
+                Array containing the blading parameters for each stage. Each dictionary should include the following keys:
+                - "rotational_rate": The rotational rate of the blade.
+                - "blade_count": The number of blades.
+                - "radial_stations": Numpy array of the radial stations along the blade span.
+                - "chord_length": Numpy array of the chord length distribution along the blade span.
+                - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
+                - "twist_angle": Numpy array of the twist angle distribution along the blade span.
+            - design_params: np.ndarray[dict]
+                Array containing an equal number of dictionary entries as there are stages. Each dictionary must contain the following keys:
+                - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
+                - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
+                - "z_TE", "dz_TE": Trailing edge parameters.
+                - "r_LE": Leading edge radius.
+                - "trailing_wedge_angle": Trailing wedge angle.
+                - "trailing_camberline_angle": Trailing camberline angle.
+                - "leading_edge_direction": Leading edge direction.
+                - "Chord Length": The chord length of the blade.
 
+            Returns:
+            --------
+            None
             """
 
+            # Open the tflow.xxx file and start writing the required input data to it
             filename = "tflow." + self.case_name
+
             with open(filename, "w") as file:
                 # Write the case name to the file
                 file.write('NAME\n')
@@ -449,12 +502,12 @@ class fileHandling:
 
                     # Write the number of blades
                     file.write('NBLADE\n')
-                    file.write(blading_params[stage]["blade_count"] + '\n')
+                    file.write(str(blading_params[stage]["blade_count"]) + '\n')
                     file.write('END\n \n')
 
                     # Write the rotational rate in units of omega * L / V
                     file.write('OMEGA\n')
-                    file.write(blading_params[stage]["rotational_rate"] + '\n')
+                    file.write(str(blading_params[stage]["rotational_rate"]) + '\n')
                     file.write('END\n \n')
 
                     # Write the data types to be provided for the stage
@@ -471,55 +524,60 @@ class fileHandling:
                                                                 design_params[stage])
                     
                     # Generate interpolated data to construct the file geometry
-                    n_axial_points = 50
-                    n_radial_points = 20
-                    axial_points = np.linspace(0, 1, n_axial_points)
-                    radial_points = np.linspace(0, 1, n_radial_points)
+                    # The MTFLO code cannot accept an input file with more than 16 points in the streamwise and radial directions
+                    # Hence
+                    n_points = 16
+                    #axial_points = np.linspace(0, 1, n_points)
+                    axial_points = (1 - np.cos(np.linspace(0, np.pi, n_points))) / 2
+                    radial_points = np.linspace(0, 1, n_points)
 
                     # Loop over the radial points and construct the data for each radial point
                     # Each radial point is defined as a "section" within the input file
-                    for i in range(n_radial_points): 
+                    for i in range(n_points): 
                         # Create a section in the input file
                         file.write('SECTION\n')
 
                         # Loop over the streamwise points and construct the data for each streamwise point
                         # Each data point consists of the data [x, r, T, sRel, and dS]
-                        for j in range(len(axial_points)):     
-                            row = np.array([axial_points[j],
+                        for j in range(n_points):     
+                            row = np.array([axial_points[j] * blade_geometry["chord_distribution"](radial_points[i]) + \
+                                            blade_geometry["sweep_distribution"](radial_points[i]),
                                             radial_points[i],
                                             blade_geometry["thickness_distribution"]((radial_points[i], axial_points[j])),
                                             blade_geometry["slope_distribution"]((radial_points[i], axial_points[j])),
                                             blade_geometry["entropy_distribution"]((radial_points[i], axial_points[j])),
                                             ])
-                            
+    
                             # Write the row to the file
                             file.write('    '.join(map(str, row)) + '\n')
-
                         # End the radial section
                         file.write('END\n')
+                    # End the stage 
+                    file.write('\nEND\n \n')
+                # End the input file
+                file.write('END\n')
                         
-
-                    
-
-
-
-
-
             return None
-
 
 
 if __name__ == "__main__":
 
+    # Perform test generation of walls.xxx file using dummy inputs
+    # Creates a dummy duct with a naca 2415 profile for the centerbody and duct
     n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017094989769520816, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 1.0}
     design_params = {"Duct Leading Edge Coordinates": (0, 2), "Duct Outer Diameter": 1.0}
 
     call_class = fileHandling.fileHandlingMTSET(n2415_coeff, n2415_coeff, design_params, "test_case")
     call_class.GenerateMTSETInput()
 
-
-    call_class = fileHandling.fileHandlingMTFLO(1, "test_case")
-    test = call_class.ConstructBlades({"radial_stations": [0, 1], "chord_length": [0.2, 0.2], "sweep_angle":[0, 0], "twist_angle": [0, 0]}, [n2415_coeff, n2415_coeff])
+    # Perform test generation of tflow.xxx file using dummy inputs
+    # Creates an input file using 2 stages, a rotor and a stator
+    blading_parameters = [{"root_LE_coordinate": 0., "rotational_rate": 10, "blade_count": 18, "radial_stations": [0, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/4, np.pi/4], "twist_angle": [0, np.pi/8]},
+                          {"root_LE_coordinate": 2., "rotational_rate": 0, "blade_count": 10, "radial_stations": [0, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/4, np.pi/4], "twist_angle": [0, np.pi/8]}]
+    design_parameters = [[n2415_coeff, n2415_coeff],
+                         [n2415_coeff, n2415_coeff]]
     
-    generate_test = call_class.GenerateMTFLOInput([{"stage_count": 1, "blade_count": 18, "radial_stations": [0, 1], "chord_length": [0.2, 0.2], "sweep_angle":[0, 0], "twist_angle": [0, 0]}], [n2415_coeff, n2415_coeff])
-    print(generate_test)
+    call_class = fileHandling.fileHandlingMTFLO(2, "test_case")
+    call_class.GenerateMTFLOInput(blading_parameters, 
+                                  design_parameters)
+    

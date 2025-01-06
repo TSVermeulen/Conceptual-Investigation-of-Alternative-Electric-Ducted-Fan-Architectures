@@ -560,15 +560,37 @@ class AirfoilParameterization:
     def GetBladeParameters(self,
                            b_coeff: np.ndarray[float],
                            airfoil_params: dict,
+                           twist_angle: float = 0,
                            ) -> tuple[float, float]:
         """
         
         Obtain the fan blade parameters from the Bezier control points. Works for both rotor and stator blades. 
 
         Calculates the circumferential blade thickness and blade slope for the blade profile.
+        
+        Parameters:
+        -----------
+        b_coeff : np.ndarray[float]
+            Array of Bezier control points.
+        airfoil_params : dict
+            Dictionary containing airfoil parameters.
+        twist_angle : float, optional
+            Twist angle of the blade profile section, default is pi/16.
+        Returns:
+        --------
+        tuple[float, float, float, float]
+            y_rotated_thickness : np.ndarray[float]
+                Rotated y-coordinates of the thickness distribution.
+            x_rotated_thickness : np.ndarray[float]
+                Rotated x-coordinates of the thickness distribution.
+            geometric_blade_slope : np.ndarray[float]
+                Geometric blade slope along the blade chord.
+            x_rotated_camber : np.ndarray[float]
+                Rotated x-coordinates of the camber distribution.
 
         TO DO:
-        - Include entropy distribution calculation, if needed
+        ------
+        - Include entropy distribution calculation
         """
 
         # Extract the bezier coefficients from the input array
@@ -636,12 +658,28 @@ class AirfoilParameterization:
         bezier_camber_x = np.concatenate((x_LE_camber, x_TE_camber),
                                          axis = 0)  # Construct complete array of x-coordinates over length of profile
 
+        #Rotate the thickness and camber distributions by the twist angle of the profile section
+        # This is done in 3 steps:
+        # 1 - Shift the data to the rotation centre, the 1/4 chord point 
+        # 2 - Rotate the data
+        # 3 - Un-shift the data back to the original coordinate system
+        # Note that the rotation always occurs about y=0
+        x_centre = 0.25
+        shifted_thickness_x = bezier_thickness_x - x_centre
+        shifted_camber_x = bezier_camber_x - x_centre
+
+        x_rotated_thickness = shifted_thickness_x * np.cos(twist_angle) + bezier_thickness * np.sin(twist_angle) + 0.25
+        x_rotated_camber = shifted_camber_x * np.cos(twist_angle) + bezier_camber * np.sin(twist_angle) + 0.25
+        
+        y_rotated_thickness = - shifted_thickness_x * np.sin(twist_angle) + bezier_thickness * np.cos(twist_angle)
+        y_rotated_camber = -shifted_camber_x * np.sin(twist_angle) + bezier_camber * np.cos(twist_angle)
+
         # Calculate the geometric blade slope along the blade chord
         # This is used to define the imposed field within MTFLO
         # This is slightly different from the camberangledistribution function, as it is the direct angle rather than the gradient of the angle
-        geometric_blade_slope = np.atan2(bezier_camber, bezier_camber_x)
+        geometric_blade_slope = np.atan2(y_rotated_camber, x_rotated_camber)
 
-        return bezier_thickness, bezier_thickness_x, geometric_blade_slope, bezier_camber_x
+        return y_rotated_thickness, x_rotated_thickness, geometric_blade_slope, x_rotated_camber
 
     def FindInitialParameterization(self, 
                                     reference_file: str,
