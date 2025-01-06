@@ -252,7 +252,6 @@ class fileHandling:
 
         def GetBladeParameters(self, 
                                design_params: dict,
-                               twist_angle: float,
                                ) -> dict:
             """
             Calculate the thickness and blade slope distributions along the blade profile based on the given design parameters.
@@ -276,8 +275,8 @@ class fileHandling:
                 A dictionary containing the following keys:
                 - "thickness_distr": Thickness distribution along the blade profile.
                 - "thickness_data_points": Thickness data points along the blade profile.
-                - "geometric_blade_slope": Geometric blade slope distribution.
-                - "blade_slope_points": Blade slope data points.
+                - "camber_distr": Camber distribution along the blade profile.
+                - "camber_data_points": Camber data points along the blade profile.
             """
 
             # Initialize the airfoil parameterization class
@@ -301,23 +300,17 @@ class fileHandling:
             
             # Calculate the thickness and blade slope distributions along the blade profiles. 
             # All parameters are nondimensionalized by the chord length
-            thickness_distr, thickness_data_points, geometric_blade_slope, blade_slope_points = profileParameterizationClass.GetBladeParameters(b_coeff,
+            thickness_distr, thickness_data_points, camber_distr, camber_data_points = profileParameterizationClass.GetBladeParameters(b_coeff,
                                                                                                                                                 parameterization,
-                                                                                                                                                twist_angle,
                                                                                                                                                 )
-                        
+
             # Construct output dictionary
-            # Output dictionary contains cubic spline interpolated functions of the thickness and blade slope. 
-            # Cubic spline extrapolation is allowed, but not recommended. Extrapolation is only used to handle round off errors (i.e. if x=0.99, to obtain the value at x=1)
-            thickness_distribution = interpolate.CubicSpline(thickness_data_points, 
-                                                             thickness_distr, 
-                                                             extrapolate=True)
-            blade_slope_distribution = interpolate.CubicSpline(blade_slope_points, 
-                                                               geometric_blade_slope, 
-                                                               extrapolate=True)
-            
-            blade_geometry = {"thickness_distr": thickness_distribution,
-                              "blade_slope_distribution": blade_slope_distribution,
+            # Output dictionary contains the data points for the thickness and camber distributions
+            # No interpolation is done yet, to avoid needing to resample. 
+            blade_geometry = {"thickness_points": thickness_data_points, 
+                              "thickness_data": thickness_distr,
+                              "camber_points": camber_data_points, 
+                              "camber_data": camber_distr,
                               }
             
             return blade_geometry
@@ -361,93 +354,94 @@ class fileHandling:
                 Dictionary containing the constructed blade geometry. The dictionary includes the following keys:
                     - "chord_distribution": Cubic spline interpolant for the chord length distribution along the blade span.
                     - "sweep_distribution": Cubic spline interpolant for the sweep angle distribution along the blade span.
-                    - "thickness_distribution": Bivariate spline interpolant for the thickness distribution along the blade profile.
+                    - "thickness_distribution": Bivariate spline interpolant for the circumferential thickness distribution along the blade profile.
                     - "slope_distribution": Bivariate spline interpolant for the blade slope distribution along the blade profile.
                     - "entropy_distribution": Bivariate spline interpolant for the entropy distribution along the blade profile.
             """
 
             # Collect blade geometry at each of the radial stations
-            # Note that the blade geometry is a dictionary containing the thickness and blade slope interpolated distributions
+            # Note that the blade geometry is a dictionary containing the thickness and camber interpolated distributions
+            # Splits out the blade_geometry dictionary into separate lists
+            # Thickness and camber distributions are also divided by the cosine of the twist angle to account for blade twisting. 
             blade_geometry = [None] * len(design_params)
+            thickness_profile_distributions = [None] * len(design_params)
+            thickness_data_points = [None] * len(design_params)
+            camber_profile_distributions = [None] * len(design_params)
+            camber_data_points = [None] * len(design_params)
+
             for station in range(len(design_params)):
-                blade_geometry[station] = self.GetBladeParameters(design_params[station],
-                                                                  blading_params["twist_angle"][station])
-                
+                blade_geometry[station] = self.GetBladeParameters(design_params[station])
+    
+                thickness_profile_distributions[station] = blade_geometry[station]["thickness_data"] / np.cos(blading_params["twist_angle"][station])
+                thickness_data_points[station] = blade_geometry[station]["thickness_points"] 
+                camber_profile_distributions[station] = blade_geometry[station]["camber_data"] / np.cos(blading_params["twist_angle"][station])
+                camber_data_points[station] = blade_geometry[station]["camber_points"]
+            
             # Construct the chord length distribution
             chord_distribution = interpolate.CubicSpline(blading_params["radial_stations"], 
                                                          blading_params["chord_length"], 
-                                                         extrapolate=True,
+                                                         extrapolate=False,
                                                          )
             
             # Construct the sweep distribution
             # Note that this is not the sweep angle, but rather the leading edge offset, measured from the root
             sweep_distribution = interpolate.CubicSpline(blading_params["radial_stations"],
                                                          blading_params["root_LE_coordinate"] + blading_params["radial_stations"] * np.sin(blading_params["sweep_angle"]),
-                                                         extrapolate=True,
+                                                         extrapolate=False,
                                                          )
-            
-            # Construct thickness and camber distribution rectangular data grid
-            # Use a cosine spacing of data points to increase resolution at the leading and trailing edges
-            # This is done to ensure that each profile is sampled at the same nondimensionalised points x/c, 
-            # enabling the creation of a rectangular grid for the bivariate spline interpolation.
-            # Uses 100 points to ensure an initial smooth interpolation. 
-            n_points = 100
-            cosine_space = (1 - np.cos(np.linspace(0, np.pi, n_points))) / 2
-
-            # Loop over the different radial stations and compute the thickness and camber distribution for each station
-            thickness_profile_distribution = np.zeros((len(design_params), n_points))
-            slope_profile_distribution = np.zeros((len(design_params), n_points))
-            for station in range(len(thickness_profile_distribution)):
-                thickness_profile_distribution[station] = blade_geometry[station]["thickness_distr"](cosine_space)
-                slope_profile_distribution[station] = blade_geometry[station]["blade_slope_distribution"](cosine_space)
-
-            # Construct the thickness and slope bivariate spline interpolations
+                        
+            # Construct the thickness and camber bivariate spline interpolations
             # First determine the appropriate interpolation method based on the minimum dimension of the data input
             # Then use the regulargridinterpolator to create the interpolation function
+
             method = 'quintic'
-            if 4 <= min(min(thickness_profile_distribution.shape), cosine_space.size) < 6:
+            if 4 <= len(thickness_data_points) < 6:
                 method = 'cubic'
-            elif min(min(thickness_profile_distribution.shape), cosine_space.size) < 4:
+            elif len(thickness_data_points) < 4:
                 method = 'linear'
 
             thickness_distribution = interpolate.RegularGridInterpolator((blading_params["radial_stations"],
-                                                                          cosine_space),
-                                                                         thickness_profile_distribution,
+                                                                          thickness_data_points[0]),
+                                                                         thickness_profile_distributions,
                                                                          method=method,
+                                                                         bounds_error=True,
                                                                          ) 
-            
+    
             # Determine the appropriate interpolation method for the slope distribution
             method = 'quintic'
-            if 4 <= min(min(slope_profile_distribution.shape), cosine_space.size) < 6:
+            if 4 <= len(camber_data_points) < 6:
                 method = 'cubic'
-            elif min(min(slope_profile_distribution.shape), cosine_space.size) < 4:
+            elif len(camber_data_points) < 4:
                 method = 'linear'
 
-            slope_distribution = interpolate.RegularGridInterpolator((blading_params["radial_stations"],
-                                                                      cosine_space),
-                                                                     slope_profile_distribution,
-                                                                     method=method,
-                                                                     )  
+            camber_distribution = interpolate.RegularGridInterpolator((blading_params["radial_stations"],
+                                                                       camber_data_points[0]),
+                                                                      camber_profile_distributions,
+                                                                      method=method,
+                                                                      bounds_error=True,
+                                                                      )  
 
             # CONSTRUCT DUMMY ENTROPY DISTRIBUTION
             # This needs to be replaced with a proper entropy calculation, which is currently not implemented.
             # Current implementation is a placeholder to allow for the construction of the MTFLO input file
-            entropy_profile_distribution = np.zeros((len(blading_params["radial_stations"]), len(cosine_space)))
+            entropy_profile_distribution = np.zeros_like(camber_profile_distributions)
             entropy_distribution = interpolate.RegularGridInterpolator((blading_params["radial_stations"],
-                                                                       cosine_space),
-                                                                      entropy_profile_distribution,
-                                                                      method=method,
-                                                                      )     
+                                                                      camber_data_points[0]),
+                                                                     entropy_profile_distribution,
+                                                                     method=method,
+                                                                     bounds_error=True,
+                                                                     )  
 
             # Construct output data
             constructed_blade = {"chord_distribution": chord_distribution,
                                  "sweep_distribution": sweep_distribution,
                                  "thickness_distribution": thickness_distribution,
-                                 "slope_distribution": slope_distribution,
+                                 "camber_distribution": camber_distribution,
                                  "entropy_distribution": entropy_distribution,
                                  }
             
             return constructed_blade
+        
 
         def GenerateMTFLOInput(self,
                                blading_params: np.ndarray[dict],
@@ -524,10 +518,9 @@ class fileHandling:
                                                                 design_params[stage])
                     
                     # Generate interpolated data to construct the file geometry
-                    # The MTFLO code cannot accept an input file with more than 16 points in the streamwise and radial directions
-                    # Hence
+                    # The MTFLO code cannot accept an input file with more than 16x16 points in the streamwise and radial directions
+                    # Hence n_points=16
                     n_points = 16
-                    #axial_points = np.linspace(0, 1, n_points)
                     axial_points = (1 - np.cos(np.linspace(0, np.pi, n_points))) / 2
                     radial_points = np.linspace(0, 1, n_points)
 
@@ -537,15 +530,42 @@ class fileHandling:
                         # Create a section in the input file
                         file.write('SECTION\n')
 
+                        # Compute chord length of blade at radial station from the provided interpolant
+                        local_chord = blade_geometry["chord_distribution"](radial_points[i])
+
+                        # Compute the geometric blade slope dtheta/dm' in the blade-to-blade plane 
+                        # Camber is denormalised using the local chord length
+                        # Note that the starting value in the array is handled separately, as it has a value of zero and is divided by zero
+                        blade_angle_distribution = blade_geometry["camber_distribution"]((radial_points[i], axial_points))
+                        blade_angle_distribution[0] = 0
+                        blade_angle_distribution[1:] = np.atan(blade_angle_distribution[1:] / axial_points[1:])  # theta
+                        
+                        m_prime = np.sqrt((axial_points * local_chord) ** 2 + radial_points[i] ** 2)
+                        blade_slope_distribution = blade_angle_distribution
+                        blade_slope_distribution[0] = 0
+                        blade_slope_distribution[1:] = blade_angle_distribution[1:] / m_prime[1:]
+                        blade_slope_distribution = np.gradient(blade_slope_distribution)            
+
+                        # Compute the local sweep (i.e. LE offset) at the radial station from the provided interpolant
+                        sweep = blade_geometry["sweep_distribution"](radial_points[i]) 
+
+                        # Compute the thickness distribution at the radial station from the provided interpolant
+                        # Thickness is denormalised using the local chord length
+                        thickness_distribution = blade_geometry["thickness_distribution"]((radial_points[i], axial_points)) * local_chord   
+
+                        # Compute the entropy distribution at the radial station from the provided interpolant
+                        # Entropy is denormalised using the local chord length
+                        entropy_distribution = blade_geometry["entropy_distribution"]((radial_points[i], axial_points)) * local_chord
+
                         # Loop over the streamwise points and construct the data for each streamwise point
-                        # Each data point consists of the data [x, r, T, sRel, and dS]
-                        for j in range(n_points):     
-                            row = np.array([axial_points[j] * blade_geometry["chord_distribution"](radial_points[i]) + \
-                                            blade_geometry["sweep_distribution"](radial_points[i]),
+                        # Each data point consists of the data [x, r, T, sRel, dS]
+                        for j in range(n_points):  
+                            # Write data to row
+                            row = np.array([axial_points[j] * local_chord + sweep,
                                             radial_points[i],
-                                            blade_geometry["thickness_distribution"]((radial_points[i], axial_points[j])),
-                                            blade_geometry["slope_distribution"]((radial_points[i], axial_points[j])),
-                                            blade_geometry["entropy_distribution"]((radial_points[i], axial_points[j])),
+                                            thickness_distribution[j],
+                                            blade_slope_distribution[j],
+                                            entropy_distribution[j],
                                             ])
     
                             # Write the row to the file
@@ -562,22 +582,30 @@ class fileHandling:
 
 if __name__ == "__main__":
 
+    import time
+
     # Perform test generation of walls.xxx file using dummy inputs
     # Creates a dummy duct with a naca 2415 profile for the centerbody and duct
     n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017094989769520816, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 1.0}
     design_params = {"Duct Leading Edge Coordinates": (0, 2), "Duct Outer Diameter": 1.0}
 
+    starttime = time.time()
     call_class = fileHandling.fileHandlingMTSET(n2415_coeff, n2415_coeff, design_params, "test_case")
     call_class.GenerateMTSETInput()
+    endtime = time.time()
+    print("Execution of GenerateMTSETInput() took", endtime - starttime, "seconds")
 
     # Perform test generation of tflow.xxx file using dummy inputs
     # Creates an input file using 2 stages, a rotor and a stator
-    blading_parameters = [{"root_LE_coordinate": 0., "rotational_rate": 10, "blade_count": 18, "radial_stations": [0, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/4, np.pi/4], "twist_angle": [0, np.pi/8]},
+    blading_parameters = [{"root_LE_coordinate": 0., "rotational_rate": 10, "blade_count": 18, "radial_stations": [0, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/4, np.pi/4], "twist_angle": [0, np.pi/4]},
                           {"root_LE_coordinate": 2., "rotational_rate": 0, "blade_count": 10, "radial_stations": [0, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/4, np.pi/4], "twist_angle": [0, np.pi/8]}]
     design_parameters = [[n2415_coeff, n2415_coeff],
                          [n2415_coeff, n2415_coeff]]
     
+    starttime = time.time()
     call_class = fileHandling.fileHandlingMTFLO(2, "test_case")
     call_class.GenerateMTFLOInput(blading_parameters, 
                                   design_parameters)
+    endtime = time.time()
+    print("Execution of GenerateMTFLOInput() took", endtime - starttime, "seconds")
     
