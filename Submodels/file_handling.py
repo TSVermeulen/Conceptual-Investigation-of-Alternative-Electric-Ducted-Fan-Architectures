@@ -38,7 +38,7 @@ Any references used in the module.
 """
 
 import numpy as np
-from scipy import interpolate, integrate
+from scipy import interpolate
 from Parameterizations import AirfoilParameterization
 
 class fileHandling:
@@ -267,16 +267,15 @@ class fileHandling:
                 - "trailing_wedge_angle": Trailing wedge angle.
                 - "trailing_camberline_angle": Trailing camberline angle.
                 - "leading_edge_direction": Leading edge direction.
-                - "Chord Length": The chord length of the blade.
 
             Returns:
             --------
-            dict
+            blade_geometry : dict
                 A dictionary containing the following keys:
-                - "thickness_distr": Thickness distribution along the blade profile.
-                - "thickness_data_points": Thickness data points along the blade profile.
-                - "camber_distr": Camber distribution along the blade profile.
-                - "camber_data_points": Camber data points along the blade profile.
+                - "thickness_distr": An array of the thickness distribution along the blade profile.
+                - "thickness_data_points": An array of the thickness data points along the blade profile.
+                - "camber_distr": An array of the camber distribution along the blade profile.
+                - "camber_data_points": An array of the camber data points along the blade profile.
             """
 
             # Initialize the airfoil parameterization class
@@ -301,8 +300,8 @@ class fileHandling:
             # Calculate the thickness and blade slope distributions along the blade profiles. 
             # All parameters are nondimensionalized by the chord length
             thickness_distr, thickness_data_points, camber_distr, camber_data_points = profileParameterizationClass.GetBladeParameters(b_coeff,
-                                                                                                                                                parameterization,
-                                                                                                                                                )
+                                                                                                                                       parameterization,
+                                                                                                                                       )
 
             # Construct output dictionary
             # Output dictionary contains the data points for the thickness and camber distributions
@@ -320,24 +319,21 @@ class fileHandling:
                             design_params: np.ndarray[dict],
                             ) -> dict:
             """
-            Construct interpolants for the blade geometry using the x,r, thickness, camber, and entropy distributions. 
-
-            TO DO:
-            ------
-            - Implement entropy calculation
+            Construct interpolants for the blade geometry using the x, r, thickness, camber, and entropy distributions.
+            Uses the principle of superposition to split out the blade design into separate interpolations of parameters. 
 
             Parameters:
             -----------
             - blading_params : dict
                 Dictionary containing the blading parameters for the blade. The dictionary should include the following keys:
                     - "rotational_rate": The rotational rate of the blade.
-                    - "blade_count": The number of blades.
+                    - "blade_count": Integer of the number of blades.
                     - "radial_stations": Numpy array of the radial stations along the blade span.
                     - "chord_length": Numpy array of the chord length distribution along the blade span.
                     - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
                     - "twist_angle": Numpy array of the twist angle distribution along the blade span.
             - design_params : np.ndarray[dict]
-                Numpy array containing an equal amount of dictionary entries as there are radial stations. Each dictionary must contain 
+                Numpy array containing an equal number of dictionary entries as there are radial stations. Each dictionary must contain 
                 the following keys:
                     - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
                     - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
@@ -346,7 +342,6 @@ class fileHandling:
                     - "trailing_wedge_angle": Trailing wedge angle.
                     - "trailing_camberline_angle": Trailing camberline angle.
                     - "leading_edge_direction": Leading edge direction.
-                    - "Chord Length": The chord length of the blade.
 
             Returns:
             --------
@@ -355,12 +350,12 @@ class fileHandling:
                     - "chord_distribution": Cubic spline interpolant for the chord length distribution along the blade span.
                     - "sweep_distribution": Cubic spline interpolant for the sweep angle distribution along the blade span.
                     - "thickness_distribution": Bivariate spline interpolant for the circumferential thickness distribution along the blade profile.
-                    - "slope_distribution": Bivariate spline interpolant for the blade slope distribution along the blade profile.
+                    - "camber_distribution": Bivariate spline interpolant for the camber distribution along the blade profile.
                     - "entropy_distribution": Bivariate spline interpolant for the entropy distribution along the blade profile.
             """
 
             # Collect blade geometry at each of the radial stations
-            # Note that the blade geometry is a dictionary containing the thickness and camber interpolated distributions
+            # Note that the blade geometry is a dictionary containing the thickness and camber distributions
             # Splits out the blade_geometry dictionary into separate lists
             # Thickness and camber distributions are also divided by the cosine of the twist angle to account for blade twisting. 
             blade_geometry = [None] * len(design_params)
@@ -376,7 +371,7 @@ class fileHandling:
                 thickness_data_points[station] = blade_geometry[station]["thickness_points"] 
                 camber_profile_distributions[station] = blade_geometry[station]["camber_data"] / np.cos(blading_params["twist_angle"][station])
                 camber_data_points[station] = blade_geometry[station]["camber_points"]
-            
+                
             # Construct the chord length distribution
             chord_distribution = interpolate.CubicSpline(blading_params["radial_stations"], 
                                                          blading_params["chord_length"], 
@@ -392,8 +387,7 @@ class fileHandling:
                         
             # Construct the thickness and camber bivariate spline interpolations
             # First determine the appropriate interpolation method based on the minimum dimension of the data input
-            # Then use the regulargridinterpolator to create the interpolation function
-
+            # Then use the RegularGridInterpolator to create the interpolation function
             method = 'quintic'
             if 4 <= len(thickness_data_points) < 6:
                 method = 'cubic'
@@ -407,7 +401,7 @@ class fileHandling:
                                                                          bounds_error=True,
                                                                          ) 
     
-            # Determine the appropriate interpolation method for the slope distribution
+            # Determine the appropriate interpolation method for the camber distribution
             method = 'quintic'
             if 4 <= len(camber_data_points) < 6:
                 method = 'cubic'
@@ -424,6 +418,7 @@ class fileHandling:
             # CONSTRUCT DUMMY ENTROPY DISTRIBUTION
             # This needs to be replaced with a proper entropy calculation, which is currently not implemented.
             # Current implementation is a placeholder to allow for the construction of the MTFLO input file
+            # The interpolated entropy distribution is simply zero at all points on the domain
             entropy_profile_distribution = np.zeros_like(camber_profile_distributions)
             entropy_distribution = interpolate.RegularGridInterpolator((blading_params["radial_stations"],
                                                                       camber_data_points[0]),
@@ -454,6 +449,7 @@ class fileHandling:
             -----------
             - blading_params : np.ndarray[dict]
                 Array containing the blading parameters for each stage. Each dictionary should include the following keys:
+                - "root_LE_coordinate": The leading edge coordinate at the root of the blade.
                 - "rotational_rate": The rotational rate of the blade.
                 - "blade_count": The number of blades.
                 - "radial_stations": Numpy array of the radial stations along the blade span.
@@ -520,6 +516,8 @@ class fileHandling:
                     # Generate interpolated data to construct the file geometry
                     # The MTFLO code cannot accept an input file with more than 16x16 points in the streamwise and radial directions
                     # Hence n_points=16
+                    # The axial points are spaced using a cosine spacing for increased resolution at the LE and TE
+                    # The radial points are spaced using constant spacing. 
                     n_points = 16
                     axial_points = (1 - np.cos(np.linspace(0, np.pi, n_points))) / 2
                     radial_points = np.linspace(min(blading_params[stage]["radial_stations"]), 
@@ -553,6 +551,7 @@ class fileHandling:
                                 # Use trapezoidal integration to compute the m_prime coordinates
                                 m_prime[i] = m_prime[i - 1] + 2 / (r[i] + r[i - 1]) * np.sqrt((r[i] - r[i-1]) ** 2 + (axial_coordinates[i] - axial_coordinates[i - 1]) ** 2)
 
+                        # Compute the blade slope distribution, defined as dtheta/dm'. Use a second order scheme at the domain edges for improved accuracy. 
                         blade_slope_distribution = np.gradient(theta, m_prime, edge_order=2)
 
                         # Compute the local sweep (i.e. LE offset) at the radial station from the provided interpolant
