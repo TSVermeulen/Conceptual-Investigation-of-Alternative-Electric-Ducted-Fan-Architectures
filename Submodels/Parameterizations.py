@@ -137,6 +137,7 @@ class AirfoilParameterization:
         """
 
         camber_gradient = np.gradient(Y, X)
+        
 
         return np.arctan(camber_gradient)
     

@@ -38,7 +38,7 @@ Any references used in the module.
 """
 
 import numpy as np
-from scipy import interpolate
+from scipy import interpolate, integrate
 from Parameterizations import AirfoilParameterization
 
 class fileHandling:
@@ -374,6 +374,7 @@ class fileHandling:
     
                 thickness_profile_distributions[station] = blade_geometry[station]["thickness_data"] / np.cos(blading_params["twist_angle"][station])
                 thickness_data_points[station] = blade_geometry[station]["thickness_points"] 
+                #camber_profile_distributions[station] = np.atan2((blade_geometry[station]["camber_data"] / np.cos(blading_params["twist_angle"][station])), blade_geometry[station]["camber_points"])
                 camber_profile_distributions[station] = blade_geometry[station]["camber_data"] / np.cos(blading_params["twist_angle"][station])
                 camber_data_points[station] = blade_geometry[station]["camber_points"]
             
@@ -522,7 +523,10 @@ class fileHandling:
                     # Hence n_points=16
                     n_points = 16
                     axial_points = (1 - np.cos(np.linspace(0, np.pi, n_points))) / 2
-                    radial_points = np.linspace(0, 1, n_points)
+                    radial_points = np.linspace(min(blading_params[stage]["radial_stations"]), 
+                                                max(blading_params[stage]["radial_stations"]), 
+                                                n_points,
+                                                )
 
                     # Loop over the radial points and construct the data for each radial point
                     # Each radial point is defined as a "section" within the input file
@@ -535,16 +539,49 @@ class fileHandling:
 
                         # Compute the geometric blade slope dtheta/dm' in the blade-to-blade plane 
                         # Camber is denormalised using the local chord length
-                        # Note that the starting value in the array is handled separately, as it has a value of zero and is divided by zero
-                        blade_angle_distribution = blade_geometry["camber_distribution"]((radial_points[i], axial_points))
-                        blade_angle_distribution[0] = 0
-                        blade_angle_distribution[1:] = np.atan(blade_angle_distribution[1:] / axial_points[1:])  # theta
+                        camber_distribution = blade_geometry["camber_distribution"]((radial_points[i], axial_points)) * local_chord
+
+                        theta = np.atan2(camber_distribution, radial_points[i])
+                        r_coordinate = np.sqrt(radial_points[i] ** 2 + camber_distribution ** 2)
+
+
+
+                        dr = np.gradient(r_coordinate)
+                        dx = np.gradient(axial_points * local_chord)
+                        arc_length_integrand = np.sqrt(dx ** 2 + dr ** 2)
+                        arc_length_integrand_test = np.sqrt((axial_points * local_chord) ** 2 + r_coordinate ** 2) / radial_points[i]
+
+                        m_test = np.sqrt((axial_points * local_chord) ** 2 + r_coordinate ** 2) / radial_points[i]
+                        s_test = integrate.simpson(arc_length_integrand_test,
+                                                   x=m_test)
                         
-                        m_prime = np.sqrt((axial_points * local_chord) ** 2 + radial_points[i] ** 2)
-                        blade_slope_distribution = blade_angle_distribution
-                        blade_slope_distribution[0] = 0
-                        blade_slope_distribution[1:] = blade_angle_distribution[1:] / m_prime[1:]
-                        blade_slope_distribution = np.gradient(blade_slope_distribution)            
+                        print(s_test)
+                        
+                        m_p_test = m_test / radial_points[i]
+                        
+                        blade_slope = np.gradient(theta / m_p_test)
+                        print(blade_slope)
+
+                        print(m_p_test)
+
+                        m = np.sqrt(dx ** 2 + dr ** 2) 
+
+
+                        s = integrate.simpson(arc_length_integrand,
+                                              x=m)
+                        m_prime = m / radial_points[i]
+                        s_prime = s / radial_points[i]
+
+                        blade_slope = np.gradient(s_prime / m_prime)
+
+
+                        import matplotlib.pyplot as plt
+                        plt.plot(m_prime, theta)
+                        plt.plot()
+                        plt.show()
+
+
+  
 
                         # Compute the local sweep (i.e. LE offset) at the radial station from the provided interpolant
                         sweep = blade_geometry["sweep_distribution"](radial_points[i]) 
@@ -597,8 +634,8 @@ if __name__ == "__main__":
 
     # Perform test generation of tflow.xxx file using dummy inputs
     # Creates an input file using 2 stages, a rotor and a stator
-    blading_parameters = [{"root_LE_coordinate": 0., "rotational_rate": 10, "blade_count": 18, "radial_stations": [0, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/4, np.pi/4], "twist_angle": [0, np.pi/4]},
-                          {"root_LE_coordinate": 2., "rotational_rate": 0, "blade_count": 10, "radial_stations": [0, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/4, np.pi/4], "twist_angle": [0, np.pi/8]}]
+    blading_parameters = [{"root_LE_coordinate": 0., "rotational_rate": 10, "blade_count": 18, "radial_stations": [0.1, 1], "chord_length": [0.4, 0.5], "sweep_angle":[np.pi/4, np.pi/4], "twist_angle": [np.pi/3, np.pi/8]},
+                          {"root_LE_coordinate": 2., "rotational_rate": 0, "blade_count": 10, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/4, np.pi/4], "twist_angle": [0, np.pi/8]}]
     design_parameters = [[n2415_coeff, n2415_coeff],
                          [n2415_coeff, n2415_coeff]]
     
