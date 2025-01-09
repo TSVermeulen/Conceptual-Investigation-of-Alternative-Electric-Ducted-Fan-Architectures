@@ -4,37 +4,85 @@ file_handling
 
 Description
 -----------
-A brief description of what this module does.
-
-Functions
----------
-function1(param1, param2)
-    Description of function1.
-
-function2(param1, param2)
-    Description of function2.
+This module provides classes and methods for handling file operations related to 
+the conceptual investigation of alternative electric ducted fan architectures. 
+It includes functionalities for generating the input files for the MTSET and MTFLO tools, forming 
+part of the MTFLOW software suite from MIT.
 
 Classes
 -------
-ClassName
-    Description of ClassName.
+fileHandling
+    A grouping class for file handling operations.
+
+fileHandling.fileHandlingMTSET
+    Handles the generation of the MTSET input file, walls.xxx.
+    This input file contains the axisymmetric bodies present within the domain.
+
+fileHandling.fileHandlingMTFLO
+    Handles the generation of the MTFLO input file, tflow.xxx.
+    This input file contains the forcing field terms corresponding to the blade rows (rotors and stators).
+
 
 Examples
 --------
-Examples should be written in doctest format, and should illustrate how to
-use the function or class.
+>>> n2415_coeff = {"b_0": 0.203, "b_2": 0.319, "b_8": 0.042, "b_15": 0.750, "b_17": 0.679, 
+...                "x_t": 0.299, "y_t": 0.060, "x_c": 0.405, "y_c": 0.020, "z_TE": -0.00034, 
+...                "dz_TE": 0.0017, "r_LE": -0.024, "trailing_wedge_angle": 0.167, "trailing_camberline_angle": 0.065, 
+...                "leading_edge_direction": 0.094, "Chord Length": 1.0}
+>>> design_params = {"Duct Leading Edge Coordinates": (0, 2), "Duct Outer Diameter": 1.0}
+>>> call_class = fileHandling.fileHandlingMTSET(n2415_coeff, n2415_coeff, design_params, "test_case")
+>>> call_class.GenerateMTSETInput()
 
->>> example_function(1, 2)
-3
+>>> blading_parameters = [
+...     {
+...         "root_LE_coordinate": 0.0,
+...         "rotational_rate": 10,
+...         "blade_count": 18,
+...         "radial_stations": np.array([0.1, 1.0]),
+...         "chord_length": np.array([0.2, 0.2]),
+...         "sweep_angle": np.array([np.pi / 4, np.pi / 4]),
+...         "twist_angle": np.array([0, np.pi / 3]),
+...     },
+...     {
+...         "root_LE_coordinate": 2.0,
+...         "rotational_rate": 0,
+...         "blade_count": 10,
+...         "radial_stations": np.array([0.1, 1.0]),
+...         "chord_length": np.array([0.2, 0.2]),
+...         "sweep_angle": np.array([np.pi / 4, np.pi / 4]),
+...         "twist_angle": np.array([0, np.pi / 8]),
+...     },
+... ]
+>>> design_parameters = [[n2415_coeff, n2415_coeff],
+...                      [n2415_coeff, n2415_coeff],
+...                      ]
+>>> call_class = fileHandling.fileHandlingMTFLO(2, "test_case")
+>>> call_class.GenerateMTFLOInput(blading_parameters, design_parameters)
 
 Notes
 -----
-Any additional notes about the module.
+This module is designed to work with the BP3434 profile parameterization defined in the Parameterizations.py file
+Ensure that the input dictionaries are correctly formatted. For details on the specific inputs needed, see the 
+different method docstrings. 
 
 References
 ----------
-Any references used in the module.
+The coordinate transformation from cartesian space to the developed coordinates m'-theta used to calculate 
+s_rel in fileHandling.fileHandlingMTFLO.GenerateMTFLOInput() is documented in the MISES user manual:
+https://web.mit.edu/drela/Public/web/mises/mises.pdf
 
+The required input data, limitations, and structures are documented within the MTFLOW user manual:
+https://web.mit.edu/drela/Public/web/mtflow/mtflow.pdf
+
+Versioning
+------
+T.S. Vermeulen
+T.S.Vermeulen@student.tudelft.nl
+Student ID 4995309
+Version: 1.0
+
+Changelog:
+- V1.0: Initial working version
 """
 
 import numpy as np
@@ -379,7 +427,7 @@ class fileHandling:
                                                          )
             
             # Construct the sweep distribution
-            # Note that this is not the sweep angle, but rather the leading edge offset, measured from the root
+            # Note that this is not the sweep angle, but rather the leading edge offset, measured from the origin at the root
             sweep_distribution = interpolate.CubicSpline(blading_params["radial_stations"],
                                                          blading_params["root_LE_coordinate"] + blading_params["radial_stations"] * np.sin(blading_params["sweep_angle"]),
                                                          extrapolate=False,
@@ -554,6 +602,14 @@ class fileHandling:
                         # Compute the blade slope distribution, defined as dtheta/dm'. Use a second order scheme at the domain edges for improved accuracy. 
                         blade_slope_distribution = np.gradient(theta, m_prime, edge_order=2)
 
+                        # import matplotlib.pyplot as plt
+                        # plt.plot(m_prime, blade_slope_distribution, label="$d\\theta / dm'$")
+                        # plt.plot(m_prime, theta, label='$\\theta$', linestyle='-.')
+                        # plt.legend()
+                        # plt.xlabel("m'")
+                        # plt.ylabel("Geometric Blade Slope and Circumferential Angle $\\theta$")
+                        # plt.show()
+
                         # Compute the local sweep (i.e. LE offset) at the radial station from the provided interpolant
                         sweep = blade_geometry["sweep_distribution"](radial_points[i]) 
 
@@ -569,7 +625,7 @@ class fileHandling:
                         # Each data point consists of the data [x, r, T, sRel, dS]
                         for j in range(n_points):  
                             # Write data to row
-                            row = np.array([axial_points[j] * local_chord + sweep,
+                            row = np.array([axial_coordinates[j] + sweep,
                                             radial_points[i],
                                             thickness_distribution[j],
                                             blade_slope_distribution[j],
@@ -599,19 +655,19 @@ if __name__ == "__main__":
 
     starttime = time.time()
     call_class = fileHandling.fileHandlingMTSET(n2415_coeff, n2415_coeff, design_params, "test_case")
-    call_class.GenerateMTSETInput()
+    #call_class.GenerateMTSETInput()
     endtime = time.time()
     print("Execution of GenerateMTSETInput() took", endtime - starttime, "seconds")
 
     # Perform test generation of tflow.xxx file using dummy inputs
     # Creates an input file using 2 stages, a rotor and a stator
-    blading_parameters = [{"root_LE_coordinate": 0., "rotational_rate": 10, "blade_count": 18, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/4, np.pi/4], "twist_angle": [0, np.pi / 3]},
-                          {"root_LE_coordinate": 2., "rotational_rate": 0, "blade_count": 10, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/4, np.pi/4], "twist_angle": [0, np.pi/8]}]
+    blading_parameters = [{"root_LE_coordinate": 0., "rotational_rate": 10, "blade_count": 18, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "twist_angle": [0, np.pi / 3]},
+                          {"root_LE_coordinate": 1., "rotational_rate": 0, "blade_count": 10, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "twist_angle": [0, np.pi/8]}]
     design_parameters = [[n2415_coeff, n2415_coeff],
                          [n2415_coeff, n2415_coeff]]
     
     starttime = time.time()
-    call_class = fileHandling.fileHandlingMTFLO(2, "test_case")
+    call_class = fileHandling.fileHandlingMTFLO(1, "test_case")
     call_class.GenerateMTFLOInput(blading_parameters, 
                                   design_parameters)
     endtime = time.time()
