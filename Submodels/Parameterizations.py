@@ -990,9 +990,6 @@ class AirfoilParameterization:
                                     "trailing_wedge_angle": optimized_coefficients.x[12],
                                     "trailing_camberline_angle": optimized_coefficients.x[13],
                                     "leading_edge_direction": optimized_coefficients.x[14]}
-        
-        if not optimized_coefficients.success:
-            print("WARNING - FindInitialParameterization() failed to successfully find a solution. Check output!")
 
         # Generate plots if requested
         if plot:

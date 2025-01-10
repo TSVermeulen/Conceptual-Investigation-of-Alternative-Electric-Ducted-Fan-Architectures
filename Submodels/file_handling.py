@@ -650,7 +650,7 @@ if __name__ == "__main__":
 
     # Perform test generation of walls.xxx file using dummy inputs
     # Creates a dummy duct with a naca 2415 profile for the centerbody and duct
-    n0012_coeff = {"b_0": 0.00000000e+00, "b_2": 8.34474565e-15, "b_8": 2.93840949e-02, "b_15": 1.07588784e+00, "b_17": 8.00000000e-01, 'x_t': 0.3054845647051532, 'y_t': 0.05994861771628527, 'x_c': 1.0000000004583935e-10, 'y_c': 2.1055700879663233e-32, 'z_TE': -2.3750854491940602e-33, 'dz_TE': 0.0011629728146654588, 'r_LE': -0.01519660103469959, 'trailing_wedge_angle': 0.13065256357287158, 'trailing_camberline_angle': 0.0, 'leading_edge_direction': 0.0}
+    n0012_coeff = {"b_0": 0., "b_2": 0., "b_8": 2.93840949e-02, "b_15": 1.07588784e+00, "b_17": 0, 'x_t': 0.3054845647051532, 'y_t': 0.05994861771628527, 'x_c': 0.5, 'y_c': 0, 'z_TE': -2.3750854491940602e-33, 'dz_TE': 0.0011629728146654588, 'r_LE': -0.01519660103469959, 'trailing_wedge_angle': 0.13065256357287158, 'trailing_camberline_angle': 0.0, 'leading_edge_direction': 0.0, "Chord Length": 1.0}
     n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017094989769520816, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 1.0}
     design_params = {"Duct Leading Edge Coordinates": (0, 2), "Duct Outer Diameter": 1.0}
 
