@@ -414,10 +414,9 @@ class fileHandling:
 
             for station in range(len(design_params)):
                 blade_geometry[station] = self.GetBladeParameters(design_params[station])
-    
                 thickness_profile_distributions[station] = blade_geometry[station]["thickness_data"] / np.cos(blading_params["twist_angle"][station])
                 thickness_data_points[station] = blade_geometry[station]["thickness_points"] 
-                camber_profile_distributions[station] = blade_geometry[station]["camber_data"] / np.cos(blading_params["twist_angle"][station])
+                camber_profile_distributions[station] = blade_geometry[station]["camber_data"] + blading_params["twist_angle"][station]
                 camber_data_points[station] = blade_geometry[station]["camber_points"]
                 
             # Construct the chord length distribution
@@ -531,6 +530,7 @@ class fileHandling:
 
                 # Loop over the number of stages and write the data for each stage
                 for stage in range(self.stage_count):
+                    
                     # First write the "generic" data for the stage
                     # This includes the number of blades, the rotational rate, and the data types to be provided
                     # Formatting is in-line with the user guide from the MTFLOW documentation
@@ -578,7 +578,7 @@ class fileHandling:
                     for i in range(n_points): 
                         # Create a section in the input file
                         file.write('SECTION\n')
-
+                        
                         # Compute chord length of blade at radial station from the provided interpolant
                         local_chord = blade_geometry["chord_distribution"](radial_points[i])
                         axial_coordinates = axial_points * local_chord
@@ -593,11 +593,11 @@ class fileHandling:
                         
                         # Compute the m' coordinate distribution. 
                         m_prime = np.zeros_like(r)
-                        for i in range(len(m_prime)):
-                            if i != 0:
+                        for j in range(len(m_prime)):
+                            if j != 0:
                                 # Initial coordinate m_prime[0] is arbitrary, and merely shifts the profile to the origin
                                 # Use trapezoidal integration to compute the m_prime coordinates
-                                m_prime[i] = m_prime[i - 1] + 2 / (r[i] + r[i - 1]) * np.sqrt((r[i] - r[i-1]) ** 2 + (axial_coordinates[i] - axial_coordinates[i - 1]) ** 2)
+                                m_prime[j] = m_prime[j - 1] + 2 / (r[j] + r[j - 1]) * np.sqrt((r[j] - r[j-1]) ** 2 + (axial_coordinates[j] - axial_coordinates[j - 1]) ** 2)
 
                         # Compute the blade slope distribution, defined as dtheta/dm'. Use a second order scheme at the domain edges for improved accuracy. 
                         blade_slope_distribution = np.gradient(theta, m_prime, edge_order=2)
@@ -662,7 +662,7 @@ if __name__ == "__main__":
 
     # Perform test generation of tflow.xxx file using dummy inputs
     # Creates an input file using 2 stages, a rotor and a stator
-    blading_parameters = [{"root_LE_coordinate": 0., "rotational_rate": 10, "blade_count": 18, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "twist_angle": [0, np.pi / 3]},
+    blading_parameters = [{"root_LE_coordinate": 0.3, "rotational_rate": 1, "blade_count": 18, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "twist_angle": [0, np.pi / 3]},
                           {"root_LE_coordinate": 1., "rotational_rate": 0, "blade_count": 10, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "twist_angle": [0, np.pi/8]}]
     design_parameters = [[n2415_coeff, n2415_coeff],
                          [n2415_coeff, n2415_coeff]]
