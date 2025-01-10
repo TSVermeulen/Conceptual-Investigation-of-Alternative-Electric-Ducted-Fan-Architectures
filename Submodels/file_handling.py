@@ -416,7 +416,7 @@ class fileHandling:
                 blade_geometry[station] = self.GetBladeParameters(design_params[station])
                 thickness_profile_distributions[station] = blade_geometry[station]["thickness_data"] / np.cos(blading_params["twist_angle"][station])
                 thickness_data_points[station] = blade_geometry[station]["thickness_points"] 
-                camber_profile_distributions[station] = blade_geometry[station]["camber_data"] + blading_params["twist_angle"][station]
+                camber_profile_distributions[station] = blade_geometry[station]["camber_data"] / np.cos(blading_params["twist_angle"][station])
                 camber_data_points[station] = blade_geometry[station]["camber_points"]
                 
             # Construct the chord length distribution
