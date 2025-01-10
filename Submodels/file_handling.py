@@ -617,11 +617,23 @@ class fileHandling:
                         # Thickness is denormalised using the local chord length
                         thickness_distribution = blade_geometry["thickness_distribution"]((radial_points[i], axial_points)) * local_chord   
 
+                        import time
+                        test_start = time.time_ns()
                         # Perform thickness distribution check. The thickness distribution at any point cannot be such that n_blades * T >= 2 * pi * r
                         thickness_value = thickness_distribution * blading_params[stage]["blade_count"]
-                        if max(thickness_value) >= 2 * np.pi * radial_points[i]:
+                        if (max(thickness_value)) >= 2 * np.pi * radial_points[i]:
                             raise ValueError(f"The cumulative blade thickness exceeds the complete blockage limit of 2PIr at r={radial_points[i]}")
                         
+                        test_end = time.time_ns()
+                        print(f"method 1 took {test_end - test_start}")
+
+                        test_start = time.time()
+                        
+                        thickness_limit = 2 * np.pi * radial_points[i] / blading_params[stage]["blade_count"]
+                        if max(thickness_distribution) >= thickness_limit:
+                            raise ValueError(f"The cumulative blade thickness exceeds the complete blockage limit of 2PIr at r={radial_points[i]}")
+                        test_end = time.time()
+                        print(f"method 21 took {test_end - test_start}")
 
                         # Compute the entropy distribution at the radial station from the provided interpolant
                         # Entropy is denormalised using the local chord length
