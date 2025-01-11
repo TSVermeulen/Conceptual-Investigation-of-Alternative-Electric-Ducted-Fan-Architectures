@@ -521,6 +521,32 @@ class AirfoilParameterization:
             lower_y = -thickness
 
         return upper_x, upper_y, lower_x, lower_y
+    
+
+    def GenerateBezierUVectors(self,
+                               ) -> tuple[np.ndarray[float], np.ndarray[float]]:
+        """
+        Create u-vectors for Bezier curve generation. Uses 100 points for the leading and trailing edges.
+
+        Returns
+        -------
+        u_leading_edge : np.ndarray[float]
+            Array of u-values for the leading edge Bezier curve.
+        u_trailing_edge : np.ndarray[float]
+            Array of u-values for the trailing edge Bezier curve.
+        """
+
+        # Create u-vectors for Bezier curve generation
+        # Use 100 points
+        n_points = 100
+        u_leading_edge = np.zeros(n_points)
+        u_trailing_edge = np.zeros(n_points)
+
+        for i in range(n_points):
+            u_leading_edge[i] = np.abs(1 - np.cos((i * np.pi) / (2 * (n_points - 1))))  # Space points using a cosine spacing for increased resolution at LE
+            u_trailing_edge[i] = np.abs(np.sin((i * np.pi) / (2 * (n_points - 1))))  # Space points using a sine spacing for increased resolution at TE
+
+        return u_leading_edge, u_trailing_edge
 
 
     def ComputeBezierCurves(self,
@@ -555,16 +581,9 @@ class AirfoilParameterization:
         b_8 = b_coeff[2]
         b_15 = b_coeff[3]
         b_17 = b_coeff[4]
-
-        # Create u-vectors for Bezier curve generation
-        # Use 100 points
-        n_points = 100
-        u_leading_edge = np.zeros(n_points)
-        u_trailing_edge = np.zeros(n_points)
-
-        for i in range(n_points):
-            u_leading_edge[i] = np.abs(1-np.cos((i*np.pi)/(2*(n_points-1))))  # Space points using a cosine spacing for increased resolution at LE
-            u_trailing_edge[i] = np.abs(np.sin((i*np.pi)/(2*(n_points-1))))  # Space points using a sine spacing for increased resolution at TE
+        
+        # Create Bezier U-vectors
+        u_leading_edge, u_trailing_edge = self.GenerateBezierUVectors()
 
         # Calculate the Bezier curve coefficients for the thickness curves
         x_LE_thickness_coeff, y_LE_thickness_coeff, x_TE_thickness_coeff, y_TE_thickness_coeff = self.GetThicknessControlPoints(b_8, 
@@ -770,15 +789,8 @@ class AirfoilParameterization:
             b_17 = b_coeff[4]  
 
             # Create u-vectors for Bezier curve generation
-            # Use 100 points
-            n_points = 100
-            u_leading_edge = np.zeros(n_points)
-            u_trailing_edge = np.zeros(n_points)
-
-            for i in range(n_points):
-                u_leading_edge[i] = np.abs(1-np.cos((i*np.pi)/(2*(n_points-1))))  # Space points using a cosine spacing for increased resolution at LE
-                u_trailing_edge[i] = np.abs(np.sin((i*np.pi)/(2*(n_points-1))))  # Space points using a sine spacing for increased resolution at TE
-
+            u_leading_edge, u_trailing_edge = self.GenerateBezierUVectors()
+            
             # Calculate the Bezier curve coefficients for the thickness curves
             x_LE_thickness_coeff, y_LE_thickness_coeff, x_TE_thickness_coeff, y_TE_thickness_coeff = self.GetThicknessControlPoints(b_8, 
                                                                                                                                     b_15,
