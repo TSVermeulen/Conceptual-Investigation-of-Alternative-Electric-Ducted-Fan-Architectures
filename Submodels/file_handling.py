@@ -66,7 +66,7 @@ Ensure that the input dictionaries are correctly formatted. For details on the s
 different method docstrings.
 
 When executing the file as a standalone, it uses the inputs and calls contained within the if __name__ == "__main__" section. 
-This part also imports the time module to measure the time needed to perform each file generation call. This is benificial in runtime optimization.
+This part also imports the time module to measure the time needed to perform each file generation call. This is beneficial in runtime optimization.
 The current code should execute: 
 - GenerateMTSETInput(): ~0.01 seconds
 - GenerateMTFLOInput(): ~0.015-0.02 seconds
@@ -95,6 +95,7 @@ import numpy as np
 from scipy import interpolate
 from Parameterizations import AirfoilParameterization
 from typing import Any
+from pathlib import Path
 
 class fileHandling:
     """
@@ -117,7 +118,11 @@ class fileHandling:
 
     class fileHandlingMTSET:
         """
+        Class for handling the generation of the MTSET input file (walls.xxx).
         
+        This class provides methods to generate the input file containing the axisymmetric 
+        bodies present within the domain. It handles the calculation of grid sizes and 
+        profile coordinates for both the center body and duct.
         """
 
         def __init__(self, *args: Any) -> None:
@@ -162,7 +167,10 @@ class fileHandling:
 
             # Calculate Y-domain boundaries based on ducted fan design parameters. 
             # Y_bottom is always 0 as it is the symmetry line
-            Y_TOP = 1.5 * self.ducted_fan_design_params["Duct Outer Diameter"]
+            if self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0] == 0:
+                Y_TOP = 1
+            else:
+                Y_TOP = 1.5 * self.ducted_fan_design_params["Duct Leading Edge Coordinates"][1]
             Y_BOT = 0
 
             # Calculate X-domain boundaries based on ducted fan design parameters.
@@ -266,8 +274,8 @@ class fileHandling:
                                                  self.ducted_fan_design_params["Duct Leading Edge Coordinates"])
             
             # Generate walls.xxx input data structure
-            file_name = "walls." + self.case_name
-            with open(file_name, "w") as file:
+            file_path = Path(f"walls.{self.case_name}")
+            with file_path.open("w") as file:
                 # Write opening lines of the file
                 file.write(self.case_name + '\n')
                 file.write('    '.join(map(str, domain_boundaries)) + '\n')
@@ -525,9 +533,8 @@ class fileHandling:
             """
 
             # Open the tflow.xxx file and start writing the required input data to it
-            filename = "tflow." + self.case_name
-
-            with open(filename, "w") as file:
+            file_path = Path(f"tflow.{self.case_name}")
+            with file_path.open("w") as file:
                 # Write the case name to the file
                 file.write('NAME\n')
                 file.write(self.case_name + '\n')
@@ -607,14 +614,6 @@ class fileHandling:
                         # Compute the blade slope distribution, defined as dtheta/dm'. Use a second order scheme at the domain edges for improved accuracy. 
                         blade_slope_distribution = np.gradient(theta, m_prime, edge_order=2)
 
-                        # import matplotlib.pyplot as plt
-                        # plt.plot(m_prime, blade_slope_distribution, label="$d\\theta / dm'$")
-                        # plt.plot(m_prime, theta, label='$\\theta$', linestyle='-.')
-                        # plt.legend()
-                        # plt.xlabel("m'")
-                        # plt.ylabel("Geometric Blade Slope and Circumferential Angle $\\theta$")
-                        # plt.show()
-
                         # Compute the local sweep (i.e. LE offset) at the radial station from the provided interpolant
                         sweep = blade_geometry["sweep_distribution"](radial_points[i]) 
 
@@ -661,7 +660,7 @@ if __name__ == "__main__":
     # Creates a dummy duct with a naca 2415 profile for the centerbody and duct
     n0015_coeff = {"b_0": 0., "b_2": 0., "b_8": 2.63935800e-02, "b_15": 7.62111322e-01, "b_17": 0, 'x_t': 0.2855061027842137, 'y_t': 0.07513718500645125, 'x_c': 0.5, 'y_c': 0, 'z_TE': -2.3750854491940602e-33, 'dz_TE': 0.0019396795056937765, 'r_LE': -0.01634872585955984, 'trailing_wedge_angle': 0.15684435833921387, 'trailing_camberline_angle': 0.0, 'leading_edge_direction': 0.0, "Chord Length": 2}
     n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017094989769520816, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 1.5}
-    design_params = {"Duct Leading Edge Coordinates": (0, 2), "Duct Outer Diameter": 2.5}
+    design_params = {"Duct Leading Edge Coordinates": (0, 2)}
 
     starttime = time.time()
     call_class = fileHandling()

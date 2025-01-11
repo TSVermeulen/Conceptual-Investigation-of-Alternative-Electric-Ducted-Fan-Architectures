@@ -100,6 +100,7 @@ class AirfoilParameterization:
 
         # Define the minimum camber level which triggers handling the airfoil profile as being symmetric
         # This is needed to avoid issues with 1 / tan(0) calculations in the computation of the camber coefficients.
+        # A limit of 1E -3 is small enough to avoid filtering profiles with minor camber, but large enough to ensure numerical stability. 
         self.symmetric_limit = 1E-3
         
 
