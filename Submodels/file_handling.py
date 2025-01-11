@@ -94,13 +94,14 @@ Changelog:
 import numpy as np
 from scipy import interpolate
 from Parameterizations import AirfoilParameterization
+from typing import Any
 
 class fileHandling:
     """
     This class contains all methods needed to generate the required input files walls.xxx and tflow.xxx for an MTFLOW analysis. 
     """
 
-    def __init__(self, *args) -> None:
+    def __init__(self, *args: Any) -> None:
         """
         Initialize the fileHandling class.
         
@@ -114,12 +115,12 @@ class fileHandling:
         """
 
 
-    class fileHandlingMTSET():
+    class fileHandlingMTSET:
         """
         
         """
 
-        def __init__(self, *args) -> None:
+        def __init__(self, *args: Any) -> None:
             """
             Initialize the fileHandlingMTSET class.
         
@@ -141,7 +142,7 @@ class fileHandling:
             self.case_name: str = case_name
                         
 
-        def GetGridSize(self):
+        def GetGridSize(self) -> list[float, float, float, float]:
             """
             Determine grid size - x & y coordinates of grid boundary. 
             Ideally find some way to automatically determine suitable values for YTOP and XFRONT/REAR based on operating condition
@@ -231,7 +232,7 @@ class fileHandling:
             lower_x_sorted = np.all((np.diff(lower_x) >= 0)[1:])
 
             if not upper_x_sorted:
-                raise ValueError(f"Upper x-coordinates are not sorted. This indicates an error in the profile generation!")
+                raise ValueError("Upper x-coordinates are not sorted. This indicates an error in the profile generation!")
             if not lower_x_sorted:
                 raise ValueError("Lower x-coordinates are not sorted. This indicates an error in the profile generation!")
             
@@ -282,12 +283,10 @@ class fileHandling:
                 for row in xy_duct:
                     file.write('    '.join(map(str, row)) + '\n')
 
-            return None
-
 
     class fileHandlingMTFLO:
 
-        def __init__(self, *args) -> None:
+        def __init__(self, *args: Any) -> None:
             """
             Initialize the fileHandlingMTFLO class.
 
@@ -652,8 +651,6 @@ class fileHandling:
                     file.write('\nEND\n \n')
                 # End the input file
                 file.write('END\n')
-                        
-            return None
 
 
 if __name__ == "__main__":

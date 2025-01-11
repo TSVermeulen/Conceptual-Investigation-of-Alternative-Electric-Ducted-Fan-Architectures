@@ -310,8 +310,8 @@ class AirfoilParameterization:
         trailing_wedge_angle = np.atan(-1 * self.thickness_gradient_distribution[-1])  # Multiply gradient by -1 to comply with sign convention
         trailing_camberline_angle = np.atan(-1 * self.camber_gradient_distribution[-1])  # Multiply gradient by -1 to comply with sign convention
 
-        # Construct output dictionary
-        output = {
+        # Return output dictionary
+        return {
             "x_t": x_t,
             "y_t": y_t,
             "x_c": x_c,
@@ -323,8 +323,6 @@ class AirfoilParameterization:
             "trailing_wedge_angle": trailing_wedge_angle,
             "trailing_camberline_angle": trailing_camberline_angle,
         }
-
-        return output
 
 
     def GetThicknessControlPoints(self,
@@ -944,7 +942,7 @@ class AirfoilParameterization:
 
             return
 
-        def GetBounds(x):
+        def GetBounds(x: list[float]) -> optimize.Bounds:
             """
             Get the bounds for the optimization problem.
 
