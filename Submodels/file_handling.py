@@ -67,9 +67,6 @@ different method docstrings.
 
 When executing the file as a standalone, it uses the inputs and calls contained within the if __name__ == "__main__" section. 
 This part also imports the time module to measure the time needed to perform each file generation call. This is beneficial in runtime optimization.
-The current code should execute: 
-- GenerateMTSETInput(): ~0.01 seconds
-- GenerateMTFLOInput(): ~0.015-0.02 seconds
 
 References
 ----------
@@ -311,6 +308,19 @@ class fileHandling:
             self.case_name: str = case_name
 
 
+        def ValidateBladeThickness(self, 
+                                   local_thickness: float, 
+                                   local_radius: float, 
+                                   blade_count: int) -> None:
+            """
+            Validate that blade thickness doesn't exceed the complete blockage limit.
+            """
+
+            thickness_limit = 2 * np.pi * local_radius / blade_count
+            if local_thickness >= thickness_limit:
+                raise ValueError(f"The cumulative blade thickness exceeds the complete blockage limit of 2PIr at r={local_radius}")
+
+
         def GetBladeParameters(self, 
                                design_params: dict,
                                ) -> dict:
@@ -360,7 +370,7 @@ class fileHandling:
             
             # Calculate the thickness and blade slope distributions along the blade profiles. 
             # All parameters are nondimensionalized by the chord length
-            thickness_distr, thickness_data_points, camber_distr, camber_data_points = profileParameterizationClass.GetBladeParameters(b_coeff,
+            thickness_distr, thickness_data_points, camber_distr, camber_data_points = profileParameterizationClass.ComputeBezierCurves(b_coeff,
                                                                                                                                        parameterization,
                                                                                                                                        )
 
@@ -374,6 +384,7 @@ class fileHandling:
                               }
             
             return blade_geometry
+
 
         def ConstructBlades(self,
                             blading_params: dict,
@@ -622,11 +633,8 @@ class fileHandling:
                         # Run check to ensure circumferential thickness does NOT exceed the limit of complete blockage.
                         # If limit is exceeded, raises value error with radial point at which thickness was exceeded. 
                         thickness_distribution = blade_geometry["thickness_distribution"]((radial_points[i], axial_points)) * local_chord   
-
-                        thickness_limit = 2 * np.pi * radial_points[i] / blading_params[stage]["blade_count"]
-                        if max(thickness_distribution) >= thickness_limit:
-                            raise ValueError(f"The cumulative blade thickness exceeds the complete blockage limit of 2PIr at r={radial_points[i]}")
-
+                        self.ValidateBladeThickness(max(thickness_distribution), radial_points[i], blading_params[stage]["blade_count"])
+                           
                         # Compute the entropy distribution at the radial station from the provided interpolant
                         # Entropy is denormalised using the local chord length
                         entropy_distribution = blade_geometry["entropy_distribution"]((radial_points[i], axial_points)) * local_chord
