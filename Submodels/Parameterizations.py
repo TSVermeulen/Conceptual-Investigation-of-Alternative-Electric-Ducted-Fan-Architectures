@@ -526,7 +526,7 @@ class AirfoilParameterization:
     def ComputeBezierCurves(self,
                             b_coeff: np.ndarray[float],
                             airfoil_params: dict,
-                            ):
+                            ) -> tuple[np.ndarray[float], np.ndarray[float], np.ndarray[float], np.ndarray[float]]:
         """ 
         Calculate the thickness and camber Bezier distributions.
 
