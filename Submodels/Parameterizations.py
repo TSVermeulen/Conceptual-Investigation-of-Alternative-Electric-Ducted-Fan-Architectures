@@ -1,19 +1,57 @@
 """
+Parameterizations
+=================
 
-This module provides a class for airfoil parameterization using Bezier curves.
-Contains full parameterization, including least-squares estimation of the leading edge radius, and airfoil angles. 
+Description
+-----------
+This module provides methods for calculating the profile coordinates (x,y) 
+based on a Bezier-Parsec (BP) 3434 parameterization. It includes methods for 
+calculating the leading edge and trailing edge thickness and camber distributions, 
+obtaining reference thickness and camber distributions from a reference airfoil shape, 
+and extracting key parameters from these distributions. 
 
-@author: T.S. Vermeulen
-@email: thomas0708.vermeulen@gmail.com / T.S.Vermeulen@student.tudelft.nl
-@version: 1.1
+Additionally, a non-linear least-squares minimization method is included to obtain the parameterization 
+for a given input coordinate file. 
+
+Classes
+-------
+AirfoilParameterization
+    A class to calculate airfoil parameterizations using Bezier curves. This module provides a class for airfoil 
+    parameterization using Bezier curves. Contains full parameterization, including least-squares estimation. 
+
+Examples
+--------
+>>> inputFile = r'Test Airfoils\n0015.dat'
+>>> call_class = AirfoilParameterization()
+>>> coefficients = call_class.FindInitialParameterization(inputfile,
+                                                          plot=True)
+
+Notes
+-----
+The generation of a BP3434 parameterization from a reference airfoil is prone to errors/invalid parameterizations. 
+It is important to (visually) check the obtained parameterization, and to confirm the control points fall within 0 <= x/c <= 1. 
+
+When executing the file as a standalone, obtaining the initial parameterization will take anywhere between 30 second to a minute, 
+depending on the closeness of the initial guess. 
+
+References
+----------
+The BP 3434 parameterization is documented in https://www.sciencedirect.com/science/article/abs/pii/S0965997810000529.
+The derivation of the method, including reasoning for each of the bounds/inputs, is included in the PhD Thesis of Tim Rogalsky:
+"Acceleration of Differential Evolution for Aerodynamic Design", dated March 2004
+
+Versioning
+----------
+Author: T.S. Vermeulen
+Email: T.S.Vermeulen@student.tudelft.nl
+Student ID 4995309
+Version: 1.1
 
 Changelog:
 - V1.1: Updated with comments from coderabbitAI. 
 - V1.0: Adapted version of a parameterization using only the bezier coefficients to give an improved fit to the reference data. 
-
+- V1.1: Updated docstring, and working implementation for symmetric profiles (i.e. zero camber)
 """
-
-
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -165,7 +203,7 @@ class AirfoilParameterization:
         # Load in the reference profile shape from the reference_file. 
         # Assumes coordinates are sorted counter clockwise from TE of the Upper
         # surface.
-        # Final assumption: profile shape must be provided in input file with unit chord length
+        # Profile shape must be provided in input file with unit chord length
         # Skips the first row of the profile file as it contains the profile name
         try:
             reference_coordinates = np.genfromtxt(reference_file, dtype=float, skip_header=1)
@@ -491,9 +529,25 @@ class AirfoilParameterization:
                                   airfoil_params: dict,
                                   ) -> tuple[np.ndarray[float], np.ndarray[float], np.ndarray[float], np.ndarray[float]]:
         """
-        
         Calculate the airfoil coordinates from the Bezier control points.
-        
+
+        Parameters
+        ----------
+        b_coeff : np.ndarray[float]
+            Array of Bezier control points.
+        airfoil_params : dict
+            Dictionary containing airfoil parameters.
+
+        Returns
+        -------
+        upper_x : np.ndarray[float]
+            Array of x-coordinates for the upper surface of the airfoil.
+        upper_y : np.ndarray[float]
+            Array of y-coordinates for the upper surface of the airfoil.
+        lower_x : np.ndarray[float]
+            Array of x-coordinates for the lower surface of the airfoil.
+        lower_y : np.ndarray[float]
+            Array of y-coordinates for the lower surface of the airfoil.
         """
 
         # Extract the bezier coefficients from the input array
@@ -579,7 +633,7 @@ class AirfoilParameterization:
     def GetBladeParameters(self,
                            b_coeff: np.ndarray[float],
                            airfoil_params: dict,
-                           ) -> tuple[float, float]:
+                           ) -> tuple[float, float, float, float]:
         """
         
         Obtain the fan blade parameters from the Bezier control points. Works for both rotor and stator blades. 
@@ -684,7 +738,7 @@ class AirfoilParameterization:
 
     def FindInitialParameterization(self, 
                                     reference_file: str,
-                                    plot: bool = False) -> tuple[float, float, float, float, float, float, float, float, float]:
+                                    plot: bool = False) -> tuple[np.ndarray, dict]:
         """
         Find the initial parameterization for the profile.
 
@@ -822,7 +876,7 @@ class AirfoilParameterization:
                                                 axis = 0)  # Construct complete array of x-coordinates over length of profile  
 
             # Calculate the camber distributions only if the camber is nonzero
-            if airfoil_params["y_c"] >= 1E-3:
+            if airfoil_params["y_c"] >= self.symmetric_limit:
                 # Calculate the Bezier curve coefficients for the camber curves
                 x_LE_camber_coeff, y_LE_camber_coeff, x_TE_camber_coeff, y_TE_camber_coeff = self.GetCamberControlPoints(b_0,
                                                                                                                         b_2,
@@ -868,7 +922,7 @@ class AirfoilParameterization:
             plt.ylabel("y_t/c [-]")
             plt.legend()
 
-            if airfoil_params["y_c"] >= 1E-3:
+            if airfoil_params["y_c"] >= self.symmetric_limit:
                 plt.figure("Camber Distributions")
                 plt.plot(x_LE_camber, y_LE_camber, label="LeadingEdgeCamber")
                 plt.plot(x_TE_camber, y_TE_camber, label="TrailingEdgeCamber")

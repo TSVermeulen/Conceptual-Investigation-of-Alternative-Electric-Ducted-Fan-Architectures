@@ -1,6 +1,6 @@
 """
 file_handling
-============
+=============
 
 Description
 -----------
@@ -82,9 +82,9 @@ https://web.mit.edu/drela/Public/web/mtflow/mtflow.pdf
 
 Versioning
 ------
-T.S. Vermeulen
-T.S.Vermeulen@student.tudelft.nl
-Student ID 4995309
+Author: T.S. Vermeulen
+Email: T.S.Vermeulen@student.tudelft.nl
+Student ID: 4995309
 Version: 1.0
 
 Changelog:
@@ -97,10 +97,10 @@ from Parameterizations import AirfoilParameterization
 
 class fileHandling:
     """
-    
+    This class contains all methods needed to generate the required input files walls.xxx and tflow.xxx for an MTFLOW analysis. 
     """
 
-    def __init__(self, *args,) -> None:
+    def __init__(self, *args) -> None:
         """
         Initialize the fileHandling class.
         
@@ -112,14 +112,14 @@ class fileHandling:
         -------
         None
         """
-        
 
-    class fileHandlingMTSET:
+
+    class fileHandlingMTSET():
         """
         
         """
 
-        def __init__(self, *args,) -> None:
+        def __init__(self, *args) -> None:
             """
             Initialize the fileHandlingMTSET class.
         
@@ -667,8 +667,9 @@ if __name__ == "__main__":
     design_params = {"Duct Leading Edge Coordinates": (0, 2), "Duct Outer Diameter": 2.5}
 
     starttime = time.time()
-    call_class = fileHandling.fileHandlingMTSET(n0015_coeff, n2415_coeff, design_params, "test_case")
-    call_class.GenerateMTSETInput()
+    call_class = fileHandling()
+    call_class_MTSET = call_class.fileHandlingMTSET(n0015_coeff, n2415_coeff, design_params, "test_case")
+    call_class_MTSET.GenerateMTSETInput()
     endtime = time.time()
     print("Execution of GenerateMTSETInput() took", endtime - starttime, "seconds")
 
@@ -680,8 +681,8 @@ if __name__ == "__main__":
                          [n2415_coeff, n2415_coeff]]
     
     starttime = time.time()
-    call_class = fileHandling.fileHandlingMTFLO(1, "test_case")
-    call_class.GenerateMTFLOInput(blading_parameters, 
+    call_class_MTFLO = call_class.fileHandlingMTFLO(1, "test_case")
+    call_class_MTFLO.GenerateMTFLOInput(blading_parameters, 
                                   design_parameters)
     endtime = time.time()
     print("Execution of GenerateMTFLOInput() took", endtime - starttime, "seconds")
