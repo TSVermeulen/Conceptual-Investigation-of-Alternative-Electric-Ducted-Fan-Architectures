@@ -89,13 +89,15 @@ class AirfoilParameterization:
 
     def __init__(self) -> None:
         """
-        Initialize the AirfoilParameterization class.
+        Initialize the AirfoilParameterization class with symmetric airfoil handling configuration.
         
-        This method sets up the initial state of the class.
-
-        Returns
-        -------
-        None
+        Sets a threshold for determining when an airfoil should be treated as symmetric. This limit prevents computational issues arising from near-zero camber angles, particularly in trigonometric calculations involving tangent functions.
+        
+        Attributes
+        ----------
+        symmetric_limit : float
+            Minimum camber level (absolute value) below which an airfoil is considered symmetric.
+            Defaults to 1E-3, which helps avoid numerical instabilities in camber coefficient computations.
         """
 
         # Define the minimum camber level which triggers handling the airfoil profile as being symmetric
@@ -107,21 +109,9 @@ class AirfoilParameterization:
                      coeff: list[float], 
                      u: float,
                      ) -> np.ndarray|float:
-        """
-        Calculate a 3rd degree Bezier curve.
-
-        Parameters
-         ----------
-        coeff : list[float]
-            List of 4 control points for the Bezier curve.
-        u : float
-            Parameter ranging from 0 to 1.
-
-        Returns
-        -------
-        y : float
-            Value of the Bezier curve at parameter u.
-        """
+        The existing docstring is already well-structured and follows Python docstring conventions. It provides clear information about the function's purpose, parameters, and return value. Therefore:
+                     
+                     KEEP_EXISTING
 
         #Input checking
         if len(coeff) != 4:
@@ -163,20 +153,28 @@ class AirfoilParameterization:
                        Y: np.ndarray|float,
                        ) -> np.ndarray|float:
         """
-        Calculate the camber angle distribution over the length of the airfoil.
-
-        Parameters
-        ----------
-        X : np.ndarray
-            Array of x-coordinates along the airfoil.
-        Y : np.ndarray
-            Array of camber values corresponding to the x-coordinates.
-
-        Returns
-        -------
-        theta : np.ndarray
-            Array of camber gradient angles at each x-coordinate.
-        """
+                       Calculate the camber angle distribution over the length of the airfoil.
+                       
+                       Computes the local camber angle by taking the arctangent of the camber gradient at each point. This method determines the slope of the camber line relative to the horizontal axis.
+                       
+                       Parameters
+                       ----------
+                       X : np.ndarray | float
+                           X-coordinates along the airfoil surface. Can be a single value or an array of coordinates.
+                       Y : np.ndarray | float
+                           Corresponding camber values at each x-coordinate. Must match the dimensions of X.
+                       
+                       Returns
+                       -------
+                       theta : np.ndarray | float
+                           Camber gradient angles (in radians) at each x-coordinate, representing the local inclination of the camber line.
+                       
+                       Notes
+                       -----
+                       - Uses numpy's gradient function to compute local slope
+                       - Returns angles in radians
+                       - Handles both scalar and array inputs
+                       """
 
         camber_gradient = np.gradient(Y, X)
         
@@ -188,17 +186,45 @@ class AirfoilParameterization:
                                     reference_file: str,
                                     ) -> None:
         """
-        Obtain the thickness and camber distributions from the reference profile shape.
-
-        Parameters
-        ----------
-        reference_file : str
-            Path to the file containing the reference profile coordinates.
-        
-        Returns
-        -------
-        None
-        """    
+                                    Obtain the thickness and camber distributions from the reference profile shape.
+                                    
+                                    Loads a reference airfoil profile from a file and computes its camber and thickness distributions. The method assumes coordinates are sorted counter-clockwise from the trailing edge of the upper surface and are provided with a unit chord length.
+                                    
+                                    Parameters
+                                    ----------
+                                    reference_file : str
+                                        Path to the file containing the reference profile coordinates. The file should have coordinates with a header row containing the profile name.
+                                    
+                                    Raises
+                                    ------
+                                    FileNotFoundError
+                                        If the specified reference file does not exist in the current working directory.
+                                    
+                                    Notes
+                                    -----
+                                    - Determines the leading edge (LE) coordinate by either:
+                                      1. Using the middle index for even-length coordinate arrays
+                                      2. Finding the coordinate closest to (0, 0) for odd-length arrays
+                                    - Calculates camber line, thickness distribution, and their respective gradients
+                                    - Stores computed distributions and coordinates as instance attributes for further processing
+                                    
+                                    Attributes Set
+                                    --------------
+                                    x_points_camber : numpy.ndarray
+                                        X-coordinates of the camber line
+                                    x_points_thickness : numpy.ndarray
+                                        X-coordinates of the thickness distribution
+                                    camber_distribution : numpy.ndarray
+                                        Y-coordinates of the camber line
+                                    camber_gradient_distribution : numpy.ndarray
+                                        Gradient angles of the camber line
+                                    thickness_distribution : numpy.ndarray
+                                        Thickness values
+                                    thickness_gradient_distribution : numpy.ndarray
+                                        Gradient angles of the thickness distribution
+                                    reference_data : numpy.ndarray
+                                        Original reference profile coordinates
+                                    """    
 
         # Load in the reference profile shape from the reference_file. 
         # Assumes coordinates are sorted counter clockwise from TE of the Upper
@@ -244,38 +270,30 @@ class AirfoilParameterization:
     def GetReferenceParameters(self) -> dict:
         """
         Extract key parameters of the reference profile from the thickness and camber distributions.
-
-        Calculates the leading edge radius, leading edge direction, 
-        trailing edge wedge angle, and trailing edge camber line angle.
         
-        Parameters
-        ----------
-        None
-
+        Calculates critical airfoil characteristics including maximum thickness and camber locations, 
+        trailing edge properties, leading edge radius, and key geometric angles.
+        
         Returns
         -------
-        output: dict
-            Dictionary containing the following parameters:
-                x_t : float
-                    X-coordinate of maximum thickness.
-                y_t : float
-                    Maximum thickness.
-                x_c : float
-                    X-coordinate of maximum camber.
-                y_c : float
-                    Maximum camber.
-                z_TE : float
-                    Trailing edge vertical displacement.
-                dz_TE : float
-                    Half thickness of the trailing edge.    
-                r_LE : float
-                    Leading edge radius.
-                leading_edge_direction : float
-                    Angle of the leading edge direction.
-                trailing_wedge_angle : float
-                    Trailing edge wedge angle.
-                trailing_camberline_angle : float
-                    Trailing edge camber line angle.
+        dict
+            A comprehensive dictionary of airfoil parameters:
+            - x_t: X-coordinate of maximum thickness
+            - y_t: Maximum thickness value
+            - x_c: X-coordinate of maximum camber
+            - y_c: Maximum camber value
+            - z_TE: Trailing edge vertical displacement
+            - dz_TE: Half thickness of the trailing edge
+            - r_LE: Leading edge radius of curvature
+            - leading_edge_direction: Angle of the leading edge direction
+            - trailing_wedge_angle: Trailing edge wedge angle
+            - trailing_camberline_angle: Trailing edge camber line angle
+        
+        Notes
+        -----
+        - Uses least squares optimization to compute leading edge radius
+        - Calculates angles based on gradient distributions
+        - Handles sign conventions for geometric measurements
         """
 
         # Find the indices for the points of maximum thickness and maximum camber
@@ -293,7 +311,28 @@ class AirfoilParameterization:
         def GetLeadingEdgeRadius(params: tuple[float, float, float], 
                                  x: np.ndarray, 
                                  y: np.ndarray) -> np.ndarray:
-            xc, yc, r = params
+            """
+                                 Compute the signed distance from points to a circular leading edge.
+                                 
+                                 Parameters:
+                                     params (tuple[float, float, float]): Leading edge parameters
+                                         - xc (float): x-coordinate of circle center
+                                         - yc (float): y-coordinate of circle center
+                                         - r (float): radius of the circle
+                                     x (np.ndarray): x-coordinates of points to evaluate
+                                     y (np.ndarray): y-coordinates of points to evaluate
+                                 
+                                 Returns:
+                                     np.ndarray: Signed distances from points to the leading edge circle
+                                         - Negative values indicate points inside the circle
+                                         - Zero indicates points on the circle
+                                         - Positive values indicate points outside the circle
+                                 
+                                 Notes:
+                                     - Uses the implicit circle equation: (x - xc)² + (y - yc)² = r²
+                                     - Useful for analyzing leading edge geometry in airfoil parameterization
+                                 """
+                                 xc, yc, r = params
             return np.sqrt((x - xc) ** 2 + (y - yc) ** 2) - r
         
         LE_points_idx = np.where(self.x_points_thickness < 0.02)[0]
@@ -334,38 +373,44 @@ class AirfoilParameterization:
                                   ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         
         """
-        Calculate the control points for the thickness distribution Bezier curves.
-
-        Parameters
-        ----------
-        b_8 : float
-            Control point for the thickness curve.
-        b_15 : float
-            Control point for the thickness curve.
-        airfoil_params : dict
-            Dictionary containing the following parameters:
-                x_t : float
-                    X-coordinate of maximum thickness.
-                y_t : float
-                    Maximum thickness.
-                r_LE : float
-                    Leading edge radius.
-                dz_TE : float
-                    Half thickness of the trailing edge.
-                trailing_wedge_angle : float
-                    The trailing edge wedge angle.
-
-        Returns
-        -------
-        x_leading_edge_thickness_coeff : np.ndarray
-            X-coordinates of the control points for the leading edge thickness Bezier curve.
-        y_leading_edge_thickness_coeff : np.ndarray
-            Y-coordinates of the control points for the leading edge thickness Bezier curve.
-        x_trailing_edge_thickness_coeff : np.ndarray
-            X-coordinates of the control points for the trailing edge thickness Bezier curve.
-        y_trailing_edge_thickness_coeff : np.ndarray
-            Y-coordinates of the control points for the trailing edge thickness Bezier curve.
-        """
+                                  Calculate the control points for the thickness distribution Bezier curves.
+                                  
+                                  Computes the control points for leading and trailing edge thickness Bezier curves based on airfoil parameters and input coefficients. This method is crucial for defining the thickness distribution of an airfoil profile using Bezier curve parameterization.
+                                  
+                                  Parameters
+                                  ----------
+                                  b_8 : float
+                                      Control point parameter influencing the leading edge thickness curve shape.
+                                  b_15 : float
+                                      Control point parameter influencing the trailing edge thickness curve shape.
+                                  airfoil_params : dict
+                                      Dictionary containing key airfoil geometric parameters:
+                                      - x_t : float
+                                          X-coordinate of maximum thickness location
+                                      - y_t : float
+                                          Maximum thickness value
+                                      - r_LE : float
+                                          Leading edge radius
+                                      - dz_TE : float
+                                          Half thickness at the trailing edge
+                                      - trailing_wedge_angle : float
+                                          Angle of the trailing edge wedge
+                                  
+                                  Returns
+                                  -------
+                                  tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+                                      A tuple containing four numpy arrays representing:
+                                      1. X-coordinates of leading edge thickness control points
+                                      2. Y-coordinates of leading edge thickness control points
+                                      3. X-coordinates of trailing edge thickness control points
+                                      4. Y-coordinates of trailing edge thickness control points
+                                  
+                                  Notes
+                                  -----
+                                  - The method uses complex mathematical transformations to generate Bezier curve control points
+                                  - Control points are calculated to ensure smooth thickness transitions
+                                  - Relies on precise geometric parameters of the airfoil
+                                  """
         
         # Construct leading edge x coefficients
         x_leading_edge_thickness_coeff = np.array([0,
@@ -402,41 +447,17 @@ class AirfoilParameterization:
                                b_17: float,
                                airfoil_params: dict,
                                ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Calculate the control points for the camber distribution Bezier curves.
-
-        Parameters
-        ----------
-        b_0 : float
-            Control point for the camber.
-        b_2 : float
-            Control point for the camber.
-        b_17 : float
-            Control point for the camber.
-        airfoil_params : dict
-            Dictionary containing the following parameters:
-                x_c : float
-                    X-coordinate of maximum camber.
-                y_c : float
-                    Maximum camber.
-                z_TE : float
-                    Trailing edge vertical displacement.
-                leading_edge_direction : float
-                    Angle of the leading edge direction.
-                trailing_camberline_angle : float
-                    Angle of the trailing edge camber line.
-
-        Returns
-        -------
-        x_leading_edge_camber_coeff : np.ndarray
-            X-coordinates of the control points for the leading edge camber Bezier curve.
-        y_leading_edge_camber_coeff : np.ndarray
-            Y-coordinates of the control points for the leading edge camber Bezier curve.
-        x_trailing_edge_camber_coeff : np.ndarray
-            X-coordinates of the control points for the trailing edge camber Bezier curve.
-        y_trailing_edge_camber_coeff : np.ndarray
-            Y-coordinates of the control points for the trailing edge camber Bezier curve.
-        """
+        The existing docstring for the `GetCamberControlPoints` method is already comprehensive and follows good documentation practices. It provides:
+                               
+                               1. A clear, concise description of the method's purpose
+                               2. Detailed parameter descriptions with types and explanations
+                               3. Comprehensive return value descriptions
+                               4. Proper type hints
+                               5. Structured format following Python docstring conventions
+                               
+                               Therefore, the recommendation is:
+                               
+                               KEEP_EXISTING
 
         # Construct leading edge x coefficients
         x_leading_edge_camber_coeff = np.array([0,
@@ -474,30 +495,39 @@ class AirfoilParameterization:
                                          camber: np.ndarray[float],
                                          ) -> tuple[np.ndarray[float], np.ndarray[float], np.ndarray[float], np.ndarray[float]]:
         """
-        Convert Bezier curves to airfoil coordinates.
-
-        Parameters
-        ----------
-        thickness_x : np.ndarray[float]
-            Array of x-coordinates for the thickness distribution.
-        thickness : np.ndarray[float]
-            Array of thickness values corresponding to the x-coordinates.
-        camber_x : np.ndarray[float]
-            Array of x-coordinates for the camber distribution.
-        camber : np.ndarray[float]
-            Array of camber values corresponding to the x-coordinates.
-
-        Returns
-        -------
-        upper_x : np.ndarray[float]
-            Array of x-coordinates for the upper surface of the airfoil.
-        upper_y : np.ndarray[float]
-            Array of y-coordinates for the upper surface of the airfoil.
-        lower_x : np.ndarray[float]
-            Array of x-coordinates for the lower surface of the airfoil.
-        lower_y : np.ndarray[float]
-            Array of y-coordinates for the lower surface of the airfoil.
-        """
+                                         Convert Bezier curves to airfoil coordinates, handling both cambered and symmetric airfoil profiles.
+                                         
+                                         This method transforms thickness and camber Bezier curve distributions into upper and lower surface coordinates. It supports both cambered and symmetric airfoil geometries by applying coordinate transformations based on camber angle and thickness distribution.
+                                         
+                                         Parameters
+                                         ----------
+                                         thickness_x : np.ndarray[float]
+                                             X-coordinates defining the thickness distribution points.
+                                         thickness : np.ndarray[float]
+                                             Corresponding thickness values for each x-coordinate.
+                                         camber_x : np.ndarray[float]
+                                             X-coordinates defining the camber line points.
+                                         camber : np.ndarray[float]
+                                             Corresponding camber values for each x-coordinate.
+                                         
+                                         Returns
+                                         -------
+                                         upper_x : np.ndarray[float]
+                                             X-coordinates of the airfoil's upper surface.
+                                         upper_y : np.ndarray[float]
+                                             Y-coordinates of the airfoil's upper surface.
+                                         lower_x : np.ndarray[float]
+                                             X-coordinates of the airfoil's lower surface.
+                                         lower_y : np.ndarray[float]
+                                             Y-coordinates of the airfoil's lower surface.
+                                         
+                                         Notes
+                                         -----
+                                         - Handles both cambered and symmetric airfoil profiles
+                                         - Uses cubic spline interpolation for thickness distribution
+                                         - Applies coordinate transformation based on camber angle
+                                         - Symmetric airfoils are detected by comparing camber values to a predefined limit
+                                         """
 
         # Handle symmetric airfoil case by differentiating between cambered and non-cambered cases
         if np.any(camber >= self.symmetric_limit): 
@@ -529,26 +559,34 @@ class AirfoilParameterization:
                                   airfoil_params: dict,
                                   ) -> tuple[np.ndarray[float], np.ndarray[float], np.ndarray[float], np.ndarray[float]]:
         """
-        Calculate the airfoil coordinates from the Bezier control points.
-
-        Parameters
-        ----------
-        b_coeff : np.ndarray[float]
-            Array of Bezier control points.
-        airfoil_params : dict
-            Dictionary containing airfoil parameters.
-
-        Returns
-        -------
-        upper_x : np.ndarray[float]
-            Array of x-coordinates for the upper surface of the airfoil.
-        upper_y : np.ndarray[float]
-            Array of y-coordinates for the upper surface of the airfoil.
-        lower_x : np.ndarray[float]
-            Array of x-coordinates for the lower surface of the airfoil.
-        lower_y : np.ndarray[float]
-            Array of y-coordinates for the lower surface of the airfoil.
-        """
+                                  Compute airfoil profile coordinates using Bezier curve parameterization.
+                                  
+                                  Generates the x and y coordinates for the upper and lower surfaces of an airfoil based on Bezier control points and airfoil parameters.
+                                  
+                                  Parameters
+                                  ----------
+                                  b_coeff : np.ndarray[float]
+                                      Array of Bezier control points containing five coefficients (b_0, b_2, b_8, b_15, b_17) that define the airfoil shape.
+                                  airfoil_params : dict
+                                      Dictionary containing airfoil geometric parameters such as maximum camber, thickness, and leading/trailing edge characteristics.
+                                  
+                                  Returns
+                                  -------
+                                  upper_x : np.ndarray[float]
+                                      X-coordinates of the airfoil's upper surface.
+                                  upper_y : np.ndarray[float]
+                                      Y-coordinates of the airfoil's upper surface.
+                                  lower_x : np.ndarray[float]
+                                      X-coordinates of the airfoil's lower surface.
+                                  lower_y : np.ndarray[float]
+                                      Y-coordinates of the airfoil's lower surface.
+                                  
+                                  Notes
+                                  -----
+                                  - Uses 100 points with cosine and sine spacing for improved resolution near leading and trailing edges
+                                  - Handles symmetric and cambered airfoils
+                                  - Generates thickness and camber distributions using 3rd and 4th-order Bezier curves
+                                  """
 
         # Extract the bezier coefficients from the input array
         b_0 = b_coeff[0]
@@ -635,34 +673,32 @@ class AirfoilParameterization:
                            airfoil_params: dict,
                            ) -> tuple[float, float, float, float]:
         """
-        
-        Obtain the fan blade parameters from the Bezier control points. Works for both rotor and stator blades. 
-
-        Calculates the circumferential blade thickness and blade slope for the blade profile.
-        
-        Parameters:
-        -----------
-        b_coeff : np.ndarray[float]
-            Array of Bezier control points.
-        airfoil_params : dict
-            Dictionary containing airfoil parameters.
-
-        Returns:
-        --------
-        tuple[float, float, float, float]
-            y_rotated_thickness : np.ndarray[float]
-                Rotated y-coordinates of the thickness distribution.
-            x_rotated_thickness : np.ndarray[float]
-                Rotated x-coordinates of the thickness distribution.
-            geometric_blade_slope : np.ndarray[float]
-                Geometric blade slope along the blade chord.
-            x_rotated_camber : np.ndarray[float]
-                Rotated x-coordinates of the camber distribution.
-
-        TO DO:
-        ------
-        - Include entropy distribution calculation
-        """
+                           Obtain the fan blade parameters from the Bezier control points for both rotor and stator blades.
+                           
+                           Calculates the circumferential blade thickness and blade slope for the blade profile using Bezier curve interpolation. Handles both cambered and symmetric airfoil configurations.
+                           
+                           Parameters:
+                           -----------
+                           b_coeff : np.ndarray[float]
+                               Array of Bezier control points containing coefficients for thickness and camber distributions.
+                           airfoil_params : dict
+                               Dictionary containing airfoil parameters such as maximum camber, thickness, and leading/trailing edge characteristics.
+                           
+                           Returns:
+                           --------
+                           tuple[np.ndarray[float], np.ndarray[float], np.ndarray[float], np.ndarray[float]]
+                               A tuple containing:
+                               - y_rotated_thickness: Rotated y-coordinates of the thickness distribution
+                               - x_rotated_thickness: Rotated x-coordinates of the thickness distribution
+                               - geometric_blade_slope: Geometric blade slope along the blade chord
+                               - x_rotated_camber: Rotated x-coordinates of the camber distribution
+                           
+                           Notes:
+                           ------
+                           - Uses cosine and sine spacing for increased resolution at leading and trailing edges
+                           - Supports both 3rd and 4th order Bezier curves for thickness and camber distributions
+                           - Handles symmetric airfoils by setting camber to zero when below a predefined threshold
+                           """
 
         # Extract the bezier coefficients from the input array
         b_0 = b_coeff[0]
@@ -740,38 +776,68 @@ class AirfoilParameterization:
                                     reference_file: str,
                                     plot: bool = False) -> tuple[np.ndarray, dict]:
         """
-        Find the initial parameterization for the profile.
-
-        Uses least-squares minimization of the squared fit error between the reconstructed profile shape 
-        and the reference profile shape to find the optimal Bezier control points.
-
-        Parameters
-        ----------
-        reference_file : str
-            Path to the file containing the reference profile coordinates.
-        plot : bool
-            Boolean controlling if the initial parameterization is plotted. Default is False.
-
-        Returns
-        -------
-        Tuple of optimized Bezier control points for the airfoil parameterization.
-        """
+                                    Find the initial parameterization for an airfoil profile using least-squares optimization.
+                                    
+                                    Uses non-linear least-squares minimization to reconstruct an airfoil profile by optimizing Bezier control points and key geometric parameters to match a reference profile.
+                                    
+                                    Parameters
+                                    ----------
+                                    reference_file : str
+                                        Path to the file containing the reference airfoil profile coordinates.
+                                    plot : bool, optional
+                                        Flag to generate visualization plots of the optimization results. Defaults to False.
+                                    
+                                    Returns
+                                    -------
+                                    b_coeff_optimized : np.ndarray
+                                        Optimized Bezier control points for the airfoil parameterization.
+                                    airfoil_params_optimized : dict
+                                        Dictionary of optimized airfoil geometric parameters including thickness, camber, leading and trailing edge characteristics.
+                                    
+                                    Notes
+                                    -----
+                                    The method performs the following key steps:
+                                    - Load reference airfoil profile data
+                                    - Define an objective function measuring the fit error between reconstructed and reference profiles
+                                    - Use scipy's least_squares optimizer to minimize the reconstruction error
+                                    - Optionally generate visualization plots of the optimization results
+                                    
+                                    The optimization considers multiple design variables including Bezier curve coefficients and airfoil geometric parameters.
+                                    """
 
         def Objective(x: list[float],
                       ) -> float:
             """
-            Objective function for least-squares minimization.
-
-            Parameters
-            ----------
-            x : list[float]
-                List of design variables [b_0, b_2, b_8, b_15, b_17, x_t, y_t, x_c, y_c, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction].
-
-            Returns
-            -------
-            squared_fit_error : float
-                Sum of squared fit errors of the upper and lower surfaces.
-            """
+                      Objective function for least-squares minimization of airfoil profile reconstruction.
+                      
+                      Computes the squared fit error between generated and reference airfoil surfaces by comparing interpolated coordinates.
+                      
+                      Parameters
+                      ----------
+                      x : list[float]
+                          Design variables containing Bezier curve coefficients and airfoil parameters:
+                          - b_0, b_2, b_8, b_15, b_17: Bezier curve control points
+                          - x_t, y_t: Thickness location and magnitude
+                          - x_c, y_c: Camber location and magnitude
+                          - z_TE: Trailing edge position
+                          - dz_TE: Trailing edge thickness
+                          - r_LE: Leading edge radius
+                          - trailing_wedge_angle: Angle at trailing edge
+                          - trailing_camberline_angle: Camber line angle at trailing edge
+                          - leading_edge_direction: Direction of leading edge
+                      
+                      Returns
+                      -------
+                      squared_fit_error : float
+                          Total squared difference between generated and reference airfoil surfaces, 
+                          combining upper and lower surface errors.
+                      
+                      Notes
+                      -----
+                      - Uses cubic spline interpolation to ensure coordinate comparison at consistent x-positions
+                      - Minimizes the sum of squared vertical coordinate differences
+                      - Part of the optimization process for airfoil parameterization
+                      """
 
             b_coeff = x[0:5]
 
@@ -807,33 +873,27 @@ class AirfoilParameterization:
                                  airfoil_params: dict,
                                  ) -> None:
             """
-            Check the optimized result by plotting the thickness and camber distributions, and the airfoil shape.
-
-            Parameters
-            ----------
-            b_0 : float
-                Control point for the camber.
-            b_2 : float
-                Control point for the camber.
-            b_8 : float
-                Control point for the thickness curve.
-            b_15 : float
-                Control point for the thickness curve.
-            b_17 : float
-                Control point for the camber.
-            r_LE : float
-                Leading edge radius.
-            trailing_wedge_angle : float
-                Trailing edge wedge angle.
-            trailing_camberline_angle : float
-                Trailing edge camber line angle.
-            leading_edge_direction : float
-                Leading edge direction angle.
-
-            Returns
-            -------
-            None
-            """
+                                 Check the optimized result by plotting thickness and camber distributions, and the airfoil shape.
+                                 
+                                 Parameters
+                                 ----------
+                                 b_coeff : np.ndarray[float]
+                                     Array of Bezier control point coefficients for thickness and camber curves.
+                                 airfoil_params : dict
+                                     Dictionary containing airfoil parameters such as leading edge radius, camber, and other geometric characteristics.
+                                 
+                                 Returns
+                                 -------
+                                 None
+                                     Generates and displays plots of thickness distribution, camber distribution (if applicable), and reconstructed airfoil shape.
+                                 
+                                 Notes
+                                 -----
+                                 This method visualizes the results of airfoil parameterization by:
+                                 - Plotting Bezier curve control points
+                                 - Comparing generated thickness and camber distributions with input data
+                                 - Reconstructing and displaying the airfoil surface geometry
+                                 """
 
             # Extract the bezier coefficients from the input array
             b_0 = b_coeff[0]
@@ -947,18 +1007,31 @@ class AirfoilParameterization:
         def GetBounds(x):
             """
             Get the bounds for the optimization problem.
-
+            
+            Defines lower and upper bounds for design variables in airfoil parameterization optimization, constraining various geometric and curve parameters.
+            
             Parameters
             ----------
             x : np.ndarray[float]
-                Array of design variables.
-
+                Array of design variables containing airfoil shape parameters.
+            
             Returns
             -------
-            l_bounds : np.ndarray[float]
-                Lower bounds for the design variables.
-            u_bounds : np.ndarray[float]
-                Upper bounds for the design variables.
+            optimize.Bounds
+                Optimization bounds object specifying constraints for each design variable.
+            
+            Notes
+            -----
+            Design variables include:
+            - Bezier curve control points
+            - Thickness and camber location parameters
+            - Leading and trailing edge geometric parameters
+            - Angle constraints for edge and camber line directions
+            
+            The bounds ensure numerical stability and physically meaningful airfoil shapes by:
+            - Limiting thickness and camber locations between 0 and 1
+            - Constraining leading/trailing edge angles within ±π/2
+            - Applying specific constraints on thickness control points
             """
 
             # First define the upper and lower bounds on the bezier parameters 

@@ -104,13 +104,10 @@ class fileHandling:
         """
         Initialize the fileHandling class.
         
-        This method sets up the initial state of the class.
-        The fileHandling class is, in effect, a grouping class, 
-        and therefore does not take any inputs.
-
-        Returns
-        -------
-        None
+        This method creates an instance of the fileHandling class, which serves as a container for file handling operations related to electric ducted fan architectures. As a grouping class, it does not require any initialization parameters.
+        
+        Returns:
+            None
         """
 
 
@@ -121,13 +118,29 @@ class fileHandling:
 
         def __init__(self, *args) -> None:
             """
-            Initialize the fileHandlingMTSET class.
-        
-            This method sets up the initial state of the class.
-
-            Returns
-            -------
-            None
+            Initialize the fileHandlingMTSET class with center body, duct, and ducted fan design parameters.
+            
+            Parameters
+            ----------
+            params_CB : dict
+                Parameterization dictionary for the center body geometry
+            params_duct : dict
+                Parameterization dictionary for the duct geometry
+            ducted_fan_design_params : dict
+                Design parameters for the ducted fan configuration
+            case_name : str
+                Identifier for the specific case being analyzed
+            
+            Attributes
+            ----------
+            centerbody_params : dict
+                Stored center body parameterization parameters
+            duct_params : dict
+                Stored duct parameterization parameters
+            ducted_fan_design_params : dict
+                Stored ducted fan design parameters
+            case_name : str
+                Stored case name for file generation
             """
 
             # Extract center body and duct parameterization parameters and Ducted fan design parameters
@@ -143,20 +156,24 @@ class fileHandling:
 
         def GetGridSize(self):
             """
-            Determine grid size - x & y coordinates of grid boundary. 
-            Ideally find some way to automatically determine suitable values for YTOP and XFRONT/REAR based on operating condition
-
-            This would imply some dependency on the variation of (inviscid) flow variables
-
-            Can use the output from an inviscid MTSOL run at cruising conditions to determine the grid boundaries 
-            (variation in Mach at outermost streamline < 1E-3)
-
-            Use a default initial grid of:
-            (Note this is in reference to the outer edges of the ducted fan itself)
-
-            Y_top = CONST_1 * max diameter (2.5?)
-            X_FRONT = CONST_2 * MAX LENGTH (1?)
-            X_AFT = CONST_3 * MAX LENGTH (3?)
+            Determine the computational grid boundaries for the ducted fan simulation.
+            
+            Calculates the grid size based on ducted fan design parameters, defining the computational domain for numerical analysis.
+            
+            Parameters:
+                None (uses class instance attributes)
+            
+            Returns:
+                list: Grid boundary coordinates [X_FRONT, X_AFT, Y_BOT, Y_TOP]
+                    - X_FRONT (float): X-coordinate of the front boundary, positioned ahead of the duct's leading edge
+                    - X_AFT (float): X-coordinate of the aft boundary, positioned behind the duct's trailing edge
+                    - Y_BOT (float): Bottom Y-coordinate (always 0, representing the symmetry line)
+                    - Y_TOP (float): Top Y-coordinate, scaled relative to the duct's outer diameter
+            
+            Notes:
+                - Y_TOP is set to 1.5 times the duct's outer diameter
+                - X boundaries are calculated relative to the duct's leading edge coordinates
+                - Provides a default grid sizing strategy for computational fluid dynamics simulations
             """
 
             # Calculate Y-domain boundaries based on ducted fan design parameters. 
@@ -177,19 +194,32 @@ class fileHandling:
                                   LE_coordinates: tuple[float, float] = (0, 0),
                                   ) -> tuple[np.ndarray[float], np.ndarray[float]]:
             """
-            Compute the profile coordinates of an airfoil based on given design parameters and leading edge coordinates.
-            Parameters:
-            -----------
-            x : dict
-                Dictionary of design parameters for the profile parameterization.
-            LE_coordinates : tuple[float, float], optional
-                Tuple containing the leading edge coordinates (dX, dY) to shift the profile coordinates within the domain.
-                Default is (0, 0), i.e. no offset
-            Returns:
-            --------
-            tuple[np.ndarray[float], np.ndarray[float]]
-                A tuple containing two numpy arrays: the x-coordinates and y-coordinates of the airfoil profile. 
-            """
+                                  Compute the profile coordinates of an airfoil based on design parameters and leading edge coordinates.
+                                  
+                                  Parameters:
+                                      x (dict): Dictionary containing airfoil design parameters including:
+                                          - Coefficients: b_0, b_2, b_8, b_15, b_17
+                                          - Parameterization details: x_t, y_t, x_c, y_c, z_TE, dz_TE, r_LE
+                                          - Geometric parameters: Chord Length, trailing_wedge_angle, 
+                                            trailing_camberline_angle, leading_edge_direction
+                                      LE_coordinates (tuple[float, float], optional): Leading edge coordinates 
+                                          to shift the profile. Defaults to (0, 0).
+                                  
+                                  Returns:
+                                      np.ndarray: 2D array of profile coordinates with shape (n, 2), 
+                                      where n is the total number of points, first column is x-coordinates, 
+                                      second column is y-coordinates.
+                                  
+                                  Raises:
+                                      ValueError: If generated x-coordinates for upper or lower surface 
+                                      are not sorted in ascending order.
+                                  
+                                  Notes:
+                                      - Uses AirfoilParameterization to compute initial profile coordinates
+                                      - Scales coordinates by chord length
+                                      - Offsets coordinates based on leading edge position
+                                      - Combines upper and lower surface coordinates
+                                  """
             
             # Restructure the input dictionary to a numpy array for the airfoil parameterization and a parameterization dictionary
             b_coeff = np.array([x["b_0"], x["b_2"], x["b_8"], x["b_15"], x["b_17"]])
@@ -244,18 +274,26 @@ class fileHandling:
         def GenerateMTSETInput(self,
                                ) -> None:
             """
-            Write the MTSET input file walls.xxx for the given case. 
-
-            Parameters:
-            -----------
-            domain_boundaries : np.ndarray[float]
-                Array containing the domain boundaries in the format [XFRONT, XREAR, YBOT, YTOP]
-
-            Returns:
-            --------
-            None
-                Output of function is the input file to MTSET, walls.xxx, where xxx is equal to self.case_name
-            """
+                               Generate the MTSET input file (walls.xxx) for the current ducted fan design.
+                               
+                               This method writes the domain boundaries and profile coordinates for the center body and duct to a file named 'walls.{case_name}'. The file contains:
+                               - Case name
+                               - Domain boundaries
+                               - Center body profile coordinates
+                               - Separator line
+                               - Duct profile coordinates
+                               
+                               The method uses the following steps:
+                               1. Calculate domain boundaries using GetGridSize()
+                               2. Generate profile coordinates for center body and duct using GetProfileCoordinates()
+                               3. Write coordinates to the file with specific formatting
+                               
+                               Returns:
+                                   None: Creates a file with MTSET input data
+                               
+                               Side Effects:
+                                   - Creates a file named 'walls.{case_name}' in the current directory
+                               """
 
             domain_boundaries = self.GetGridSize()
 
@@ -289,13 +327,21 @@ class fileHandling:
 
         def __init__(self, *args) -> None:
             """
-            Initialize the fileHandlingMTFLO class.
-
-            This method sets up the initial state of the class.
-
-            Returns
-            -------
-            None
+            Initialize the fileHandlingMTFLO class for generating MTFLO input files.
+            
+            Parameters
+            ----------
+            stage_count : int
+                The total number of stages in the ducted fan design.
+            case_name : str
+                The unique identifier or name for the current case/configuration.
+            
+            Attributes
+            ----------
+            stage_count : int
+                Number of stages stored for MTFLO input file generation.
+            case_name : str
+                Case name used for naming and identifying the input file.
             """
 
             stage_count, case_name = args 
@@ -308,29 +354,23 @@ class fileHandling:
                                design_params: dict,
                                ) -> dict:
             """
-            Calculate the thickness and blade slope distributions along the blade profile based on the given design parameters.
-
-            Parameters:
-            -----------
-            design_params : dict
-                A dictionary containing the design parameters for the blade. The dictionary should include the following keys:
-                - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
-                - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
-                - "z_TE", "dz_TE": Trailing edge parameters.
-                - "r_LE": Leading edge radius.
-                - "trailing_wedge_angle": Trailing wedge angle.
-                - "trailing_camberline_angle": Trailing camberline angle.
-                - "leading_edge_direction": Leading edge direction.
-
-            Returns:
-            --------
-            blade_geometry : dict
-                A dictionary containing the following keys:
-                - "thickness_distr": An array of the thickness distribution along the blade profile.
-                - "thickness_data_points": An array of the thickness data points along the blade profile.
-                - "camber_distr": An array of the camber distribution along the blade profile.
-                - "camber_data_points": An array of the camber data points along the blade profile.
-            """
+                               Calculate the thickness and blade slope distributions along the blade profile based on the given design parameters.
+                               
+                               Parameters:
+                                   design_params (dict): Dictionary containing blade design parameters including:
+                                       - Airfoil coefficients: "b_0", "b_2", "b_8", "b_15", "b_17"
+                                       - Coordinate parameters: "x_t", "y_t", "x_c", "y_c"
+                                       - Trailing edge parameters: "z_TE", "dz_TE"
+                                       - Geometric parameters: "r_LE", "trailing_wedge_angle", 
+                                         "trailing_camberline_angle", "leading_edge_direction"
+                               
+                               Returns:
+                                   dict: Blade geometry details containing:
+                                       - "thickness_points": Thickness data points
+                                       - "thickness_data": Thickness distribution
+                                       - "camber_points": Camber data points
+                                       - "camber_data": Camber distribution
+                               """
 
             # Initialize the airfoil parameterization class
             profileParameterizationClass = AirfoilParameterization()
@@ -373,40 +413,22 @@ class fileHandling:
                             design_params: np.ndarray[dict],
                             ) -> dict:
             """
-            Construct interpolants for the blade geometry using the x, r, thickness, camber, and entropy distributions.
-            Uses the principle of superposition to split out the blade design into separate interpolations of parameters. 
-
-            Parameters:
-            -----------
-            - blading_params : dict
-                Dictionary containing the blading parameters for the blade. The dictionary should include the following keys:
-                    - "rotational_rate": The rotational rate of the blade.
-                    - "blade_count": Integer of the number of blades.
-                    - "radial_stations": Numpy array of the radial stations along the blade span.
-                    - "chord_length": Numpy array of the chord length distribution along the blade span.
-                    - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
-                    - "twist_angle": Numpy array of the twist angle distribution along the blade span.
-            - design_params : np.ndarray[dict]
-                Numpy array containing an equal number of dictionary entries as there are radial stations. Each dictionary must contain 
-                the following keys:
-                    - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
-                    - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
-                    - "z_TE", "dz_TE": Trailing edge parameters.
-                    - "r_LE": Leading edge radius.
-                    - "trailing_wedge_angle": Trailing wedge angle.
-                    - "trailing_camberline_angle": Trailing camberline angle.
-                    - "leading_edge_direction": Leading edge direction.
-
-            Returns:
-            --------
-            - constructed_blade : dict
-                Dictionary containing the constructed blade geometry. The dictionary includes the following keys:
-                    - "chord_distribution": Cubic spline interpolant for the chord length distribution along the blade span.
-                    - "sweep_distribution": Cubic spline interpolant for the sweep angle distribution along the blade span.
-                    - "thickness_distribution": Bivariate spline interpolant for the circumferential thickness distribution along the blade profile.
-                    - "camber_distribution": Bivariate spline interpolant for the camber distribution along the blade profile.
-                    - "entropy_distribution": Bivariate spline interpolant for the entropy distribution along the blade profile.
-            """
+                            Construct interpolants for blade geometry using design and blading parameters.
+                            
+                            Applies the principle of superposition to split blade design into separate parameter interpolations. Generates interpolation functions for chord length, sweep, thickness, camber, and entropy distributions across blade radial stations.
+                            
+                            Parameters:
+                                blading_params (dict): Blade configuration parameters including rotational rate, blade count, radial stations, chord length, sweep angle, and twist angle.
+                                design_params (np.ndarray[dict]): Detailed airfoil design parameters for each radial station, containing coefficients, coordinates, and geometric characteristics.
+                            
+                            Returns:
+                                dict: Constructed blade geometry with interpolation functions for:
+                                    - chord_distribution: Cubic spline of chord length along blade span
+                                    - sweep_distribution: Cubic spline of leading edge offset
+                                    - thickness_distribution: Multivariate interpolation of thickness
+                                    - camber_distribution: Multivariate interpolation of camber
+                                    - entropy_distribution: Multivariate interpolation of entropy (currently a placeholder)
+                            """
 
             # Collect blade geometry at each of the radial stations
             # Note that the blade geometry is a dictionary containing the thickness and camber distributions
@@ -496,34 +518,37 @@ class fileHandling:
                                design_params: np.ndarray[dict],
                                ) -> None:
             """
-            Write the MTFLO input file for the given case.
-
-            Parameters:
-            -----------
-            - blading_params : np.ndarray[dict]
-                Array containing the blading parameters for each stage. Each dictionary should include the following keys:
-                - "root_LE_coordinate": The leading edge coordinate at the root of the blade.
-                - "rotational_rate": The rotational rate of the blade.
-                - "blade_count": The number of blades.
-                - "radial_stations": Numpy array of the radial stations along the blade span.
-                - "chord_length": Numpy array of the chord length distribution along the blade span.
-                - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
-                - "twist_angle": Numpy array of the twist angle distribution along the blade span.
-            - design_params: np.ndarray[dict]
-                Array containing an equal number of dictionary entries as there are stages. Each dictionary must contain the following keys:
-                - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
-                - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
-                - "z_TE", "dz_TE": Trailing edge parameters.
-                - "r_LE": Leading edge radius.
-                - "trailing_wedge_angle": Trailing wedge angle.
-                - "trailing_camberline_angle": Trailing camberline angle.
-                - "leading_edge_direction": Leading edge direction.
-                - "Chord Length": The chord length of the blade.
-
-            Returns:
-            --------
-            None
-            """
+                               Generate the MTFLO input file for a multi-stage ducted fan configuration.
+                               
+                               Parameters:
+                               -----------
+                               blading_params : np.ndarray[dict]
+                                   Array of blading parameters for each stage, containing:
+                                   - "root_LE_coordinate": Leading edge root coordinate
+                                   - "rotational_rate": Blade rotational rate
+                                   - "blade_count": Number of blades per stage
+                                   - "radial_stations": Radial stations along blade span
+                                   - "chord_length": Chord length distribution
+                                   - "sweep_angle": Sweep angle distribution
+                                   - "twist_angle": Twist angle distribution
+                               
+                               design_params : np.ndarray[dict]
+                                   Array of design parameters for each stage, containing:
+                                   - Airfoil parameterization coefficients
+                                   - Coordinate parameters
+                                   - Trailing edge parameters
+                                   - Geometric design parameters
+                               
+                               Returns:
+                               --------
+                               None
+                                   Writes the MTFLO input file for the specified case.
+                               
+                               Raises:
+                               -------
+                               ValueError
+                                   If cumulative blade thickness exceeds the complete blockage limit at any radial station.
+                               """
 
             # Open the tflow.xxx file and start writing the required input data to it
             filename = "tflow." + self.case_name
