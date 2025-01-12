@@ -22,7 +22,7 @@ class MTSET_call:
     def __init__(self, *args):
         file_path, analysis_name = args
         self.fpath = file_path
-        self.analysisName = analysis_name
+        self.analysis_name = analysis_name
 
         return None
 
@@ -48,6 +48,10 @@ class MTSET_call:
                                  shell=True, 
                                  text=True
                                  )
+        
+        # Check if subprocess is started successfully
+        if self.process.poll() != None:
+            raise ImportError(f"The MTSET program is not found in {self.fpath}")
         return self
     
 
@@ -213,8 +217,14 @@ class MTSET_call:
         
 
 if __name__ == "__main__":
-    test = MTSET_call(r'mtset.exe', "dprop")
 
+    import time
+
+    start_time = time.time()
+    test = MTSET_call(r'mtset.exe', "test_case")
     execute_MTSET = test.caller()
+    end_time = time.time()
+
+    print(f"Execution of MTSET_call.caller() took {end_time - start_time} seconds")
     
     

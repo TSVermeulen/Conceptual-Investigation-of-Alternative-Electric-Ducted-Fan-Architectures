@@ -164,7 +164,7 @@ class fileHandling:
 
             # Calculate Y-domain boundaries based on ducted fan design parameters. 
             # Y_bottom is always 0 as it is the symmetry line
-            if self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0] == 0:
+            if self.ducted_fan_design_params["Duct Leading Edge Coordinates"][1] == 0:
                 Y_TOP = 1
             else:
                 Y_TOP = 1.5 * self.ducted_fan_design_params["Duct Leading Edge Coordinates"][1]
