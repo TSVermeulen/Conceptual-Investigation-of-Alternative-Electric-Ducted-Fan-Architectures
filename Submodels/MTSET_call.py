@@ -41,6 +41,12 @@ class MTSET_call:
         handles sent to PIPE for direct interaction within the Python code.  
         """
 
+        # Get the directory where the current Python file is located
+        current_file_directory = os.path.dirname(os.path.abspath(__file__))
+
+        # Change the working directory to the directory of the current Python file
+        os.chdir(current_file_directory)
+
         self.process = subprocess.Popen([self.fpath, self.analysis_name], 
                                  stdin=subprocess.PIPE, 
                                  stdout=subprocess.PIPE, 
@@ -77,13 +83,6 @@ class MTSET_call:
         # -----
         """
         
-        # First step is to load in the walls.xxx file to check the number of axisymmetric bodies
-        # Get the directory where the current Python file is located
-        current_file_directory = os.path.dirname(os.path.abspath(__file__))
-
-        # Change the working directory to the directory of the current Python file
-        os.chdir(current_file_directory)
-
         # Load the walls.xxx file and count number of elements to be loaded
         # The second(+) elements are preceded by line containing [999. 999.], 
         # which can be used to count the number of elements to be loaded in by MTSET
@@ -93,7 +92,7 @@ class MTSET_call:
                 if index < 2:  # Skip the first two lines (0 and 1) - these contain the analysis name and grid size. 
                     continue 
                 numbers = map(float, line.split()) 
-                element_count += int(sum(1 for num in numbers if num == 999.)/2)  # New element identifier contains2 2x 999., so divide the count by 2
+                element_count += int(sum(1 for num in numbers if num == 999.)/2)  # New element identifier contains 2x 999., so divide the count by 2
 
         #Accept the default spacing ratios for each of the elements loaded in
         for i in range(element_count):
