@@ -65,8 +65,8 @@ class MTFLO_call():
         """
 
         file_path, analysis_name = args
-        self.fpath = file_path
-        self.analysis_name = analysis_name
+        self.fpath: str = file_path
+        self.analysis_name: str = analysis_name
 
 
     def GenerateProcess(self,
@@ -99,14 +99,9 @@ class MTFLO_call():
         
     
     def LoadForcingField(self,
-                         ) -> int:
+                         ) -> None:
         """
         Loads the tflow.xxx input file into MTFLO and checks it has been correctly processed
-
-        Returns
-        -------
-        self.process.returncode : int
-            The returncode of the subprocess upon completion. 
         """
 
         # Enter field parameter menu
@@ -143,13 +138,14 @@ class MTFLO_call():
         if self.process.poll() is None:
             try:
                 self.process.wait(timeout=1)
+            
             except subprocess.TimeoutExpired:
                 self.process.kill()
-                raise OSError("Something went wrong in the MTSET call. \
-                            MTSET was not closed following end of file generation. \
+                raise OSError("Something went wrong in the MTFLO call. \
+                            MTFLO was not closed following end of file generation. \
                             Run terminated.")
         else:    
-            return self.process.returncode
+            return 
 
 
     def caller(self
@@ -158,6 +154,11 @@ class MTFLO_call():
         Full interfacing function between Python and MTFLO
 
         Requires that the input file, tflow.xxx, has been made and is available together with the mtflo.exe executable in the local directory.
+        
+        Returns
+        -------
+        self.process.returncode : int
+            self.process.returncode
         """
         
         # Create subprocess for the MTFLO tool
@@ -166,7 +167,8 @@ class MTFLO_call():
         # Load the numerical grid
         self.LoadForcingField()
 
-        return self.process.returncode       
+        return self.process.returncode      
+
 
 if __name__ == "__main__":
 
