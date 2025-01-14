@@ -178,14 +178,10 @@ class fileHandling:
             if not isinstance(coordinates, (list, tuple)) or len(coordinates) != 2:
                 raise ValueError("Duct Leading Edge Coordinates must be a tuple/list of length 2")
     
-
-
             # Calculate Y-domain boundaries based on ducted fan design parameters. 
             # Y_bottom is always 0 as it is the symmetry line
-            if self.ducted_fan_design_params["Duct Leading Edge Coordinates"][1] == 0:
-                Y_TOP = self.DEFAULT_Y_TOP
-            else:
-                Y_TOP = self.Y_TOP_MULTIPLIER * self.ducted_fan_design_params["Duct Leading Edge Coordinates"][1]
+            Y_TOP = max(self.DEFAULT_Y_TOP, 
++                       self.Y_TOP_MULTIPLIER * self.ducted_fan_design_params["Duct Leading Edge Coordinates"][1])
             Y_BOT = 0
 
             # Calculate X-domain boundaries based on ducted fan design parameters.

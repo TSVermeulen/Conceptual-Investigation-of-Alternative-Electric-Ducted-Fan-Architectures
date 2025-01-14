@@ -55,7 +55,7 @@ class MTSET_call:
     def __init__(self, *args: str,
                  ) -> None:
         """
-        Initialize the MTFLO_call class with the file path and analysis name.
+        Initialize the MTSET_call class with the file path and analysis name.
 
         Parameters
         ----------
@@ -253,7 +253,9 @@ if __name__ == "__main__":
 
     import time
     start_time = time.time()
-    test = MTSET_call(r'mtset.exe', "test_case")
+    filepath = r"mtset.exe"
+    analysisName = "test_case"
+    test = MTSET_call(filepath, analysisName)
     execute_MTSET = test.caller()
     end_time = time.time()
 

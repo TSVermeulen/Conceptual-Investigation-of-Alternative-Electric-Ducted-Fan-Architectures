@@ -150,7 +150,7 @@ class MTFLO_call:
             return 
 
 
-    def caller(self
+    def caller(self,
                ) -> int:
         """
         Full interfacing function between Python and MTFLO
