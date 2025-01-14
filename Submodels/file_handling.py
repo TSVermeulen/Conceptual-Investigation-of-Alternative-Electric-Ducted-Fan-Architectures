@@ -170,7 +170,7 @@ class fileHandling:
 
             # Validate inputs
             if not isinstance(self.ducted_fan_design_params, dict):
-                raise TypeError("ducted_fan_design_params must be a dictionary!") from None
+                raise TypeError("Expectred ducted_fan_design_params to be a dictionary.") from None
             if "Duct Leading Edge Coordinates" not in self.ducted_fan_design_params:
                 raise ValueError("Missing Duct Leading Edge Coordinates in design params") from None
             

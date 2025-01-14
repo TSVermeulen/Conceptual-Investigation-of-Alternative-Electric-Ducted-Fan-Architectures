@@ -64,6 +64,10 @@ class MTFLO_call:
             The name of the analysis case.
         """
 
+        # Input validation
+        if len(args) != 2:
+            raise ValueError("Expected exactly 2 arguments: file_path and analysis_name") from None
+
         file_path, analysis_name = args
         self.fpath: str = file_path
         self.analysis_name: str = analysis_name
@@ -95,7 +99,7 @@ class MTFLO_call:
         
         # Check if subprocess is started successfully
         if self.process.poll() is not None:
-            raise ImportError(f"The MTFLO program is not found in {self.fpath}") from None
+            raise ImportError(f"MTFLO or tdat.{self.analysis_name} not found in {self.fpath}") from None
         
     
     def LoadForcingField(self,
@@ -118,7 +122,7 @@ class MTFLO_call:
         # If error occured, MTFLO will have crashed, so we can check success by checking 
         # if the subprocess is still alive
         if self.process.poll() is not None:
-            raise ImportError(f"There was an issue with the input file {"tflow." + self.analysis_name}, which caused MTFLO to crash") from None
+            raise ImportError(f"Issue with input file tflow.{self.analysis_name}, MTFLO crashed") from None
         
         # Exit the field parameter menu
         self.process.stdin.write("\n")
@@ -128,7 +132,7 @@ class MTFLO_call:
         self.process.stdin.flush()     
 
         if self.process.poll() is not None:
-            raise OSError(f"There was an issue writing the field parameters to the file {"tdat." + self.analysis_name}, which caused MTFLO to crash") from None
+            raise OSError(f"Issue writing parameters to tdat.{self.analysis_name}, MTFLO crashed") from None
         
         # Close the MTFLO program
         self.process.stdin.write("Q \n")
@@ -137,13 +141,11 @@ class MTFLO_call:
          # Check that MTFLO has closed successfully 
         if self.process.poll() is None:
             try:
-                self.process.wait(timeout=1)
+                self.process.wait(timeout=2)
             
             except subprocess.TimeoutExpired:
                 self.process.kill()
-                raise OSError("Something went wrong in the MTFLO call. \
-                            MTFLO was not closed following end of file generation. \
-                            Run terminated.") from None
+                raise OSError("MTFLO did not close after file generation. Process was killed.") from None
         else:    
             return 
 

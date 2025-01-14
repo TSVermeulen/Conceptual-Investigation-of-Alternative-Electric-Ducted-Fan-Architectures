@@ -65,6 +65,10 @@ class MTSET_call:
             The name of the analysis case.
         """
 
+        # Input validation
+        if len(args) != 2:
+            raise ValueError("Expected exactly 2 arguments: file_path and analysis_name") from None
+
         file_path, analysis_name = args
         self.fpath: str = file_path
         self.analysis_name: str = analysis_name
@@ -98,7 +102,7 @@ class MTSET_call:
         
         # Check if subprocess is started successfully
         if self.process.poll() is not None:
-            raise ImportError(f"The MTSET program or input file {"walls." + self.analysis_name} is not found in {self.fpath}") from None
+            raise ImportError(f"MTSET or walls.{self.analysis_name} not found in {self.fpath}") from None
     
 
     def GridGenerator(self, 
@@ -208,13 +212,11 @@ class MTSET_call:
         # Check that MTSET has closed successfully 
         if self.process.poll() is not None:
             try:
-                self.process.wait(timeout=1)
+                self.process.wait(timeout=2)
             
             except subprocess.TimeoutExpired:
                 self.process.kill()
-                raise OSError("Something went wrong in the MTSET call. \
-                            MTSET was not closed following end of file generation. \
-                            Run terminated.") from None
+                raise OSError("MTSET did not close after file generation. Process was killed.") from None
         else:    
             return 
 
