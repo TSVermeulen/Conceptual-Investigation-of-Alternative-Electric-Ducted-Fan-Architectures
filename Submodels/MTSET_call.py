@@ -259,4 +259,4 @@ if __name__ == "__main__":
     execute_MTSET = test.caller()
     end_time = time.time()
 
-    print(f"Execution of MTSET_call.caller() took {end_time - start_time} seconds")
+    print(f"Execution of MTSET_call({filepath}, {analysisName}).caller() took {end_time - start_time} seconds")
