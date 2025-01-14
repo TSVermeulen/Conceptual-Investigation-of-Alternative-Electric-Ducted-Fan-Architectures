@@ -142,6 +142,12 @@ class fileHandling:
             self.ducted_fan_design_params: dict = ducted_fan_design_params
             self.duct_params: dict = params_duct
             self.case_name: str = case_name
+
+            # Define the Grid size calculation constants
+            self.DEFAULT_Y_TOP = 1.0
+            self.Y_TOP_MULTIPLIER = 1.5
+            self.X_FRONT_OFFSET = 2.0
+            self.X_AFT_OFFSET = 2.0
                         
 
         def GetGridSize(self) -> list[float, float, float, float]:
@@ -162,18 +168,26 @@ class fileHandling:
             X_AFT = CONST_3 * MAX LENGTH (3?)
             """
 
+            # Validate inputs
+            if not isinstance(self.ducted_fan_design_params, dict):
+                raise TypeError("Expectred ducted_fan_design_params to be a dictionary.") from None
+            if "Duct Leading Edge Coordinates" not in self.ducted_fan_design_params:
+                raise ValueError("Missing Duct Leading Edge Coordinates in design params") from None
+            
+            coordinates = self.ducted_fan_design_params["Duct Leading Edge Coordinates"]
+            if not isinstance(coordinates, (list, tuple)) or len(coordinates) != 2:
+                raise ValueError("Duct Leading Edge Coordinates must be a tuple/list of length 2")
+    
             # Calculate Y-domain boundaries based on ducted fan design parameters. 
             # Y_bottom is always 0 as it is the symmetry line
-            if self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0] == 0:
-                Y_TOP = 1
-            else:
-                Y_TOP = 1.5 * self.ducted_fan_design_params["Duct Leading Edge Coordinates"][1]
+            Y_TOP = max(self.DEFAULT_Y_TOP, 
++                       self.Y_TOP_MULTIPLIER * self.ducted_fan_design_params["Duct Leading Edge Coordinates"][1])
             Y_BOT = 0
 
             # Calculate X-domain boundaries based on ducted fan design parameters.
             # X_FRONT is taken as 1m ahead of the leading edge of the duct.
-            X_FRONT = self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0] - 2
-            X_AFT = self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0] + self.duct_params["Chord Length"] + 2
+            X_FRONT = self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0] - self.X_FRONT_OFFSET
+            X_AFT = self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0] + self.duct_params["Chord Length"] + self.X_AFT_OFFSET
 
             return [X_FRONT, X_AFT, Y_BOT, Y_TOP]
 
