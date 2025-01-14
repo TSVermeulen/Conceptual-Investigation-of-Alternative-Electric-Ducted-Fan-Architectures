@@ -46,12 +46,12 @@ Changelog:
 import subprocess
 import os
 
-class MTFLO_call():
+class MTFLO_call:
     """
     Class to handle the interface between Python and the MTFLO executable.
     """
 
-    def __init__(self, *args,
+    def __init__(self, *args: str,
                  ) -> None:
         """
         Initialize the MTFLO_call class with the file path and analysis name.
@@ -94,8 +94,8 @@ class MTFLO_call():
                                         )
         
         # Check if subprocess is started successfully
-        if self.process.poll() != None:
-            raise ImportError(f"The MTFLO program is not found in {self.fpath}")
+        if self.process.poll() is not None:
+            raise ImportError(f"The MTFLO program is not found in {self.fpath}") from None
         
     
     def LoadForcingField(self,
@@ -117,8 +117,8 @@ class MTFLO_call():
         # Check if file is loaded in successfully.
         # If error occured, MTFLO will have crashed, so we can check success by checking 
         # if the subprocess is still alive
-        if self.process.poll() != None:
-            raise ImportError(f"There was an issue with the input file {"tflow." + self.analysis_name}, which caused MTFLO to crash")
+        if self.process.poll() is not None:
+            raise ImportError(f"There was an issue with the input file {"tflow." + self.analysis_name}, which caused MTFLO to crash") from None
         
         # Exit the field parameter menu
         self.process.stdin.write("\n")
@@ -127,8 +127,8 @@ class MTFLO_call():
         self.process.stdin.write("W \n")
         self.process.stdin.flush()     
 
-        if self.process.poll() != None:
-            raise ImportError(f"There was an issue writing the field parameters to the file {"tdat." + self.analysis_name}, which caused MTFLO to crash")
+        if self.process.poll() is not None:
+            raise OSError(f"There was an issue writing the field parameters to the file {"tdat." + self.analysis_name}, which caused MTFLO to crash") from None
         
         # Close the MTFLO program
         self.process.stdin.write("Q \n")
@@ -143,7 +143,7 @@ class MTFLO_call():
                 self.process.kill()
                 raise OSError("Something went wrong in the MTFLO call. \
                             MTFLO was not closed following end of file generation. \
-                            Run terminated.")
+                            Run terminated.") from None
         else:    
             return 
 

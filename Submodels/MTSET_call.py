@@ -52,7 +52,7 @@ class MTSET_call:
     Class to handle the interface between MTSET and Python
     """
 
-    def __init__(self, *args,
+    def __init__(self, *args: str,
                  ) -> None:
         """
         Initialize the MTFLO_call class with the file path and analysis name.
@@ -97,8 +97,8 @@ class MTSET_call:
                                  )
         
         # Check if subprocess is started successfully
-        if self.process.poll() != None:
-            raise ImportError(f"The MTSET program or input file {"walls." + self.analysis_name} is not found in {self.fpath}")
+        if self.process.poll() is not None:
+            raise ImportError(f"The MTSET program or input file {"walls." + self.analysis_name} is not found in {self.fpath}") from None
     
 
     def GridGenerator(self, 
@@ -214,7 +214,7 @@ class MTSET_call:
                 self.process.kill()
                 raise OSError("Something went wrong in the MTSET call. \
                             MTSET was not closed following end of file generation. \
-                            Run terminated.")
+                            Run terminated.") from None
         else:    
             return 
 
