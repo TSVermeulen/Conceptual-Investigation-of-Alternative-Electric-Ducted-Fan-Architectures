@@ -694,7 +694,7 @@ if __name__ == "__main__":
 
     # Perform test generation of tflow.xxx file using dummy inputs
     # Creates an input file using 2 stages, a rotor and a stator
-    blading_parameters = [{"root_LE_coordinate": 0.2, "rotational_rate": 1., "blade_count": 18, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi / 3]},
+    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 1., "blade_count": 18, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi / 3]},
                           {"root_LE_coordinate": 1., "rotational_rate": 0., "blade_count": 10, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "twist_angle": [0, np.pi/8]}]
     design_parameters = [[n2415_coeff, n2415_coeff],
                          [n2415_coeff, n2415_coeff]]

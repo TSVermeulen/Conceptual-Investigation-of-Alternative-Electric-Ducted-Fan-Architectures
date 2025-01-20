@@ -16,6 +16,7 @@ Changelog:
 import subprocess
 import os
 from typing import Any
+from collections import deque
 
 class MTSOL_call:
     """
@@ -39,14 +40,6 @@ class MTSOL_call:
         self.operating_conditions = operating_conditions
         self.fpath = file_path
         self.analysis_name = analysis_name
-
-        #Initialize reference quantities
-        self.RSTRO = 1
-        self.GAMMA = 1.4
-        self.HSTRO = 1 / (self.GAMMA - 1)
-        self.LREF = 1  # Use a reference length of 1 m
-        self.ASTRO = 1
-        self.PSTRO = 1 / self.GAMMA
 
 
     def GenerateProcess(self,
@@ -129,9 +122,8 @@ class MTSOL_call:
         self.element_counts = toggles
         
         # Exit the Modify solution parameters menu
-        self.process.stdin.write("\n")
+        self.process.stdin.write("\n \n")
         self.process.stdin.flush()
-
     
 
     def ToggleViscous(self,
@@ -144,7 +136,6 @@ class MTSOL_call:
         ----------
         elements : list[int] | int
             An integer or list of integers representing the elements for which the viscous settings need to be toggled.
-
 
         Returns
         -------
@@ -166,6 +157,65 @@ class MTSOL_call:
         self.process.stdin.flush()
 
 
+    def ExecuteSolver(self,
+                      ) -> int:
+        """
+        
+        """
+
+        # Enter the execution menu. 
+        # For each Newton iteration, write the residuals to dedicated lists for plotting/debugging purposes
+        self.process.stdin.write("\n")
+        self.process.stdin.write("x \n")
+        self.process.stdin.write("1 \n")
+        self.process.stdin.flush()  # Flush console input to ensure the execution process is started
+
+        # Set exit flag to -1, which would indicate successful convergence
+        # exit flag options are:
+        # -1 : Successful
+        # 0 : MTSOL crash - grid related
+        # 1 : Diverging RN
+        # 2 : Diverging RS
+        exit_flag = -1 
+        iter_counter = 1
+        converging = True
+        
+        # Create output deque to store the last 20 lines of output to
+        console_output = deque(maxlen=20)
+
+        # Keep converging whil
+        while converging:
+            #Execute iteration
+            self.process.stdin.flush()
+            self.process.stdin.write("1\n")
+            self.process.stdin.flush()
+            iter_counter += 1
+
+            check_output = True
+            while check_output:
+                # Read the output line by line
+                line = self.process.stdout.readline()
+                console_output.append(line)
+                if line.startswith(' Converged'):
+                    console_output.append(line)
+                    break
+                if line == "" and self.process.poll() is not None:  #Handle (unexpected) quitting of program
+                    check_output = False
+                    break
+                if line.startswith('         dDoub:'):  # Stop collecting once end of the iteration is reached, but read one more line
+                    check_output = False
+                    break
+                print(console_output)
+            # Handle successful convergence of case, which would be the next line being read after stopping the check_output routine
+            if self.process.stdout.readline().startswith(' Converged'):
+                converging = False
+                print("false")
+                return exit_flag
+            else:
+                continue
+
+            
+
     def HandleShockWaves(self,
                          ) -> None:
         """
@@ -184,10 +234,18 @@ class MTSOL_call:
         self.GenerateProcess()
 
         # Write operating conditions
-        self.SetOperConditions()
+        # self.SetOperConditions()
 
-        self.ToggleViscous([1, 3])
-        input()
+        
+
+        # Execute inviscid solve
+        self.ExecuteSolver()
+
+        # Toggle viscous options
+        self.ToggleViscous([1, 3, 4])
+        
+
+        
 
         return self.process.returncode
     
