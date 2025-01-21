@@ -144,6 +144,23 @@ class MTSET_call:
         self.process.stdin.write("\n")
         self.process.stdin.flush()
 
+
+        # Enter grid modification menu
+        self.process.stdin.write("m\n")
+        self.process.stdin.write("j 1\n")  # Set J flag to 1 to ensure streamline bunching towards stagnation lines
+        self.process.stdin.write("s 45\n")  # Use 45 streamlines, which is the maximum allowable. 
+        self.process.stdin.write("e 0.7\n")  # Set exponent for number of airfoil side points
+        self.process.stdin.write("\n")  # Exit grid modification menu
+
+        #Accept the default spacing ratios for each of the elements loaded in
+        for i in range(element_count):
+            self.process.stdin.write("\n")
+            self.process.stdin.flush()  # Send return command to MTSET
+
+        # Exit grid spacing definition routine
+        self.process.stdin.write("\n")
+        self.process.stdin.flush()  # Send commands to MTSET
+
         # -----
         # TO DO 
         # include handling of updated spacing;
