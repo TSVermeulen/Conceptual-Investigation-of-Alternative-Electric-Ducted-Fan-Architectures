@@ -168,9 +168,60 @@ class MTSOL_call:
         self.process.stdin.write("\n")
         self.process.stdin.flush()
 
+    def GenerateSolverOutput(self,
+                             Viscous: bool = False,
+                             ) -> None:
+        """
+        Generate all output files for the current analysis. 
+        If a viscous analysis was performed, the boundary layer data is also dumped to the corresponding file.
+        Requires that MTSOL is in the main menu when starting this function. 
+
+        Parameters
+        ----------
+        Viscous : bool, optional
+            If True, generates the outputs corresponding to a viscous analysis. Default is False.
+
+        Returns
+        -------
+        None
+        """
+
+        # Update the solution state file
+        self.process.stdin.write("W \n")
+        self.process.stdin.flush()
+
+        # If a viscous analysis was performed, dump the viscous data
+        if Viscous:
+            # If a viscous case was performed, dump the boundary layer data
+            self.process.stdin.write("B \n")
+            self.process.stdin.write(f"boundary_layer.{self.analysis_name} \n")
+            self.process.stdin.flush()
+
+            # Dump the flowfield data
+            self.process.stdin.write("D \n")
+            self.process.stdin.write(f"flowfield_viscous.{self.analysis_name} \n")
+            self.process.stdin.flush()
+
+            # Dump the forces data
+            self.process.stdin.write("F \n")
+            self.process.stdin.write(f"forces_viscous.{self.analysis_name} \n") 
+            self.process.stdin.flush()
+        else:
+            # If an inviscid analysis was performed, dump the inviscid data
+            # Dump the flowfield data
+            self.process.stdin.write("D \n")
+            self.process.stdin.write(f"flowfield.{self.analysis_name} \n")
+            self.process.stdin.flush()
+
+            # Dump the forces data
+            self.process.stdin.write("F \n")
+            self.process.stdin.write(f"forces.{self.analysis_name} \n") 
+            self.process.stdin.flush()
+
 
     def ExecuteSolver(self,
-                      Viscous: bool = False) -> int:
+                      Viscous: bool = False,
+                      ) -> int:
         """
         Execute the solver for the current analysis.
 
@@ -228,39 +279,10 @@ class MTSOL_call:
                     self.process.stdin.write("0 \n")
                     self.process.stdin.flush()
 
-                    # Update the solution state file
-                    self.process.stdin.write("W \n")
-                    self.process.stdin.flush()
+                    # Generate the solver output
+                    self.GenerateSolverOutput(Viscous)
 
-                    # If a viscous analysis was performed, dump the viscous data
-                    if Viscous:
-                        # If a viscous case was performed, dump the boundary layer data
-                        self.process.stdin.write("B \n")
-                        self.process.stdin.write(f"boundary_layer.{self.analysis_name} \n")
-                        self.process.stdin.flush()
-
-                        # Dump the flowfield data
-                        self.process.stdin.write("D \n")
-                        self.process.stdin.write(f"flowfield_viscous.{self.analysis_name} \n")
-                        self.process.stdin.flush()
-
-                        # Dump the forces data
-                        self.process.stdin.write("F \n")
-                        self.process.stdin.write(f"forces_viscous.{self.analysis_name} \n") 
-                        self.process.stdin.flush()
-                    else:
-                        # If an inviscid analysis was performed, dump the inviscid data
-                        # Dump the flowfield data
-                        self.process.stdin.write("D \n")
-                        self.process.stdin.write(f"flowfield.{self.analysis_name} \n")
-                        self.process.stdin.flush()
-
-                        # Dump the forces data
-                        self.process.stdin.write("F \n")
-                        self.process.stdin.write(f"forces.{self.analysis_name} \n") 
-                        self.process.stdin.flush()
-
-                    # Dump the flowvield 
+                    # return the exit flag and iteration counter
                     return exit_flag, iter_counter
                 
                 #Handle (unexpected) quitting of program - which would be a crash of MTSOL
