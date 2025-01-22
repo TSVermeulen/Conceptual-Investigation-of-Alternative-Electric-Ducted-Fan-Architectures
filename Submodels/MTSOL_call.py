@@ -15,6 +15,7 @@ Changelog:
 
 import subprocess
 import os
+import shutil
 from typing import Any, Optional
 from collections import deque
 
@@ -43,6 +44,8 @@ class MTSOL_call:
 
         # Define constants for the class
         self.ITER_STEP_SIZE = 2  # Step size in which iterations are performed in MTSOL
+        self.SAMPLE_SIZE = 10  # Number of iterations to use to average over in case of non-convergence. 
+        self.ITER_LIMIT = 100 # Maximum number of iterations to perform before non-convergence is assumed.
 
 
     def GenerateProcess(self,
@@ -103,8 +106,7 @@ class MTSOL_call:
        
         # Disable all viscous toggles to ensure inviscid analysis is run initially
         # To do this, we need to check what elements are present This is done by checking the console output of the menu and identifying the indices of all 'Tx' rows
-        # Collect console output from MTSOL, stopping when the end of the menu is reached.
-        interface_output = []
+        interface_output = deque(maxlen=20)  # Create deque to store the last 20 lines of console output to
         while True:
             next_line = self.process.stdout.readline()  # Collect output and add to list
             interface_output.append(next_line)
@@ -128,7 +130,7 @@ class MTSOL_call:
             if interface_output[idx_first_element + i][4] == "*":
                 self.process.stdin.write(f"V {interface_output[idx_first_element + i][2]} \n")
                 self.process.stdin.flush()	
-                toggles.append(int(interface_output[idx_first_element + i][2]))
+            toggles.append(int(interface_output[idx_first_element + i][2]))
         self.element_counts = toggles
         
         # Exit the modify solution parameters menu
@@ -137,7 +139,7 @@ class MTSOL_call:
     
 
     def ToggleViscous(self,
-                      elements: Optional[list[int]|int],
+                      elements: Optional[list[int]],
                       ) -> None:
         """
         Toggle the viscous settings for all elements.
@@ -160,7 +162,9 @@ class MTSOL_call:
         # Input Validation, together with setting the viscous settings for each element as desired
         if elements is not None:
             if not all(map(lambda v: v in self.element_counts, elements)):
-                raise OSError(f"element is not in the element counted in the solution parameters menu!") from None
+                print(self.element_counts)
+                print(elements)
+                raise OSError(f"element is not in the elements counted in the solution parameters menu!") from None
             self.process.stdin.write(f"V {','.join(map(str, elements))} \n")
         else:
             self.process.stdin.write(f"V {','.join(map(str, self.element_counts))} \n")
@@ -170,18 +174,13 @@ class MTSOL_call:
         self.process.stdin.write("\n")
         self.process.stdin.flush()
 
+
     def GenerateSolverOutput(self,
-                             Viscous: bool = False,
                              ) -> None:
         """
         Generate all output files for the current analysis. 
         If a viscous analysis was performed, the boundary layer data is also dumped to the corresponding file.
         Requires that MTSOL is in the main menu when starting this function. 
-
-        Parameters
-        ----------
-        Viscous : bool, optional
-            If True, generates the outputs corresponding to a viscous analysis. Default is False.
 
         Returns
         -------
@@ -192,45 +191,16 @@ class MTSOL_call:
         self.process.stdin.write("W \n")
         self.process.stdin.flush()
 
-        # If a viscous analysis was performed, dump the viscous data
-        if Viscous:
-            # If a viscous case was performed, dump the boundary layer data
-            self.process.stdin.write("B \n")
-            self.process.stdin.write(f"boundary_layer.{self.analysis_name} \n")
-            self.process.stdin.flush()
-
-            # Dump the flowfield data
-            self.process.stdin.write("D \n")
-            self.process.stdin.write(f"flowfield_viscous.{self.analysis_name} \n")
-            self.process.stdin.flush()
-
-            # Dump the forces data
-            self.process.stdin.write("F \n")
-            self.process.stdin.write(f"forces_viscous.{self.analysis_name} \n") 
-            self.process.stdin.flush()
-        else:
-            # If an inviscid analysis was performed, dump the inviscid data
-            # Dump the flowfield data
-            self.process.stdin.write("D \n")
-            self.process.stdin.write(f"flowfield.{self.analysis_name} \n")
-            self.process.stdin.flush()
-
-            # Dump the forces data
-            self.process.stdin.write("F \n")
-            self.process.stdin.write(f"forces.{self.analysis_name} \n") 
-            self.process.stdin.flush()
-
+        # Dump the forces data
+        self.process.stdin.write("F \n")
+        self.process.stdin.write(f"forces.{self.analysis_name} \n") 
+        self.process.stdin.flush()
+        
 
     def ExecuteSolver(self,
-                      Viscous: bool = False,
                       ) -> int:
         """
         Execute the solver for the current analysis.
-
-        Parameters
-        ----------
-        Viscous : bool, optional
-            If True, generates the outputs corresponding to a viscous analysis. Default is False.
 
         Returns
         -------
@@ -242,7 +212,6 @@ class MTSOL_call:
         """
 
         # Enter the execution menu. 
-        # For each Newton iteration, write the residuals to dedicated lists for plotting/debugging purposes
         self.process.stdin.write("x \n")
         self.process.stdin.flush()
         self.process.stdin.write("1 \n")
@@ -252,6 +221,7 @@ class MTSOL_call:
         # exit flag options are:
         # -1 : Successful
         # 0 : MTSOL crash - likely related to the grid resolution
+        # 1 : Non-convergence, to be handled by the HandleNonConvergence function
         # Set the default exit flag to -1, as we assume succesful convergence unless issues occur
         exit_flag = -1 
 
@@ -281,9 +251,6 @@ class MTSOL_call:
                     self.process.stdin.write("0 \n")
                     self.process.stdin.flush()
 
-                    # Generate the solver output
-                    self.GenerateSolverOutput(Viscous)
-
                     # return the exit flag and iteration counter
                     return exit_flag, iter_counter
                 
@@ -308,20 +275,24 @@ class MTSOL_call:
             Returns a tuple containing the exit flags and iteration counts for the initial viscous solve and the complete viscous solve.
         """
 
+        # Exit flag options are:
+        # -1 : Successful
+        # 0 : MTSOL crash - likely related to the grid resolution
+        # 1 : Non-convergence, to be handled by the HandleNonConvergence function
+        # Set the default exit flag to -1, as we assume succesful convergence unless issues occur
+
         # Toggle viscous on centerbody and outer surface of duct
-        self.ToggleViscous(None)
+        self.ToggleViscous([1, 3])
 
         # Execute initial viscous solve
-        exit_flag_visci, iter_count_visci = self.ExecuteSolver(Viscous=True)
-        print(iter_count_visci)
+        exit_flag_visci, iter_count_visci = self.ExecuteSolver()
 
         # Toggle viscous on inner surface of duct
         self.ToggleViscous([4])
 
         if exit_flag_visci == -1:
             # Execute complete viscous solve only if initial viscous run was successful
-            exit_flag_viscf, iter_count_viscf = self.ExecuteSolver(Viscous=True)  
-            print(iter_count_viscf)
+            exit_flag_viscf, iter_count_viscf = self.ExecuteSolver()  
         else:
             exit_flag_viscf = exit_flag_visci
             iter_count_viscf = 0   
@@ -329,8 +300,48 @@ class MTSOL_call:
         return (exit_flag_visci, iter_count_visci), (exit_flag_viscf, iter_count_viscf)
     
 
+    def HandleNonConvergence(self,
+                             ) -> tuple[int, int]:
+        """
+        Average over the last self.SAMPLE_SIZE iterations to determine flowfield variables.
+
+        """
+
+        # Create subfolder to put all output files into if the folder doesn't already exist
+        os.makedirs(r"\MTSOL_output_files", 
+                    exist_ok=True)
+
+        # Initialize iteration counter and create output deque
+        iter_counter = 1
+
+        # Keep looping until iter_count exceeds the target value for averaging 
+        while iter_counter <= self.SAMPLE_SIZE:
+            # Generate solver outputs
+            self.GenerateSolverOutput()
+
+            # Rename file to indicate the iteration number, and avoid overwriting the same file. 
+            # Also move the file to the output folder
+            shutil.move(os.rename(f"forces.{self.analysis_name}", f"forces.{self.analysis_name}.{iter_counter}"),
+                        r"\MTSOL_output_files")
+
+            #Execute iteration
+            self.process.stdin.write("x 1 \n")
+            self.process.stdin.flush()
+
+            # Increase iteration counter by step size
+            iter_counter += self.ITER_STEP_SIZE
+
+        # Average the data from all the iterations to obtain the assumed true values. This effectively assumes that the iterations are oscillating about the true value.
+        # This is a simplification, but it is the best we can do in this case.
+        # The average is calculated by summing all the values and dividing by the number of iterations.
+
+        
+
+
+
+
     def caller(self,
-               Run_viscous: bool = True) -> int:
+               Run_viscous: bool = False) -> int:
         """
         Main execution of MTSOL
         """
@@ -344,18 +355,30 @@ class MTSOL_call:
         # Execute inviscid solve
         exit_flag_invisc, iter_count_invisc = self.ExecuteSolver()
 
-        print(iter_count_invisc)
         # Only run a viscous solve if required by the user
         if Run_viscous:
             # Only execute the viscous solve if the inviscid solve was successful
             if exit_flag_invisc == -1:
-                self.ExecuteViscousSolver()
+                (exit_flag_visci, iter_count_visci), (exitflag_viscf, iter_count_viscf) = self.ExecuteViscousSolver()
 
+        # Generate the solver output
+        self.GenerateSolverOutput()
         
+        # Close the MTSOL tool
+        self.process.stdin.write("Q \n")
+        self.process.stdin.flush()
+
+        # Check that MTSOL has closed successfully 
+        if self.process.poll() is not None:
+            try:
+                self.process.wait(timeout=2)
+            
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                raise OSError("MTSOL did not close after completion.") from None
+  
         return self.process.returncode
-    
-    
-    pass
+
 
 if __name__ == "__main__": 
     import time
@@ -366,7 +389,7 @@ if __name__ == "__main__":
     oper = {"Inlet_Mach": 0.2,
             "Inlet_Reynolds": 5E6}
 
-    test = MTSOL_call(oper, filepath, analysisName).caller()
+    test = MTSOL_call(oper, filepath, analysisName).caller(Run_viscous=True)
 
 
     end_time = time.time()

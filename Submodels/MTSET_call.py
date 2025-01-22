@@ -144,7 +144,6 @@ class MTSET_call:
         self.process.stdin.write("\n")
         self.process.stdin.flush()
 
-
         # Enter grid modification menu
         self.process.stdin.write("m\n")
         self.process.stdin.write("j 1\n")  # Set J flag to 1 to ensure streamline bunching towards stagnation lines
