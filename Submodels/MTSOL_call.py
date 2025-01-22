@@ -124,9 +124,11 @@ class MTSOL_call:
         # Note that odd numbers are the outer surfaces, while even numbers are the inner surfaces.
         toggles = []
         for i in range(n_elements):
-            self.process.stdin.write(f"V {interface_output[idx_first_element + i][2]} \n")
-            self.process.stdin.flush()	
-            toggles.append(int(interface_output[idx_first_element + i][2]))
+            # Only toggle if the element currently has the viscous option enabled. 
+            if interface_output[idx_first_element + i][4] == "*":
+                self.process.stdin.write(f"V {interface_output[idx_first_element + i][2]} \n")
+                self.process.stdin.flush()	
+                toggles.append(int(interface_output[idx_first_element + i][2]))
         self.element_counts = toggles
         
         # Exit the modify solution parameters menu
@@ -254,7 +256,7 @@ class MTSOL_call:
         exit_flag = -1 
 
         # Initialize iteration counter
-        iter_counter = 2
+        iter_counter = 1
         
         # Create output deque to store the last 20 lines of output to
         console_output = deque(maxlen=20)
@@ -294,18 +296,41 @@ class MTSOL_call:
                 if line.startswith('         dDoub:'):  
                     break
 
-            
 
-    def HandleShockWaves(self,
-                         ) -> None:
+    def ExecuteViscousSolver(self,
+                             ) -> tuple[tuple[int, int], tuple[int, int]]:
         """
-        Handle second order diffusion to help resolve shockwaves. 
+        Execute the viscous solver for the current analysis. 
+
+        Returns
+        -------
+        tuple : int
+            Returns a tuple containing the exit flags and iteration counts for the initial viscous solve and the complete viscous solve.
         """
 
-        pass
+        # Toggle viscous on centerbody and outer surface of duct
+        self.ToggleViscous(None)
 
+        # Execute initial viscous solve
+        exit_flag_visci, iter_count_visci = self.ExecuteSolver(Viscous=True)
+        print(iter_count_visci)
 
-    def caller(self) -> int:
+        # Toggle viscous on inner surface of duct
+        self.ToggleViscous([4])
+
+        if exit_flag_visci == -1:
+            # Execute complete viscous solve only if initial viscous run was successful
+            exit_flag_viscf, iter_count_viscf = self.ExecuteSolver(Viscous=True)  
+            print(iter_count_viscf)
+        else:
+            exit_flag_viscf = exit_flag_visci
+            iter_count_viscf = 0   
+        
+        return (exit_flag_visci, iter_count_visci), (exit_flag_viscf, iter_count_viscf)
+    
+
+    def caller(self,
+               Run_viscous: bool = True) -> int:
         """
         Main execution of MTSOL
         """
@@ -319,17 +344,12 @@ class MTSOL_call:
         # Execute inviscid solve
         exit_flag_invisc, iter_count_invisc = self.ExecuteSolver()
 
-        # Toggle viscous on centerbody and outer surface of duct
-        self.ToggleViscous([1,3])
-
-        # Execute initial viscous solve
-        exit_flag_visci, iter_count_visci = self.ExecuteSolver(Viscous=True)
-
-        # Toggle viscous on inner surface of duct
-        self.ToggleViscous([4])
-
-        # Execute complete viscous solve
-        exit_flag_viscf, iter_count_viscf = self.ExecuteSolver(Viscous=True)     
+        print(iter_count_invisc)
+        # Only run a viscous solve if required by the user
+        if Run_viscous:
+            # Only execute the viscous solve if the inviscid solve was successful
+            if exit_flag_invisc == -1:
+                self.ExecuteViscousSolver()
 
         
         return self.process.returncode

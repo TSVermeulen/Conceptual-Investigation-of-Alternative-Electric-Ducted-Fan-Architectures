@@ -150,6 +150,8 @@ class MTSET_call:
         self.process.stdin.write("j 1\n")  # Set J flag to 1 to ensure streamline bunching towards stagnation lines
         self.process.stdin.write("s 45\n")  # Use 45 streamlines, which is the maximum allowable. 
         self.process.stdin.write("e 0.7\n")  # Set exponent for number of airfoil side points
+        self.process.stdin.write("x 0.5\n")  # Set x spacing factor - this creates a more elliptic grid
+        self.process.stdin.write("n 200\n")  # Set number of streamwise points to 200 rather than the default 141
         self.process.stdin.write("\n")  # Exit grid modification menu
 
         #Accept the default spacing ratios for each of the elements loaded in
@@ -267,6 +269,7 @@ class MTSET_call:
 
         
 if __name__ == "__main__":
+
 
     import time
     start_time = time.time()
