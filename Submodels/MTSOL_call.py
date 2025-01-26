@@ -520,7 +520,7 @@ class MTSOL_call:
             raise OSError(f"Unknown exit flag {exit_flag} encountered!") from None
 
 
-    def caller(self,
+    def caller_individual_convergence(self,
                Run_viscous: bool = False) -> tuple[int, list[tuple[int]]]:
         """
         Main execution of MTSOL
@@ -601,6 +601,71 @@ class MTSOL_call:
                 raise OSError("MTSOL did not close after completion.") from None
   
         return max(exit_flag_invisc, exit_flag_visci, exit_flag_viscf), [(exit_flag_invisc, iter_count_invisc), (exit_flag_visci, iter_count_visci), (exit_flag_viscf, iter_count_viscf)]
+    
+
+    def caller(self,
+               Run_viscous: bool = False) -> tuple[int, list[tuple[int]]]:
+        """
+        Main execution of MTSOL
+        """
+
+        # Define initial exit flags and iteration counters
+        # Note that a negative iteration count indicates that the solver did not run
+        exit_flag_invisc = ExitFlag.NOT_PERFORMED.value
+        iter_count_invisc = -1
+        exit_flag_visc = ExitFlag.NOT_PERFORMED.value
+        iter_count_visc = -1
+
+        # Generate MTSOL subprocess
+        self.GenerateProcess()
+
+        # Write operating conditions
+        self.SetOperConditions()
+
+        # Execute inviscid solve
+        exit_flag_invisc, iter_count_invisc = self.ExecuteSolver()
+
+        # Handle solver based on exit flag
+        self.HandleExitFlag(exit_flag_invisc, 
+                            iter_count_invisc, 
+                            "inviscid",
+                            )
+        
+        print("inviscid done", iter_count_invisc)
+
+        # Only run a viscous solve if required by the user and if the inviscid solve was successful
+        if Run_viscous and exit_flag_invisc == ExitFlag.SUCCESS.value:
+            # Toggle viscous on all surfaces
+            self.ToggleViscous(None)
+
+            # Execute viscous solve
+            exit_flag_visc, iter_count_visc = self.ExecuteSolver()
+
+            # Handle solver based on exit flag
+            self.HandleExitFlag(exit_flag_visc,
+                                iter_count_visc,
+                                "viscous",
+                                )
+            
+            print("viscous done", iter_count_visc)
+        
+        # Generate the solver output
+        self.GenerateSolverOutput()
+        
+        # Close the MTSOL tool
+        self.process.stdin.write("Q \n")
+        self.process.stdin.flush()
+
+        # Check that MTSOL has closed successfully 
+        if self.process.poll() is not None:
+            try:
+                self.process.wait(timeout=2)
+            
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                raise OSError("MTSOL did not close after completion.") from None
+  
+        return max(exit_flag_invisc, exit_flag_visc), [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)]
 
 
 if __name__ == "__main__": 
