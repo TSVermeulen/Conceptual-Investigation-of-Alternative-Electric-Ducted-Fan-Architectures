@@ -45,6 +45,7 @@ class ExitFlag(Enum):
     CRASH = 0
     NON_CONVERGENCE = 1
     NOT_PERFORMED = 2
+    COMPLETED = 3
 
 
 class MTSOL_call:
@@ -71,7 +72,7 @@ class MTSOL_call:
         self.analysis_name = analysis_name
 
         # Define constants for the class
-        self.ITER_STEP_SIZE = 2  # Step size in which iterations are performed in MTSOL
+        self.ITER_STEP_SIZE = 1  # Step size in which iterations are performed in MTSOL
         self.SAMPLE_SIZE = 10  # Number of iterations to use to average over in case of non-convergence. 
         self.ITER_LIMIT = 50 # Maximum number of iterations to perform before non-convergence is assumed.
 
@@ -206,14 +207,22 @@ class MTSOL_call:
 
 
     def WaitForCompletion(self,
+                          type: int = 1,
                           ) -> int:
         """
         Check the console output to ensure that iterations are completed.
 
+        Parameters
+        ----------
+        type : str, optional
+            Type of completion to check for. Default is 1, which corresponds to an iteration. 
+            Other option is 2, which corresponds to output generation. 
+
         Returns
         -------
         exit_flag : int
-            Exit flag indicating the status of the solver execution. -1 indicates successful completion.
+            Exit flag indicating the status of the solver execution. -1 indicates successful completion, 0 indicates a crash, 
+            and 3 indicates completion of the iteration, but NOT convergence.
         """
 
         # Check the console output to ensure that iterations are completed
@@ -223,16 +232,31 @@ class MTSOL_call:
             line = self.process.stdout.readline()
             console_output.append(line)
             
-            # Once iteration is complete, continue the outer while loop
-            if line.startswith(' ==========='):
+            # Once iteration is complete, return the completed exit flag
+            if line.startswith('         dDoub') and type == 1:
+                print("condition 1")
+                return ExitFlag.COMPLETED.value
+            
+            # Once the iteration is converged, return the converged exit flag
+            elif line.startswith(' Converged') and type == 1:
+                print("condition 2")
                 return ExitFlag.SUCCESS.value
-            elif line.startswith(' Converged'):
-                return ExitFlag.SUCCESS.value
-
-            #Handle (unexpected) quitting of program - which would be a crash of MTSOL
-            elif line == "" and self.process.poll() is not None:  
+            
+            # Once the solution is written to the state file, return the completed exit flag
+            elif line.startswith(' Solution') and type == 2:
+                print("condition 3")
+                return ExitFlag.COMPLETED.value
+            
+            # Once the forces file is written, return the completed exit flag. 
+            # This can be detected from the prompt to overwrite the file or to enter a filename
+            elif (line.startswith(' File exists.  Overwrite?  Y') or line.startswith('Enter filename') or line.startswith(' =')) and type == 2:
+                print("condition 4")
+                return ExitFlag.COMPLETED.value
+            
+            # If the solver crashes, return the crash exit flag
+            elif line == "" and self.process.poll() is not None:
                 return ExitFlag.CRASH.value
-        
+            
 
     def GenerateSolverOutput(self,
                              ) -> None:
@@ -250,11 +274,21 @@ class MTSOL_call:
         self.process.stdin.write("W \n")
         self.process.stdin.flush()
 
+        # Check if the solution state file is written successfully
+        self.WaitForCompletion(type=2)
+
         # Dump the forces data
         self.process.stdin.write("F \n")
+        self.process.stdin.flush()
+
         self.process.stdin.write(f"forces.{self.analysis_name} \n") 
         self.process.stdin.flush()
+
+        self.process.stdin.write("Y \n")
+        self.process.stdin.flush()
         
+        # Check if the forces file is written successfully
+        self.WaitForCompletion(type=2)
 
     def ExecuteSolver(self,
                       ) -> tuple[int, int]:
@@ -270,51 +304,28 @@ class MTSOL_call:
                 Number of iterations performed up until failure of the solver.
         """
 
-        # Enter the execution menu. 
-        self.process.stdin.write("x \n")
-        self.process.stdin.flush()
-        self.process.stdin.write("1 \n")
-        self.process.stdin.flush()  # Flush console input to ensure the execution process is started
-
         # Initialize iteration counter
-        iter_counter = 1
+        iter_counter = 0
         
-        # Create output deque to store the last 20 lines of output to
-        console_output = deque(maxlen=20)
-
         # Keep converging until the iteration count exceeds the limit
         while iter_counter < self.ITER_LIMIT:
-            #Execute iteration
-            self.process.stdin.write(f"{self.ITER_STEP_SIZE} \n")
+            #Execute iterations
+            self.process.stdin.write(f"x {self.ITER_STEP_SIZE} \n")
             self.process.stdin.flush()
 
             # Increase iteration counter by step size
             iter_counter += self.ITER_STEP_SIZE
 
-            while True:
-                # Read the output line by line
-                line = self.process.stdout.readline()
-                console_output.append(line)
-                
-                # Handle successful convergence of case, which would be the end of the function, returning the exit flag
-                if line.startswith(' Converged'):
-                    # Exit the iteration subroutine
-                    self.process.stdin.write("0 \n")
-                    self.process.stdin.flush()
+            # Wait for the current iteration to complete
+            exit_flag = self.WaitForCompletion(type=1)
 
-                    # return the exit flag and iteration counter
-                    return ExitFlag.SUCCESS.value, iter_counter
-                
-                #Handle (unexpected) quitting of program - which would be a crash of MTSOL
-                if line == "" and self.process.poll() is not None:  
-                    return ExitFlag.CRASH.value, iter_counter
-                
-                # Stop collecting once end of the iteration is reached, but read one more line
-                if line.startswith('         dDoub:'):  
-                    break
-        
-        if iter_counter == self.ITER_LIMIT:
-            return ExitFlag.NON_CONVERGENCE.value, iter_counter
+            # Check the exit flag to see if the solution has converged
+            # If the solution has converged, break out of the iteration loop
+            if exit_flag == ExitFlag.SUCCESS.value:
+                return exit_flag, iter_counter
+
+        # If the iteration limit is reached, return the non-convergence exit flag
+        return ExitFlag.NON_CONVERGENCE.value, iter_counter
 
 
     def GetAverageValues(self,
@@ -413,28 +424,30 @@ class MTSOL_call:
         """
 
         # Create subfolder to put all output files into if the folder doesn't already exist
-        os.makedirs(r"\MTSOL_output_files", 
+        dump_folder = r"\\MTSOL_output_files\\"
+        os.makedirs(dump_folder, 
                     exist_ok=True)
 
         # Initialize iteration counter
-        iter_counter = 1
+        iter_counter = 0
 
         # Keep looping until iter_count exceeds the target value for number of iterations to average 
         while iter_counter <= self.SAMPLE_SIZE:
+            #Execute iteration
+            self.process.stdin.write("x 1 \n")
+            self.process.stdin.flush()
+
             # Wait for current iteration to complete
-            self.WaitForCompletion()
+            self.WaitForCompletion(type=1)
 
             # Generate solver outputs
             self.GenerateSolverOutput()
 
             # Rename file to indicate the iteration number, and avoid overwriting the same file. 
             # Also move the file to the output folder
-            shutil.move(os.rename(f"forces.{self.analysis_name}", f"forces.{self.analysis_name}.{iter_counter}"),
-                        r"\MTSOL_output_files")
-
-            #Execute iteration
-            self.process.stdin.write("x 1 \n")
-            self.process.stdin.flush()
+            shutil.move(os.replace(f"forces.{self.analysis_name}", f"forces.{self.analysis_name}.{iter_counter}"),
+                        dump_folder,
+                        )
 
             # Increase iteration counter by step size
             iter_counter += self.ITER_STEP_SIZE
@@ -443,6 +456,9 @@ class MTSOL_call:
         # This is a simplification, but it is the best we can do in this case.
         # The average is calculated by summing all the values and dividing by the number of iterations.
         self.GetAverageValues()
+
+        # After averaging, the individual generated files are no longer needed and can be deleted.
+        shutil.rmtree(dump_folder)
 
 
     def CrashRecovery(self,
@@ -469,6 +485,7 @@ class MTSOL_call:
 
         pass
     
+
     def HandleExitFlag(self,
                        exit_flag: int,
                        iter_count: int,
@@ -532,6 +549,8 @@ class MTSOL_call:
                             iter_count_invisc, 
                             "inviscid",
                             )
+        
+        print("inviscid done", iter_count_invisc)
 
         # Only run a viscous solve if required by the user and if the inviscid solve was successful
         if Run_viscous and exit_flag_invisc == ExitFlag.SUCCESS.value:
@@ -547,6 +566,8 @@ class MTSOL_call:
                                 "initial_viscous",
                                 )
             
+            print("initial viscous done", iter_count_visci)
+            
             # Execute complete viscous solve only if initial viscous run was successful
             if exit_flag_visci == ExitFlag.SUCCESS.value:
                 # Toggle viscous on inner surface of duct
@@ -560,6 +581,8 @@ class MTSOL_call:
                                     iter_count_viscf,
                                     "final_viscous",
                                     )
+                
+                print("final viscous done", iter_count_viscf)
         
         # Generate the solver output
         self.GenerateSolverOutput()
