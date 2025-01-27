@@ -130,39 +130,9 @@ class MTSOL_call:
         self.process.stdin.write("N 9\n")
         self.process.stdin.flush()
 
-        # Set the Reynolds number, calculated using the length self.LREF = 1!
-        # Flush is required here to ensure console output is up-to-date before collecting it. 
-        self.process.stdin.write(f"R {self.operating_conditions["Inlet_Reynolds"]} \n")
+        # Set the Reynolds number to 0 to ensure an inviscid solve is performed initially
+        self.process.stdin.write(f"R 0 \n")
         self.process.stdin.flush()
-       
-        # Disable all viscous toggles to ensure inviscid analysis is run initially
-        # To do this, we need to check what elements are present This is done by checking the console output of the menu and identifying the indices of all 'Tx' rows
-        interface_output = deque(maxlen=20)  # Create deque to store the last 20 lines of console output to
-        while True:
-            next_line = self.process.stdout.readline()  # Collect output and add to list
-            interface_output.append(next_line)
-            
-            if next_line == "" and self.process.poll() is not None:  #Handle (unexpected) quitting of program
-                break
-            if next_line == ' V1,2..   Viscous side toggles\n':  # Stop collecting once end of MTSOL menu is reached
-                break
-        
-        # Count the number of elements present and get the indices of the first and last element.  
-        idx_first_element = interface_output.index(' G  2        Grid-move type\n') + 2
-        idx_last_element = len(interface_output) - 3
-        n_elements = idx_last_element - idx_first_element + 1
-
-        # Disable the viscous toggles for each surface
-        # Element surface numbers are stored to the toggles list, which is written to self to enable easy access later on when re-enabling the viscous toggles.
-        # Note that odd numbers are the outer surfaces, while even numbers are the inner surfaces.
-        toggles = []
-        for i in range(n_elements):
-            # Only toggle if the element currently has the viscous option enabled. 
-            if interface_output[idx_first_element + i][4] == "*":
-                self.process.stdin.write(f"V {interface_output[idx_first_element + i][2]} \n")
-                self.process.stdin.flush()	
-            toggles.append(int(interface_output[idx_first_element + i][2]))
-        self.element_counts = toggles
         
         # Exit the modify solution parameters menu
         self.process.stdin.write("\n")
@@ -170,16 +140,9 @@ class MTSOL_call:
     
 
     def ToggleViscous(self,
-                      elements: Optional[list[int]],
                       ) -> None:
         """
         Toggle the viscous settings for all elements.
-
-        Parameters
-        ----------
-        elements : list[int] | int, optional
-            An integer or list of integers representing the elements for which the viscous settings need to be toggled.
-            If None, all elements are toggled. Default is None.
 
         Returns
         -------
@@ -190,15 +153,8 @@ class MTSOL_call:
         self.process.stdin.write("m \n")
         self.process.stdin.flush()
 
-        # Input Validation, together with setting the viscous settings for each element as desired
-        if elements is not None:
-            if not all(map(lambda v: v in self.element_counts, elements)):
-                print(self.element_counts)
-                print(elements)
-                raise OSError(f"element is not in the elements counted in the solution parameters menu!") from None
-            self.process.stdin.write(f"V {','.join(map(str, elements))} \n")
-        else:
-            self.process.stdin.write(f"V {','.join(map(str, self.element_counts))} \n")
+        # Set the viscous Reynolds number, calculated using the length self.LREF = 1!
+        self.process.stdin.write(f"R {self.operating_conditions["Inlet_Reynolds"]} \n")
         self.process.stdin.flush()
 
         # Exit the Modify solution parameters menu
@@ -231,9 +187,9 @@ class MTSOL_call:
             # Read the output line by line
             line = self.process.stdout.readline()
             console_output.append(line)
-            
+            print(line)
             # Once iteration is complete, return the completed exit flag
-            if line.startswith('         dDoub') and type == 1:
+            if line.startswith(' =') and type == 1:
                 print("condition 1")
                 return ExitFlag.COMPLETED.value
             
@@ -289,6 +245,7 @@ class MTSOL_call:
         
         # Check if the forces file is written successfully
         self.WaitForCompletion(type=2)
+
 
     def ExecuteSolver(self,
                       ) -> tuple[int, int]:
@@ -636,7 +593,9 @@ class MTSOL_call:
         # Only run a viscous solve if required by the user and if the inviscid solve was successful
         if Run_viscous and exit_flag_invisc == ExitFlag.SUCCESS.value:
             # Toggle viscous on all surfaces
-            self.ToggleViscous(None)
+            self.ToggleViscous()
+
+            self.WaitForCompletion(type=1)
 
             # Execute viscous solve
             exit_flag_visc, iter_count_visc = self.ExecuteSolver()
