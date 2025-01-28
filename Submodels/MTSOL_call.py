@@ -1,16 +1,52 @@
 """
+MTSOL_call
+=============
 
-MTSOL calling class definition. 
+Description
+-----------
+This module provides an interface to interact with the MTSOL executable from Python. 
+It creates a subprocess for the MSOL executable, executes an inviscid, and viscid if desired, solve, 
+and writes the output data to the state file and the forces.xxx output file.
 
-The class definition contains all the required functions to interface the MTSOL code with Python. 
+Classes
+-------
+ExitFlag
+    An Enum class with exit flags for the MTSOL interface
+MTSOL_call
+    A class to handle the interface between Python and the MTSOL executable.
 
-@author: T.S.Vermeulen
-@email: thomas0708.vermeulen@gmail.com / T.S.Vermeulen@student.tudelft.nl
-@version: 0
+Examples
+--------
+>>> filepath = r"mtsol.exe"
+>>> analysisName = "test_case"
+>>> oper = {"Inlet_Mach": 0.2000,
+>>>         "Inlet_Reynolds": 5.000E6,
+>>>         "Pressure_Ratio_Exit": 0.99,
+>>>         }
+>>> test = MTSOL_call(oper, filepath, analysisName).caller(Run_viscous=True)
+
+Notes
+-----
+This module is designed to work with the MTSOL executable. Ensure that the executable and the input state file, tdat.xxx, 
+are present in the same directory as this Python file. When executing the file as a standalone, it uses the inputs 
+and calls contained within the if __name__ == "__main__" section. This part also imports the time module to measure 
+the time needed to perform each file generation call. This is beneficial in runtime optimization.
+
+References
+----------
+The required input data, limitations, and structures are documented within the MTFLOW user manual:
+https://web.mit.edu/drela/Public/web/mtflow/mtflow.pdf
+
+Versioning
+------
+Author: T.S. Vermeulen
+Email: T.S.Vermeulen@student.tudelft.nl
+Student ID: 4995309
+Version: 0.9
 
 Changelog:
-- V0: File created with empty class as placeholder
-
+- V0.0: File created with empty class as placeholder.
+- V0.9: Minimum Working Example. Lacks crash handling and pressure ratio definition. 
 """
 
 import subprocess
@@ -49,7 +85,7 @@ class ExitFlag(Enum):
 
 class MTSOL_call:
     """
-    
+    Class to handle the interface between MTSOL and Python
     """
 
     def __init__(self,
@@ -71,7 +107,7 @@ class MTSOL_call:
         self.analysis_name = analysis_name
 
         # Define constants for the class
-        self.ITER_STEP_SIZE = 1  # Step size in which iterations are performed in MTSOL
+        self.ITER_STEP_SIZE = 2  # Step size in which iterations are performed in MTSOL
         self.SAMPLE_SIZE = 10  # Number of iterations to use to average over in case of non-convergence. 
         self.ITER_LIMIT = 50 # Maximum number of iterations to perform before non-convergence is assumed.
    
@@ -109,7 +145,7 @@ class MTSOL_call:
     def SetOperConditions(self,
                           ) -> None:
         """
-        Set the inlet Mach number, Reynolds number, critical amplification factor, and disable the viscous toggles for all elements present. 
+        Set the inlet Mach number and critical amplification factor, and set the Reynolds number equal to zero to ensure an inviscid case is obtained. 
 
         Returns
         -------
@@ -140,7 +176,8 @@ class MTSOL_call:
     def ToggleViscous(self,
                       ) -> None:
         """
-        Toggle the viscous settings for all elements.
+        Toggle the viscous setting for all elements by setting the inlet Reynolds number.
+        Note that the Reynolds number is defined using the reference length LREF=1 m
 
         Returns
         -------
@@ -167,7 +204,7 @@ class MTSOL_call:
                           type: int = 1,
                           ) -> int:
         """
-        Monitor the console output to verify the completion of iterations.
+        Monitor the console output to verify the completion of a command.
 
         Parameters
         ----------
@@ -244,6 +281,19 @@ class MTSOL_call:
         
         # Check if the forces file is written successfully
         self.WaitForCompletion(type=2)
+
+        # Dump the flowfield data
+        self.process.stdin.write("D \n")
+        self.process.stdin.flush()
+
+        self.process.stdin.write(f"flowfield.{self.analysis_name} \n")
+        self.process.stdin.flush()
+
+        self.process.stdin.write("Y \n")
+        self.process.stdin.flush()      
+
+        # Check if the flowfield file is written successfully
+        self.WaitForCompletion(type=2)  
 
 
     def ExecuteSolver(self,
@@ -476,7 +526,21 @@ class MTSOL_call:
                Run_viscous: bool = False,
                ) -> tuple[int, list[tuple[int]]]:
         """
-        Main execution of MTSOL
+        Main execution interface of MTSOL.
+
+        Parameters
+        ----------
+        Run_viscous : bool, optional
+            Flag to indicate whether to run a viscous solve. Default is False.
+
+        Returns
+        -------
+        tuple :
+            maximum_exit_flag : int
+                Exit flag indicating the status of the solver execution. Is equal to the maximum value of the inviscid and viscous exit flags, since exit_flag > -1 indicate failed/nonconverging solves.
+                This is used as a one-variable status indicator, while the corresponding output list gives more details. 
+            list :
+                A list of tuples containing the exit flags and iteration counts for the inviscid and viscous solves.
         """
 
         # Define initial exit flags and iteration counters
@@ -536,15 +600,14 @@ class MTSOL_call:
 
 if __name__ == "__main__": 
     import time
-    start_time = time.time()
-
+    
     filepath = r"mtsol.exe"
     analysisName = "test_case"
     oper = {"Inlet_Mach": 0.2000,
             "Inlet_Reynolds": 5.000E6}
 
+    start_time = time.time()
     test = MTSOL_call(oper, filepath, analysisName).caller(Run_viscous=True)
-
-
     end_time = time.time()
+
     print(f"Execution of MTSOL_call took {end_time -  start_time} seconds")
