@@ -157,7 +157,7 @@ class MTSOL_call:
         self.process.stdin.flush()
 
         # Write inlet Mach number
-        self.process.stdin.write(f"M {self.operating_conditions["Inlet_Mach"]} \n")
+        self.process.stdin.write(f"M {self.operating_conditions['Inlet_Mach']} \n")
         self.process.stdin.flush()
 
         # Set critical amplification factor to N=9 rather than the default N=7
@@ -189,7 +189,7 @@ class MTSOL_call:
         self.process.stdin.flush()
 
         # Set the viscous Reynolds number, calculated using the length self.LREF = 1!
-        self.process.stdin.write(f"R {self.operating_conditions["Inlet_Reynolds"]} \n")
+        self.process.stdin.write(f"R {self.operating_conditions['Inlet_Reynolds']} \n")
         self.process.stdin.flush()
 
         # Exit the Modify solution parameters menu
@@ -400,6 +400,12 @@ class MTSOL_call:
                 all_values = [list(map(float, line.split(':')[1].split())) for line in lines]
                 avg_values = [sum(col) / len(col) for col in list(zip(*all_values))]
                 line_text = text_part + '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
+            
+            # Handling unnamed values separated by varying spaces
+            elif all(re.match(r'[-+]?\d*\.?\d+([eE][-+]?\d+)?(\s+[-+]?\d*\.?\d+([eE][-+]?\d+)?)*', line) for line in lines):
+                all_values = [list(map(float, re.split(r'\s+', line.strip()))) for line in lines]
+                avg_values = [sum(col) / len(col) for col in list(zip(*all_values))]
+                line_text = '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
 
             average_content.append(line_text)
 
@@ -440,7 +446,8 @@ class MTSOL_call:
 
             # Rename file to indicate the iteration number, and avoid overwriting the same file. 
             # Also move the file to the output folder
-            shutil.move(os.replace(f"forces.{self.analysis_name}", f"forces.{self.analysis_name}.{iter_counter}"),
+            os.replace(f"forces.{self.analysis_name}", f"forces.{self.analysis_name}.{iter_counter}")
+            shutil.move(f"forces.{self.analysis_name}.{iter_counter}",
                         dump_folder,
                         )
 

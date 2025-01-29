@@ -86,7 +86,7 @@ Version: 1.0
 
 Changelog:
 - V1.0: Initial working version
-- V1.1: Updated test values. Added leading edge coordinate control of centrebody. Added floating point precision of 3 decimals for domain size. 
+- V1.1: Updated test values. Added leading edge coordinate control of centrebody. Added floating point precision of 3 decimals for domain size. Updated input validation logic.
 """
 
 import numpy as np
@@ -169,21 +169,23 @@ class fileHandling:
             X_AFT = leading edge + chord length + X_AFT_OFFSET
             """
 
-            # Validate inputs
+            # Define helper function to perform input validation
+            def validate_coordinates(param_name: str) -> None:
+                if param_name not in self.ducted_fan_design_params:
+                    raise ValueError(f"Missing {param_name}")
+                coordinates = self.ducted_fan_design_params[param_name]
+                if not isinstance(coordinates, (list, tuple)) or len(coordinates) != 2:
+                    raise ValueError(f"{param_name} must be a tuple/list of length 2")
+
+            # Validate that the ducted_fan_design_params is a dictionary
             if not isinstance(self.ducted_fan_design_params, dict):
-                raise TypeError("Expectred ducted_fan_design_params to be a dictionary.") from None
-            if "Duct Leading Edge Coordinates" not in self.ducted_fan_design_params:
-                raise ValueError("Missing Duct Leading Edge Coordinates in design params") from None
-            if "Center Body Leading Edge Coordinates" not in self.ducted_fan_design_params:
-                raise ValueError("Missing Center Body Leading Edge Coordinates in design params") from None
+                raise TypeError("Expected ducted_fan_design_params to be a dictionary.") from None
             
-            coordinates = self.ducted_fan_design_params["Duct Leading Edge Coordinates"]
-            if not isinstance(coordinates, (list, tuple)) or len(coordinates) != 2:
-                raise ValueError("Duct Leading Edge Coordinates must be a tuple/list of length 2")
-            
-            coordinates = self.ducted_fan_design_params["Center Body Leading Edge Coordinates"]
-            if not isinstance(coordinates, (list, tuple)) or len(coordinates) != 2:
-                raise ValueError("Center Body Leading Edge Coordinates must be a tuple/list of length 2")
+            # Validate the duct inputs
+            validate_coordinates("Duct Leading Edge Coordinates")
+
+            # Validate the centre body inputs
+            validate_coordinates("Centre Body Leading Edge Coordinates")
     
             # Calculate Y-domain boundaries based on ducted fan design parameters. 
             # Y_bottom is always 0 as it is the symmetry line
@@ -194,10 +196,10 @@ class fileHandling:
 
             # Calculate X-domain boundaries based on ducted fan design parameters.
             X_FRONT = round(min(self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0], 
-                                self.ducted_fan_design_params["Center Body Leading Edge Coordinates"][0]) - self.X_FRONT_OFFSET,
+                                self.ducted_fan_design_params["Centre Body Leading Edge Coordinates"][0]) - self.X_FRONT_OFFSET,
                             3)
             X_AFT = round(max(self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0], 
-                              self.ducted_fan_design_params["Center Body Leading Edge Coordinates"][0]) + self.duct_params["Chord Length"] + self.X_AFT_OFFSET,
+                              self.ducted_fan_design_params["Centre Body Leading Edge Coordinates"][0]) + self.duct_params["Chord Length"] + self.X_AFT_OFFSET,
                           3)
 
             return [X_FRONT, X_AFT, Y_BOT, Y_TOP]
@@ -292,7 +294,7 @@ class fileHandling:
 
             # Get profiles of centerbody and duct
             xy_centerbody = self.GetProfileCoordinates(self.centerbody_params,
-                                                       self.ducted_fan_design_params["Center Body Leading Edge Coordinates"])
+                                                       self.ducted_fan_design_params["Centre Body Leading Edge Coordinates"])
             xy_duct = self.GetProfileCoordinates(self.duct_params,
                                                  self.ducted_fan_design_params["Duct Leading Edge Coordinates"])
             
@@ -693,8 +695,8 @@ if __name__ == "__main__":
     # Perform test generation of walls.xxx file using dummy inputs
     # Creates a dummy duct with a naca 2415 profile for the centerbody and duct
     n0015_coeff = {"b_0": 0., "b_2": 0., "b_8": 2.63935800e-02, "b_15": 7.62111322e-01, "b_17": 0, 'x_t': 0.2855061027842137, 'y_t': 0.07513718500645125, 'x_c': 0.5, 'y_c': 0, 'z_TE': -2.3750854491940602e-33, 'dz_TE': 0.0019396795056937765, 'r_LE': -0.01634872585955984, 'trailing_wedge_angle': 0.15684435833921387, 'trailing_camberline_angle': 0.0, 'leading_edge_direction': 0.0, "Chord Length": 2}
-    n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 2.4}
-    design_params = {"Duct Leading Edge Coordinates": (0, 2), "Center Body Leading Edge Coordinates": (0.3, 0)}
+    n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 2.4}
+    design_params = {"Duct Leading Edge Coordinates": (0, 2), "Centre Body Leading Edge Coordinates": (0.3, 0)}
 
     starttime = time.time()
     call_class = fileHandling()
