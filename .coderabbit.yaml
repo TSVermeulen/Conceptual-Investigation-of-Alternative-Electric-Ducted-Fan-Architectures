@@ -1,0 +1,7 @@
+reviews:
+  path_filters:
+    - "!walls.*"
+    - "!tflow.*"
+    - "!flowfield.*"
+    - "!forces.*"
+    - "!tdat.*"
