@@ -165,7 +165,7 @@ class MTSOL_call:
         self.process.stdin.flush()
 
         # Set the Reynolds number to 0 to ensure an inviscid solve is performed initially
-        self.process.stdin.write(f"R 0 \n")
+        self.process.stdin.write("R 0 \n")
         self.process.stdin.flush()
         
         # Exit the modify solution parameters menu
@@ -337,7 +337,6 @@ class MTSOL_call:
 
     def GetAverageValues(self,
                          file_name: str = 'forces',
-                         skip_lines: dict = {2, 14, 26, 27, 32, 37, 42},
                          ) -> None:
         """
         Read the output files from the MTSOL_output_files directory and average the values to obtain the assumed true values in case of non-convergence.
@@ -346,8 +345,6 @@ class MTSOL_call:
         ----------
         file_name : str, optional
             The name of the file to read the values from. Default is 'forces'.
-        skip_lines : dict, optional
-            A set of line numbers to skip when averaging the values. Default is {2, 14, 26, 27, 32, 37, 42}. This corresponds to certain lines in the forces.xxx file which do not need to be averaged
         
         Returns
         -------
@@ -360,7 +357,10 @@ class MTSOL_call:
         # Read all files in the directory
         file_pattern = f'MTSOL_output_files/{file_name}.{self.analysis_name}*'
         files = glob.glob(file_pattern)
-        content = [open(file).readlines() for file in files]
+        content = []
+        for file in files:
+            with open(file) as f:
+                content.append(f.readlines())
         
         # Transpose content to group corresponding lines together
         transposed_content = list(map(list, zip(*content)))
@@ -373,14 +373,7 @@ class MTSOL_call:
         value_pattern = re.compile(r'[-+]?\d*\.?\d+([eE][-+]?\d+)?')
 
         # Process each group of corresponding lines
-        for idx, lines in enumerate(transposed_content):
-            line_num = idx + 1
-
-            # Check if the current line should be skipped
-            if line_num in skip_lines:
-                average_content.append(lines[0])
-                continue
-
+        for lines in transposed_content:
             line_text = lines[0]
 
             # Handling single values after "="
@@ -484,8 +477,6 @@ class MTSOL_call:
 
         # TODO: Write crash recovering code. 
         #  potentiall uses the number of iterations up to failure to check the flowfield and determine the cause of the crash.
-
-        pass
     
 
     def HandleExitFlag(self,
@@ -516,8 +507,10 @@ class MTSOL_call:
             self.CrashRecovery(case_type,
                                iter_count,
                                )
-        elif exit_flag == ExitFlag.SUCCESS.value or exit == ExitFlag.NOT_PERFORMED.value:
-            return None
+        elif (exit_flag == ExitFlag.COMPLETED.value or 
+              exit_flag == ExitFlag.SUCCESS.value or 
+              exit_flag == ExitFlag.NOT_PERFORMED.value):
+            return
         else:
             raise OSError(f"Unknown exit flag {exit_flag} encountered!") from None
     

@@ -138,7 +138,7 @@ class MTSET_call:
                 element_count += sum(1 for num in numbers if num == 999.) // 2  # New element identifier contains 2x 999., so divide the count by 2
 
         #Accept the default spacing ratios for each of the elements loaded in
-        for i in range(element_count):
+        for _ in range(element_count):
             self.process.stdin.write("\n")
             self.process.stdin.flush()  # Send return command to MTSET
 
@@ -146,14 +146,26 @@ class MTSET_call:
         self.process.stdin.write("\n")
         self.process.stdin.flush()
 
-        # Enter grid modification menu
+        # Enter grid modification menu and set grid parameters
         self.process.stdin.write("m\n")
-        self.process.stdin.write("j 1\n")  # Set J flag to 1 to ensure streamline bunching towards stagnation lines
-        self.process.stdin.write("s 45\n")  # Use 45 streamlines, which is the maximum allowable. 
-        self.process.stdin.write("e 0.7\n")  # Set exponent for number of airfoil side points
-        self.process.stdin.write("x 0.5\n")  # Set x spacing factor - this creates a more elliptic grid
-        self.process.stdin.write("n 200\n")  # Set number of streamwise points to 200 rather than the default 141
-        self.process.stdin.write("\n")  # Exit grid modification menu
+
+        # Enable streamline bunching towards stagnation lines for better resolution of near-element flowfield
+        self.process.stdin.write("j 1\n")
+
+        # Use maximum number of streamlines for increased resolution
+        self.process.stdin.write("s 45\n")
+
+        # Set exponent for number of airfoil side points. The number of point is then equal to e * N
+        self.process.stdin.write("e 0.7\n")
+
+        # Set x spacing factor. Lower values yield a more "rounded" grid
+        self.process.stdin.write("x 0.5\n") 
+
+        # Set the number of streamwise points to 200 rather than the default 141 for increased resolution
+        self.process.stdin.write("n 200\n")
+        
+        # Exit grid modification menu
+        self.process.stdin.write("\n")  
 
         #Accept the default spacing ratios for each of the elements loaded in
         for i in range(element_count):
@@ -165,7 +177,7 @@ class MTSET_call:
         self.process.stdin.flush()  # Send commands to MTSET
 
         # -----
-        # TO DO 
+        # TODO 
         # include handling of updated spacing;
         # get current number of streamwise gridpoints
         # automatically refine grid

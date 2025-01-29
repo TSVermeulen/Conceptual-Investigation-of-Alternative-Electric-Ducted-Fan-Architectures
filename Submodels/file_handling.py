@@ -173,10 +173,16 @@ class fileHandling:
                 raise TypeError("Expectred ducted_fan_design_params to be a dictionary.") from None
             if "Duct Leading Edge Coordinates" not in self.ducted_fan_design_params:
                 raise ValueError("Missing Duct Leading Edge Coordinates in design params") from None
+            if "Center Body Leading Edge Coordinates" not in self.ducted_fan_design_params:
+                raise ValueError("Missing Center Body Leading Edge Coordinates in design params") from None
             
             coordinates = self.ducted_fan_design_params["Duct Leading Edge Coordinates"]
             if not isinstance(coordinates, (list, tuple)) or len(coordinates) != 2:
                 raise ValueError("Duct Leading Edge Coordinates must be a tuple/list of length 2")
+            
+            coordinates = self.ducted_fan_design_params["Center Body Leading Edge Coordinates"]
+            if not isinstance(coordinates, (list, tuple)) or len(coordinates) != 2:
+                raise ValueError("Center Body Leading Edge Coordinates must be a tuple/list of length 2")
     
             # Calculate Y-domain boundaries based on ducted fan design parameters. 
             # Y_bottom is always 0 as it is the symmetry line
@@ -185,9 +191,8 @@ class fileHandling:
             Y_BOT = 0
 
             # Calculate X-domain boundaries based on ducted fan design parameters.
-            # X_FRONT is taken as 1m ahead of the leading edge of the duct.
-            X_FRONT = self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0] - self.X_FRONT_OFFSET
-            X_AFT = self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0] + self.duct_params["Chord Length"] + self.X_AFT_OFFSET
+            X_FRONT = min(self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0], self.ducted_fan_design_params["Center Body Leading Edge Coordinates"][0]) - self.X_FRONT_OFFSET
+            X_AFT = max(self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0], self.ducted_fan_design_params["Center Body Leading Edge Coordinates"][0]) + self.duct_params["Chord Length"] + self.X_AFT_OFFSET
 
             return [X_FRONT, X_AFT, Y_BOT, Y_TOP]
 

@@ -12,7 +12,7 @@ def read_file(filename):
         return file.readlines()
 
 # Read all files in the directory
-file_pattern = f'forces.*'
+file_pattern = 'forces.*'
 files = glob.glob(file_pattern)
 content = [read_file(file) for file in files]
         
