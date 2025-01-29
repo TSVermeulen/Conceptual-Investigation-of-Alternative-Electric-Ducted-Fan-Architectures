@@ -233,17 +233,13 @@ class MTSOL_call:
                 exit_flag = ExitFlag.SUCCESS.value
                 break
             
-            # Once the solution is written to the state file, return the completed exit flag
-            elif 'Solution written to state file' in line and type == 2:
+            # Once the solution is written to the state file, or the forces/flowfield file is written, return the completed exit flag
+            # The succesful forces/flowfield writing can be detected from the prompt to overwrite the file or to enter a filename
+            elif ('Solution written to state file' in line 
+                  or line.startswith((' File exists.  Overwrite?  Y', 'Enter filename'))) and type == 2:
                 exit_flag = ExitFlag.COMPLETED.value
                 break
-            
-            # Once the forces file is written, return the completed exit flag. 
-            # This can be detected from the prompt to overwrite the file or to enter a filename
-            elif line.startswith((' File exists.  Overwrite?  Y', 'Enter filename')) and type == 2:
-                exit_flag = ExitFlag.COMPLETED.value
-                break
-            
+                        
             # When changing the operating conditions, check for the end of the modify parameters menu           
             elif line.startswith(' V1,2..') and type == 3:
                 exit_flag = ExitFlag.COMPLETED.value
