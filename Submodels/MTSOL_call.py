@@ -428,7 +428,7 @@ class MTSOL_call:
         """
 
         # Create subfolder to put all output files into if the folder doesn't already exist
-        dump_folder = r"\\MTSOL_output_files\\"
+        dump_folder = r"MTSOL_output_files\\"
         os.makedirs(dump_folder, 
                     exist_ok=True)
 
