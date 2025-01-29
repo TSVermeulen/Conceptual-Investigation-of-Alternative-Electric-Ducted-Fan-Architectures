@@ -95,6 +95,7 @@ class MTFLO_call:
                                         stderr=subprocess.PIPE,
                                         shell=True, 
                                         text=True,
+                                        bufsize=1,
                                         )
         
         # Check if subprocess is started successfully
