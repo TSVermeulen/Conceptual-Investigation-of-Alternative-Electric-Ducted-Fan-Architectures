@@ -86,6 +86,7 @@ Version: 1.0
 
 Changelog:
 - V1.0: Initial working version
+- V1.1: Updated test values. Added leading edge coordinate control of centrebody. Added floating point precision of 3 decimals for domain size. 
 """
 
 import numpy as np
@@ -163,9 +164,9 @@ class fileHandling:
             Use a default initial grid of:
             (Note this is in reference to the outer edges of the ducted fan itself)
 
-            Y_top = CONST_1 * max diameter (2.5?)
-            X_FRONT = CONST_2 * MAX LENGTH (1?)
-            X_AFT = CONST_3 * MAX LENGTH (3?)
+            Y_top = max(Y_TOP_MULTIPLIER * max diameter, DEFAULT_Y_TOP()
+            X_FRONT = leading edge - X_FRONT_OFFSET
+            X_AFT = leading edge + chord length + X_AFT_OFFSET
             """
 
             # Validate inputs
@@ -186,13 +187,18 @@ class fileHandling:
     
             # Calculate Y-domain boundaries based on ducted fan design parameters. 
             # Y_bottom is always 0 as it is the symmetry line
-            Y_TOP = max(self.DEFAULT_Y_TOP, 
-+                       self.Y_TOP_MULTIPLIER * self.ducted_fan_design_params["Duct Leading Edge Coordinates"][1])
+            Y_TOP = round(max(self.DEFAULT_Y_TOP, 
++                             self.Y_TOP_MULTIPLIER * self.ducted_fan_design_params["Duct Leading Edge Coordinates"][1]),
+                          3)
             Y_BOT = 0
 
             # Calculate X-domain boundaries based on ducted fan design parameters.
-            X_FRONT = min(self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0], self.ducted_fan_design_params["Center Body Leading Edge Coordinates"][0]) - self.X_FRONT_OFFSET
-            X_AFT = max(self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0], self.ducted_fan_design_params["Center Body Leading Edge Coordinates"][0]) + self.duct_params["Chord Length"] + self.X_AFT_OFFSET
+            X_FRONT = round(min(self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0], 
+                                self.ducted_fan_design_params["Center Body Leading Edge Coordinates"][0]) - self.X_FRONT_OFFSET,
+                            3)
+            X_AFT = round(max(self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0], 
+                              self.ducted_fan_design_params["Center Body Leading Edge Coordinates"][0]) + self.duct_params["Chord Length"] + self.X_AFT_OFFSET,
+                          3)
 
             return [X_FRONT, X_AFT, Y_BOT, Y_TOP]
 

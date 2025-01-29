@@ -102,9 +102,9 @@ class MTSOL_call:
         """
 
         operating_conditions, file_path, analysis_name = args
-        self.operating_conditions = operating_conditions
-        self.fpath = file_path
-        self.analysis_name = analysis_name
+        self.operating_conditions: dict = operating_conditions
+        self.fpath: str = file_path
+        self.analysis_name: str = analysis_name
 
         # Define constants for the class
         self.ITER_STEP_SIZE = 2  # Step size in which iterations are performed in MTSOL

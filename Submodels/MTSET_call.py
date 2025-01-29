@@ -168,7 +168,7 @@ class MTSET_call:
         self.process.stdin.write("\n")  
 
         #Accept the default spacing ratios for each of the elements loaded in
-        for i in range(element_count):
+        for _ in range(element_count):
             self.process.stdin.write("\n")
             self.process.stdin.flush()  # Send return command to MTSET
 
