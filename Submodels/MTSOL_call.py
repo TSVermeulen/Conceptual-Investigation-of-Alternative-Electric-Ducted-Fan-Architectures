@@ -5,7 +5,7 @@ MTSOL_call
 Description
 -----------
 This module provides an interface to interact with the MTSOL executable from Python. 
-It creates a subprocess for the MSOL executable, executes an inviscid, and viscid if desired, solve, 
+It creates a subprocess for the MTSOL executable, executes an inviscid, and viscid if desired, solve, 
 and writes the output data to the state file and the forces.xxx output file.
 
 Classes
@@ -223,31 +223,38 @@ class MTSOL_call:
         while True:
             # Read the output line by line
             line = self.process.stdout.readline()
-            #print(line)
             # Once iteration is complete, return the completed exit flag
             if line.startswith(' =') and type == 1:
-                return ExitFlag.COMPLETED.value
+                exit_flag = ExitFlag.COMPLETED.value
+                break
             
             # Once the iteration is converged, return the converged exit flag
             elif 'Converged' in line and type == 1:
-                return ExitFlag.SUCCESS.value
+                exit_flag = ExitFlag.SUCCESS.value
+                break
             
             # Once the solution is written to the state file, return the completed exit flag
             elif 'Solution written to state file' in line and type == 2:
-                return ExitFlag.COMPLETED.value
+                exit_flag = ExitFlag.COMPLETED.value
+                break
             
             # Once the forces file is written, return the completed exit flag. 
             # This can be detected from the prompt to overwrite the file or to enter a filename
-            elif (line.startswith(' File exists.  Overwrite?  Y') or line.startswith('Enter filename')) and type == 2:
-                return ExitFlag.COMPLETED.value
+            elif line.startswith((' File exists.  Overwrite?  Y', 'Enter filename')) and type == 2:
+                exit_flag = ExitFlag.COMPLETED.value
+                break
             
             # When changing the operating conditions, check for the end of the modify parameters menu           
             elif line.startswith(' V1,2..') and type == 3:
-                return ExitFlag.COMPLETED.value
+                exit_flag = ExitFlag.COMPLETED.value
+                break
             
             # If the solver crashes, return the crash exit flag
             elif line == "" and self.process.poll() is not None:
-                return ExitFlag.CRASH.value      
+                exit_flag = ExitFlag.CRASH.value    
+                break 
+
+        return exit_flag 
             
 
     def GenerateSolverOutput(self,
@@ -322,14 +329,14 @@ class MTSOL_call:
             # If the solution has converged, break out of the iteration loop
             exit_flag = self.WaitForCompletion(type=1)
             if exit_flag == ExitFlag.SUCCESS.value:
-                return exit_flag, iter_counter
-            else:
-                #Execute next iteration(s)
-                self.process.stdin.write(f"x {self.ITER_STEP_SIZE} \n")
-                self.process.stdin.flush()
+                break
 
-                # Increase iteration counter by step size
-                iter_counter += self.ITER_STEP_SIZE           
+            #Execute next iteration(s)
+            self.process.stdin.write(f"x {self.ITER_STEP_SIZE} \n")
+            self.process.stdin.flush()
+
+            # Increase iteration counter by step size
+            iter_counter += self.ITER_STEP_SIZE           
 
         # Return the exit flag and iteration counter
         return exit_flag, iter_counter
@@ -523,6 +530,7 @@ class MTSOL_call:
     
 
     def caller(self,
+               *,
                Run_viscous: bool = False,
                ) -> tuple[int, list[tuple[int]]]:
         """
