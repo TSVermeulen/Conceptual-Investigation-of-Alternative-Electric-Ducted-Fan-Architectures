@@ -56,24 +56,23 @@ class MTSET_call:
     def __init__(self, *args: str,
                  ) -> None:
         """
-        Initialize the MTSET_call class with the file path and analysis name.
+        Initialize the MTSET_call class with the analysis name.
 
         Parameters
         ----------
-        file_path : str
-            The path to the MTFLO executable.
         analysis_name : str
             The name of the analysis case.
         """
 
         # Input validation
-        if len(args) != 2:
-            raise ValueError("Expected exactly 2 arguments: file_path and analysis_name") from None
+        if len(args) != 1:
+            raise ValueError("Expected exactly 1 argument: analysis_name") from None
 
-        file_path, analysis_name = args
-        self.fpath: str = file_path
+        analysis_name = args
         self.analysis_name: str = analysis_name
 
+        # Define constant filepath 
+        self.fpath: str = r"mtset.exe"
 
     def GenerateProcess(self, 
                         ) -> None:
@@ -254,7 +253,7 @@ class MTSET_call:
 
 
     def caller(self,
-               ) -> int:
+               ) -> None:
         """
         Full interfacing function between Python and MTSET
 
@@ -278,7 +277,7 @@ class MTSET_call:
         # Generate files 
         self.FileGenerator()   
 
-        return self.process.returncode         
+        return      
 
         
 if __name__ == "__main__":
@@ -286,10 +285,9 @@ if __name__ == "__main__":
 
     import time
     start_time = time.time()
-    filepath = r"mtset.exe"
     analysisName = "test_case"
-    test = MTSET_call(filepath, analysisName)
+    test = MTSET_call(analysisName)
     execute_MTSET = test.caller()
     end_time = time.time()
 
-    print(f"Execution of MTSET_call({filepath}, {analysisName}).caller() took {end_time - start_time} seconds")
+    print(f"Execution of MTSET_call({analysisName}).caller() took {end_time - start_time} seconds")
