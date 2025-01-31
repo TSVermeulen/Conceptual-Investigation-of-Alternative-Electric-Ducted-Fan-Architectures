@@ -37,10 +37,11 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.0
+Version: 1.0.5
 
 Changelog:
 - V1.0: Initial working version
+- V1.0.5: Cleaned up inputs, removing file_path and changing it to a constant. 
 """
 
 import subprocess
@@ -58,19 +59,19 @@ class MTFLO_call:
 
         Parameters
         ----------
-        file_path : str
-            The path to the MTFLO executable.
         analysis_name : str
             The name of the analysis case.
         """
 
         # Input validation
-        if len(args) != 2:
-            raise ValueError("Expected exactly 2 arguments: file_path and analysis_name") from None
+        if len(args) != 1:
+            raise ValueError("Expected exactly 1 arguments: analysis_name") from None
 
-        file_path, analysis_name = args
-        self.fpath: str = file_path
+        analysis_name = args
         self.analysis_name: str = analysis_name
+
+        # Define filepath of MTFLO as being in the same folder as this Python file
+        self.fpath: str = r"mtflo.exe"
 
 
     def GenerateProcess(self,
@@ -177,10 +178,9 @@ if __name__ == "__main__":
 
     import time
     start_time = time.time()
-    filepath = r"mtflo.exe"
     analysisName = "test_case"
-    test = MTFLO_call(filepath, analysisName)
+    test = MTFLO_call(analysisName)
     test = test.caller()
     end_time = time.time()
 
-    print(f"Execution of MTFLO_call({filepath, analysisName}).caller() took {end_time - start_time} seconds")
+    print(f"Execution of MTFLO_call({analysisName}).caller() took {end_time - start_time} seconds")

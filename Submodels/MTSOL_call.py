@@ -47,6 +47,7 @@ Version: 0.9
 Changelog:
 - V0.0: File created with empty class as placeholder.
 - V0.9: Minimum Working Example. Lacks crash handling and pressure ratio definition. 
+- V0.9.5: Cleaned up inputs, removing file_path and changing it to a constant.
 """
 
 import subprocess
@@ -101,15 +102,17 @@ class MTSOL_call:
         None
         """
 
-        operating_conditions, file_path, analysis_name = args
+        operating_conditions, analysis_name = args
         self.operating_conditions: dict = operating_conditions
-        self.fpath: str = file_path
         self.analysis_name: str = analysis_name
 
         # Define constants for the class
         self.ITER_STEP_SIZE = 2  # Step size in which iterations are performed in MTSOL
         self.SAMPLE_SIZE = 10  # Number of iterations to use to average over in case of non-convergence. 
         self.ITER_LIMIT = 50 # Maximum number of iterations to perform before non-convergence is assumed.
+
+        # Define filepath of MTSOL as being in the same folder as this Python file
+        self.fpath: str = r"mtsol.exe"
    
 
     def GenerateProcess(self,
@@ -527,7 +530,8 @@ class MTSOL_call:
 
     def caller(self,
                *,
-               Run_viscous: bool = False,
+               run_viscous: bool = False,
+               generate_output: bool = False,
                ) -> tuple[int, list[tuple[int]]]:
         """
         Main execution interface of MTSOL.
@@ -570,7 +574,7 @@ class MTSOL_call:
                             )
 
         # Only run a viscous solve if required by the user and if the inviscid solve was successful
-        if Run_viscous and exit_flag_invisc == ExitFlag.SUCCESS.value:
+        if run_viscous and exit_flag_invisc == ExitFlag.SUCCESS.value:
             # Toggle viscous on all surfaces
             self.ToggleViscous()
 
@@ -582,9 +586,9 @@ class MTSOL_call:
                                 iter_count_visc,
                                 "viscous",
                                 )
-        
-        # Generate the solver output
-        self.GenerateSolverOutput()
+        if generate_output:
+            # Generate the solver output
+            self.GenerateSolverOutput()
         
         # Close the MTSOL tool
         self.process.stdin.write("Q \n")
@@ -605,13 +609,12 @@ class MTSOL_call:
 if __name__ == "__main__": 
     import time
     
-    filepath = r"mtsol.exe"
     analysisName = "test_case"
     oper = {"Inlet_Mach": 0.2000,
             "Inlet_Reynolds": 5.000E6}
 
     start_time = time.time()
-    test = MTSOL_call(oper, filepath, analysisName).caller(Run_viscous=True)
+    test = MTSOL_call(oper, analysisName).caller(Run_viscous=True)
     end_time = time.time()
 
     print(f"Execution of MTSOL_call took {end_time -  start_time} seconds")

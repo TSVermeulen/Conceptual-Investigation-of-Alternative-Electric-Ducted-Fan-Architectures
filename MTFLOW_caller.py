@@ -49,12 +49,16 @@ class MTFLOW_caller:
 
 
     def CheckGrid(self,
+                  exit_flag: int,
                   ) -> int:
         """
         
         """
 
-        pass
+        if exit_flag == ExitFlag.SUCCESS.value:
+            return exit_flag
+        else:
+            return ExitFlag.CRASH.value
 
     def HandleExitFlag(self,
                        exit_flag: int,
@@ -126,13 +130,17 @@ class MTFLOW_caller:
         checking_grid = True
         
         while checking_grid:
-            exit_flag_gridtest, [(exit_flag_gridtest, iter_count_gridtest), _] = MTSOL_call.MTSOL_call().caller()
-            grid_status = self.CheckGrid()
+            exit_flag_gridtest, [(exit_flag_gridtest, iter_count_gridtest), _] = MTSOL_call.MTSOL_call({"Inlet_Mach": 0.2, "Inlet_Reynolds": 0.},
+                                                                                                       self.analysis_name,
+                                                                                                        ).caller(run_viscous=False,
+                                                                                                                 generate_output=False,
+                                                                                                                 )
+            grid_status = self.CheckGrid(exit_flag_gridtest)
 
             if grid_status == ExitFlag.SUCCESS.value:  # If the grid status is okay, break out of the checking loop and continue
                 break
 
-            # Change grid parameters and rerun MTSET to update the input file. 
+            # If the grid is incorrect, change grid parameters and rerun MTSET to update the input file. 
             MTSET_call.MTSET_call(self.analysis_name,
                                   ).caller()
 
@@ -141,20 +149,23 @@ class MTFLOW_caller:
         # --------------------
         MTFLO_call.MTFLO_call(self.analysis_name,
                               ).caller()
-        
+
+        # --------------------
+        # Execute MTSOl solver
+        # --------------------
+        exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)] = MTSOL_call.MTSOL_call(operating_conditions,
+                                                                                                                      self.analysis_name,
+                                                                                                                      ).caller(run_viscous=True,
+                                                                                                                              generate_output=True,
+                                                                                                                              )
+                                                                                                
+        # --------------------
+        # Check completion status of MTSOL
+        # --------------------
+        self.HandleExitFlag()
 
 
-
-
-        
-        
-        
-
-        
-
-
-
-        pass
+        return
 
 
 
