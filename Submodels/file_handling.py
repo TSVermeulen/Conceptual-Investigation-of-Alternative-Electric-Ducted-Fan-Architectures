@@ -169,37 +169,19 @@ class fileHandling:
             X_AFT = leading edge + chord length + X_AFT_OFFSET
             """
 
-            # Define helper function to perform input validation
-            def validate_coordinates(param_name: str) -> None:
-                if param_name not in self.ducted_fan_design_params:
-                    raise ValueError(f"Missing {param_name}")
-                coordinates = self.ducted_fan_design_params[param_name]
-                if not isinstance(coordinates, (list, tuple)) or len(coordinates) != 2:
-                    raise ValueError(f"{param_name} must be a tuple/list of length 2")
-
-            # Validate that the ducted_fan_design_params is a dictionary
-            if not isinstance(self.ducted_fan_design_params, dict):
-                raise TypeError("Expected ducted_fan_design_params to be a dictionary.") from None
-            
-            # Validate the duct inputs
-            validate_coordinates("Duct Leading Edge Coordinates")
-
-            # Validate the centre body inputs
-            validate_coordinates("Centre Body Leading Edge Coordinates")
-    
             # Calculate Y-domain boundaries based on ducted fan design parameters. 
             # Y_bottom is always 0 as it is the symmetry line
             Y_TOP = round(max(self.DEFAULT_Y_TOP, 
-+                             self.Y_TOP_MULTIPLIER * self.ducted_fan_design_params["Duct Leading Edge Coordinates"][1]),
++                             self.Y_TOP_MULTIPLIER * self.duct_params["Leading Edge Coordinates"][1]),
                           3)
             Y_BOT = 0
 
             # Calculate X-domain boundaries based on ducted fan design parameters.
-            X_FRONT = round(min(self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0], 
-                                self.ducted_fan_design_params["Centre Body Leading Edge Coordinates"][0]) - self.X_FRONT_OFFSET,
+            X_FRONT = round(min(self.duct_params["Leading Edge Coordinates"][0], 
+                                self.centerbody_params["Leading Edge Coordinates"][0]) - self.X_FRONT_OFFSET,
                             3)
-            X_AFT = round(max(self.ducted_fan_design_params["Duct Leading Edge Coordinates"][0], 
-                              self.ducted_fan_design_params["Centre Body Leading Edge Coordinates"][0]) + self.duct_params["Chord Length"] + self.X_AFT_OFFSET,
+            X_AFT = round(max(self.duct_params["Leading Edge Coordinates"][0], 
+                              self.centerbody_params["Leading Edge Coordinates"][0]) + self.duct_params["Chord Length"] + self.X_AFT_OFFSET,
                           3)
 
             return [X_FRONT, X_AFT, Y_BOT, Y_TOP]
@@ -207,7 +189,6 @@ class fileHandling:
 
         def GetProfileCoordinates(self,
                                   x: dict,
-                                  LE_coordinates: tuple[float, float] = (0, 0),
                                   ) -> tuple[np.ndarray[float], np.ndarray[float]]:
             """
             Compute the profile coordinates of an airfoil based on given design parameters and leading edge coordinates.
@@ -215,9 +196,6 @@ class fileHandling:
             -----------
             x : dict
                 Dictionary of design parameters for the profile parameterization.
-            LE_coordinates : tuple[float, float], optional
-                Tuple containing the leading edge coordinates (dX, dY) to shift the profile coordinates within the domain.
-                Default is (0, 0), i.e. no offset
             Returns:
             --------
             tuple[np.ndarray[float], np.ndarray[float]]
@@ -252,10 +230,10 @@ class fileHandling:
 
             # Offset airfoil using the (dX, dY) input to shift the profile coordinates to the appropriate 
             # location within the domain 
-            upper_x += LE_coordinates[0]
-            lower_x += LE_coordinates[0]
-            upper_y += LE_coordinates[1]
-            lower_y += LE_coordinates[1]
+            upper_x += x["Leading Edge Coordinates"][0]
+            lower_x += x["Leading Edge Coordinates"][0]
+            upper_y += x["Leading Edge Coordinates"][1]
+            lower_y += x["Leading Edge Coordinates"][1]
 
             # Construct overall profile coordinates data, 
             # in-line with required format of MTFLOW            
@@ -293,10 +271,8 @@ class fileHandling:
             domain_boundaries = self.GetGridSize()
 
             # Get profiles of centerbody and duct
-            xy_centerbody = self.GetProfileCoordinates(self.centerbody_params,
-                                                       self.ducted_fan_design_params["Centre Body Leading Edge Coordinates"])
-            xy_duct = self.GetProfileCoordinates(self.duct_params,
-                                                 self.ducted_fan_design_params["Duct Leading Edge Coordinates"])
+            xy_centerbody = self.GetProfileCoordinates(self.centerbody_params)
+            xy_duct = self.GetProfileCoordinates(self.duct_params)
             
             # Generate walls.xxx input data structure
             file_path = Path(f"walls.{self.case_name}")
@@ -694,13 +670,13 @@ if __name__ == "__main__":
 
     # Perform test generation of walls.xxx file using dummy inputs
     # Creates a dummy duct with a naca 2415 profile for the centerbody and duct
-    n0015_coeff = {"b_0": 0., "b_2": 0., "b_8": 2.63935800e-02, "b_15": 7.62111322e-01, "b_17": 0, 'x_t': 0.2855061027842137, 'y_t': 0.07513718500645125, 'x_c': 0.5, 'y_c': 0, 'z_TE': -2.3750854491940602e-33, 'dz_TE': 0.0019396795056937765, 'r_LE': -0.01634872585955984, 'trailing_wedge_angle': 0.15684435833921387, 'trailing_camberline_angle': 0.0, 'leading_edge_direction': 0.0, "Chord Length": 2}
+    centre_body_coeff = {"b_0": 0., "b_2": 0., "b_8": 2.63935800e-02, "b_15": 7.62111322e-01, "b_17": 0, 'x_t': 0.2855061027842137, 'y_t': 0.07513718500645125, 'x_c': 0.5, 'y_c': 0, 'z_TE': -2.3750854491940602e-33, 'dz_TE': 0.0019396795056937765, 'r_LE': -0.01634872585955984, 'trailing_wedge_angle': 0.15684435833921387, 'trailing_camberline_angle': 0.0, 'leading_edge_direction': 0.0, "Chord Length": 2, "Leading Edge Coordinates": (0.3, 0)}
     n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 2.4}
     design_params = {"Duct Leading Edge Coordinates": (0, 2), "Centre Body Leading Edge Coordinates": (0.3, 0)}
 
     starttime = time.time()
     call_class = fileHandling()
-    call_class_MTSET = call_class.fileHandlingMTSET(n0015_coeff, n2415_coeff, design_params, "test_case")
+    call_class_MTSET = call_class.fileHandlingMTSET(centre_body_coeff, n2415_coeff, design_params, "test_case")
     call_class_MTSET.GenerateMTSETInput()
     endtime = time.time()
     print("Execution of GenerateMTSETInput() took", endtime - starttime, "seconds")
