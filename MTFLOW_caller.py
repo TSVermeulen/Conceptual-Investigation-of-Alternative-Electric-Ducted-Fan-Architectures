@@ -3,8 +3,7 @@
 
 """
 
-from Submodels import MTSET_call, MTFLO_call, MTSOL_call, file_handling
-from Submodels import file_handling
+from Submodels import MTSET_call, MTFLO_call, MTSOL_call
 from enum import Enum
 
 class ExitFlag(Enum):
@@ -46,18 +45,6 @@ class MTFLOW_caller:
         self.operating_conditions: dict = operating_conditions
         self.analysis_name: str = analysis_name
 
-
-    def CheckGrid(self,
-                  exit_flag: int,
-                  ) -> int:
-        """
-        
-        """
-
-        if exit_flag == ExitFlag.SUCCESS.value:
-            return exit_flag
-        else:
-            return ExitFlag.CRASH.value
 
     def HandleExitFlag(self,
                        exit_flag: int,
@@ -117,9 +104,8 @@ class MTFLOW_caller:
                                                                                                         ).caller(run_viscous=False,
                                                                                                                  generate_output=False,
                                                                                                                  )
-            grid_status = self.CheckGrid(exit_flag_gridtest)
 
-            if grid_status == ExitFlag.SUCCESS.value:  # If the grid status is okay, break out of the checking loop and continue
+            if exit_flag_gridtest == ExitFlag.SUCCESS.value:  # If the grid status is okay, break out of the checking loop and continue
                 break
 
             # If the grid is incorrect, change grid parameters and rerun MTSET to update the input file. 
@@ -154,6 +140,7 @@ class MTFLOW_caller:
 
 if __name__ == "__main__":
     import time
+    from Submodels import file_handling
 
     # Define some test inputs
     oper = {"Inlet_Mach": 0.25,
