@@ -42,7 +42,7 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 0.9
+Version: 0.9.5
 
 Changelog:
 - V0.0: File created with empty class as placeholder.
@@ -591,7 +591,10 @@ class MTSOL_call:
             self.GenerateSolverOutput()
         
         # Close the MTSOL tool
+        # If no output is generated, need to write an additional white line to close MTSOL
         self.process.stdin.write("Q \n")
+        if not generate_output:
+            self.process.stdin.write("\n")
         self.process.stdin.flush()
 
         # Check that MTSOL has closed successfully 
@@ -614,7 +617,8 @@ if __name__ == "__main__":
             "Inlet_Reynolds": 5.000E6}
 
     start_time = time.time()
-    test = MTSOL_call(oper, analysisName).caller(Run_viscous=True)
+    test = MTSOL_call(oper, analysisName).caller(run_viscous=True,
+                                                 generate_output=True)
     end_time = time.time()
 
     print(f"Execution of MTSOL_call took {end_time -  start_time} seconds")

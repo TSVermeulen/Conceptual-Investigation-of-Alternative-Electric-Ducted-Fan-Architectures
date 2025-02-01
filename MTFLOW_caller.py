@@ -42,9 +42,8 @@ class MTFLOW_caller:
         """
 
         # Unpack class inputs
-        operating_conditions, file_path, analysis_name = args
+        operating_conditions, analysis_name = args
         self.operating_conditions: dict = operating_conditions
-        self.fpath: str = file_path
         self.analysis_name: str = analysis_name
 
 
@@ -99,26 +98,9 @@ class MTFLOW_caller:
         """ 
         
         """
-
-        # --------------------
-        # First step is generating the MTSET and MTFLO input files - walls.analysis_name and tflow.analysis_name
-        # --------------------
-        file_handler = file_handling.fileHandling()  # Create an instance of the file handler class
-
-        file_handler.fileHandlingMTSET(params_CB, 
-                                       params_duct, 
-                                       ducted_fan_design_params, 
-                                       self.analysis_name,
-                                       )  # Create walls.analysis_name input file
-        
-        file_handler.fileHandlingMTFLO(stage_count, 
-                                       self.analysis_name,
-                                       ).GenerateMTFLOInput(blading_params,
-                                                            design_params,
-                                                            )  # Create tflow.analysis_name input file
         
         # --------------------
-        # With the input file generated, construct the initial grid in MTSET
+        # Construct the initial grid in MTSET
         # --------------------
         MTSET_call.MTSET_call(self.analysis_name,
                               ).caller()
@@ -153,11 +135,11 @@ class MTFLOW_caller:
         # --------------------
         # Execute MTSOl solver
         # --------------------
-        exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)] = MTSOL_call.MTSOL_call(operating_conditions,
+        exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)] = MTSOL_call.MTSOL_call(self.operating_conditions,
                                                                                                                       self.analysis_name,
                                                                                                                       ).caller(run_viscous=True,
-                                                                                                                              generate_output=True,
-                                                                                                                              )
+                                                                                                                               generate_output=True,
+                                                                                                                               )
                                                                                                 
         # --------------------
         # Check completion status of MTSOL
@@ -172,3 +154,8 @@ class MTFLOW_caller:
 
 if __name__ == "__main__":
     import time
+
+    # Define some test inputs
+    oper = {"Inlet_Mach": 0.25,
+            "Inlet_Reynolds": 5e6}
+    analysisName = "test_case"

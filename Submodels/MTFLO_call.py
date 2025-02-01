@@ -52,7 +52,8 @@ class MTFLO_call:
     Class to handle the interface between Python and the MTFLO executable.
     """
 
-    def __init__(self, *args: str,
+    def __init__(self, 
+                 analysis_name: str,
                  ) -> None:
         """
         Initialize the MTFLO_call class with the file path and analysis name.
@@ -63,12 +64,7 @@ class MTFLO_call:
             The name of the analysis case.
         """
 
-        # Input validation
-        if len(args) != 1:
-            raise ValueError("Expected exactly 1 arguments: analysis_name") from None
-
-        analysis_name = args
-        self.analysis_name: str = analysis_name
+        self.analysis_name = analysis_name
 
         # Define filepath of MTFLO as being in the same folder as this Python file
         self.fpath: str = r"mtflo.exe"

@@ -53,7 +53,8 @@ class MTSET_call:
     Class to handle the interface between MTSET and Python
     """
 
-    def __init__(self, *args: str,
+    def __init__(self, 
+                 analysis_name: str,
                  ) -> None:
         """
         Initialize the MTSET_call class with the analysis name.
@@ -64,12 +65,7 @@ class MTSET_call:
             The name of the analysis case.
         """
 
-        # Input validation
-        if len(args) != 1:
-            raise ValueError("Expected exactly 1 argument: analysis_name") from None
-
-        analysis_name = args
-        self.analysis_name: str = analysis_name
+        self.analysis_name = analysis_name
 
         # Define constant filepath 
         self.fpath: str = r"mtset.exe"
