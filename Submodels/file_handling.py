@@ -82,25 +82,32 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.0
+Version: 1.1.5
 
 Changelog:
 - V1.0: Initial working version
 - V1.1: Updated test values. Added leading edge coordinate control of centrebody. Added floating point precision of 3 decimals for domain size. Updated input validation logic.
+- V1.1.5: Fixed import logic of the Parameterizations module to handle local versus global file execution. 
 """
 
 import numpy as np
 from scipy import interpolate
-from Parameterizations import AirfoilParameterization
 from typing import Any
 from pathlib import Path
+
+# Handle local versus global execution of the file with imports
+if __name__ == "__main__":
+    from Parameterizations import AirfoilParameterization
+else:
+    from .Parameterizations import AirfoilParameterization
+
 
 class fileHandling:
     """
     This class contains all methods needed to generate the required input files walls.xxx and tflow.xxx for an MTFLOW analysis. 
     """
 
-    def __init__(self, *args: Any) -> None:
+    def __init__(self) -> None:
         """
         Initialize the fileHandling class.
         
@@ -668,8 +675,8 @@ if __name__ == "__main__":
 
     # Perform test generation of walls.xxx file using dummy inputs
     # Creates a dummy duct with a naca 2415 profile for the centerbody and duct
-    centre_body_coeff = {"b_0": 0., "b_2": 0., "b_8": 2.63935800e-02, "b_15": 7.62111322e-01, "b_17": 0, 'x_t': 0.2855061027842137, 'y_t': 0.07513718500645125, 'x_c': 0.5, 'y_c': 0, 'z_TE': -2.3750854491940602e-33, 'dz_TE': 0.0019396795056937765, 'r_LE': -0.01634872585955984, 'trailing_wedge_angle': 0.15684435833921387, 'trailing_camberline_angle': 0.0, 'leading_edge_direction': 0.0, "Chord Length": 1, "Leading Edge Coordinates": (0.3, 0)}
-    n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 1.5, "Leading Edge Coordinates": (0, 2)}
+    centre_body_coeff = {"b_0": 0., "b_2": 0., "b_8": 2.63935800e-02, "b_15": 7.62111322e-01, "b_17": 0, 'x_t': 0.2855061027842137, 'y_t': 0.07513718500645125, 'x_c': 0.5, 'y_c': 0, 'z_TE': -2.3750854491940602e-33, 'dz_TE': 0.0019396795056937765, 'r_LE': -0.01634872585955984, 'trailing_wedge_angle': 0.15684435833921387, 'trailing_camberline_angle': 0.0, 'leading_edge_direction': 0.0, "Chord Length": 2, "Leading Edge Coordinates": (0.3, 0)}
+    n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 2.5, "Leading Edge Coordinates": (0, 2)}
 
     starttime = time.time()
     call_class = fileHandling()
