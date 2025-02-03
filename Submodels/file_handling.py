@@ -695,7 +695,7 @@ if __name__ == "__main__":
     starttime = time.time()
     call_class_MTFLO = call_class.fileHandlingMTFLO("test_case")
     call_class_MTFLO.GenerateMTFLOInput(blading_parameters, 
-                                  design_parameters)
+                                        design_parameters)
     endtime = time.time()
     print("Execution of GenerateMTFLOInput() took", endtime - starttime, "seconds")
     
