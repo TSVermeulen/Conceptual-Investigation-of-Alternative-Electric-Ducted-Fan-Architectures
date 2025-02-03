@@ -164,7 +164,7 @@ class MTSOL_call:
         self.process.stdin.flush()
 
         # Set critical amplification factor to N=9 rather than the default N=7
-        self.process.stdin.write("N 9\n")
+        self.process.stdin.write(f"N {self.operating_conditions["N_crit"]}\n")
         self.process.stdin.flush()
 
         # Set the Reynolds number to 0 to ensure an inviscid solve is performed initially
@@ -614,7 +614,9 @@ if __name__ == "__main__":
     
     analysisName = "test_case"
     oper = {"Inlet_Mach": 0.2000,
-            "Inlet_Reynolds": 5.000E6}
+            "Inlet_Reynolds": 5.000E6,
+            "N_crit": 9,
+            }
 
     start_time = time.time()
     test = MTSOL_call(oper, analysisName).caller(run_viscous=True,

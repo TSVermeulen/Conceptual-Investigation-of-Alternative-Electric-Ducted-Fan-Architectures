@@ -5,6 +5,7 @@
 
 import sys
 import os
+import logging
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -50,6 +51,12 @@ class MTFLOW_caller:
         Initialize the MTSOL_call class.
 
         This method sets up the initial state of the class.
+
+        Parameters
+        ----------
+        operating_conditions : dict
+            A dictionary containing the inlet Mach number, Reynolds number, and critical amplification factor N
+
 
         Returns
         -------
@@ -103,70 +110,115 @@ class MTFLOW_caller:
         """ 
         
         """
+        try:
+            # --------------------
+            # Set up logging for the caller execution
+            # Writes log of the execution to the caller.log file using the 'w' mode. 
+            # This empties out the caller file at the start of each MTFLOW_caller.caller() evaluation.
+            # --------------------
 
-        # --------------------
-        # First step is generating the MTFLO input files - tflow.analysis_name
-        # As the MTFLO input file also contains a dependency on operating condition through Omega, it must be generated *within* the MTFLOW caller. 
-        # The walls.analysis_name file, which is the input to MTSET, does not contain any dependencies, and therefore can be generated outside of this caller function.
-        # --------------------
-        file_handler = file_handling.fileHandling().fileHandlingMTFLO(self.analysis_name)  # Create an instance of the file handler MTFLO subclass
-        
-        file_handler.GenerateMTFLOInput(self.blading_parameters,
-                                        self.design_parameters,
-                                        )  # Create tflow.analysis_name input file
-        
-        # --------------------
-        # Construct the initial grid in MTSET
-        # --------------------
-        MTSET_call.MTSET_call(self.analysis_name,
-                              ).caller()
-        
-        # --------------------
-        # Check the grid by running a simple, fan-less, inviscid low-Mach case. If there is an issue with the grid MTSOL will crash
-        # Hence we can check the grid by checking the exit flag
-        # --------------------
-        checking_grid = True
-        
-        while checking_grid:
-            exit_flag_gridtest, [(exit_flag_gridtest, iter_count_gridtest), _] = MTSOL_call.MTSOL_call({"Inlet_Mach": 0.2, "Inlet_Reynolds": 0.},
-                                                                                                       self.analysis_name,
-                                                                                                        ).caller(run_viscous=False,
-                                                                                                                 generate_output=False,
-                                                                                                                 )
+            logging.basicConfig(level=logging.DEBUG,
+                                filemode='w',
+                                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                                handlers=[logging.FileHandler("caller.log"),
+                                        logging.StreamHandler(),
+                                        ],
+                                )
+            logger = logging.getLogger(__name__)
 
-            if exit_flag_gridtest == ExitFlag.SUCCESS.value:  # If the grid status is okay, break out of the checking loop and continue
-                break
+            # --------------------
+            # First step is generating the MTFLO input file - tflow.analysis_name
+            # As the MTFLO input file also contains a dependency on operating condition through Omega, it must be generated *within* the MTFLOW caller. 
+            # The walls.analysis_name file, which is the input to MTSET, does not contain any dependencies, and therefore can be generated outside of this caller function.
+            # --------------------
 
-            # If the grid is incorrect, change grid parameters and rerun MTSET to update the input file. 
+            logger.info("Generating the MTFLO input file")
+            file_handler = file_handling.fileHandling().fileHandlingMTFLO(self.analysis_name)  # Create an instance of the file handler MTFLO subclass
+            
+            file_handler.GenerateMTFLOInput(self.blading_parameters,
+                                            self.design_parameters,
+                                            )  # Create tflow.analysis_name input file
+            
+            # --------------------
+            # Construct the initial grid in MTSET
+            # --------------------
+
+            logger.info("Constructing the initial grid in MTSET")
+            grid_e_coeff = 0.8  # Initialize default e coefficient for MTSET grid generation
+            grid_x_coeff = 0.8  # Initialize default x coefficient for MTSET grid generation
             MTSET_call.MTSET_call(self.analysis_name,
-                                  ).caller()
+                                grid_e_coeff=grid_e_coeff,
+                                grid_x_coeff=grid_x_coeff,
+                                ).caller()
+            
+            # --------------------
+            # Check the grid by running a simple, fan-less, inviscid low-Mach case. If there is an issue with the grid MTSOL will crash
+            # Hence we can check the grid by checking the exit flag
+            # --------------------
+
+            logger.info("Checking the grid")
+            checking_grid = True
+            
+            while checking_grid:
+                exit_flag_gridtest, [(exit_flag_gridtest, iter_count_gridtest), _] = MTSOL_call.MTSOL_call({"Inlet_Mach": 0.2, "Inlet_Reynolds": 0.},
+                                                                                                        self.analysis_name,
+                                                                                                            ).caller(run_viscous=False,
+                                                                                                                    generate_output=False,
+                                                                                                                    )
+
+                if exit_flag_gridtest == ExitFlag.SUCCESS.value:  # If the grid status is okay, break out of the checking loop and continue
+                    logger.info("Grid passed checks")
+                    break
+                    
+
+                # If the grid is incorrect, change grid parameters and rerun MTSET to update the grid. 
+                # The updated e and x coefficients reduce the number of streamwise points on the airfoil elements (by 0.1 * Npoints), 
+                # while yielding a more "rounded/elliptic" grid due to the reduced x-coefficient.
+
+                logger.warning("Grid crashed. Trying alternate grid parameters")
+                grid_e_coeff = 0.7 
+                grid_x_coeff = 0.5
+                MTSET_call.MTSET_call(self.analysis_name,
+                                    grid_e_coeff=grid_e_coeff,
+                                    grid_x_coeff=grid_x_coeff,
+                                    ).caller()
+
+
+            # --------------------
+            # Load in the blade row(s) from MTFLO
+            # --------------------
+
+            logger.info("Loading blade row(s) from MTFLO")
+            MTFLO_call.MTFLO_call(self.analysis_name,
+                                ).caller()
+
+            # --------------------
+            # Execute MTSOl solver
+            # Passes the exit flags and iteration counts to the handle exit flag function to determine if any issues have occurred. 
+            # --------------------
+
+            logger.info("Executing MTSOL")
+            exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)] = MTSOL_call.MTSOL_call(self.operating_conditions,
+                                                                                                                        self.analysis_name,
+                                                                                                                        ).caller(run_viscous=True,
+                                                                                                                                generate_output=True,
+                                                                                                                                )
+
+            # --------------------
+            # Check completion status of MTSOL
+            # --------------------
+            
+            logger.info("Checking MTSOL exit flag")
+            self.HandleExitFlag()
+
+            return exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)]
 
         # --------------------
-        # Load in the blade row(s) from MTFLO
+        # If an error occured, handle it with the logger
         # --------------------
-        MTFLO_call.MTFLO_call(self.analysis_name,
-                              ).caller()
-
-        # --------------------
-        # Execute MTSOl solver
-        # Passes the exit flags and iteration counts to the handle exit flag function to determine if any issues have occurred. 
-        # --------------------
-        exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)] = MTSOL_call.MTSOL_call(self.operating_conditions,
-                                                                                                                      self.analysis_name,
-                                                                                                                      ).caller(run_viscous=True,
-                                                                                                                               generate_output=True,
-                                                                                                                               )
-
-
-        # --------------------
-        # Check completion status of MTSOL
-        # --------------------
-        self.HandleExitFlag()
-
-
-        return
-
-
+        except Exception as e:
+            logger.critical(f"An error occurred: {e}")
+            return ExitFlag.CRASH.value
 
 
 if __name__ == "__main__":
@@ -177,7 +229,9 @@ if __name__ == "__main__":
 
     # Define some test inputs
     oper = {"Inlet_Mach": 0.25,
-            "Inlet_Reynolds": 5e6}
+            "Inlet_Reynolds": 5e6,
+            "N_crit": 9,
+            }
 
     analysisName = "test_case"
 

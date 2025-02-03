@@ -55,6 +55,8 @@ class MTSET_call:
 
     def __init__(self, 
                  analysis_name: str,
+                 grid_e_coeff: float = None,
+                 grid_x_coeff: float = None,
                  ) -> None:
         """
         Initialize the MTSET_call class with the analysis name.
@@ -66,6 +68,17 @@ class MTSET_call:
         """
 
         self.analysis_name = analysis_name
+
+        # Grid definition parameters need to either take the user-defined input or the default MTSET inputs
+        if grid_e_coeff is None: 
+            self.grid_e_coeff = 0.8
+        else:
+            self.grid_e_coeff = grid_e_coeff
+
+        if grid_x_coeff is None:
+            self.grid_x_coeff = 0.8
+        else:
+            self.grid_x_coeff = grid_x_coeff
 
         # Define constant filepath 
         self.fpath: str = r"mtset.exe"
@@ -151,10 +164,10 @@ class MTSET_call:
         self.process.stdin.write("s 45\n")
 
         # Set exponent for number of airfoil side points. The number of point is then equal to e * N
-        self.process.stdin.write("e 0.7\n")
+        self.process.stdin.write(f"e {self.grid_e_coeff} \n")
 
         # Set x spacing factor. Lower values yield a more "rounded" grid
-        self.process.stdin.write("x 0.5\n") 
+        self.process.stdin.write(f"x {self.grid_x_coeff} \n") 
 
         # Set the number of streamwise points to 200 rather than the default 141 for increased resolution
         self.process.stdin.write("n 200\n")
