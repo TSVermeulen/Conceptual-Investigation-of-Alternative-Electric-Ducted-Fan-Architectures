@@ -40,9 +40,10 @@ class ExitFlag(Enum):
 
     SUCCESS = -1
     CRASH = 0
-    NOT_PERFORMED = 1
-    COMPLETED = 2
-    CHOKING = 3
+    NON_CONVERGENCE = 1
+    NOT_PERFORMED = 2
+    COMPLETED = 3
+    CHOKING = 4
 
 
 class MTFLOW_caller:
@@ -60,7 +61,7 @@ class MTFLOW_caller:
         Parameters
         ----------
         operating_conditions : dict
-            A dictionary containing the inlet Mach number, Reynolds number, and critical amplification factor N
+            A dictionary containing at least the following entries: Inlet_Mach, Inlet_Reynolds, N_crit, i.e. the inlet Mach number, Reynolds number, and critical amplification factor N
 
 
         Returns
@@ -77,8 +78,7 @@ class MTFLOW_caller:
 
     def HandleExitFlag(self,
                        exit_flag: int,
-                       iter_count: int,
-                       case_type: str,
+                       iter_output: list[tuple],
                        ) -> None:
         """
         Handle the exit flag of (any of) the MTLOW executables.
@@ -97,18 +97,23 @@ class MTFLOW_caller:
         None
         """
 
-        if exit_flag == ExitFlag.NON_CONVERGENCE.value:
-            self.HandleNonConvergence()
-        elif exit_flag == ExitFlag.CRASH.value:
-            self.CrashRecovery(case_type,
-                               iter_count,
-                               )
-        elif (exit_flag == ExitFlag.COMPLETED.value or 
-              exit_flag == ExitFlag.SUCCESS.value or 
-              exit_flag == ExitFlag.NOT_PERFORMED.value):
+        # If exit flag of the iteration indicates successful completion of the solver, simply return 
+        if exit_flag in (ExitFlag.SUCCESS.value, ExitFlag.NON_CONVERGENCE.value):
             return
+        elif exit_flag == ExitFlag.CRASH.value:
+            # TODO: handling of crash
+            print("Solver crashed, but no crash handling has been implemented!")
+            return
+        elif exit_flag == ExitFlag.CHOKING.value:
+            # TODO: handling of choking
+            print("Choking occurs, but no choking handling has been implemented!")
+            return
+        elif exit_flag in (ExitFlag.COMPLETED.value, ExitFlag.NOT_PERFORMED.value):
+            raise ValueError(f"Invalid exit flag {exit_flag} encountered following execution of MTSOL_call!") from None
         else:
-            raise OSError(f"Unknown exit flag {exit_flag} encountered!") from None
+            raise ValueError(f"Unknown exit flag {exit_flag} encountered!") from None
+            
+        
 
 
     def caller(self) -> int:
@@ -224,7 +229,9 @@ class MTFLOW_caller:
             # --------------------
 
             logger.info("Checking MTSOL exit flag")
-            self.HandleExitFlag()
+            self.HandleExitFlag(exit_flag=exit_flag,
+                                iter_output=[(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)],
+                                )
 
             return exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)]
 
@@ -242,14 +249,14 @@ if __name__ == "__main__":
 
 
     # Define some test inputs
-    oper = {"Inlet_Mach": 0.25,
+    oper = {"Inlet_Mach": 0.5,
             "Inlet_Reynolds": 5e6,
             "N_crit": 9,
             }
 
     analysisName = "test_case"
 
-    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 1., "blade_count": 18, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.3], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi / 3]},
+    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 0.1, "blade_count": 18, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.3], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi / 3]},
                           {"root_LE_coordinate": 1., "rotational_rate": 0., "blade_count": 10, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.3], "sweep_angle":[np.pi/8, np.pi/8], "twist_angle": [0, np.pi/8]}]
     
     n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 1.5, "Leading Edge Coordinates": (0, 2)}

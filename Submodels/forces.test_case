@@ -1,33 +1,33 @@
 
  Case name: test_case                       
 
- Ma =   0.20000
- Re =   5.0000e6     Ncrit =    9.0000
+ Ma =   0.50000
+ Re =   0.0000e6     Ncrit =    9.0000
 
-  Total power    CP  =   37.468         EtaP  =   0.68243
-  Total force    CT  =   25.569    
+  Total power    CP  =   13.032         EtaP  =   0.82640
+  Total force    CT  =   10.770    
 
-  Element  2 top CTV = -0.64294E-01
-             bot CTv = -0.36839    
-  Axis body      CTv = -0.13257E-01
+  Element  2 top CTV =  -0.0000    
+             bot CTv =  -0.0000    
+  Axis body      CTv =  -0.0000    
 
    CT breakdown
- Viscous ,inviscid:   CTv = -0.44594       CTi =   26.015    
- Friction,pressure:   CTf = -0.16822       CTp =   25.737    
+ Viscous ,inviscid:   CTv =   0.0000       CTi =   10.770    
+ Friction,pressure:   CTf =   0.0000       CTp =   10.770    
 
-  Element  2          CTf = -0.16082       CTp =   5.2839     top Xtr =   0.08490 bot Xtr =   1.25475
+  Element  2          CTf =  -0.0000       CTp =   2.8775     top Xtr =   0.00000 bot Xtr =   0.00000
 
-  Axis body           CTf = -0.74043E-02   CTp =  0.41721E-01     Xtr =   0.65428
+  Axis body           CTf =  -0.0000       CTp =  0.78797E-01     Xtr =   0.00000
 
- Source =  -5.5209       Doublet =   1.9832       at  z =   1.07637      rms(V-Vff) =  0.13199E-01
+ Source =  -3.7330       Doublet =   1.4238       at  z =   1.07637      rms(V-Vff) =  0.10323E-01
 
- Pexit/Po =  0.96585    
+ Pexit/Po =  0.90933    
 
  Inter-element passage properties...
                  Capture area  Exit area       CTi          Cpi
-      Total    :   38.485       31.737       26.015       37.468    
-   elements 2-3:   19.628       19.966      0.14317E-03   0.0000    
-   elements 1-2:   18.857       11.518       26.015       37.468    
+      Total    :   38.485       34.747       10.770       13.032    
+   elements 2-3:   22.101       22.518     -0.17136       0.0000    
+   elements 1-2:   16.384       12.125       10.941       13.032    
 
                  Wetted areas
       Total    :   66.782    
@@ -40,5 +40,5 @@
       element 1:  0.77977E-01
 
                     CPK1        CPV1       CPK1+CPV1    CPK2        CPV2       CPK2+CPV2    CPK         CPV        CPK +CPV 
-   elements 2-3:  0.1123E-02   0.000      0.1123E-02 -0.1001E-03   0.000     -0.1001E-03  0.1023E-02   0.000      0.1023E-02
-   elements 1-2:  0.3712     -0.3562      0.1500E-01   37.41     -0.2070E-01   37.39       37.78     -0.3769       37.40    
+   elements 2-3:  -6.683       0.000      -6.683       6.431       0.000       6.431     -0.2522       0.000     -0.2522    
+   elements 1-2:  -5.399     -0.4157      -5.814       19.16      0.5436E-01   19.21       13.76     -0.3613       13.40    

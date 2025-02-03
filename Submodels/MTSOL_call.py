@@ -42,12 +42,13 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 0.9.5
+Version: 1.0
 
 Changelog:
 - V0.0: File created with empty class as placeholder.
 - V0.9: Minimum Working Example. Lacks crash handling and pressure ratio definition. 
 - V0.9.5: Cleaned up inputs, removing file_path and changing it to a constant.
+- V1.0: With implemented choking handling, pressure ratio definition is no longer needed. Added choking exit flag. Cleaned up/updated HandleExitFlag() method. Added critical amplification factor as input. 
 """
 
 import subprocess
@@ -55,7 +56,6 @@ import os
 import shutil
 import glob
 import re
-from typing import Any
 from enum import Enum
 
 
@@ -82,6 +82,7 @@ class ExitFlag(Enum):
     NON_CONVERGENCE = 1
     NOT_PERFORMED = 2
     COMPLETED = 3
+    CHOKING = 4
 
 
 class MTSOL_call:
@@ -90,7 +91,7 @@ class MTSOL_call:
     """
 
     def __init__(self,
-                 *args: tuple[dict, Any],
+                 *args: tuple[dict, str],
                  ) -> None:
         """
         Initialize the MTSOL_call class.
@@ -235,6 +236,11 @@ class MTSOL_call:
             elif 'Converged' in line and type == 1:
                 exit_flag = ExitFlag.SUCCESS.value
                 break
+
+            # If choking occurs, return the exit flag to choking
+            elif ' *** QSHIFT: Mass flow or Pexit must be a DOF!' in line and type == 1:
+                exit_flag = ExitFlag.CHOKING.value
+                break
             
             # Once the solution is written to the state file, or the forces/flowfield file is written, return the completed exit flag
             # The succesful forces/flowfield writing can be detected from the prompt to overwrite the file or to enter a filename
@@ -317,17 +323,14 @@ class MTSOL_call:
         """
 
         # Initialize iteration counter - set to -1 to ensure correct total count at end of convergence
-        iter_counter = -1
-
-        # Initialize exit flag
-        exit_flag = ExitFlag.NON_CONVERGENCE.value
+        iter_counter = -1        
 
         # Keep converging until the iteration count exceeds the limit
         while iter_counter < self.ITER_LIMIT:
             # Check the exit flag to see if the solution has converged
             # If the solution has converged, break out of the iteration loop
             exit_flag = self.WaitForCompletion(type=1)
-            if exit_flag == ExitFlag.SUCCESS.value:
+            if exit_flag in (ExitFlag.SUCCESS.value, ExitFlag.CHOKING.value):
                 break
 
             #Execute next iteration(s)
@@ -336,6 +339,10 @@ class MTSOL_call:
 
             # Increase iteration counter by step size
             iter_counter += self.ITER_STEP_SIZE           
+
+        # If the solver has not converged within self.ITER_LIMIT iterations, set the exit flag to non-convergence
+        if exit_flag not in (ExitFlag.SUCCESS.value, ExitFlag.CHOKING.value):
+            exit_flag = ExitFlag.NON_CONVERGENCE.value
 
         # Return the exit flag and iteration counter
         return exit_flag, iter_counter
@@ -469,60 +476,26 @@ class MTSOL_call:
         shutil.rmtree(dump_folder)
 
 
-    def CrashRecovery(self,
-                      case_type: str,
-                      iter_count: int,
-                      ) -> None:
-        """
-        Recover from a crash of the MTSOL solver.
-
-        Parameters
-        ----------
-        case_type : str
-            Type of case that was run.
-        iter_count : int
-            Number of iterations performed up until failure of the solver.
-
-        Returns
-        -------
-        None
-        """
-
-        # TODO: Write crash recovering code. 
-        #  potentiall uses the number of iterations up to failure to check the flowfield and determine the cause of the crash.
-    
-
     def HandleExitFlag(self,
                        exit_flag: int,
-                       iter_count: int,
-                       case_type: str,
                        ) -> None:
         """
-        Handle the exit flag of the solver execution. Handle non-convergence, crashes, and successful completion accordingly.
+        Handle the exit flag of the solver execution. 
 
         Parameters
         ----------
         exit_flag : int
             Exit flag indicating the status of the solver execution.
-        iter_count : int
-            Number of iterations performed up until failure of the solver.
-        case_type : str
-            Type of case that was run.
         
         Returns
         -------
         None
         """
 
+        #If solver does not converge, call the non-convergence handler function. Otherwise, simply return the exit flag
         if exit_flag == ExitFlag.NON_CONVERGENCE.value:
             self.HandleNonConvergence()
-        elif exit_flag == ExitFlag.CRASH.value:
-            self.CrashRecovery(case_type,
-                               iter_count,
-                               )
-        elif (exit_flag == ExitFlag.COMPLETED.value or 
-              exit_flag == ExitFlag.SUCCESS.value or 
-              exit_flag == ExitFlag.NOT_PERFORMED.value):
+        elif exit_flag in (ExitFlag.COMPLETED.value, ExitFlag.SUCCESS.value, ExitFlag.NOT_PERFORMED.value, ExitFlag.CHOKING.value, ExitFlag.CRASH.value):
             return
         else:
             raise OSError(f"Unknown exit flag {exit_flag} encountered!") from None
@@ -568,10 +541,7 @@ class MTSOL_call:
         exit_flag_invisc, iter_count_invisc = self.ExecuteSolver()
 
         # Handle solver based on exit flag
-        self.HandleExitFlag(exit_flag_invisc, 
-                            iter_count_invisc, 
-                            "inviscid",
-                            )
+        self.HandleExitFlag(exit_flag_invisc)
 
         # Only run a viscous solve if required by the user and if the inviscid solve was successful
         if run_viscous and exit_flag_invisc == ExitFlag.SUCCESS.value:
@@ -582,10 +552,8 @@ class MTSOL_call:
             exit_flag_visc, iter_count_visc = self.ExecuteSolver()
 
             # Handle solver based on exit flag
-            self.HandleExitFlag(exit_flag_visc,
-                                iter_count_visc,
-                                "viscous",
-                                )
+            self.HandleExitFlag(exit_flag_visc)
+
         if generate_output:
             # Generate the solver output
             self.GenerateSolverOutput()
