@@ -6,11 +6,16 @@
 import sys
 import os
 import logging
+import random
+from enum import Enum
 
+# Enable submodel relative imports 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from Submodels import MTSET_call, MTFLO_call, MTSOL_call
-from enum import Enum
+from Submodels.MTSET_call import MTSET_call
+from Submodels.MTFLO_call import MTFLO_call
+from Submodels.MTSOL_call import MTSOL_call
+from Submodels.file_handling import fileHandling
 
 
 class ExitFlag(Enum):
@@ -118,11 +123,11 @@ class MTFLOW_caller:
             # --------------------
 
             logging.basicConfig(level=logging.DEBUG,
-                                filemode='w',
                                 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                                handlers=[logging.FileHandler("caller.log"),
-                                        logging.StreamHandler(),
-                                        ],
+                                handlers=[logging.FileHandler("caller.log", 
+                                                              mode='w'),
+                                          logging.StreamHandler(),
+                                          ],
                                 )
             logger = logging.getLogger(__name__)
 
@@ -133,7 +138,7 @@ class MTFLOW_caller:
             # --------------------
 
             logger.info("Generating the MTFLO input file")
-            file_handler = file_handling.fileHandling().fileHandlingMTFLO(self.analysis_name)  # Create an instance of the file handler MTFLO subclass
+            file_handler = fileHandling().fileHandlingMTFLO(self.analysis_name)  # Create an instance of the file handler MTFLO subclass
             
             file_handler.GenerateMTFLOInput(self.blading_parameters,
                                             self.design_parameters,
@@ -146,10 +151,10 @@ class MTFLOW_caller:
             logger.info("Constructing the initial grid in MTSET")
             grid_e_coeff = 0.8  # Initialize default e coefficient for MTSET grid generation
             grid_x_coeff = 0.8  # Initialize default x coefficient for MTSET grid generation
-            MTSET_call.MTSET_call(self.analysis_name,
-                                grid_e_coeff=grid_e_coeff,
-                                grid_x_coeff=grid_x_coeff,
-                                ).caller()
+            MTSET_call(self.analysis_name,
+                       grid_e_coeff=grid_e_coeff,
+                       grid_x_coeff=grid_x_coeff,
+                       ).caller()
             
             # --------------------
             # Check the grid by running a simple, fan-less, inviscid low-Mach case. If there is an issue with the grid MTSOL will crash
@@ -158,39 +163,49 @@ class MTFLOW_caller:
 
             logger.info("Checking the grid")
             checking_grid = True
+            check_counter = 0
             
             while checking_grid:
-                exit_flag_gridtest, [(exit_flag_gridtest, iter_count_gridtest), _] = MTSOL_call.MTSOL_call({"Inlet_Mach": 0.2, "Inlet_Reynolds": 0.},
-                                                                                                        self.analysis_name,
-                                                                                                            ).caller(run_viscous=False,
-                                                                                                                    generate_output=False,
-                                                                                                                    )
-
+                _, [(exit_flag_gridtest, _), _] = MTSOL_call({"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
+                                                             self.analysis_name,
+                                                             ).caller(run_viscous=False,
+                                                                      generate_output=False,
+                                                                      )
+                
                 if exit_flag_gridtest == ExitFlag.SUCCESS.value:  # If the grid status is okay, break out of the checking loop and continue
                     logger.info("Grid passed checks")
                     break
-                    
 
                 # If the grid is incorrect, change grid parameters and rerun MTSET to update the grid. 
+                logger.warning("Grid crashed. Trying alternate grid parameters")
+
+                # If check counter is non-zero, the suggested coefficients do not work, so we try a random number approach to brute-force a grid
+                if check_counter >= 1:
+                    grid_e_coeff = random.uniform(0.6, 1.0)
+                    grid_x_coeff = random.uniform(0.2, 0.95)
+                    logger.info(f"Suggested Coefficients failed to yield a satisfactory grid. Trying bruteforce method with e={grid_e_coeff} and x={grid_x_coeff}")
+                # If the check counter is zerom, we can try the suggested coefficients
                 # The updated e and x coefficients reduce the number of streamwise points on the airfoil elements (by 0.1 * Npoints), 
                 # while yielding a more "rounded/elliptic" grid due to the reduced x-coefficient.
-
-                logger.warning("Grid crashed. Trying alternate grid parameters")
-                grid_e_coeff = 0.7 
-                grid_x_coeff = 0.5
-                MTSET_call.MTSET_call(self.analysis_name,
-                                    grid_e_coeff=grid_e_coeff,
-                                    grid_x_coeff=grid_x_coeff,
-                                    ).caller()
-
+                else:
+                    grid_e_coeff = 0.7
+                    grid_x_coeff = 0.5
+                    logger.info(f"Trying suggested coefficients e={grid_e_coeff} and x={grid_x_coeff}")
+                    
+                MTSET_call(self.analysis_name,
+                           grid_e_coeff=grid_e_coeff,
+                           grid_x_coeff=grid_x_coeff,
+                           ).caller()
+                
+                check_counter += 1
 
             # --------------------
             # Load in the blade row(s) from MTFLO
             # --------------------
 
             logger.info("Loading blade row(s) from MTFLO")
-            MTFLO_call.MTFLO_call(self.analysis_name,
-                                ).caller()
+            MTFLO_call(self.analysis_name,
+                       ).caller()
 
             # --------------------
             # Execute MTSOl solver
@@ -198,16 +213,16 @@ class MTFLOW_caller:
             # --------------------
 
             logger.info("Executing MTSOL")
-            exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)] = MTSOL_call.MTSOL_call(self.operating_conditions,
-                                                                                                                        self.analysis_name,
-                                                                                                                        ).caller(run_viscous=True,
-                                                                                                                                generate_output=True,
-                                                                                                                                )
+            exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)] = MTSOL_call(self.operating_conditions,
+                                                                                                               self.analysis_name,
+                                                                                                               ).caller(run_viscous=True,
+                                                                                                                        generate_output=True,
+                                                                                                                        )
 
             # --------------------
             # Check completion status of MTSOL
             # --------------------
-            
+
             logger.info("Checking MTSOL exit flag")
             self.HandleExitFlag()
 
@@ -223,7 +238,6 @@ class MTFLOW_caller:
 
 if __name__ == "__main__":
     import time
-    from Submodels import file_handling
     import numpy as np
 
 
@@ -244,9 +258,13 @@ if __name__ == "__main__":
     
     inputs = [oper, analysisName, ]
     
+    start_time = time.time()
     class_call = MTFLOW_caller(operating_conditions=oper,
                                blading_parameters=blading_parameters,
                                design_parameters=design_parameters,
                                analysis_name=analysisName,
                                ).caller()
+    end_time = time.time()
+
+    print(f"Execution of MTFLOW_caller.caller() took {end_time - start_time} seconds")
 
