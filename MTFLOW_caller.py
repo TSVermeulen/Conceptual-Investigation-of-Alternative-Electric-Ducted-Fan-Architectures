@@ -1,6 +1,7 @@
 """
 
 
+
 """
 
 import sys
@@ -47,6 +48,11 @@ class ExitFlag(Enum):
 
 
 class MTFLOW_caller:
+    """
+    
+    """
+
+
     def __init__(self,
                  operating_conditions: dict,
                  blading_parameters: list[dict],
@@ -187,10 +193,9 @@ class MTFLOW_caller:
             # --------------------
 
             logger.info("Checking the grid")
-            checking_grid = True
-            check_counter = 0
+            first_check = True
             
-            while checking_grid:
+            while True:
                 _, [(exit_flag_gridtest, _), _] = MTSOL_call({"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
                                                              self.analysis_name,
                                                              ).caller(run_viscous=False,
@@ -204,25 +209,26 @@ class MTFLOW_caller:
                 # If the grid is incorrect, change grid parameters and rerun MTSET to update the grid. 
                 logger.warning("Grid crashed. Trying alternate grid parameters")
 
-                # If check counter is non-zero, the suggested coefficients do not work, so we try a random number approach to brute-force a grid
-                if check_counter >= 1:
-                    grid_e_coeff = random.uniform(0.6, 1.0)
-                    grid_x_coeff = random.uniform(0.2, 0.95)
-                    logger.info(f"Suggested Coefficients failed to yield a satisfactory grid. Trying bruteforce method with e={grid_e_coeff} and x={grid_x_coeff}")
-                # If the check counter is zerom, we can try the suggested coefficients
+                # If first_check is true, we can try the suggested coefficients
                 # The updated e and x coefficients reduce the number of streamwise points on the airfoil elements (by 0.1 * Npoints), 
                 # while yielding a more "rounded/elliptic" grid due to the reduced x-coefficient.
-                else:
+                if first_check:
                     grid_e_coeff = 0.7
                     grid_x_coeff = 0.5
                     logger.info(f"Trying suggested coefficients e={grid_e_coeff} and x={grid_x_coeff}")
+
+                # If first_check is false, the suggested coefficients do not work, so we try a random number approach to brute-force a grid
+                else:
+                    grid_e_coeff = random.uniform(0.6, 1.0)
+                    grid_x_coeff = random.uniform(0.2, 0.95)
+                    logger.info(f"Suggested Coefficients failed to yield a satisfactory grid. Trying bruteforce method with e={grid_e_coeff} and x={grid_x_coeff}")
                     
                 MTSET_call(self.analysis_name,
                            grid_e_coeff=grid_e_coeff,
                            grid_x_coeff=grid_x_coeff,
                            ).caller()
                 
-                check_counter += 1
+                first_check = False
 
             # --------------------
             # Load in the blade row(s) from MTFLO
@@ -276,14 +282,12 @@ if __name__ == "__main__":
 
     analysisName = "test_case"
 
-    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 0.05, "blade_count": 18, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.4], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi / 3]},
-                          {"root_LE_coordinate": 1., "rotational_rate": 0., "blade_count": 10, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.3], "sweep_angle":[np.pi/8, np.pi/8], "twist_angle": [0, np.pi/8]}]
+    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 0.1, "blade_count": 18, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.4], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi / 3]},
+                          {"root_LE_coordinate": 1., "rotational_rate": 0., "blade_count": 18, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.3], "sweep_angle":[np.pi/8, np.pi/8], "twist_angle": [0, np.pi/8]}]
     
     n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 1.5, "Leading Edge Coordinates": (0, 2)}
     design_parameters = [[n2415_coeff, n2415_coeff],
                          [n2415_coeff, n2415_coeff]]
-    
-    inputs = [oper, analysisName, ]
     
     start_time = time.time()
     class_call = MTFLOW_caller(operating_conditions=oper,

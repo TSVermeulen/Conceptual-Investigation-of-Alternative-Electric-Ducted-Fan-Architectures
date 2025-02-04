@@ -91,9 +91,11 @@ Changelog:
 """
 
 import numpy as np
+import os
 from scipy import interpolate
 from typing import Any
 from pathlib import Path
+
 
 # Handle local versus global execution of the file with imports
 if __name__ == "__main__":
@@ -106,6 +108,7 @@ class fileHandling:
     """
     This class contains all methods needed to generate the required input files walls.xxx and tflow.xxx for an MTFLOW analysis. 
     """
+
 
     def __init__(self) -> None:
         """
@@ -120,6 +123,9 @@ class fileHandling:
         None
         """
 
+        # Change the current working directory
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 
     class fileHandlingMTSET:
         """
@@ -129,6 +135,7 @@ class fileHandling:
         bodies present within the domain. It handles the calculation of grid sizes and 
         profile coordinates for both the center body and duct.
         """
+
 
         def __init__(self, *args: Any) -> None:
             """
