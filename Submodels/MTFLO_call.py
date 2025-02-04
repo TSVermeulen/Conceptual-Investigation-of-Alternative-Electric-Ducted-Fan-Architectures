@@ -60,7 +60,7 @@ class MTFLO_call:
 
         Parameters
         ----------
-        analysis_name : str
+        - analysis_name : str
             The name of the analysis case.
         """
 
@@ -157,7 +157,7 @@ class MTFLO_call:
         
         Returns
         -------
-        self.process.returncode : int
+        - self.process.returncode : int
             self.process.returncode
         """
         

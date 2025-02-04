@@ -63,11 +63,11 @@ class MTSET_call:
 
         Parameters
         ----------
-        analysis_name : str
+        - analysis_name : str
             The name of the analysis case.
-        grid_e_coeff : float, optional
+        - grid_e_coeff : float, optional
             The E coefficient for the exponent of airfoil side points within MTSET. If None, uses the default MTSET value of 0.8. 
-        grid_x_coeff : float, optional
+        - grid_x_coeff : float, optional
             The X spacing parameter within MTSET. Larger values yield a more rectangular grid. If None, uses the default MTSET value of 0.8.
         """
 
@@ -260,7 +260,7 @@ class MTSET_call:
 
         Returns
         -------
-        self.process.returncode : int
+        - self.process.returncode : int
             The returncode of the finished subprocess.
         """
         

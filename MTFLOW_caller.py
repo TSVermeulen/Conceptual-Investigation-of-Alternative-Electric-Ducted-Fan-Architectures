@@ -60,9 +60,29 @@ class MTFLOW_caller:
 
         Parameters
         ----------
-        operating_conditions : dict
+        - operating_conditions : dict
             A dictionary containing at least the following entries: Inlet_Mach, Inlet_Reynolds, N_crit, i.e. the inlet Mach number, Reynolds number, and critical amplification factor N
-
+        - blading_parameters : np.ndarray[dict]
+            Array containing the blading parameters for each stage. Each dictionary should include the following keys:
+                - "root_LE_coordinate": The leading edge coordinate at the root of the blade.
+                - "rotational_rate": The rotational rate of the blade.
+                - "blade_count": The number of blades.
+                - "radial_stations": Numpy array of the radial stations along the blade span.
+                - "chord_length": Numpy array of the chord length distribution along the blade span.
+                - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
+                - "twist_angle": Numpy array of the twist angle distribution along the blade span.
+        - design_parameters : np.ndarray[dict]
+            Array containing an equal number of dictionary entries as there are stages. Each dictionary must contain the following keys:
+                - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
+                - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
+                - "z_TE", "dz_TE": Trailing edge parameters.
+                - "r_LE": Leading edge radius.
+                - "trailing_wedge_angle": Trailing wedge angle.
+                - "trailing_camberline_angle": Trailing camberline angle.
+                - "leading_edge_direction": Leading edge direction.
+                - "Chord Length": The chord length of the blade.
+        - analysis_name : str
+            String of the casename
 
         Returns
         -------
@@ -85,11 +105,11 @@ class MTFLOW_caller:
 
         Parameters
         ----------
-        exit_flag : int
+        - exit_flag : int
             Exit flag indicating the status of the solver execution.
-        iter_count : int
+        - iter_count : int
             Number of iterations performed up until failure of the solver.
-        case_type : str
+        - case_type : str
             Type of case that was run.
         
         Returns

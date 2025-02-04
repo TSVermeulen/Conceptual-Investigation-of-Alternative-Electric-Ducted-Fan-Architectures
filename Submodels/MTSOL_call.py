@@ -212,13 +212,13 @@ class MTSOL_call:
 
         Parameters
         ----------
-        type : int
+        - type : int
             Specifies the type of completion to monitor. Default is 1, which corresponds to an iteration.
             Other options are: 2 for output generation and 3 for changing operating conditions.
 
         Returns
         -------
-        exit_flag : int
+        - exit_flag : int
             Exit flag indicating the status of the solver execution. -1 indicates successful completion, 0 indicates a crash,
             and 3 indicates the completion of the iteration without convergence.
         """
@@ -315,7 +315,7 @@ class MTSOL_call:
 
         Returns
         -------
-        tuple :
+        - tuple :
             exit_flag : int
                 Exit flag indicating the status of the solver execution.
             iter_counter : int
@@ -356,7 +356,7 @@ class MTSOL_call:
 
         Parameters
         ----------
-        file_name : str, optional
+        - file_name : str, optional
             The name of the file to read the values from. Default is 'forces'.
         
         Returns
@@ -484,7 +484,7 @@ class MTSOL_call:
 
         Parameters
         ----------
-        exit_flag : int
+        - exit_flag : int
             Exit flag indicating the status of the solver execution.
         
         Returns
@@ -511,12 +511,12 @@ class MTSOL_call:
 
         Parameters
         ----------
-        Run_viscous : bool, optional
+        - Run_viscous : bool, optional
             Flag to indicate whether to run a viscous solve. Default is False.
 
         Returns
         -------
-        tuple :
+        - tuple :
             maximum_exit_flag : int
                 Exit flag indicating the status of the solver execution. Is equal to the maximum value of the inviscid and viscous exit flags, since exit_flag > -1 indicate failed/nonconverging solves.
                 This is used as a one-variable status indicator, while the corresponding output list gives more details. 
