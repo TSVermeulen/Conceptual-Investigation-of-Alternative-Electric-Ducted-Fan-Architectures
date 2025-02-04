@@ -568,7 +568,7 @@ class MTSOL_call:
         # Check that MTSOL has closed successfully 
         if self.process.poll() is not None:
             try:
-                self.process.wait(timeout=2)
+                self.process.wait(timeout=5)
             
             except subprocess.TimeoutExpired:
                 self.process.kill()

@@ -139,7 +139,7 @@ class MTFLO_call:
          # Check that MTFLO has closed successfully 
         if self.process.poll() is None:
             try:
-                self.process.wait(timeout=2)
+                self.process.wait(timeout=5)
             
             except subprocess.TimeoutExpired:
                 self.process.kill()
