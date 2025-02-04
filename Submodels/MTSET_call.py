@@ -65,6 +65,10 @@ class MTSET_call:
         ----------
         analysis_name : str
             The name of the analysis case.
+        grid_e_coeff : float, optional
+            The E coefficient for the exponent of airfoil side points within MTSET. If None, uses the default MTSET value of 0.8. 
+        grid_x_coeff : float, optional
+            The X spacing parameter within MTSET. Larger values yield a more rectangular grid. If None, uses the default MTSET value of 0.8.
         """
 
         self.analysis_name = analysis_name
@@ -125,13 +129,6 @@ class MTSET_call:
 
         As a limit, the walls.xxx file is expected to have at least 1 body, but no upper limit. 
         In practice, there will be 2 bodies (duct and center body).
-
-        # -----
-        # TO DO 
-        # include handling of updated spacing;
-        # get current number of streamwise gridpoints
-        # automatically refine grid
-        # -----
         """
         
         # Load the walls.xxx file and count number of elements to be loaded
@@ -171,6 +168,10 @@ class MTSET_call:
 
         # Set the number of streamwise points to 200 rather than the default 141 for increased resolution
         self.process.stdin.write("n 200\n")
+
+        # Toggle quasi-normal lines fixed in x (This is only used when there is no duct, i.e. an open rotor/propeller. 
+        # When there is a duct present, this option is disabled, so the input has no effect)
+        self.process.stdin.write("Q \n")
         
         # Exit grid modification menu
         self.process.stdin.write("\n")  
@@ -183,13 +184,6 @@ class MTSET_call:
         # Exit grid spacing definition routine
         self.process.stdin.write("\n")
         self.process.stdin.flush()  # Send commands to MTSET
-
-        # -----
-        # TODO 
-        # include handling of updated spacing;
-        # get current number of streamwise gridpoints
-        # automatically refine grid
-        # -----
     
 
     def GridSmoothing(self, 
@@ -204,18 +198,14 @@ class MTSET_call:
         and exit the routine.
         """
 
-        # Define controlling booleans for the smoothing process
-        smoothing = True
-        get_console_out = True
-
         # Control smoothing process, including detection when further smoothing is no longer needed
-        while smoothing:
+        while True:
             self.process.stdin.write("e\n")  # Execute elliptic smoothing continue command
             self.process.stdin.flush()  # Send command to MTSET
             
             # Collect console output from MTSET, stopping when the end of the menu is reached
             interface_output = []
-            while get_console_out:
+            while True:
                 next_line = self.process.stdout.readline()  # Collect output and add to list
                 interface_output.append(next_line)
                 
@@ -252,7 +242,7 @@ class MTSET_call:
         # Check that MTSET has closed successfully 
         if self.process.poll() is not None:
             try:
-                self.process.wait(timeout=2)
+                self.process.wait(timeout=5)
             
             except subprocess.TimeoutExpired:
                 self.process.kill()
