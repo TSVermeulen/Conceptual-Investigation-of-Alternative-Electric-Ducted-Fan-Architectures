@@ -1,7 +1,8 @@
-2025-02-04 14:35:49,072 - __main__ - INFO - Generating the MTFLO input file
-2025-02-04 14:35:49,100 - __main__ - INFO - Constructing the initial grid in MTSET
-2025-02-04 14:35:50,466 - __main__ - INFO - Checking the grid
-2025-02-04 14:35:55,648 - __main__ - INFO - Grid passed checks
-2025-02-04 14:35:55,648 - __main__ - INFO - Loading blade row(s) from MTFLO
-2025-02-04 14:35:56,153 - __main__ - INFO - Executing MTSOL
-2025-02-04 14:37:42,074 - __main__ - INFO - Checking MTSOL exit flag
+2025-02-04 16:33:41,809 - __main__ - INFO - Generating the MTFLO input file
+2025-02-04 16:33:41,842 - __main__ - INFO - Constructing the initial grid in MTSET
+2025-02-04 16:33:43,269 - __main__ - INFO - Checking the grid
+2025-02-04 16:33:46,298 - __main__ - INFO - Grid passed checks
+2025-02-04 16:33:46,298 - __main__ - INFO - Loading blade row(s) from MTFLO
+2025-02-04 16:33:46,844 - __main__ - INFO - Starting MTSOL execution loop
+2025-02-04 16:35:22,504 - __main__ - INFO - MTSOL finished with exit flag -1
+2025-02-04 16:35:22,505 - __main__ - INFO - MTSOL execution loop finished with final exit flag -1
