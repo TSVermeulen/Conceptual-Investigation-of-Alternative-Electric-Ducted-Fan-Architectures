@@ -998,7 +998,7 @@ if __name__ == "__main__":
     call_class = AirfoilParameterization()
     
     start_time = time.time()
-    inputfile = r'Test Airfoils\n0015.dat'
+    inputfile = r'Test Airfoils\n6409.dat'
     coefficients = call_class.FindInitialParameterization(inputfile,
                                                           plot=True)
     end_time = time.time()

@@ -137,7 +137,11 @@ class fileHandling:
         """
 
 
-        def __init__(self, *args: Any) -> None:
+        def __init__(self, 
+                     params_CB: dict,
+                     params_duct: dict,
+                     case_name: str,
+                     ) -> None:
             """
             Initialize the fileHandlingMTSET class.
         
@@ -147,15 +151,10 @@ class fileHandling:
             -------
             None
             """
-
-            # Extract center body and duct parameterization parameters and Ducted fan design parameters
-            # Write them to self
-            # All inputs must be dictionaries
-            params_CB, params_duct, case_name = args 
             
-            self.centerbody_params: dict = params_CB
-            self.duct_params: dict = params_duct
-            self.case_name: str = case_name
+            self.centerbody_params = params_CB
+            self.duct_params = params_duct
+            self.case_name = case_name
 
             # Define the Grid size calculation constants
             self.DEFAULT_Y_TOP = 1.0
