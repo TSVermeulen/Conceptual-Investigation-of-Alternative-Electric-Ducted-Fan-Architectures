@@ -679,6 +679,116 @@ class AirfoilParameterization:
                                                                                    bezier_camber)
 
         return upper_x, upper_y, lower_x, lower_y
+    
+    def CheckOptimizedResult(self,
+                             airfoil_params: dict,
+                             ) -> None:
+        """
+        Check the optimized result by plotting the thickness and camber distributions, and the airfoil shape.
+
+        Parameters
+        ----------
+        airfoil_params : dict
+            A dictionary containing the airfoil parameterization parameters. 
+
+        Returns
+        -------
+        None
+        """
+
+        # Create u-vectors for Bezier curve generation
+        u_leading_edge, u_trailing_edge = self.GenerateBezierUVectors()
+            
+        # Calculate the Bezier curve coefficients for the thickness curves
+        x_LE_thickness_coeff, y_LE_thickness_coeff, x_TE_thickness_coeff, y_TE_thickness_coeff = self.GetThicknessControlPoints(airfoil_params["b_8"], 
+                                                                                                                                airfoil_params["b_15"],
+                                                                                                                                airfoil_params)
+            
+        # Calculate the leading edge thickness distribution
+        y_LE_thickness = self.BezierCurve3(y_LE_thickness_coeff, 
+                                           u_leading_edge)  # Leading edge thickness represented by 3rd order Bezier curve
+        x_LE_thickness = self.BezierCurve3(x_LE_thickness_coeff,
+                                           u_leading_edge)  # Leading edge thickness bezier x-coordinates, represented by a 3rd order curve
+        
+        # Calculate the trailing edge thickness distribution
+        y_TE_thickness = self.BezierCurve4(y_TE_thickness_coeff,
+                                           u_trailing_edge[1:])  # Trailing edge thickness represented by 4th order Bezier curve      
+        x_TE_thickness = self.BezierCurve4(x_TE_thickness_coeff,
+                                           u_trailing_edge[1:])  # Trailing edge bezier x-coordinates, represented by 4th order curve  
+
+        # Construct full curves by combining LE and TE data
+        bezier_thickness = np.concatenate((y_LE_thickness, y_TE_thickness), 
+                                          axis = 0)  # Construct complete thickness curve over length of profile
+        bezier_thickness_x = np.concatenate((x_LE_thickness, x_TE_thickness), 
+                                            axis = 0)  # Construct complete array of x-coordinates over length of profile  
+
+        # Calculate the camber distributions only if the camber is nonzero
+        if airfoil_params["y_c"] >= self.symmetric_limit:
+            # Calculate the Bezier curve coefficients for the camber curves
+            x_LE_camber_coeff, y_LE_camber_coeff, x_TE_camber_coeff, y_TE_camber_coeff = self.GetCamberControlPoints(airfoil_params["b_0"],
+                                                                                                                     airfoil_params["b_2"],
+                                                                                                                     airfoil_params["b_17"],
+                                                                                                                     airfoil_params)
+
+            # Calculate the leading edge camber distribution            
+            y_LE_camber = self.BezierCurve3(y_LE_camber_coeff, 
+                                            u_leading_edge)  # Leading edge camber represented by 3rd order Bezier curve
+            x_LE_camber = self.BezierCurve3(x_LE_camber_coeff,
+                                            u_leading_edge)  # Leading edge camber bezier x-coordinates, represented by a 3rd order curve
+
+            # Calculate the trailing edge camber distribution using the parameter b_17
+            y_TE_camber = self.BezierCurve4(y_TE_camber_coeff, 
+                                            u_trailing_edge[1:])  # Trailing edge camber represented by 4th order Bezier curve
+            x_TE_camber = self.BezierCurve4(x_TE_camber_coeff,
+                                            u_trailing_edge[1:])  # Trailing edge camber bezier x-coordinates, represented by a 4th order curve
+                
+            bezier_camber = np.concatenate((y_LE_camber, y_TE_camber),
+                                           axis = 0)  # Construct complete camber curve over length of profile
+            bezier_camber_x = np.concatenate((x_LE_camber, x_TE_camber),
+                                             axis = 0)  # Construct complete array of x-coordinates over length of profile
+            
+        else:
+            # If camber is zero, handle appropriately
+            bezier_camber = np.zeros_like(bezier_thickness)
+            bezier_camber_x = bezier_thickness_x
+                            
+        # Calculate the upper and lower surface coordinates from the bezier coordinates
+        upper_x, upper_y, lower_x, lower_y = self.ConvertBezier2AirfoilCoordinates(bezier_thickness_x,
+                                                                                   bezier_thickness,
+                                                                                   bezier_camber_x,
+                                                                                   bezier_camber)      
+
+        # Create plots of the thickness distribution compared to the input data
+        plt.figure("Thickness Distributions")
+        plt.plot(x_LE_thickness, y_LE_thickness, label="LeadingEdgeThickness")
+        plt.plot(x_TE_thickness, y_TE_thickness, label="TrailingEdgeThickness")
+        plt.plot(x_LE_thickness_coeff, y_LE_thickness_coeff, '*', color='k', label="Bezier Coefficients")
+        plt.plot(x_TE_thickness_coeff, y_TE_thickness_coeff, '*', color='k')  # Do not label this line to avoid duplicate legend entry            plt.plot(self.x_points_thickness, self.thickness_distribution, label="ThicknessInputData")
+        plt.xlabel("x/c [-]")
+        plt.ylabel("y_t/c [-]")
+        plt.legend()
+
+        if airfoil_params["y_c"] >= self.symmetric_limit:
+            plt.figure("Camber Distributions")
+            plt.plot(x_LE_camber, y_LE_camber, label="LeadingEdgeCamber")
+            plt.plot(x_TE_camber, y_TE_camber, label="TrailingEdgeCamber")
+            plt.plot(x_LE_camber_coeff, y_LE_camber_coeff, '*', color='k', label="Bezier Coefficients")
+            plt.plot(x_TE_camber_coeff, y_TE_camber_coeff, '*', color='k')  # Do not label this line to avoid duplicate legend entry
+            plt.plot(self.x_points_camber, self.camber_distribution, label="CamberInputData")
+            plt.xlabel("x/c [-]")
+            plt.ylabel("y_c/c [-]")
+            plt.legend()
+
+        plt.figure("Airfoil Shape")
+        plt.plot(upper_x, upper_y, label="Reconstructed Upper Surface")
+        plt.plot(lower_x, lower_y, label="Reconstructed Lower Surface")
+        plt.plot(self.reference_data[:self.idx_LE + 1, 0], self.reference_data[:self.idx_LE + 1, 1], "-.", color="g")
+        plt.plot(self.reference_data[self.idx_LE:, 0], self.reference_data[self.idx_LE:, 1], "-.", color="g")
+        plt.xlabel("x/c [-]")
+        plt.ylabel("y/c [-]")
+        plt.show()
+
+        return
         
 
     def FindInitialParameterization(self, 
@@ -748,140 +858,7 @@ class AirfoilParameterization:
             squared_fit_error_lower_surface = np.sum((lower_y - interpolated_lower_surface_data) ** 2)
 
             return squared_fit_error_upper_surface + squared_fit_error_lower_surface
-            
-        def CheckOptimizedResult(b_coeff: np.ndarray[float],
-                                 airfoil_params: dict,
-                                 ) -> None:
-            """
-            Check the optimized result by plotting the thickness and camber distributions, and the airfoil shape.
-
-            Parameters
-            ----------
-            b_0 : float
-                Control point for the camber.
-            b_2 : float
-                Control point for the camber.
-            b_8 : float
-                Control point for the thickness curve.
-            b_15 : float
-                Control point for the thickness curve.
-            b_17 : float
-                Control point for the camber.
-            r_LE : float
-                Leading edge radius.
-            trailing_wedge_angle : float
-                Trailing edge wedge angle.
-            trailing_camberline_angle : float
-                Trailing edge camber line angle.
-            leading_edge_direction : float
-                Leading edge direction angle.
-
-            Returns
-            -------
-            None
-            """
-
-            # Extract the bezier coefficients from the input array
-            b_0 = b_coeff[0]
-            b_2 = b_coeff[1]
-            b_8 = b_coeff[2]
-            b_15 = b_coeff[3]
-            b_17 = b_coeff[4]  
-
-            # Create u-vectors for Bezier curve generation
-            u_leading_edge, u_trailing_edge = self.GenerateBezierUVectors()
-            
-            # Calculate the Bezier curve coefficients for the thickness curves
-            x_LE_thickness_coeff, y_LE_thickness_coeff, x_TE_thickness_coeff, y_TE_thickness_coeff = self.GetThicknessControlPoints(b_8, 
-                                                                                                                                    b_15,
-                                                                                                                                    airfoil_params)
-            
-            # Calculate the leading edge thickness distribution
-            y_LE_thickness = self.BezierCurve3(y_LE_thickness_coeff, 
-                                               u_leading_edge)  # Leading edge thickness represented by 3rd order Bezier curve
-            x_LE_thickness = self.BezierCurve3(x_LE_thickness_coeff,
-                                               u_leading_edge)  # Leading edge thickness bezier x-coordinates, represented by a 3rd order curve
-        
-            # Calculate the trailing edge thickness distribution
-            y_TE_thickness = self.BezierCurve4(y_TE_thickness_coeff,
-                                               u_trailing_edge[1:])  # Trailing edge thickness represented by 4th order Bezier curve      
-            x_TE_thickness = self.BezierCurve4(x_TE_thickness_coeff,
-                                               u_trailing_edge[1:])  # Trailing edge bezier x-coordinates, represented by 4th order curve  
-
-            # Construct full curves by combining LE and TE data
-            bezier_thickness = np.concatenate((y_LE_thickness, y_TE_thickness), 
-                                              axis = 0)  # Construct complete thickness curve over length of profile
-            bezier_thickness_x = np.concatenate((x_LE_thickness, x_TE_thickness), 
-                                                axis = 0)  # Construct complete array of x-coordinates over length of profile  
-
-            # Calculate the camber distributions only if the camber is nonzero
-            if airfoil_params["y_c"] >= self.symmetric_limit:
-                # Calculate the Bezier curve coefficients for the camber curves
-                x_LE_camber_coeff, y_LE_camber_coeff, x_TE_camber_coeff, y_TE_camber_coeff = self.GetCamberControlPoints(b_0,
-                                                                                                                        b_2,
-                                                                                                                        b_17,
-                                                                                                                        airfoil_params)
-
-                # Calculate the leading edge camber distribution            
-                y_LE_camber = self.BezierCurve3(y_LE_camber_coeff, 
-                                                u_leading_edge)  # Leading edge camber represented by 3rd order Bezier curve
-                x_LE_camber = self.BezierCurve3(x_LE_camber_coeff,
-                                                u_leading_edge)  # Leading edge camber bezier x-coordinates, represented by a 3rd order curve
-
-                # Calculate the trailing edge camber distribution using the parameter b_17
-                y_TE_camber = self.BezierCurve4(y_TE_camber_coeff, 
-                                                u_trailing_edge[1:])  # Trailing edge camber represented by 4th order Bezier curve
-                x_TE_camber = self.BezierCurve4(x_TE_camber_coeff,
-                                            u_trailing_edge[1:])  # Trailing edge camber bezier x-coordinates, represented by a 4th order curve
-                
-                bezier_camber = np.concatenate((y_LE_camber, y_TE_camber),
-                                            axis = 0)  # Construct complete camber curve over length of profile
-                bezier_camber_x = np.concatenate((x_LE_camber, x_TE_camber),
-                                                axis = 0)  # Construct complete array of x-coordinates over length of profile
-            
-            else:
-                # If camber is zero, handle appropriately
-                bezier_camber = np.zeros_like(bezier_thickness)
-                bezier_camber_x = bezier_thickness_x
-                            
-            # Calculate the upper and lower surface coordinates from the bezier coordinates
-            upper_x, upper_y, lower_x, lower_y = self.ConvertBezier2AirfoilCoordinates(bezier_thickness_x,
-                                                                                       bezier_thickness,
-                                                                                       bezier_camber_x,
-                                                                                       bezier_camber)      
-
-            # Create plots of the thickness distribution compared to the input data
-            plt.figure("Thickness Distributions")
-            plt.plot(x_LE_thickness, y_LE_thickness, label="LeadingEdgeThickness")
-            plt.plot(x_TE_thickness, y_TE_thickness, label="TrailingEdgeThickness")
-            plt.plot(x_LE_thickness_coeff, y_LE_thickness_coeff, '*', color='k', label="Bezier Coefficients")
-            plt.plot(x_TE_thickness_coeff, y_TE_thickness_coeff, '*', color='k')  # Do not label this line to avoid duplicate legend entry
-            plt.plot(self.x_points_thickness, self.thickness_distribution, label="ThicknessInputData")
-            plt.xlabel("x/c [-]")
-            plt.ylabel("y_t/c [-]")
-            plt.legend()
-
-            if airfoil_params["y_c"] >= self.symmetric_limit:
-                plt.figure("Camber Distributions")
-                plt.plot(x_LE_camber, y_LE_camber, label="LeadingEdgeCamber")
-                plt.plot(x_TE_camber, y_TE_camber, label="TrailingEdgeCamber")
-                plt.plot(x_LE_camber_coeff, y_LE_camber_coeff, '*', color='k', label="Bezier Coefficients")
-                plt.plot(x_TE_camber_coeff, y_TE_camber_coeff, '*', color='k')  # Do not label this line to avoid duplicate legend entry
-                plt.plot(self.x_points_camber, self.camber_distribution, label="CamberInputData")
-                plt.xlabel("x/c [-]")
-                plt.ylabel("y_c/c [-]")
-                plt.legend()
-
-            plt.figure("Airfoil Shape")
-            plt.plot(upper_x, upper_y, label="Reconstructed Upper Surface")
-            plt.plot(lower_x, lower_y, label="Reconstructed Lower Surface")
-            plt.plot(self.reference_data[:self.idx_LE + 1, 0], self.reference_data[:self.idx_LE + 1, 1], "-.", color="g")
-            plt.plot(self.reference_data[self.idx_LE:, 0], self.reference_data[self.idx_LE:, 1], "-.", color="g")
-            plt.xlabel("x/c [-]")
-            plt.ylabel("y/c [-]")
-            plt.show()
-
-            return
+    
 
         def GetBounds(x: list[float]) -> optimize.Bounds:
             """
@@ -972,8 +949,12 @@ class AirfoilParameterization:
         
         # Write found coefficients to variables
         optimized_coefficients.x = optimized_coefficients.x.astype(float)
-        b_coeff_optimized = optimized_coefficients.x[:5]
-        airfoil_params_optimized = {"x_t": optimized_coefficients.x[5],
+        airfoil_params_optimized = {"b_0": optimized_coefficients.x[0],
+                                    "b_2": optimized_coefficients.x[1],
+                                    "b_8": optimized_coefficients.x[2],
+                                    "b_15": optimized_coefficients.x[3],
+                                    "b_17": optimized_coefficients.x[4],
+                                    "x_t": optimized_coefficients.x[5],
                                     "y_t": optimized_coefficients.x[6],
                                     "x_c": optimized_coefficients.x[7],
                                     "y_c": optimized_coefficients.x[8],
@@ -986,10 +967,9 @@ class AirfoilParameterization:
 
         # Generate plots if requested
         if plot:
-            CheckOptimizedResult(b_coeff_optimized,
-                                 airfoil_params_optimized)
+            self.CheckOptimizedResult(airfoil_params_optimized)
 
-        return b_coeff_optimized, airfoil_params_optimized
+        return airfoil_params_optimized
 
 
 if __name__ == "__main__":
@@ -998,13 +978,15 @@ if __name__ == "__main__":
     call_class = AirfoilParameterization()
     
     start_time = time.time()
-    inputfile = r'Test Airfoils\n6409.dat'
-    coefficients = call_class.FindInitialParameterization(inputfile,
+    inputfile = r'Test Airfoils\n0025.dat'
+    airf_params = call_class.FindInitialParameterization(inputfile,
                                                           plot=True)
     end_time = time.time()
     print(f"Execution of FindInitialParameterization({inputfile}) took {end_time-start_time} seconds")
     print("-----")
-    print(coefficients)
+    print(airf_params)
+
+    test = call_class.CheckOptimizedResult(airf_params)
     
     
 
