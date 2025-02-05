@@ -74,8 +74,7 @@ Student ID 4995309
 Version: 1.0
 
 Changelog:
-- V1.0: Adapted version of a parameterization using only the bezier coefficients to give an improved fit to the reference data. 
-
+- V1.0: Initial version. Lacks proper crash handling and choking handling in the HandleExitFlag() method, but otherwise complete. 
 """
 
 import sys
