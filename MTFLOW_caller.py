@@ -49,12 +49,15 @@ class ExitFlag(Enum):
 
 class MTFLOW_caller:
     """
-    
+    Wrapper class to execute the complete MTFLOW evaluation cycle.
+    This class handles the setup, execution, and error handling for the MTFLOW evaluation process, which includes generating input files, constructing grids, and running solvers.
     """
 
 
     def __init__(self,
                  operating_conditions: dict,
+                 centrebody_params: dict,
+                 duct_params: dict,
                  blading_parameters: list[dict],
                  design_parameters: list[list[dict]],
                  analysis_name: str
@@ -68,6 +71,10 @@ class MTFLOW_caller:
         ----------
         - operating_conditions : dict
             A dictionary containing at least the following entries: Inlet_Mach, Inlet_Reynolds, N_crit, i.e. the inlet Mach number, Reynolds number, and critical amplification factor N
+        - params_CB : dict
+                Dictionary containing parameters for the centerbody.
+        - params_duct : dict
+            Dictionary containing parameters for the duct.
         - blading_parameters : np.ndarray[dict]
             Array containing the blading parameters for each stage. Each dictionary should include the following keys:
                 - "root_LE_coordinate": The leading edge coordinate at the root of the blade.
@@ -100,6 +107,8 @@ class MTFLOW_caller:
         self.analysis_name = analysis_name
         self.blading_parameters = blading_parameters
         self.design_parameters = design_parameters
+        self.centrebody_params = centrebody_params
+        self.duct_params = duct_params
 
 
     def HandleExitFlag(self,
@@ -136,15 +145,6 @@ class MTFLOW_caller:
             for i in range(len(self.blading_parameters)):
                 reduction_factor = 0.05
                 self.blading_parameters[i]["rotational_rate"] = self.blading_parameters[i]["rotational_rate"] * (1 - reduction_factor)
-
-            file_handler = fileHandling().fileHandlingMTFLO(self.analysis_name)  # Create an instance of the file handler MTFLO subclass
-            file_handler.GenerateMTFLOInput(self.blading_parameters,
-                                            self.design_parameters,
-                                            )  # Create tflow.analysis_name input file
-            
-            # Load in the blade row(s) from MTFLO
-            MTFLO_call(self.analysis_name,
-                       ).caller()
             
             return
         
@@ -157,9 +157,21 @@ class MTFLOW_caller:
             raise ValueError(f"Unknown exit flag {exit_flag} encountered!") from None 
 
 
-    def caller(self) -> int:
+    def caller(self,
+               *,
+               debug: bool = False) -> int:
         """ 
-        Executes a complete MTSET-MTFLO-MTSOL evaluation, while handling grid issues
+        Executes a complete MTSET-MTFLO-MTSOL evaluation, while handling grid issues and choking issues. 
+
+        Parameters
+        ----------
+        - debug : bool, optional
+            A boolean controlling the logging behaviour of the method. If True, the method generates a caller.log file. 
+            Default value is False. 
+
+        Returns
+        -------
+        None
         """
         try:
             # --------------------
@@ -167,37 +179,38 @@ class MTFLOW_caller:
             # Writes log of the execution to the caller.log file using the 'w' mode. 
             # This empties out the caller file at the start of each MTFLOW_caller.caller() evaluation.
             # --------------------
-
-            logging.basicConfig(level=logging.DEBUG,
-                                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                                handlers=[logging.FileHandler("caller.log", 
-                                                              mode='w'),
-                                          logging.StreamHandler(),
-                                          ],
-                                )
-            logger = logging.getLogger(__name__)
+            if debug:
+                logging.basicConfig(level=logging.DEBUG,
+                                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                                    handlers=[logging.FileHandler("caller.log", 
+                                                                mode='w'),
+                                            logging.StreamHandler(),
+                                            ],
+                                    )
+                logger = logging.getLogger(__name__)
 
             # --------------------
-            # First step is generating the MTFLO input file - tflow.analysis_name
-            # As the MTFLO input file also contains a dependency on operating condition through Omega, it must be generated *within* the MTFLOW caller. 
-            # The walls.analysis_name file, which is the input to MTSET, does not contain any dependencies, and therefore can be generated outside of this caller function.
+            # First step is generating the MTSET input file - walls.analysis_name
+            # As the MTFLO input file also contains a dependency on operating condition through Omega, it must be generated *within* the MTSOL loop. 
+            # The walls.analysis_name file, which is the input to MTSET, does not contain any dependencies, and therefore can be generated outside of this loop here.
             # --------------------
 
-            logger.info("Generating the MTFLO input file")
-            file_handler = fileHandling().fileHandlingMTFLO(self.analysis_name)  # Create an instance of the file handler MTFLO subclass
-            
-            file_handler.GenerateMTFLOInput(self.blading_parameters,
-                                            self.design_parameters,
-                                            )  # Create tflow.analysis_name input file
+            file_handler = fileHandling()
+            file_handler.fileHandlingMTSET(params_CB=self.centrebody_params,
+                                           params_duct=self.duct_params,
+                                           case_name=self.analysis_name).GenerateMTSETInput()
+
             
             # --------------------
             # Construct the initial grid in MTSET
             # --------------------
-
-            logger.info("Constructing the initial grid in MTSET")
+            
+            if debug:
+                logger.info("Constructing the initial grid in MTSET")
+            
             grid_e_coeff = 0.8  # Initialize default e coefficient for MTSET grid generation
             grid_x_coeff = 0.8  # Initialize default x coefficient for MTSET grid generation
-            MTSET_call(self.analysis_name,
+            MTSET_call(analysis_name=self.analysis_name,
                        grid_e_coeff=grid_e_coeff,
                        grid_x_coeff=grid_x_coeff,
                        ).caller()
@@ -206,24 +219,28 @@ class MTFLOW_caller:
             # Check the grid by running a simple, fan-less, inviscid low-Mach case. If there is an issue with the grid MTSOL will crash
             # Hence we can check the grid by checking the exit flag
             # --------------------
-
-            logger.info("Checking the grid")
+            
+            if debug:
+                logger.info("Checking the grid")
+            
             first_check = True
             exit_flag_gridtest = ExitFlag.NOT_PERFORMED.value
             
             while exit_flag_gridtest != ExitFlag.SUCCESS.value:
-                _, [(exit_flag_gridtest, _), _] = MTSOL_call({"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
-                                                             self.analysis_name,
+                _, [(exit_flag_gridtest, _), _] = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
+                                                             analysis_name=self.analysis_name,
                                                              ).caller(run_viscous=False,
                                                                       generate_output=False,
                                                                       )
                 
                 if exit_flag_gridtest == ExitFlag.SUCCESS.value:  # If the grid status is okay, break out of the checking loop and continue
-                    logger.info("Grid passed checks")
+                    if debug:
+                        logger.info("Grid passed checks")
                     break
 
                 # If the grid is incorrect, change grid parameters and rerun MTSET to update the grid. 
-                logger.warning("Grid crashed. Trying alternate grid parameters")
+                if debug:
+                    logger.warning("Grid crashed. Trying alternate grid parameters")
 
                 # If first_check is true, we can try the suggested coefficients
                 # The updated e and x coefficients reduce the number of streamwise points on the airfoil elements (by 0.1 * Npoints), 
@@ -231,15 +248,17 @@ class MTFLOW_caller:
                 if first_check:
                     grid_e_coeff = 0.7
                     grid_x_coeff = 0.5
-                    logger.info(f"Trying suggested coefficients e={grid_e_coeff} and x={grid_x_coeff}")
+                    if debug:
+                        logger.info(f"Trying suggested coefficients e={grid_e_coeff} and x={grid_x_coeff}")
 
                 # If first_check is false, the suggested coefficients do not work, so we try a random number approach to brute-force a grid
                 else:
                     grid_e_coeff = random.uniform(0.6, 1.0)
                     grid_x_coeff = random.uniform(0.2, 0.95)
-                    logger.info(f"Suggested Coefficients failed to yield a satisfactory grid. Trying bruteforce method with e={grid_e_coeff} and x={grid_x_coeff}")
+                    if debug:
+                        logger.info(f"Suggested Coefficients failed to yield a satisfactory grid. Trying bruteforce method with e={grid_e_coeff} and x={grid_x_coeff}")
                     
-                MTSET_call(self.analysis_name,
+                MTSET_call(analysis_name=self.analysis_name,
                            grid_e_coeff=grid_e_coeff,
                            grid_x_coeff=grid_x_coeff,
                            ).caller()
@@ -247,29 +266,34 @@ class MTFLOW_caller:
                 first_check = False
 
             # --------------------
-            # Load in the blade row(s) from MTFLO
-            # --------------------
-
-            logger.info("Loading blade row(s) from MTFLO")
-            MTFLO_call(self.analysis_name,
-                       ).caller()
-
-            # --------------------
             # Execute MTSOl solver
-            # Passes the exit flags and iteration counts to the handle exit flag function to determine if any issues have occurred. 
+            # Passes the exit flag to determine if any issues have occurred. 
             # --------------------
 
-            logger.info("Starting MTSOL execution loop")
+            if debug:
+                logger.info("Starting MTSOL execution loop")
 
             exit_flag = ExitFlag.NOT_PERFORMED.value  # Initialize exit flag
             while exit_flag != ExitFlag.SUCCESS.value:
-                exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)] = MTSOL_call(self.operating_conditions,
-                                                                                                                self.analysis_name,
-                                                                                                                ).caller(run_viscous=True,
+                if debug:
+                    logger.info("Loading blade row(s) from MTFLO")
+                file_handler.fileHandlingMTFLO(self.analysis_name).GenerateMTFLOInput(blading_params=self.blading_parameters,
+                                                                                      design_params=self.design_parameters)  # Create the MTFLO input file
+                MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
+
+                if debug:
+                    logger.info("Executing MTSOL")
+                
+                exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)] = MTSOL_call(operating_conditions=self.operating_conditions,
+                                                                                                                   analysis_name=self.analysis_name,
+                                                                                                                   ).caller(run_viscous=True,
                                                                                                                             generate_output=True,
                                                                                                                             )
-                
-                logger.info(f"MTSOL finished with exit flag {exit_flag}")
+               
+                if debug:
+                    logger.info(f"MTSOL finished with exit flag {exit_flag}")
+                    logger.info("Processing exit flag....")
+
                 self.HandleExitFlag(exit_flag=exit_flag)  # Check completion status of MTSOL
 
             logger.info(f"MTSOL execution loop finished with final exit flag {exit_flag}")
@@ -280,32 +304,42 @@ class MTFLOW_caller:
         # If an error occured, handle it with the logger
         # --------------------
         except Exception as e:
-            logger.critical(f"An error occurred: {e}")
+            if debug:
+                logger.critical(f"An error occurred: {e}")
+
             return ExitFlag.CRASH.value
 
 
 if __name__ == "__main__":
     import numpy as np
 
-
     # Define some test inputs
-    oper = {"Inlet_Mach": 0.5,
+    oper = {"Inlet_Mach": 0.6,
             "Inlet_Reynolds": 5e6,
             "N_crit": 9,
             }
 
     analysisName = "test_case"
-
-    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 0.3, "blade_count": 18, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.3], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi / 3]},
-                          {"root_LE_coordinate": 1., "rotational_rate": 0., "blade_count": 18, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.3], "sweep_angle":[np.pi/8, np.pi/8], "twist_angle": [0, np.pi/8]}]
     
-    n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 1.5, "Leading Edge Coordinates": (0, 2)}
+    # Roughly basing the blade design on the CFM Leap engine (approximate chord lengths)
+    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 0.75, "blade_count": 15, "radial_stations": [0.1, 1.15], "chord_length": [0.3, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi/8]},
+                          {"root_LE_coordinate": 1.1, "rotational_rate": 0., "blade_count": 15, "radial_stations": [0.1, 1.3], "chord_length": [0.15, 0.1], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi/8]}]
+    
+    # Model the fan and stator blades using a uniform naca2415 profile along the blade span
+    n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815}
     design_parameters = [[n2415_coeff, n2415_coeff],
                          [n2415_coeff, n2415_coeff]]
     
+    # Model the duct using a naca 6409 profile
+    duct_parameters = {"b_0": 0.07979831, "b_2": 0.20013347, "b_8": 0.02901246, "b_15": 0.74993802, "b_17": 0.78496242, 'x_t': 0.30429947838135246, 'y_t': 0.0452171520304373, 'x_c': 0.4249653844429819, 'y_c': 0.06028051002570214, 'z_TE': -0.0003886462495685791, 'dz_TE': 0.0004425237127035188, 'r_LE': -0.009225474218611841, 'trailing_wedge_angle': 0.10293203348896998, 'trailing_camberline_angle': 0.21034003141636426, 'leading_edge_direction': 0.26559481057525414, "Chord Length": 3.0, "Leading Edge Coordinates": (0, 1.2)}
+    
+    # Model the centrebody using a naca 0025 profile
+    centrebody_parameters = {"b_0": 0., "b_2": 0., "b_8": 7.52387039e-02, "b_15": 7.46448823e-01, "b_17": 0, 'x_t': 0.29842005729819904, 'y_t': 0.12533559300869632, 'x_c': 0, 'y_c': 0, 'z_TE': 0, 'dz_TE': 0.00277173368735548, 'r_LE': -0.06946118699675888, 'trailing_wedge_angle': np.float64(0.27689037361278407), 'trailing_camberline_angle': 0.0, 'leading_edge_direction': 0.0, "Chord Length": 4, "Leading Edge Coordinates": (0.3, 0)}
+
     class_call = MTFLOW_caller(operating_conditions=oper,
+                               centrebody_params=centrebody_parameters,
+                               duct_params=duct_parameters,
                                blading_parameters=blading_parameters,
                                design_parameters=design_parameters,
                                analysis_name=analysisName,
                                ).caller()
-

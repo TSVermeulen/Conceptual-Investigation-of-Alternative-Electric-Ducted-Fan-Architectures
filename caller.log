@@ -1,9 +1,9 @@
-2025-02-04 17:05:03,630 - __main__ - INFO - Generating the MTFLO input file
-2025-02-04 17:05:03,665 - __main__ - INFO - Constructing the initial grid in MTSET
-2025-02-04 17:05:05,029 - __main__ - INFO - Checking the grid
-2025-02-04 17:05:10,250 - __main__ - INFO - Grid passed checks
-2025-02-04 17:05:10,250 - __main__ - INFO - Loading blade row(s) from MTFLO
-2025-02-04 17:05:10,850 - __main__ - INFO - Starting MTSOL execution loop
-2025-02-04 17:06:48,700 - __main__ - INFO - MTSOL finished with exit flag -1
-2025-02-04 17:06:48,700 - __main__ - INFO - MTSOL execution loop finished with final exit flag -1
-2025-02-04 17:06:48,700 - __main__ - CRITICAL - An error occurred: name 'exit_flag_invisc' is not defined
+2025-02-05 20:45:09,795 - __main__ - INFO - Constructing the initial grid in MTSET
+2025-02-05 20:45:10,656 - __main__ - INFO - Checking the grid
+2025-02-05 20:45:13,365 - __main__ - INFO - Grid passed checks
+2025-02-05 20:45:13,365 - __main__ - INFO - Starting MTSOL execution loop
+2025-02-05 20:45:13,365 - __main__ - INFO - Loading blade row(s) from MTFLO
+2025-02-05 20:45:14,285 - __main__ - INFO - Executing MTSOL
+2025-02-05 20:47:18,790 - __main__ - INFO - MTSOL finished with exit flag -1
+2025-02-05 20:47:18,792 - __main__ - INFO - Processing exit flag....
+2025-02-05 20:47:18,792 - __main__ - INFO - MTSOL execution loop finished with final exit flag -1

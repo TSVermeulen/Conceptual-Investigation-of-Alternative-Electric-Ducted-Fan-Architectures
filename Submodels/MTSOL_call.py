@@ -91,21 +91,31 @@ class MTSOL_call:
     """
 
     def __init__(self,
-                 *args: tuple[dict, str],
+                 operating_conditions: dict,
+                 analysis_name: str,
                  ) -> None:
         """
         Initialize the MTSOL_call class.
 
         This method sets up the initial state of the class.
 
+        Parameters
+        ----------
+        - operating_conditions : dict
+            A dictionary containing the operating conditions for the MTSOL analysis. The dictionary needs to contain:
+                - Inlet_Mach: the inlet Mach number
+                - Inlet_Reynolds: the inlet Reynolds number, calculated using L=1m
+                - N_crit: the critical amplification factor
+        - analysis_name : str
+            A string of the analysis name. 
+
         Returns
         -------
         None
         """
 
-        operating_conditions, analysis_name = args
-        self.operating_conditions: dict = operating_conditions
-        self.analysis_name: str = analysis_name
+        self.operating_conditions = operating_conditions
+        self.analysis_name = analysis_name
 
         # Define constants for the class
         self.ITER_STEP_SIZE = 2  # Step size in which iterations are performed in MTSOL

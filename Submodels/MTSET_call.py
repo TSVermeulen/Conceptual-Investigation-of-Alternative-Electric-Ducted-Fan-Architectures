@@ -157,7 +157,7 @@ class MTSET_call:
         # Enable streamline bunching towards stagnation lines for better resolution of near-element flowfield
         self.process.stdin.write("j 1\n")
 
-        # Use maximum number of streamlines for increased resolution
+        # Use increased number of streamlines for increased resolution
         self.process.stdin.write("s 45\n")
 
         # Set exponent for number of airfoil side points. The number of point is then equal to e * N
