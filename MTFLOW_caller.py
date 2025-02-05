@@ -213,7 +213,7 @@ class MTFLOW_caller:
         
         # If the exit flag indicates choking, reduce the rotor RPM to fix the issue
         elif exit_flag == ExitFlag.CHOKING.value:
-            print("Choking occurs. Using a rudementary fix....")
+            print("Choking occurs. Using a rudimentary fix....")
             
             #Use a 5% reduction in RPM as guess
             for i in range(len(self.blading_parameters)):
@@ -371,7 +371,8 @@ class MTFLOW_caller:
 
                 self.HandleExitFlag(exit_flag=exit_flag)  # Check completion status of MTSOL
 
-            logger.info(f"MTSOL execution loop finished with final exit flag {exit_flag}")
+            if debug:
+                logger.info(f"MTSOL execution loop finished with final exit flag {exit_flag}")
 
             return exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)]
 

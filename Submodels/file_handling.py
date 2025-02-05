@@ -93,7 +93,6 @@ Changelog:
 import numpy as np
 import os
 from scipy import interpolate
-from typing import Any
 from pathlib import Path
 
 

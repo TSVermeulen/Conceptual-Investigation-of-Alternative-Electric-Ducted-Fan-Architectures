@@ -260,8 +260,7 @@ class MTSET_call:
 
         Returns
         -------
-        - self.process.returncode : int
-            The returncode of the finished subprocess.
+        None
         """
         
         # Create subprocess for the MTSET tool

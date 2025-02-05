@@ -794,7 +794,7 @@ class AirfoilParameterization:
     def FindInitialParameterization(self, 
                                     reference_file: str,
                                     *,
-                                    plot: bool = False) -> tuple[np.ndarray, dict]:
+                                    plot: bool = False) -> dict:
         """
         Find the initial parameterization for the profile.
 
@@ -810,7 +810,8 @@ class AirfoilParameterization:
 
         Returns
         -------
-        Tuple of optimized Bezier control points for the airfoil parameterization.
+        dict
+            Dictionary containing the optimized airfoil parameters.
         """
 
         def Objective(x: list[float],
