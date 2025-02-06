@@ -86,6 +86,8 @@ class MTSET_call:
 
         # Define constant filepath 
         self.fpath: str = os.getenv('MTSET_PATH', 'mtset.exe')
+        if not os.path.exists(self.fpath):
+            raise FileNotFoundError(f"MTSET executable not found at {self.fpath}")
 
 
     def GenerateProcess(self, 

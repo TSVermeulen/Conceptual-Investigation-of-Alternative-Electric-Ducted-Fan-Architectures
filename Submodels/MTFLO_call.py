@@ -68,6 +68,8 @@ class MTFLO_call:
 
         # Define filepath of MTFLO as being in the same folder as this Python file
         self.fpath: str = os.getenv('MTFLO_PATH', 'mtflo.exe')
+        if not os.path.exists(self.fpath):
+            raise FileNotFoundError(f"MTFLO executable not found at {self.fpath}")
 
 
     def GenerateProcess(self,

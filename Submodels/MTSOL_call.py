@@ -124,7 +124,9 @@ class MTSOL_call:
 
         # Define filepath of MTSOL as being in the same folder as this Python file
         self.fpath: str = os.getenv('MTSOL_PATH', 'mtsol.exe')
-   
+        if not os.path.exists(self.fpath):
+            raise FileNotFoundError(f"MTSOL executable not found at {self.fpath}")
+
 
     def GenerateProcess(self,
                         ) -> None:
