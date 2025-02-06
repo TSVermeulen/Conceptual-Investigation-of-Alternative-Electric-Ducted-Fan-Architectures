@@ -74,6 +74,8 @@ class ExitFlag(Enum):
         Non-convergence, to be handled by the HandleNonConvergence function. 
     NOT_PERFORMED : int
         Not performed, with no iterations executed or outputs generated. 
+    CHOKING : int
+        Choking occurs somewhere in the solution, indicated by the 'QSHIFT' message in the MTSOL console output
     """
 
     SUCCESS = -1
