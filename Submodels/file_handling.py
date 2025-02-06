@@ -159,6 +159,26 @@ class fileHandling:
             -------
             None
             """
+
+            # Input validation
+            # Required keys for parameter dictionaries
+            required_keys = {"Leading Edge Coordinates",
+                             "Chord Length",
+                             "b_0", "b_2", "b_8", "b_15", "b_17",
+                             "x_t", "y_t", "x_c", "y_c",
+                             "z_TE", "dz_TE", "r_LE",
+                             "trailing_wedge_angle",
+                             "trailing_camberline_angle",
+                             "leading_edge_direction",
+                             }
+
+            for params, name in [(params_CB, "params_CB"), (params_duct, "params_duct")]:
+                missing_keys = required_keys - set(params.keys())
+                if missing_keys:
+                    raise ValueError(f"Missing required keys in {name}: {missing_keys}")
+
+            if not isinstance(case_name, str):
+                raise TypeError("case_name must be a string")
             
             self.centerbody_params = params_CB
             self.duct_params = params_duct

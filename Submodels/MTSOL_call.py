@@ -175,7 +175,7 @@ class MTSOL_call:
         self.process.stdin.flush()
 
         # Set critical amplification factor to N=9 rather than the default N=7
-        self.process.stdin.write(f"N {self.operating_conditions["N_crit"]}\n")
+        self.process.stdin.write(f"N {self.operating_conditions['N_crit']}\n")
         self.process.stdin.flush()
 
         # Set the Reynolds number to 0 to ensure an inviscid solve is performed initially

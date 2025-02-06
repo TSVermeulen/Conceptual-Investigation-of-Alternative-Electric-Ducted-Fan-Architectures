@@ -133,7 +133,7 @@ class MTFLOW_caller:
                  centrebody_params: dict,
                  duct_params: dict,
                  blading_parameters: list[dict],
-                 design_parameters: list[list[dict]],
+                 design_parameters: list[dict],
                  analysis_name: str
                  ) -> None:
         """
@@ -145,21 +145,22 @@ class MTFLOW_caller:
         ----------
         - operating_conditions : dict
             A dictionary containing at least the following entries: Inlet_Mach, Inlet_Reynolds, N_crit, i.e. the inlet Mach number, Reynolds number, and critical amplification factor N
-        - params_CB : dict
+        - centrebody_params : dict
                 Dictionary containing parameters for the centerbody.
-        - params_duct : dict
+        - duct_params : dict
             Dictionary containing parameters for the duct.
-        - blading_parameters : np.ndarray[dict]
-            Array containing the blading parameters for each stage. Each dictionary should include the following keys:
+        - blading_parameters : list[dict]
+            List containing the blading parameters for each stage. Each dictionary should include the following keys:
                 - "root_LE_coordinate": The leading edge coordinate at the root of the blade.
                 - "rotational_rate": The rotational rate of the blade.
                 - "blade_count": The number of blades.
-                - "radial_stations": Numpy array of the radial stations along the blade span.
-                - "chord_length": Numpy array of the chord length distribution along the blade span.
-                - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
-                - "twist_angle": Numpy array of the twist angle distribution along the blade span.
-        - design_parameters : np.ndarray[dict]
-            Array containing an equal number of dictionary entries as there are stages. Each dictionary must contain the following keys:
+                - "radial_stations": List of the radial stations along the blade span.
+                - "chord_length": List of the chord length distribution along the blade span.
+                - "sweep_angle": List of the sweep angle distribution along the blade span.
+                - "twist_angle": List of the twist angle distribution along the blade span.
+        - design_parameters : list[list[dict]]
+            List containing an equal number of nested lists as there are stages. Each nested list contains an equal number of dictionaries as there are radial stations. 
+            Each dictionary must contain the following keys:
                 - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
                 - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
                 - "z_TE", "dz_TE": Trailing edge parameters.
@@ -233,7 +234,7 @@ class MTFLOW_caller:
 
     def caller(self,
                *,
-               debug: bool = False) -> int:
+               debug: bool = False) -> tuple[int, list[tuple[int, int]]]:
         """ 
         Executes a complete MTSET-MTFLO-MTSOL evaluation, while handling grid issues and choking issues. 
 
@@ -245,7 +246,9 @@ class MTFLOW_caller:
 
         Returns
         -------
-        None
+        Tuple[int, List[Tuple[int, int]]]
+            A tuple containing the exit flag and a list of tuples with exit flags and iteration counts
+            for the inviscid and viscous solves.
         """
 
         try:
