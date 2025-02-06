@@ -15,9 +15,8 @@ MTFLO_call
 
 Examples
 --------
->>> filepath = r"mtflo.exe"
 >>> analysisName = "test_case"
->>> test = MTFLO_call(filepath, analysisName)
+>>> test = MTFLO_call(analysisName)
 >>> test.caller()
 
 Notes

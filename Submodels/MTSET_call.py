@@ -15,9 +15,8 @@ MSET_call
 
 Examples
 --------
->>> filepath = r"mtset.exe"
 >>> analysisName = "test_case"
->>> test = MTSET_call(r'mtset.exe', "test_case")
+>>> test = MTSET_call("test_case")
 >>> execute_MTSET = test.caller()
 
 Notes

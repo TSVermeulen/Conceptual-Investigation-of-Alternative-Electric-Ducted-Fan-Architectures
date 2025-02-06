@@ -17,13 +17,12 @@ MTSOL_call
 
 Examples
 --------
->>> filepath = r"mtsol.exe"
 >>> analysisName = "test_case"
->>> oper = {"Inlet_Mach": 0.2000,
+>>> oper = {"Inlet_Mach": 0.25,
 >>>         "Inlet_Reynolds": 5.000E6,
->>>         "Pressure_Ratio_Exit": 0.99,
+>>>         "N_crit": 9,
 >>>         }
->>> test = MTSOL_call(oper, filepath, analysisName).caller(Run_viscous=True)
+>>> test = MTSOL_call(oper, analysisName).caller(run_viscous=True)
 
 Notes
 -----
