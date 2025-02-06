@@ -273,9 +273,7 @@ class MTSET_call:
         self.GridSmoothing()  
 
         # Generate files 
-        self.FileGenerator()   
-
-        return      
+        self.FileGenerator()      
 
         
 if __name__ == "__main__":
