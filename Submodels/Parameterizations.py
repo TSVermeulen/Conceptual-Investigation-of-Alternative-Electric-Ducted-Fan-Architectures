@@ -54,6 +54,7 @@ Changelog:
 """
 
 import numpy as np
+from pathlib import Path
 import matplotlib.pyplot as plt
 from scipy import interpolate, optimize
 
@@ -719,42 +720,43 @@ class AirfoilParameterization:
         x_LE_thickness_coeff, y_LE_thickness_coeff, x_TE_thickness_coeff, y_TE_thickness_coeff = self.GetThicknessControlPoints(airfoil_params["b_8"],
                                                                                                                                 airfoil_params["b_15"],
                                                                                                                                 airfoil_params)
-        
-        # Create plots of the thickness distribution compared to the input data
-        plt.figure("Thickness Distributions")
-        plt.plot(bezier_thickness_x, bezier_thickness, label="BezierThickness")
-        plt.plot(x_LE_thickness_coeff, y_LE_thickness_coeff, '*', color='k', label="Bezier Coefficients")
-        plt.plot(x_TE_thickness_coeff, y_TE_thickness_coeff, '*', color='k')  # Do not label this line to avoid duplicate legend entry            
-        plt.plot(self.x_points_thickness, self.thickness_distribution, "-.", label="ThicknessInputData")
-        plt.xlabel("x/c [-]")
-        plt.ylabel("y_t/c [-]")
-        plt.legend()
-
-        if airfoil_params["y_c"] >= self.symmetric_limit:
-            # Calculate bezier coefficients for the camber curves for plotting
-            x_LE_camber_coeff, y_LE_camber_coeff, x_TE_camber_coeff, y_TE_camber_coeff = self.GetCamberControlPoints(airfoil_params["b_0"],
-                                                                                                                     airfoil_params["b_2"],
-                                                                                                                     airfoil_params["b_17"])
-
-            plt.figure("Camber Distributions")
-            plt.plot(bezier_camber_x, bezier_camber, label="BezierCamber")
-            plt.plot(x_LE_camber_coeff, y_LE_camber_coeff, '*', color='k', label="Bezier Coefficients")
-            plt.plot(x_TE_camber_coeff, y_TE_camber_coeff, '*', color='k')  # Do not label this line to avoid duplicate legend entry
-            plt.plot(self.x_points_camber, self.camber_distribution, "-.", label="CamberInputData")
+        try:
+            # Create plots of the thickness distribution compared to the input data
+            plt.figure("Thickness Distributions")
+            plt.plot(bezier_thickness_x, bezier_thickness, label="BezierThickness")
+            plt.plot(x_LE_thickness_coeff, y_LE_thickness_coeff, '*', color='k', label="Bezier Coefficients")
+            plt.plot(x_TE_thickness_coeff, y_TE_thickness_coeff, '*', color='k')  # Do not label this line to avoid duplicate legend entry            
+            plt.plot(self.x_points_thickness, self.thickness_distribution, "-.", label="ThicknessInputData")
             plt.xlabel("x/c [-]")
-            plt.ylabel("y_c/c [-]")
+            plt.ylabel("y_t/c [-]")
             plt.legend()
 
-        plt.figure("Airfoil Shape")
-        plt.plot(upper_x, upper_y, label="Reconstructed Upper Surface")
-        plt.plot(lower_x, lower_y, label="Reconstructed Lower Surface")
-        plt.plot(self.reference_data[:self.idx_LE + 1, 0], self.reference_data[:self.idx_LE + 1, 1], "-.", color="g")
-        plt.plot(self.reference_data[self.idx_LE:, 0], self.reference_data[self.idx_LE:, 1], "-.", color="g")
-        plt.xlabel("x/c [-]")
-        plt.ylabel("y/c [-]")
-        plt.show()
+            if airfoil_params["y_c"] >= self.symmetric_limit:
+                # Calculate bezier coefficients for the camber curves for plotting
+                x_LE_camber_coeff, y_LE_camber_coeff, x_TE_camber_coeff, y_TE_camber_coeff = self.GetCamberControlPoints(airfoil_params["b_0"],
+                                                                                                                        airfoil_params["b_2"],
+                                                                                                                        airfoil_params["b_17"])
 
-        return
+                plt.figure("Camber Distributions")
+                plt.plot(bezier_camber_x, bezier_camber, label="BezierCamber")
+                plt.plot(x_LE_camber_coeff, y_LE_camber_coeff, '*', color='k', label="Bezier Coefficients")
+                plt.plot(x_TE_camber_coeff, y_TE_camber_coeff, '*', color='k')  # Do not label this line to avoid duplicate legend entry
+                plt.plot(self.x_points_camber, self.camber_distribution, "-.", label="CamberInputData")
+                plt.xlabel("x/c [-]")
+                plt.ylabel("y_c/c [-]")
+                plt.legend()
+
+            plt.figure("Airfoil Shape")
+            plt.plot(upper_x, upper_y, label="Reconstructed Upper Surface")
+            plt.plot(lower_x, lower_y, label="Reconstructed Lower Surface")
+            plt.plot(self.reference_data[:self.idx_LE + 1, 0], self.reference_data[:self.idx_LE + 1, 1], "-.", color="g")
+            plt.plot(self.reference_data[self.idx_LE:, 0], self.reference_data[self.idx_LE:, 1], "-.", color="g")
+            plt.xlabel("x/c [-]")
+            plt.ylabel("y/c [-]")
+            plt.show()
+
+        except Exception as e:
+            print(f"Warning: Failed to generate plots: {str(e)}")
         
 
     def FindInitialParameterization(self, 
@@ -945,7 +947,7 @@ if __name__ == "__main__":
     call_class = AirfoilParameterization()
     
     start_time = time.time()
-    inputfile = r'Test Airfoils\n0025.dat'
+    inputfile = Path('Test Airfoils') / 'n0025.dat'
     airf_params = call_class.FindInitialParameterization(inputfile,
                                                           plot=True)
     end_time = time.time()

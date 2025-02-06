@@ -123,7 +123,7 @@ class MTSOL_call:
         self.ITER_LIMIT = 50 # Maximum number of iterations to perform before non-convergence is assumed.
 
         # Define filepath of MTSOL as being in the same folder as this Python file
-        self.fpath: str = r"mtsol.exe"
+        self.fpath: str = os.getenv('MTSOL_PATH', 'mtsol.exe')
    
 
     def GenerateProcess(self,

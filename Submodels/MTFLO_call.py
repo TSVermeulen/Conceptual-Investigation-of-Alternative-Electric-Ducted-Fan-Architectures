@@ -67,7 +67,7 @@ class MTFLO_call:
         self.analysis_name = analysis_name
 
         # Define filepath of MTFLO as being in the same folder as this Python file
-        self.fpath: str = r"mtflo.exe"
+        self.fpath: str = os.getenv('MTFLO_PATH', 'mtflo.exe')
 
 
     def GenerateProcess(self,

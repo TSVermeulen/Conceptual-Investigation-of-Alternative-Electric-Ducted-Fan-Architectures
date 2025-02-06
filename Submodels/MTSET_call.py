@@ -85,7 +85,8 @@ class MTSET_call:
             self.grid_x_coeff = grid_x_coeff
 
         # Define constant filepath 
-        self.fpath: str = r"mtset.exe"
+        self.fpath: str = os.getenv('MTSET_PATH', 'mtset.exe')
+
 
     def GenerateProcess(self, 
                         ) -> None:

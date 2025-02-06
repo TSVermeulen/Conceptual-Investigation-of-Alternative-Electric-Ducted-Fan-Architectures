@@ -122,9 +122,6 @@ class fileHandling:
         None
         """
 
-        # Change the current working directory
-        os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 
     class fileHandlingMTSET:
         """
@@ -304,7 +301,8 @@ class fileHandling:
             xy_duct = self.GetProfileCoordinates(self.duct_params)
             
             # Generate walls.xxx input data structure
-            file_path = Path(f"walls.{self.case_name}")
+            output_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+            file_path = output_dir / f"walls.{self.case_name}"
             with file_path.open("w") as file:
                 # Write opening lines of the file
                 file.write(self.case_name + '\n')
@@ -590,7 +588,8 @@ class fileHandling:
             """
 
             # Open the tflow.xxx file and start writing the required input data to it
-            file_path = Path(f"tflow.{self.case_name}")
+            output_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+            file_path = output_dir / f"tflow.{self.case_name}"
             with file_path.open("w") as file:
                 # Write the case name to the file
                 file.write('NAME\n')
