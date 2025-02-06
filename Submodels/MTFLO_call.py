@@ -15,9 +15,8 @@ MTFLO_call
 
 Examples
 --------
->>> filepath = r"mtflo.exe"
 >>> analysisName = "test_case"
->>> test = MTFLO_call(filepath, analysisName)
+>>> test = MTFLO_call(analysisName)
 >>> test.caller()
 
 Notes
@@ -37,10 +36,11 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.0
+Version: 1.0.5
 
 Changelog:
 - V1.0: Initial working version
+- V1.0.5: Cleaned up inputs, removing file_path and changing it to a constant. 
 """
 
 import subprocess
@@ -51,26 +51,24 @@ class MTFLO_call:
     Class to handle the interface between Python and the MTFLO executable.
     """
 
-    def __init__(self, *args: str,
+    def __init__(self, 
+                 analysis_name: str,
                  ) -> None:
         """
         Initialize the MTFLO_call class with the file path and analysis name.
 
         Parameters
         ----------
-        file_path : str
-            The path to the MTFLO executable.
-        analysis_name : str
+        - analysis_name : str
             The name of the analysis case.
         """
 
-        # Input validation
-        if len(args) != 2:
-            raise ValueError("Expected exactly 2 arguments: file_path and analysis_name") from None
+        self.analysis_name = analysis_name
 
-        file_path, analysis_name = args
-        self.fpath: str = file_path
-        self.analysis_name: str = analysis_name
+        # Define filepath of MTFLO as being in the same folder as this Python file
+        self.fpath: str = os.getenv('MTFLO_PATH', 'mtflo.exe')
+        if not os.path.exists(self.fpath):
+            raise FileNotFoundError(f"MTFLO executable not found at {self.fpath}")
 
 
     def GenerateProcess(self,
@@ -142,7 +140,7 @@ class MTFLO_call:
          # Check that MTFLO has closed successfully 
         if self.process.poll() is None:
             try:
-                self.process.wait(timeout=2)
+                self.process.wait(timeout=5)
             
             except subprocess.TimeoutExpired:
                 self.process.kill()
@@ -160,7 +158,7 @@ class MTFLO_call:
         
         Returns
         -------
-        self.process.returncode : int
+        - self.process.returncode : int
             self.process.returncode
         """
         
@@ -177,10 +175,9 @@ if __name__ == "__main__":
 
     import time
     start_time = time.time()
-    filepath = r"mtflo.exe"
     analysisName = "test_case"
-    test = MTFLO_call(filepath, analysisName)
+    test = MTFLO_call(analysisName)
     test = test.caller()
     end_time = time.time()
 
-    print(f"Execution of MTFLO_call({filepath, analysisName}).caller() took {end_time - start_time} seconds")
+    print(f"Execution of MTFLO_call({analysisName}).caller() took {end_time - start_time} seconds")

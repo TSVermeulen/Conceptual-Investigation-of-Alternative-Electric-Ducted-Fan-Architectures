@@ -15,9 +15,8 @@ MSET_call
 
 Examples
 --------
->>> filepath = r"mtset.exe"
 >>> analysisName = "test_case"
->>> test = MTSET_call(r'mtset.exe', "test_case")
+>>> test = MTSET_call("test_case")
 >>> execute_MTSET = test.caller()
 
 Notes
@@ -53,26 +52,41 @@ class MTSET_call:
     Class to handle the interface between MTSET and Python
     """
 
-    def __init__(self, *args: str,
+    def __init__(self, 
+                 analysis_name: str,
+                 grid_e_coeff: float = None,
+                 grid_x_coeff: float = None,
                  ) -> None:
         """
-        Initialize the MTSET_call class with the file path and analysis name.
+        Initialize the MTSET_call class with the analysis name.
 
         Parameters
         ----------
-        file_path : str
-            The path to the MTFLO executable.
-        analysis_name : str
+        - analysis_name : str
             The name of the analysis case.
+        - grid_e_coeff : float, optional
+            The E coefficient for the exponent of airfoil side points within MTSET. If None, uses the default MTSET value of 0.8. 
+        - grid_x_coeff : float, optional
+            The X spacing parameter within MTSET. Larger values yield a more rectangular grid. If None, uses the default MTSET value of 0.8.
         """
 
-        # Input validation
-        if len(args) != 2:
-            raise ValueError("Expected exactly 2 arguments: file_path and analysis_name") from None
+        self.analysis_name = analysis_name
 
-        file_path, analysis_name = args
-        self.fpath: str = file_path
-        self.analysis_name: str = analysis_name
+        # Grid definition parameters need to either take the user-defined input or the default MTSET inputs
+        if grid_e_coeff is None: 
+            self.grid_e_coeff = 0.8
+        else:
+            self.grid_e_coeff = grid_e_coeff
+
+        if grid_x_coeff is None:
+            self.grid_x_coeff = 0.8
+        else:
+            self.grid_x_coeff = grid_x_coeff
+
+        # Define constant filepath 
+        self.fpath: str = os.getenv('MTSET_PATH', 'mtset.exe')
+        if not os.path.exists(self.fpath):
+            raise FileNotFoundError(f"MTSET executable not found at {self.fpath}")
 
 
     def GenerateProcess(self, 
@@ -117,13 +131,6 @@ class MTSET_call:
 
         As a limit, the walls.xxx file is expected to have at least 1 body, but no upper limit. 
         In practice, there will be 2 bodies (duct and center body).
-
-        # -----
-        # TO DO 
-        # include handling of updated spacing;
-        # get current number of streamwise gridpoints
-        # automatically refine grid
-        # -----
         """
         
         # Load the walls.xxx file and count number of elements to be loaded
@@ -152,17 +159,21 @@ class MTSET_call:
         # Enable streamline bunching towards stagnation lines for better resolution of near-element flowfield
         self.process.stdin.write("j 1\n")
 
-        # Use maximum number of streamlines for increased resolution
+        # Use increased number of streamlines for increased resolution
         self.process.stdin.write("s 45\n")
 
         # Set exponent for number of airfoil side points. The number of point is then equal to e * N
-        self.process.stdin.write("e 0.7\n")
+        self.process.stdin.write(f"e {self.grid_e_coeff} \n")
 
         # Set x spacing factor. Lower values yield a more "rounded" grid
-        self.process.stdin.write("x 0.5\n") 
+        self.process.stdin.write(f"x {self.grid_x_coeff} \n") 
 
         # Set the number of streamwise points to 200 rather than the default 141 for increased resolution
         self.process.stdin.write("n 200\n")
+
+        # Toggle quasi-normal lines fixed in x (This is only used when there is no duct, i.e. an open rotor/propeller. 
+        # When there is a duct present, this option is disabled, so the input has no effect)
+        self.process.stdin.write("Q \n")
         
         # Exit grid modification menu
         self.process.stdin.write("\n")  
@@ -175,13 +186,6 @@ class MTSET_call:
         # Exit grid spacing definition routine
         self.process.stdin.write("\n")
         self.process.stdin.flush()  # Send commands to MTSET
-
-        # -----
-        # TODO 
-        # include handling of updated spacing;
-        # get current number of streamwise gridpoints
-        # automatically refine grid
-        # -----
     
 
     def GridSmoothing(self, 
@@ -196,18 +200,14 @@ class MTSET_call:
         and exit the routine.
         """
 
-        # Define controlling booleans for the smoothing process
-        smoothing = True
-        get_console_out = True
-
         # Control smoothing process, including detection when further smoothing is no longer needed
-        while smoothing:
+        while True:
             self.process.stdin.write("e\n")  # Execute elliptic smoothing continue command
             self.process.stdin.flush()  # Send command to MTSET
             
             # Collect console output from MTSET, stopping when the end of the menu is reached
             interface_output = []
-            while get_console_out:
+            while True:
                 next_line = self.process.stdout.readline()  # Collect output and add to list
                 interface_output.append(next_line)
                 
@@ -244,7 +244,7 @@ class MTSET_call:
         # Check that MTSET has closed successfully 
         if self.process.poll() is not None:
             try:
-                self.process.wait(timeout=2)
+                self.process.wait(timeout=5)
             
             except subprocess.TimeoutExpired:
                 self.process.kill()
@@ -254,7 +254,7 @@ class MTSET_call:
 
 
     def caller(self,
-               ) -> int:
+               ) -> None:
         """
         Full interfacing function between Python and MTSET
 
@@ -262,8 +262,7 @@ class MTSET_call:
 
         Returns
         -------
-        self.process.returncode : int
-            The returncode of the finished subprocess.
+        None
         """
         
         # Create subprocess for the MTSET tool
@@ -276,9 +275,7 @@ class MTSET_call:
         self.GridSmoothing()  
 
         # Generate files 
-        self.FileGenerator()   
-
-        return self.process.returncode         
+        self.FileGenerator()      
 
         
 if __name__ == "__main__":
@@ -286,10 +283,9 @@ if __name__ == "__main__":
 
     import time
     start_time = time.time()
-    filepath = r"mtset.exe"
     analysisName = "test_case"
-    test = MTSET_call(filepath, analysisName)
+    test = MTSET_call(analysisName)
     execute_MTSET = test.caller()
     end_time = time.time()
 
-    print(f"Execution of MTSET_call({filepath}, {analysisName}).caller() took {end_time - start_time} seconds")
+    print(f"Execution of MTSET_call({analysisName}).caller() took {end_time - start_time} seconds")
