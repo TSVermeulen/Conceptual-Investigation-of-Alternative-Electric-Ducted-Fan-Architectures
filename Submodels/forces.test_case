@@ -1,33 +1,33 @@
 
  Case name: test_case                       
 
- Ma =   0.20000
+ Ma =   0.60000
  Re =   5.0000e6     Ncrit =    9.0000
 
-  Total power    CP  =   0.0000         EtaP  =   0.00000
-  Total force    CT  = -0.12058    
+  Total power    CP  =   2.5651         EtaP  =   0.80852
+  Total force    CT  =   2.0740    
 
-  Element  2 top CTV = -0.73190E-01
-             bot CTv = -0.35506E-01
-  Axis body      CTv = -0.12225E-01
+  Element  2 top CTV = -0.67213E-01
+             bot CTv = -0.58586E-01
+  Axis body      CTv = -0.22240E-01
 
    CT breakdown
- Viscous ,inviscid:   CTv = -0.12092       CTi =  0.33696E-03
- Friction,pressure:   CTf = -0.11646       CTp = -0.41281E-02
+ Viscous ,inviscid:   CTv = -0.14804       CTi =   2.2220    
+ Friction,pressure:   CTf = -0.11472       CTp =   2.1887    
 
-  Element  2          CTf = -0.10242       CTp =  0.15131     top Xtr =   0.25485 bot Xtr =   1.10310
+  Element  2          CTf = -0.92743E-01   CTp = -0.19278     top Xtr =   0.11364 bot Xtr =   1.20693
 
-  Axis body           CTf = -0.14033E-01   CTp = -0.29849E-01     Xtr =   1.38911
+  Axis body           CTf = -0.21978E-01   CTp =  0.44513         Xtr =   0.74988
 
- Source = -0.38886E-01   Doublet =   11.664       at  z =   1.41319      rms(V-Vff) =  0.21614E-02
+ Source = -0.82695       Doublet =   12.833       at  z =   1.41319      rms(V-Vff) =  0.25268E-02
 
- Pexit/Po =  0.97304    
+ Pexit/Po =  0.78630    
 
  Inter-element passage properties...
                  Capture area  Exit area       CTi          Cpi
-      Total    :   28.274       28.600      0.33696E-03   0.0000    
-   elements 2-3:   24.704       24.923      0.65046E-04   0.0000    
-   elements 1-2:   3.5700       3.6231      0.27191E-03   0.0000    
+      Total    :   28.274       27.695       2.2220       2.5651    
+   elements 2-3:   23.657       23.814     -0.25162E-04   0.0000    
+   elements 1-2:   4.6176       3.8104       2.2221       2.5651    
 
                  Wetted areas
       Total    :   59.912    
@@ -40,5 +40,5 @@
       element 1:   1.7311    
 
                     CPK1        CPV1       CPK1+CPV1    CPK2        CPV2       CPK2+CPV2    CPK         CPV        CPK +CPV 
-   elements 2-3:  0.3917E-03   0.000      0.3917E-03 -0.2335E-04   0.000     -0.2335E-04  0.3684E-03   0.000      0.3684E-03
-   elements 1-2:  0.5398E-02 -0.5160E-02  0.2378E-03 -0.1716E-02  0.2058E-02  0.3415E-03  0.3681E-02 -0.3102E-02  0.5793E-03
+   elements 2-3:  0.1175E-02   0.000      0.1175E-02 -0.9449E-03   0.000     -0.9449E-03  0.2303E-03   0.000      0.2303E-03
+   elements 1-2:  0.1468E-01 -0.1422E-01  0.4559E-03   2.537      0.2689E-01   2.564       2.552      0.1267E-01   2.564    

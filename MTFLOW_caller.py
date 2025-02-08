@@ -266,7 +266,15 @@ class MTFLOW_caller:
                                             ],
                                     )
                 logger = logging.getLogger(__name__)
+            
+            # --------------------
+            # Change working directory to the submodels folder
+            # --------------------
 
+            current_dir = os.getcwd()
+            subfolder_path = os.path.join(current_dir, 'Submodels')
+            os.chdir(subfolder_path)
+            
             # --------------------
             # First step is generating the MTSET input file - walls.analysis_name
             # As the MTFLO input file also contains a dependency on operating condition through Omega, it must be generated *within* the MTSOL loop. 
@@ -402,7 +410,7 @@ if __name__ == "__main__":
     
     # Roughly basing the blade design on the CFM Leap engine (approximate chord lengths)
     blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 0.75, "blade_count": 15, "radial_stations": [0.1, 1.15], "chord_length": [0.3, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi/8]},
-                          {"root_LE_coordinate": 1.1, "rotational_rate": 0., "blade_count": 15, "radial_stations": [0.1, 1.3], "chord_length": [0.15, 0.1], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi/8]}]
+                          {"root_LE_coordinate": 1.1, "rotational_rate": 0., "blade_count": 15, "radial_stations": [0.1, 1.15], "chord_length": [0.15, 0.1], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi/8]}]
     
     # Model the fan and stator blades using a uniform naca2415 profile along the blade span
     n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815}
@@ -422,7 +430,7 @@ if __name__ == "__main__":
                                blading_parameters=blading_parameters,
                                design_parameters=design_parameters,
                                analysis_name=analysisName,
-                               ).caller()
+                               ).caller(debug=True)
     end_time = time.time()
 
     print(f"Execution of MTFLOW_call.caller() took {end_time - start_time} second")
