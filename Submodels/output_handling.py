@@ -108,11 +108,23 @@ class output_handling:
                        shapes,
                        ) -> None:
         """
-        
+        Create contour plots for every parameter in the flowfield.analysis_name file. Plots the axisymmetric bodies in dimgrey to generate the complete flowfield. 
+
+        Parameters
+        ----------
+        - df : pd.DataFrame
+            The dataframe of the complete flowfield.
+        - shapes : list
+            A nested list with the coordinates of all the axisymmetric bodies.
+
+        Returns
+        -------
+        None
         """
 
         variables = df.columns[2:]  # Select variables excluding 'x' and 'y'
         
+        # Create a contour plot for every variable
         for var in variables:
             plt.figure()
             plt.tricontourf(df['x'], 
