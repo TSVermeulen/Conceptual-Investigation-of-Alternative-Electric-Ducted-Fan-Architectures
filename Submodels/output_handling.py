@@ -17,8 +17,6 @@ class output_handling:
 
 
     def __init__(self, 
-                 streamline_number: int = None,
-                 plotted_variable: str = None,
                  analysis_name: str = None) -> None:
         """
         
@@ -32,6 +30,11 @@ class output_handling:
         # Write the columns from the flowfield file to self
         self.flowfield_columns = ['x', 'y', 'rho/rhoinf', 'p/pinf', 'u/Uinf', 'v/Uinf', 'Vtheta/Uinf', 
                                   'q/Uinf', 'm/rhoinf Uinf', 'M', 'Cp', 'Cp0', '(q/Uinf)^2']
+        
+        # Write the columns from the boundary layer file to self
+        self.boundary_layer_columns = ['x', 'r', 's', 'b0', 'Cp', 'Ue/Uinf', 'rhoe/rhoinf', 'Me', 'Hk', 'R_theta',
+                                       'delta*', 'theta', 'theta*', 'delta**', 'Cf/2', 'CD', 'ctau', 'm', 'P', 'K',
+                                       'Delta*', 'Theta', 'Theta*', 'Delta**', 'Gl', 'Gt']
         
         # Set the maximum number of figures that can be opened before raising a warning
         plt.rcParams['figure.max_open_warning'] = 100
@@ -77,6 +80,39 @@ class output_handling:
         df = pd.DataFrame(all_data, columns=self.flowfield_columns)
 
         return block_dfs, df
+    
+    
+    def GetBoundaryLayer(self) -> list[pd.DataFrame]:
+        """
+        Load in the boundary_layer.analysis_name file and write the data for each element to a Pandas dataframe. 
+
+        Returns
+        - list[pd.DataFrame] :
+            A list of nested DataFrames with the viscous variables for each boundary layer. 
+        """
+
+        # Get the path for the boundary_layer.analysis_name file and read data
+        flowfield_path = self.local_dir / f"boundary_layer.{self.analysis_name}"
+        with open(flowfield_path, 'r') as file:
+            data = file.read()
+        
+        # Split the data into blocks for each streamline 
+        blocks = data.strip().split('\n\n')
+        element_dfs = []
+
+        # Load in the numbers but not text or comments        
+        for block in blocks:
+            element_data = []
+            lines = block.strip().split('\n')
+            for line in lines:
+                if not line.startswith('#'):
+                    element_data.append([float(x) for x in line.split()])
+            
+            # Convert block data to DataFrame and add it to the list of block DataFrames
+            element_df = pd.DataFrame(element_data, columns=self.boundary_layer_columns)
+            element_dfs.append(element_df)
+
+        return element_dfs
     
 
     def ReadGeometry(self,
@@ -159,9 +195,20 @@ class output_handling:
     
     def CreateStreamlinePlots(self,
                               blocks: list[pd.DataFrame],
+                              plot_individual_streamlines: bool = False,
                               ) -> None:
         """
-        
+        Plot the total, interior, exterior, and optional individual streamlines for all logged parameters. 
+
+        Parameters
+        ----------
+        - plot_individual_streamlines : bool, optional
+            A control boolean to determine if plots for each individual streamline should be generated. This is useful for debugging, but generates a very large amount of plots (11 plots times the number of streamlines, 45). 
+            Default is False. 
+
+        Returns
+        -------
+        None
         """
         
         # Create streamline plots for all streamlines and all variables in self.flowfield_columns
@@ -174,7 +221,7 @@ class output_handling:
 
             # Plot all streamlines
             for i, df in enumerate(blocks):
-                plt.plot(df['x'], df[param], label=f'Streamline {i + 1}', ms=1, marker="x")
+                plt.plot(df['x'], df[param], label=f'Streamline {i + 1}')
             
             # Set grid and minor ticks 
             plt.minorticks_on()
@@ -189,7 +236,7 @@ class output_handling:
             # Plot interior streamlines
             for i, df in enumerate(blocks):
                 if i < (len(blocks) / 2 - 3):
-                    plt.plot(df['x'], df[param], label=f'Streamline {i + 1}', ms=1, marker="x")
+                    plt.plot(df['x'], df[param], label=f'Streamline {i + 1}')
             
             # Set grid and minor ticks 
             plt.minorticks_on()
@@ -204,34 +251,69 @@ class output_handling:
             # Plot interior streamlines
             for i, df in enumerate(blocks):
                 if i > (len(blocks) / 2 - 3):
-                    plt.plot(df['x'], df[param], label=f'Streamline {i + 1}', ms=1, marker="x")
+                    plt.plot(df['x'], df[param], label=f'Streamline {i + 1}')
             
             # Set grid and minor ticks 
             plt.minorticks_on()
             plt.grid(which='both')
         
-        #Show all streamline plots
-        plt.show()
+            #Show all streamline plots
+            plt.show()
         
-        # Create individual streamline plots for all variables in self.flowfield_columns
-        for i,df in enumerate(blocks):
-            if i != 0:
-                for param in self.flowfield_columns[2:]:  # Skipping x and y
-                    # Create plot window, define plot tile and axis labels
-                    plt.figure()
-                    plt.title(f"{param} distribution for streamline {i + 1}")
-                    plt.xlabel('Axial coordinate $x$ [m]')
-                    plt.ylabel(f'{param} [-]')
+        if plot_individual_streamlines:
+            # Create individual streamline plots for all variables in self.flowfield_columns
+            for i,df in enumerate(blocks):
+                if i != 0:
+                    for param in self.flowfield_columns[2:]:  # Skipping x and y
+                        # Create plot window, define plot tile and axis labels
+                        plt.figure()
+                        plt.title(f"{param} distribution for streamline {i + 1}")
+                        plt.xlabel('Axial coordinate $x$ [m]')
+                        plt.ylabel(f'{param} [-]')
 
-                    # Plot the streamline distribution
-                    plt.plot(df['x'], df[param], ms=1, marker="x")
+                        # Plot the streamline distribution
+                        plt.plot(df['x'], df[param], ms=3, marker="x")
 
-                    # Set grid and minor ticks
-                    plt.minorticks_on()
-                    plt.grid(which='both')
-                
-                #Show all plots for the streamline
-                plt.show()
+                        # Set grid and minor ticks
+                        plt.minorticks_on()
+                        plt.grid(which='both')
+                    
+                    #Show all plots for the streamline
+                    plt.show()
+    
+
+    def CreateBoundaryLayerPlots(self,
+                                 blocks : list[pd.DataFrame]) -> None:
+        """
+        Plot the boundary layer quantities for each of the axi-symmetric surfaces
+
+        Parameters
+        ----------
+        - blocks : list[pd.DataFrame]
+            A nested list of dataframes containing the boundary layer quantities for each surface. 
+        
+        Returns
+        -------
+        None
+        """
+
+        # Create a plot for each boundary layer quantity, except the x and r coordinates. 
+        for param in self.boundary_layer_columns[2:]:  # skip x and r 
+            plt.figure()  
+            plt.title(f"{param} boundary layer distributions")
+            plt.xlabel('Axial coordinate $x$ [m]')
+            plt.ylabel(f'{param} [-]')
+
+            # Plot all streamlines
+            for i, df in enumerate(blocks):
+                plt.plot(df['x'], df[param], label=f'Surface {i + 1}', ms=3, marker="x")
+            
+            # Set grid and minor ticks 
+            plt.legend()
+            plt.minorticks_on()
+            plt.grid(which='both')
+        
+        plt.show()
 
 
 if __name__ == "__main__":
@@ -243,3 +325,6 @@ if __name__ == "__main__":
     shapes = test.ReadGeometry()
     test.CreateContours(df, shapes)
     test.CreateStreamlinePlots(blocks)
+
+    bl_blocks = test.GetBoundaryLayer()
+    test.CreateBoundaryLayerPlots(bl_blocks)
