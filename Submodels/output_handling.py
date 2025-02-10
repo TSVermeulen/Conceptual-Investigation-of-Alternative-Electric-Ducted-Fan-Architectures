@@ -29,18 +29,25 @@ class output_handling:
         # Write the local directory to self
         self.local_dir = Path(os.path.dirname(os.path.abspath(__file__)))
 
+        # Write the columns from the flowfield file to self
+        self.flowfield_columns = ['x', 'y', 'rho/rhoinf', 'p/pinf', 'u/Uinf', 'v/Uinf', 'Vtheta/Uinf', 
+                                  'q/Uinf', 'm/rhoinf Uinf', 'M', 'Cp', 'Cp0', '(q/Uinf)^2']
+        
+        # Set the maximum number of figures that can be opened before raising a warning
+        plt.rcParams['figure.max_open_warning'] = 100
 
-    def GetFlowfield(self) -> tuple[list, pd.DataFrame]:
+
+    def GetFlowfield(self) -> tuple[list[pd.DataFrame], pd.DataFrame]:
         """
         Load in the flowfield.analysis_name file and write it to a Pandas dataframe. 
 
         Returns
         -------
         - tuple[list, pd.DataFrame] :
-            - blocks : list
-                List of nested lists of the flow variables for each streamline.
+            - block_dfs : list[pd.DataFrame]
+                List of nested DataFrames of the flow variables for each streamline.
             - df : pd.DataFrame
-                A Pandas DataFrame containing the flowfield values
+                A Pandas DataFrame containing the flowfield values across all streamlines.
         """
 
         # Get the path for the flowfield.analysis_name file and read data
@@ -51,23 +58,25 @@ class output_handling:
         # Split the data into blocks for each streamline 
         blocks = data.strip().split('\n\n')
         all_data = []
-
+        block_dfs = []
 
         # Load in the numbers but not text or comments        
         for block in blocks:
+            block_data = []
             lines = block.strip().split('\n')
             for line in lines:
                 if not line.startswith('#'):
                     all_data.append([float(x) for x in line.split()])
-        
-        # Columns for the dataframe
-        columns = ['x', 'y', 'rho/rhoinf', 'p/pinf', 'u/Uinf', 'v/Uinf', 'Vtheta/Uinf', 
-                'q/Uinf', 'm/rhoinf Uinf', 'M', 'Cp', 'Cp0', '(q/Uinf)^2']
-        
-        #Construct the dataframe
-        df = pd.DataFrame(all_data, columns=columns)
+                    block_data.append([float(x) for x in line.split()])
+            
+            # Convert block data to DataFrame and add it to the list of block DataFrames
+            block_df = pd.DataFrame(block_data, columns=self.flowfield_columns)
+            block_dfs.append(block_df)
 
-        return blocks, df
+        #Construct the dataframe
+        df = pd.DataFrame(all_data, columns=self.flowfield_columns)
+
+        return block_dfs, df
     
 
     def ReadGeometry(self,
@@ -133,7 +142,7 @@ class output_handling:
                             levels=100, 
                             cmap='viridis',
                             )
-            plt.colorbar(label=var)
+            plt.colorbar(label=var + ' [-]')
 
             for shape in shapes:
                 plt.fill(shape[:,0], shape[:,1], 'dimgrey')
@@ -144,7 +153,85 @@ class output_handling:
             plt.minorticks_on()
             plt.grid()
             plt.title(f'Contour Plot of {var}')
-            plt.show()
+        
+        plt.show()
+
+    
+    def CreateStreamlinePlots(self,
+                              blocks: list[pd.DataFrame],
+                              ) -> None:
+        """
+        
+        """
+        
+        # Create streamline plots for all streamlines and all variables in self.flowfield_columns
+        for param in self.flowfield_columns[2:]:  # Skipping x and y
+            # Create plot window, define plot title and axis labels
+            plt.figure()  
+            plt.title(f"{param} streamline distribution")
+            plt.xlabel('Axial coordinate $x$ [m]')
+            plt.ylabel(f'{param} [-]')
+
+            # Plot all streamlines
+            for i, df in enumerate(blocks):
+                plt.plot(df['x'], df[param], label=f'Streamline {i + 1}', ms=1, marker="x")
+            
+            # Set grid and minor ticks 
+            plt.minorticks_on()
+            plt.grid(which='both')
+        
+            # Create plot window for interior streamlines, define plot title and axis labels
+            plt.figure()  
+            plt.title(f"{param} interior streamline distribution")
+            plt.xlabel('Axial coordinate $x$ [m]')
+            plt.ylabel(f'{param} [-]')
+
+            # Plot interior streamlines
+            for i, df in enumerate(blocks):
+                if i < (len(blocks) / 2 - 3):
+                    plt.plot(df['x'], df[param], label=f'Streamline {i + 1}', ms=1, marker="x")
+            
+            # Set grid and minor ticks 
+            plt.minorticks_on()
+            plt.grid(which='both')
+
+            # Create plot window for exterior streamlines, define plot title and axis labels
+            plt.figure()  
+            plt.title(f"{param} exterior streamline distribution")
+            plt.xlabel('Axial coordinate $x$ [m]')
+            plt.ylabel(f'{param} [-]')
+
+            # Plot interior streamlines
+            for i, df in enumerate(blocks):
+                if i > (len(blocks) / 2 - 3):
+                    plt.plot(df['x'], df[param], label=f'Streamline {i + 1}', ms=1, marker="x")
+            
+            # Set grid and minor ticks 
+            plt.minorticks_on()
+            plt.grid(which='both')
+        
+        #Show all streamline plots
+        plt.show()
+        
+        # Create individual streamline plots for all variables in self.flowfield_columns
+        for i,df in enumerate(blocks):
+            if i != 0:
+                for param in self.flowfield_columns[2:]:  # Skipping x and y
+                    # Create plot window, define plot tile and axis labels
+                    plt.figure()
+                    plt.title(f"{param} distribution for streamline {i + 1}")
+                    plt.xlabel('Axial coordinate $x$ [m]')
+                    plt.ylabel(f'{param} [-]')
+
+                    # Plot the streamline distribution
+                    plt.plot(df['x'], df[param], ms=1, marker="x")
+
+                    # Set grid and minor ticks
+                    plt.minorticks_on()
+                    plt.grid(which='both')
+                
+                #Show all plots for the streamline
+                plt.show()
 
 
 if __name__ == "__main__":
@@ -155,3 +242,4 @@ if __name__ == "__main__":
     blocks, df = test.GetFlowfield()
     shapes = test.ReadGeometry()
     test.CreateContours(df, shapes)
+    test.CreateStreamlinePlots(blocks)
