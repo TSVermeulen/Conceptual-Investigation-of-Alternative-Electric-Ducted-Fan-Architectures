@@ -294,11 +294,7 @@ class MTFLOW_caller:
             if debug:
                 logger.info("Constructing the initial grid in MTSET")
             
-            grid_e_coeff = 0.8  # Initialize default e coefficient for MTSET grid generation
-            grid_x_coeff = 0.8  # Initialize default x coefficient for MTSET grid generation
             MTSET_call(analysis_name=self.analysis_name,
-                       grid_e_coeff=grid_e_coeff,
-                       grid_x_coeff=grid_x_coeff,
                        ).caller()
             
             # --------------------
