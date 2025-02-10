@@ -47,7 +47,7 @@ Examples
 
 >>> start_time = time.time()
 >>> class_call = MTFLOW_caller(operating_conditions=oper,
->>>                         #    centrebody_params=centrebody_parameters,
+>>>                            centrebody_params=centrebody_parameters,
 >>>                            duct_params=duct_parameters,
 >>>                            blading_parameters=blading_parameters,
 >>>                            design_parameters=design_parameters,

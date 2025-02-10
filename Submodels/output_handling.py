@@ -318,7 +318,6 @@ class output_handling:
 
 if __name__ == "__main__":
     # Example usage
-    file_path = 'flowfield.test_case'  # Replace with your actual file path
     test = output_handling(analysis_name='test_case')
 
     blocks, df = test.GetFlowfield()
