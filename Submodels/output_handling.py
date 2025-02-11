@@ -1,6 +1,41 @@
 """
+output_handling
+=============
 
+Description
+-----------
+This module provides classes and methods to process and visualise the output of MTFLOW in terms of the flowfield and boundary layer data. 
 
+Classes
+-------
+output_visualisation()
+    A class to plot the streamline parameters and boundary layer data for the converged MTSOL case. 
+output_processing()
+    A class responsible for the post-processing of the MTFLOW output data.
+
+Examples
+--------
+>>> test = output_visualisation(analysis_name='test_case')
+>>> create_individual_plots = False
+>>> test.PlotOutputs(plot_individual=create_individual_plots)
+
+Notes
+-----
+The CreateBoundaryLayerPLots() method is only executed if the boundary_layer.analysis_name file exists in the local working directory. 
+
+References
+----------
+None
+
+Versioning
+------
+Author: T.S. Vermeulen
+Email: T.S.Vermeulen@student.tudelft.nl
+Student ID: 4995309
+Version: 1.0
+
+Changelog:
+- V1.0: Initial working version, containing only the plotting capabilities based on the flowfield.analysis_name and boundary_layer.analysis_name files. The output_processing() class is still a placeholder. 
 """
 
 import pandas as pd
@@ -10,22 +45,67 @@ import numpy as np
 from pathlib import Path
 
 
-class output_handling:
+class output_visualisation:
     """
+    This class handles the visualization of flowfield and boundary layer data from MTFLOW analysis.
+
+    Methods
+    -------
+    - __init__(self, analysis_name: str = None) -> None
+        Initializes the output_visualisation class with the given analysis name.
     
+    - GetFlowfield(self) -> tuple[list[pd.DataFrame], pd.DataFrame]
+        Loads the flowfield data from the flowfield.analysis_name file and returns it as a list of DataFrames for each streamline and a combined DataFrame.
+    
+    - GetBoundaryLayer(self) -> list[pd.DataFrame]
+        Loads the boundary layer data from the boundary_layer.analysis_name file and returns it as a list of DataFrames for each surface.
+    
+    - ReadGeometry(self) -> list[np.ndarray]
+        Reads the geometry data from the walls.analysis_name file and returns it as a list of numpy arrays for each axisymmetric body.
+    
+    - CreateContours(self, df: pd.DataFrame, shapes: list) -> None
+        Creates contour plots for each parameter in the flowfield data and overlays the axisymmetric body shapes.
+    
+    - CreateStreamlinePlots(self, blocks: list[pd.DataFrame], plot_individual_streamlines: bool = False) -> None
+        Creates streamline plots for each parameter in the flowfield data, with options to plot individual streamlines.
+    
+    - CreateBoundaryLayerPlots(self, blocks: list[pd.DataFrame]) -> None
+        Creates plots for each boundary layer quantity for the axisymmetric surfaces.
     """
 
 
     def __init__(self, 
                  analysis_name: str = None) -> None:
         """
+        Initialize the output_visualisation class.
         
+        This method sets up the initial state of the class.
+
+        Parameters
+        ----------
+        - analysis_name : str
+            A string of the analysis name. Must equal the filename extension used for walls.xxx, tflow.xxx, tdat.xxx, boundary_layer.xxx, and flowfield.xxx. 
+
+        Returns
+        -------
+        None
         """ 
+
+        # Simple input validation
+        if analysis_name == None:
+            raise IOError("The variable 'analysis_name' cannot be none in output_visualisation!")
 
         self.analysis_name = analysis_name
 
         # Write the local directory to self
         self.local_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+
+        # Check if the boundary layer file exists, and if so, set viscous_exists to True
+        boundary_layer_path = self.local_dir / f"boundary_layer.{self.analysis_name}"
+        if os.path.exists(boundary_layer_path):
+            self.viscous_exists = True
+        else:
+            self.viscous_exists = False
 
         # Write the columns from the flowfield file to self
         self.flowfield_columns = ['x', 'y', 'rho/rhoinf', 'p/pinf', 'u/Uinf', 'v/Uinf', 'Vtheta/Uinf', 
@@ -149,17 +229,18 @@ class output_handling:
     
 
     def CreateContours(self,
-                       df,
-                       shapes,
+                       df: pd.DataFrame,
+                       shapes: list[np.ndarray[float]],
                        ) -> None:
         """
-        Create contour plots for every parameter in the flowfield.analysis_name file. Plots the axisymmetric bodies in dimgrey to generate the complete flowfield. 
+        Create contour plots for every parameter in the flowfield.analysis_name file. 
+        Plots the axisymmetric bodies in dimgrey to generate the complete flowfield. 
 
         Parameters
         ----------
         - df : pd.DataFrame
             The dataframe of the complete flowfield.
-        - shapes : list
+        - shapes : list[np.ndarray[float]]
             A nested list with the coordinates of all the axisymmetric bodies.
 
         Returns
@@ -307,23 +388,59 @@ class output_handling:
             # Plot all streamlines
             for i, df in enumerate(blocks):
                 plt.plot(df['x'], df[param], label=f'Surface {i + 1}', ms=3, marker="x")
-            
+                
             # Set grid and minor ticks 
             plt.legend()
             plt.minorticks_on()
             plt.grid(which='both')
-        
+            
         plt.show()
+        
+
+    def PlotOutputs(self,
+                    plot_individual: bool = False,
+                    ) -> None:
+        """ 
+        Generate all output plots for the analysis.
+
+        Parameters
+        ----------
+        - plot_individual : bool, optional
+            A controlling boolean to determine if plots for each individual streamline should be generated. 
+            Default value is False. 
+        """
+    
+        # Load in the flowfield into blocks for each streamline and an overall dataframe
+        blocks, df = self.GetFlowfield()
+
+        # Read in the axi-symmetric geometry
+        bodies = self.ReadGeometry()
+
+        # Create contour plots from the flowfield
+        self.CreateContours(df, bodies)
+
+        # Create the streamline plots
+        self.CreateStreamlinePlots(blocks,
+                                   plot_individual_streamlines=plot_individual)
+        
+        # Load in the boundary layer data and create the boundary layer plots if a boundary layer data file exists
+        if self.viscous_exists:
+            boundary_layer_blocks = self.GetBoundaryLayer()
+            self.CreateBoundaryLayerPlots(boundary_layer_blocks)
+
+    
+class output_processing:
+    """
+    
+    """
+
+    def __init__(self):
+        pass
 
 
 if __name__ == "__main__":
     # Example usage
-    test = output_handling(analysis_name='test_case')
+    test = output_visualisation(analysis_name='test_case')
 
-    blocks, df = test.GetFlowfield()
-    shapes = test.ReadGeometry()
-    test.CreateContours(df, shapes)
-    test.CreateStreamlinePlots(blocks)
-
-    bl_blocks = test.GetBoundaryLayer()
-    test.CreateBoundaryLayerPlots(bl_blocks)
+    create_individual_plots = False
+    test.PlotOutputs(plot_individual=create_individual_plots)
