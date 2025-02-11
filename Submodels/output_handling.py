@@ -92,7 +92,7 @@ class output_visualisation:
         """ 
 
         # Simple input validation
-        if analysis_name == None:
+        if analysis_name is None:
             raise IOError("The variable 'analysis_name' cannot be none in output_visualisation!")
 
         self.analysis_name = analysis_name

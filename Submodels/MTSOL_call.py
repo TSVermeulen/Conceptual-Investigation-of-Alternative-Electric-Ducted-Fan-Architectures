@@ -317,6 +317,9 @@ class MTSOL_call:
         self.process.stdin.write("Y \n")
         self.process.stdin.flush()  
 
+        # Check if the flowfield file is written successfully
+        self.WaitForCompletion(type=2)  
+
         # Dump the boundary layer data
         self.process.stdin.write("B \n")
         self.process.stdin.flush()
@@ -325,10 +328,10 @@ class MTSOL_call:
         self.process.stdin.flush()
 
         self.process.stdin.write("Y \n")
-        self.process.stdin.flush()      
+        self.process.stdin.flush()   
 
-        # Check if the flowfield file is written successfully
-        self.WaitForCompletion(type=2)  
+        # Check if the boundary layer file is written successfully
+        self.WaitForCompletion(type=2)             
 
 
     def ExecuteSolver(self,

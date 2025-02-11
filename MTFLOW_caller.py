@@ -271,9 +271,13 @@ class MTFLOW_caller:
             # Change working directory to the submodels folder
             # --------------------
 
-            current_dir = os.getcwd()
-            subfolder_path = os.path.join(current_dir, 'Submodels')
-            os.chdir(subfolder_path)
+            try:
+                current_dir = os.getcwd()
+                subfolder_path = os.path.join(current_dir, 'Submodels')
+                os.chdir(subfolder_path)
+            except OSError as e:
+                logger.error(f"Failed to change directory to {subfolder_path}: {e}")
+                raise OSError from e
             
             # --------------------
             # First step is generating the MTSET input file - walls.analysis_name
