@@ -38,11 +38,12 @@ Changelog:
 - V1.0: Initial working version, containing only the plotting capabilities based on the flowfield.analysis_name and boundary_layer.analysis_name files. The output_processing() class is still a placeholder. 
 """
 
-import pandas as pd
 import os
+from pathlib import Path
+
+import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-from pathlib import Path
 
 
 class output_visualisation:
@@ -100,6 +101,13 @@ class output_visualisation:
         # Write the local directory to self
         self.local_dir = Path(os.path.dirname(os.path.abspath(__file__)))
 
+        # Validate if the required files exist
+        self.flowfield_path = self.local_dir / f"flowfield.{self.analysis_name}"
+        self.walls_path = self.local_dir / f"walls.{self.analysis_name}"
+
+        if not os.path.exists(self.flowfield_path) or not os.path.exists(self.walls_path):
+            raise FileNotFoundError(f"One of the required files flowfield.{self.analysis_name} or walls.{self.analysis_name} was not found.")
+
         # Check if the boundary layer file exists, and if so, set viscous_exists to True
         boundary_layer_path = self.local_dir / f"boundary_layer.{self.analysis_name}"
         if os.path.exists(boundary_layer_path):
@@ -135,8 +143,11 @@ class output_visualisation:
 
         # Get the path for the flowfield.analysis_name file and read data
         flowfield_path = self.local_dir / f"flowfield.{self.analysis_name}"
-        with open(flowfield_path, 'r') as file:
-            data = file.read()
+        try:
+            with open(flowfield_path, 'r') as file:
+                data = file.read()
+        except IOError as e:
+            raise IOError(f"Failred to read the flowfield data: {e}") from e
         
         # Split the data into blocks for each streamline 
         blocks = data.strip().split('\n\n')
@@ -173,9 +184,12 @@ class output_visualisation:
 
         # Get the path for the boundary_layer.analysis_name file and read data
         flowfield_path = self.local_dir / f"boundary_layer.{self.analysis_name}"
-        with open(flowfield_path, 'r') as file:
-            data = file.read()
-        
+        try:
+            with open(flowfield_path, 'r') as file:
+                data = file.read()
+        except IOError as e:
+            raise IOError(f"Failed to read the boundary layer data: {e}") from e
+            
         # Split the data into blocks for each streamline 
         blocks = data.strip().split('\n\n')
         element_dfs = []
@@ -208,8 +222,11 @@ class output_visualisation:
 
         # Get the path for the walls.analysis_name file and read the data
         walls_path = self.local_dir / f"walls.{self.analysis_name}"
-        with open(walls_path, 'r') as file:
-            lines = file.readlines()
+        try:
+            with open(walls_path, 'r') as file:
+                lines = file.readlines()
+        except IOError as e:
+            raise IOError(f"Failed to read the geometry data: {e}") from e
 
         # Initialize an empty shapes and current_shape list
         shapes = []
@@ -231,6 +248,8 @@ class output_visualisation:
     def CreateContours(self,
                        df: pd.DataFrame,
                        shapes: list[np.ndarray[float]],
+                       figsize: tuple[float, float] = (6.4, 4.8),
+                       cmap: str = 'viridis',
                        ) -> None:
         """
         Create contour plots for every parameter in the flowfield.analysis_name file. 
@@ -242,22 +261,27 @@ class output_visualisation:
             The dataframe of the complete flowfield.
         - shapes : list[np.ndarray[float]]
             A nested list with the coordinates of all the axisymmetric bodies.
+        - figsize : tuple[float, float], optional
+            A tuple with the figure size. Default value corresponds to the internal default of matplotlib.pyplot. 
+        - cmap : str, optional
+            A string with the colourmap to be used for the contourplots. Default value is the viridis colourmap. 
 
         Returns
         -------
         None
         """
 
-        variables = df.columns[2:]  # Select variables excluding 'x' and 'y'
+        # Close any existing figures to free memory
+        plt.close('all')
         
         # Create a contour plot for every variable
-        for var in variables:
-            plt.figure()
+        for var in self.flowfield_columns[2:]:
+            plt.figure(figsize=figsize)
             plt.tricontourf(df['x'], 
                             df['y'], 
                             df[var], 
                             levels=100, 
-                            cmap='viridis',
+                            cmap=cmap,
                             )
             plt.colorbar(label=var + ' [-]')
 
@@ -291,6 +315,9 @@ class output_visualisation:
         -------
         None
         """
+
+        # Close any existing figures to free memory
+        plt.close('all')
         
         # Create streamline plots for all streamlines and all variables in self.flowfield_columns
         for param in self.flowfield_columns[2:]:  # Skipping x and y
@@ -377,6 +404,9 @@ class output_visualisation:
         -------
         None
         """
+
+        # Close any existing figures to free memory
+        plt.close('all')
 
         # Create a plot for each boundary layer quantity, except the x and r coordinates. 
         for param in self.boundary_layer_columns[2:]:  # skip x and r 

@@ -395,6 +395,10 @@ class MTFLOW_caller:
                 logger.critical(f"An error occurred: {e}")
 
             return ExitFlag.CRASH.value
+                    
+        finally:
+            # Return working directory to the main folder
+            os.chdir(current_dir)
 
 
 if __name__ == "__main__":
