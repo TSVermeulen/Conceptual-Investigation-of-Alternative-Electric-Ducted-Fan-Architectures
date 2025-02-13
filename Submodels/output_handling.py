@@ -463,10 +463,23 @@ class output_visualisation:
     
 class output_processing:
     """
+    A class respoinsible for post-processing MTFLOW output data.
+
+    TODO
+    ----
+    - Implement methods for data analysis
+    - Add functionality for:
+        - Statistical analysis
+        - Performance metrics calculations/processing
+        - Data export capabilitites
     
+    Notes
+    -----
+    - This class is currently a placeholder and will be implemented in future versions.
     """
 
     def __init__(self):
+        # TODO: Implement initialization
         pass
 
 
