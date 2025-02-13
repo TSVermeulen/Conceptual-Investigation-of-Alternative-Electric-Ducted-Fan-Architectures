@@ -110,7 +110,7 @@ class output_visualisation:
         self.analysis_name = analysis_name
 
         # Write the local directory to self
-        self.local_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+        self.local_dir = Path(__file__).parent.resolve()
 
         # Validate if the required files exist
         self.flowfield_path = self.local_dir / f"flowfield.{self.analysis_name}"
