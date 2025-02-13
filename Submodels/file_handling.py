@@ -183,7 +183,7 @@ class fileHandling:
 
             # Define the Grid size calculation constants
             self.DEFAULT_Y_TOP = 1.0
-            self.Y_TOP_MULTIPLIER = 2.5
+            self.Y_TOP_MULTIPLIER = 4
             self.X_FRONT_OFFSET = 2
             self.X_AFT_OFFSET = 2
                         
