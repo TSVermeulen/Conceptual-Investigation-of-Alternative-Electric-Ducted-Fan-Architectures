@@ -74,6 +74,15 @@ class output_visualisation:
         Creates plots for each boundary layer quantity for the axisymmetric surfaces.
     """
 
+    # Define the columns from the flowfield file
+    FLOWFIELD_COLUMNS = ['x', 'y', 'rho/rhoinf', 'p/pinf', 'u/Uinf', 'v/Uinf', 'Vtheta/Uinf', 
+                         'q/Uinf', 'm/rhoinf Uinf', 'M', 'Cp', 'Cp0', '(q/Uinf)^2']
+        
+    # Define the columns from the boundary layer file
+    BOUNDARY_LAYER_COLUMNS = ['x', 'r', 's', 'b0', 'Cp', 'Ue/Uinf', 'rhoe/rhoinf', 'Me', 'Hk', 'R_theta',
+                              'delta*', 'theta', 'theta*', 'delta**', 'Cf/2', 'CD', 'ctau', 'm', 'P', 'K',
+                              'Delta*', 'Theta', 'Theta*', 'Delta**', 'Gl', 'Gt']
+
 
     def __init__(self, 
                  analysis_name: str = None) -> None:
@@ -91,6 +100,8 @@ class output_visualisation:
         -------
         None
         """ 
+
+        
 
         # Simple input validation
         if analysis_name is None:
@@ -114,15 +125,6 @@ class output_visualisation:
             self.viscous_exists = True
         else:
             self.viscous_exists = False
-
-        # Write the columns from the flowfield file to self
-        self.flowfield_columns = ['x', 'y', 'rho/rhoinf', 'p/pinf', 'u/Uinf', 'v/Uinf', 'Vtheta/Uinf', 
-                                  'q/Uinf', 'm/rhoinf Uinf', 'M', 'Cp', 'Cp0', '(q/Uinf)^2']
-        
-        # Write the columns from the boundary layer file to self
-        self.boundary_layer_columns = ['x', 'r', 's', 'b0', 'Cp', 'Ue/Uinf', 'rhoe/rhoinf', 'Me', 'Hk', 'R_theta',
-                                       'delta*', 'theta', 'theta*', 'delta**', 'Cf/2', 'CD', 'ctau', 'm', 'P', 'K',
-                                       'Delta*', 'Theta', 'Theta*', 'Delta**', 'Gl', 'Gt']
         
         # Set the maximum number of figures that can be opened before raising a warning
         plt.rcParams['figure.max_open_warning'] = 100
@@ -164,11 +166,11 @@ class output_visualisation:
                     block_data.append([float(x) for x in line.split()])
             
             # Convert block data to DataFrame and add it to the list of block DataFrames
-            block_df = pd.DataFrame(block_data, columns=self.flowfield_columns)
+            block_df = pd.DataFrame(block_data, columns=self.FLOWFIELD_COLUMNS)
             block_dfs.append(block_df)
 
         #Construct the dataframe
-        df = pd.DataFrame(all_data, columns=self.flowfield_columns)
+        df = pd.DataFrame(all_data, columns=self.FLOWFIELD_COLUMNS)
 
         return block_dfs, df
     
@@ -203,7 +205,7 @@ class output_visualisation:
                     element_data.append([float(x) for x in line.split()])
             
             # Convert block data to DataFrame and add it to the list of block DataFrames
-            element_df = pd.DataFrame(element_data, columns=self.boundary_layer_columns)
+            element_df = pd.DataFrame(element_data, columns=self.BOUNDARY_LAYER_COLUMNS)
             element_dfs.append(element_df)
 
         return element_dfs
@@ -275,7 +277,7 @@ class output_visualisation:
         plt.close('all')
         
         # Create a contour plot for every variable
-        for var in self.flowfield_columns[2:]:
+        for var in self.FLOWFIELD_COLUMNS[2:]:
             plt.figure(figsize=figsize)
             plt.tricontourf(df['x'], 
                             df['y'], 
@@ -319,8 +321,8 @@ class output_visualisation:
         # Close any existing figures to free memory
         plt.close('all')
         
-        # Create streamline plots for all streamlines and all variables in self.flowfield_columns
-        for param in self.flowfield_columns[2:]:  # Skipping x and y
+        # Create streamline plots for all streamlines and all variables in self.FLOWFIELD_COLUMNS
+        for param in self.FLOWFIELD_COLUMNS[2:]:  # Skipping x and y
             # Create plot window, define plot title and axis labels
             plt.figure()  
             plt.title(f"{param} streamline distribution")
@@ -369,10 +371,10 @@ class output_visualisation:
             plt.show()
         
         if plot_individual_streamlines:
-            # Create individual streamline plots for all variables in self.flowfield_columns
+            # Create individual streamline plots for all variables in self.FLOWFIELD_COLUMNS
             for i,df in enumerate(blocks):
                 if i != 0:
-                    for param in self.flowfield_columns[2:]:  # Skipping x and y
+                    for param in self.FLOWFIELD_COLUMNS[2:]:  # Skipping x and y
                         # Create plot window, define plot tile and axis labels
                         plt.figure()
                         plt.title(f"{param} distribution for streamline {i + 1}")
@@ -409,7 +411,7 @@ class output_visualisation:
         plt.close('all')
 
         # Create a plot for each boundary layer quantity, except the x and r coordinates. 
-        for param in self.boundary_layer_columns[2:]:  # skip x and r 
+        for param in self.BOUNDARY_LAYER_COLUMNS[2:]:  # skip x and r 
             plt.figure()  
             plt.title(f"{param} boundary layer distributions")
             plt.xlabel('Axial coordinate $x$ [m]')
