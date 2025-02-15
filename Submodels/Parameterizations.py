@@ -851,8 +851,8 @@ class AirfoilParameterization:
             u_bounds = [np.inf, 
                         np.inf, 
                         min(x[6], np.sqrt(-2 * x[11] * x[5] / 3)),
-                        np.inf, 
-                        np.inf,
+                        1, 
+                        1,
                         1,
                         1,
                         1,
@@ -867,8 +867,8 @@ class AirfoilParameterization:
             l_bounds = [-np.inf,
                         -np.inf,
                         0,
-                        -np.inf,
-                        -np.inf,
+                        0,
+                        0,
                         0,
                         0,
                         0,
@@ -936,7 +936,7 @@ class AirfoilParameterization:
 
         # Generate plots if requested
         if plot:
-            self.CheckOptimizedResult(airfoil_params_optimized)
+            self.CheckOptimizedResult(airfoil_params=airfoil_params_optimized)
 
         return airfoil_params_optimized
 
