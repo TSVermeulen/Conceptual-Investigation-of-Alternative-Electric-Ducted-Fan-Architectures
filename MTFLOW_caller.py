@@ -234,7 +234,9 @@ class MTFLOW_caller:
 
     def caller(self,
                *,
-               debug: bool = False) -> tuple[int, list[tuple[int, int]]]:
+               debug: bool = False,
+               external_inputs: bool = False,
+               ) -> tuple[int, list[tuple[int, int]]]:
         """ 
         Executes a complete MTSET-MTFLO-MTSOL evaluation, while handling grid issues and choking issues. 
 
@@ -243,6 +245,9 @@ class MTFLOW_caller:
         - debug : bool, optional
             A boolean controlling the logging behaviour of the method. If True, the method generates a caller.log file. 
             Default value is False. 
+        - external_inputs : bool, optional
+            A boolean controlling the generation of the MTFLO and MTSET input files. If true, assumes walls.analysis_name and tflow.analysis_name have been generated outside of MTFLOW_caller. 
+            This is useful for debugging or validation against existing, external data. 
 
         Returns
         -------
@@ -286,9 +291,11 @@ class MTFLOW_caller:
             # --------------------
 
             file_handler = fileHandling()
-            file_handler.fileHandlingMTSET(params_CB=self.centrebody_params,
-                                           params_duct=self.duct_params,
-                                           case_name=self.analysis_name).GenerateMTSETInput()
+
+            if not external_inputs:
+                file_handler.fileHandlingMTSET(params_CB=self.centrebody_params,
+                                            params_duct=self.duct_params,
+                                            case_name=self.analysis_name).GenerateMTSETInput()
 
             
             # --------------------

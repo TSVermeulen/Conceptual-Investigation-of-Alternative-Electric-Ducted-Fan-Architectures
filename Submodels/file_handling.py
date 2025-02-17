@@ -41,7 +41,7 @@ Examples
 ...         "radial_stations": np.array([0.1, 1.0]),
 ...         "chord_length": np.array([0.2, 0.2]),
 ...         "sweep_angle": np.array([np.pi / 4, np.pi / 4]),
-...         "twist_angle": np.array([0, np.pi / 3]),
+...         "blade_angle": np.array([0, np.pi / 3]),
 ...     },
 ...     {
 ...         "root_LE_coordinate": 2.0,
@@ -50,7 +50,7 @@ Examples
 ...         "radial_stations": np.array([0.1, 1.0]),
 ...         "chord_length": np.array([0.2, 0.2]),
 ...         "sweep_angle": np.array([np.pi / 4, np.pi / 4]),
-...         "twist_angle": np.array([0, np.pi / 8]),
+...         "blade_angle": np.array([0, np.pi / 8]),
 ...     },
 ... ]
 >>> design_parameters = [[n2415_coeff, n2415_coeff],
@@ -82,12 +82,13 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.1.5
+Version: 1.2.0
 
 Changelog:
 - V1.0: Initial working version
 - V1.1: Updated test values. Added leading edge coordinate control of centrebody. Added floating point precision of 3 decimals for domain size. Updated input validation logic.
 - V1.1.5: Fixed import logic of the Parameterizations module to handle local versus global file execution. 
+- V1.2.0: Updated class initialization logic and function inputs to enable existing geometry inputs for debugging/validation
 """
 
 import numpy as np
@@ -137,6 +138,7 @@ class fileHandling:
                      params_CB: dict,
                      params_duct: dict,
                      case_name: str,
+                     external_input : bool = False,
                      ) -> None:
             """
             Initialize the fileHandlingMTSET class.
@@ -151,6 +153,9 @@ class fileHandling:
                 Dictionary containing parameters for the duct.
             - case_name : str
                 Name of the case being handled.
+            - external_input : bool, optional
+                A control boolean to bypass the input of the "proper" centerbody and duct dictionaries. This is 
+                useful when debugging or running cases where pre-existing geometry is to be used, rather than parameterized geometry. 
 
             Returns
             -------
@@ -169,10 +174,17 @@ class fileHandling:
                              "leading_edge_direction",
                              }
 
-            for params, name in [(params_CB, "params_CB"), (params_duct, "params_duct")]:
-                missing_keys = required_keys - set(params.keys())
-                if missing_keys:
-                    raise ValueError(f"Missing required keys in {name}: {missing_keys}")
+            # Only perform complete input validation if the input dictionaries contain data
+            if not external_input:
+                for params, name in [(params_CB, "params_CB"), (params_duct, "params_duct")]:
+                    missing_keys = required_keys - set(params.keys())
+                    if missing_keys:
+                        raise ValueError(f"Missing required keys in {name}: {missing_keys}")
+            else:
+                for params, name in [(params_CB, "params_CB"), (params_duct, "params_duct")]:
+                    missing_keys = {"Leading Edge Coordinates", "Chord Length"} - set(params.keys())
+                    if missing_keys:
+                        raise ValueError(f"Missing required keys in {name}: {missing_keys}")
 
             if not isinstance(case_name, str):
                 raise TypeError("case_name must be a string")
@@ -279,6 +291,8 @@ class fileHandling:
         
         
         def GenerateMTSETInput(self,
+                               xy_centerbody: tuple[np.ndarray[float], np.ndarray[float]] = None,
+                               xy_duct: tuple[np.ndarray[float], np.ndarray[float]] = None,
                                ) -> None:
             """
             Write the MTSET input file walls.xxx for the given case. 
@@ -297,8 +311,12 @@ class fileHandling:
             domain_boundaries = self.GetGridSize()
 
             # Get profiles of centerbody and duct
-            xy_centerbody = self.GetProfileCoordinates(self.centerbody_params)
-            xy_duct = self.GetProfileCoordinates(self.duct_params)
+            # These can be optionally input into the function to bypass the airfoil parameterization routines. This is 
+            # useful if existing geometry is being used, for which no parameterization has been generated. 
+            if xy_centerbody is None:
+                xy_centerbody = self.GetProfileCoordinates(self.centerbody_params)
+            if xy_duct is None:
+                xy_duct = self.GetProfileCoordinates(self.duct_params)
             
             # Generate walls.xxx input data structure
             output_dir = Path(os.path.dirname(os.path.abspath(__file__)))
@@ -447,7 +465,7 @@ class fileHandling:
                     - "radial_stations": Numpy array of the radial stations along the blade span.
                     - "chord_length": Numpy array of the chord length distribution along the blade span.
                     - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
-                    - "twist_angle": Numpy array of the twist angle distribution along the blade span.
+                    - "blade_angle": Numpy array of the blade angle distribution along the blade span.
             - design_params : np.ndarray[dict]
                 Numpy array containing an equal number of dictionary entries as there are radial stations. Each dictionary must contain 
                 the following keys:
@@ -482,9 +500,9 @@ class fileHandling:
 
             for station in range(len(design_params)):
                 blade_geometry[station] = self.GetBladeParameters(design_params[station])
-                thickness_profile_distributions[station] = blade_geometry[station]["thickness_data"] / np.cos(blading_params["twist_angle"][station])
+                thickness_profile_distributions[station] = blade_geometry[station]["thickness_data"] / np.cos(blading_params["blade_angle"][station])
                 thickness_data_points[station] = blade_geometry[station]["thickness_points"] 
-                camber_profile_distributions[station] = blade_geometry[station]["camber_data"] / np.cos(blading_params["twist_angle"][station])
+                camber_profile_distributions[station] = blade_geometry[station]["camber_data"] / np.cos(blading_params["blade_angle"][station])
                 camber_data_points[station] = blade_geometry[station]["camber_points"]
                 
             # Construct the chord length distribution
@@ -570,7 +588,7 @@ class fileHandling:
                 - "radial_stations": Numpy array of the radial stations along the blade span.
                 - "chord_length": Numpy array of the chord length distribution along the blade span.
                 - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
-                - "twist_angle": Numpy array of the twist angle distribution along the blade span.
+                - "blade_angle": Numpy array of the twist angle distribution along the blade span.
             - design_params: np.ndarray[dict]
                 Array containing an equal number of dictionary entries as there are stages. Each dictionary must contain the following keys:
                 - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
@@ -725,8 +743,8 @@ if __name__ == "__main__":
 
     # Perform test generation of tflow.xxx file using dummy inputs
     # Creates an input file using 2 stages, a rotor and a stator
-    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 1., "blade_count": 18, "radial_stations": [0, 1.8], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi / 3]},
-                          {"root_LE_coordinate": 1., "rotational_rate": 0., "blade_count": 10, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "twist_angle": [0, np.pi/8]}]
+    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 1., "blade_count": 18, "radial_stations": [0, 1.8], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "blade_angle": [0, np.pi / 3]},
+                          {"root_LE_coordinate": 1., "rotational_rate": 0., "blade_count": 10, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "blade_angle": [0, np.pi/8]}]
     design_parameters = [[n2415_coeff, n2415_coeff],
                          [n2415_coeff, n2415_coeff]]
     

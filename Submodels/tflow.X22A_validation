@@ -1,0 +1,20 @@
+NAME
+X22A_validation
+END
+ 
+STAGE
+ 
+NBLADE
+3
+END
+ 
+OMEGA
+0.0
+END
+ 
+DATYPE 
+x    r    T    Sr    DS
+*1.0    1.0    1.0    1.0    1.0
++0.0    0.0    0.0    0.0    0.0
+END
+ 
