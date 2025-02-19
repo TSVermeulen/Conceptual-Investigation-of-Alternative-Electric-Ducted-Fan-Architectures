@@ -340,6 +340,8 @@ class fileHandling:
 
     class fileHandlingMTFLO:
 
+        SYMMETRIC_LIMIT = 1E-3
+
         def __init__(self, 
                      case_name: str,
                      ) -> None:
@@ -412,7 +414,7 @@ class fileHandling:
             """
 
             # Initialize the airfoil parameterization class
-            profileParameterizationClass = AirfoilParameterization()
+            profileParameterizationClass = AirfoilParameterization(symmetric_limit=self.SYMMETRIC_LIMIT)
 
             # Extract the profile parameters from the design parameters
             # Restructure the input dictionary to a numpy array for the airfoil parameterization and a parameterization dictionary
@@ -433,8 +435,8 @@ class fileHandling:
             # Calculate the thickness and blade slope distributions along the blade profiles. 
             # All parameters are nondimensionalized by the chord length
             thickness_distr, thickness_data_points, camber_distr, camber_data_points = profileParameterizationClass.ComputeBezierCurves(b_coeff,
-                                                                                                                                       parameterization,
-                                                                                                                                       )
+                                                                                                                                        parameterization,
+                                                                                                                                        )
 
             # Construct output dictionary
             # Output dictionary contains the data points for the thickness and camber distributions
@@ -462,6 +464,8 @@ class fileHandling:
                 Dictionary containing the blading parameters for the blade. The dictionary should include the following keys:
                     - "rotational_rate": The rotational rate of the blade.
                     - "blade_count": Integer of the number of blades.
+                    - ".75R_blade_angle": The blade angle at 75% of the blade span. This is used as the value on which the other blade angles are computed. 
+                    - "ref_blade_angle": The set angle of the blades. 
                     - "radial_stations": Numpy array of the radial stations along the blade span.
                     - "chord_length": Numpy array of the chord length distribution along the blade span.
                     - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
@@ -502,7 +506,7 @@ class fileHandling:
                 blade_geometry[station] = self.GetBladeParameters(design_params[station])
                 thickness_profile_distributions[station] = blade_geometry[station]["thickness_data"] / np.cos(blading_params["blade_angle"][station])
                 thickness_data_points[station] = blade_geometry[station]["thickness_points"] 
-                camber_profile_distributions[station] = blade_geometry[station]["camber_data"] / np.cos(blading_params["blade_angle"][station])
+                camber_profile_distributions[station] = blade_geometry[station]["camber_data"]
                 camber_data_points[station] = blade_geometry[station]["camber_points"]
                 
             # Construct the chord length distribution
@@ -671,7 +675,7 @@ class fileHandling:
 
                         # Compute the geometric blade slope dtheta/dm' in the blade-to-blade plane 
                         # Camber is denormalised using the local chord length
-                        camber_distribution = blade_geometry["camber_distribution"]((radial_points[i], axial_points)) * local_chord
+                        camber_distribution = blade_geometry["camber_distribution"]((radial_points[i], axial_points)) * local_chord 
 
                         # Compute the circumferential angle and local streamsurface radius distributions
                         theta = np.atan2(camber_distribution, radial_points[i])
@@ -686,7 +690,7 @@ class fileHandling:
                                 m_prime[j] = m_prime[j - 1] + 2 / (r[j] + r[j - 1]) * np.sqrt((r[j] - r[j-1]) ** 2 + (axial_coordinates[j] - axial_coordinates[j - 1]) ** 2)
 
                         # Compute the blade slope distribution, defined as dtheta/dm'. Use a second order scheme at the domain edges for improved accuracy. 
-                        blade_slope_distribution = np.gradient(theta, m_prime, edge_order=2)
+                        blade_slope_distribution = np.gradient(theta, m_prime, edge_order=2) + np.tan(blading_params[stage]["ref_blade_angle"]) - np.tan(blading_params[stage][".75R_blade_angle"])
 
                         # Compute the local sweep (i.e. LE offset) at the radial station from the provided interpolant
                         sweep = blade_geometry["sweep_distribution"](radial_points[i]) 
@@ -743,8 +747,8 @@ if __name__ == "__main__":
 
     # Perform test generation of tflow.xxx file using dummy inputs
     # Creates an input file using 2 stages, a rotor and a stator
-    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 1., "blade_count": 18, "radial_stations": [0, 1.8], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "blade_angle": [0, np.pi / 3]},
-                          {"root_LE_coordinate": 1., "rotational_rate": 0., "blade_count": 10, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "blade_angle": [0, np.pi/8]}]
+    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 1., "ref_blade_angle": np.deg2rad(19), ".75R_blade_angle": np.deg2rad(34), "blade_count": 18, "radial_stations": [0, 1.8], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "blade_angle": [0, np.pi / 3]},
+                          {"root_LE_coordinate": 1., "rotational_rate": 0., "ref_blade_angle": np.deg2rad(19), ".75R_blade_angle": np.deg2rad(34), "blade_count": 10, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "blade_angle": [0, np.pi/8]}]
     design_parameters = [[n2415_coeff, n2415_coeff],
                          [n2415_coeff, n2415_coeff]]
     

@@ -56,6 +56,7 @@ class MTSET_call:
                  analysis_name: str,
                  grid_e_coeff: float = None,
                  grid_x_coeff: float = None,
+                 streamwise_points: int = None,
                  ) -> None:
         """
         Initialize the MTSET_call class with the analysis name.
@@ -68,6 +69,8 @@ class MTSET_call:
             The E coefficient for the exponent of airfoil side points within MTSET. If None, uses the default MTSET value of 0.8. 
         - grid_x_coeff : float, optional
             The X spacing parameter within MTSET. Larger values yield a more rectangular grid. If None, uses the default MTSET value of 0.8.
+        - streamwise_points : int, optional
+            The number of streamwise points. If None, uses a value of 200. 
         """
 
         self.analysis_name = analysis_name
@@ -82,6 +85,11 @@ class MTSET_call:
             self.grid_x_coeff = 0.8
         else:
             self.grid_x_coeff = grid_x_coeff
+
+        if streamwise_points is None:
+            self.streamwise_points = 141
+        else:
+            self.streamwise_poits = streamwise_points
 
         # Define constant filepath 
         self.fpath: str = os.getenv('MTSET_PATH', 'mtset.exe')
@@ -168,8 +176,8 @@ class MTSET_call:
         # Set x spacing factor. Lower values yield a more "rounded" grid
         self.process.stdin.write(f"x {self.grid_x_coeff} \n") 
 
-        # Set the number of streamwise points to 200 rather than the default 141 for increased resolution
-        self.process.stdin.write("n 200\n")
+        # Set the number of streamwise points 
+        self.process.stdin.write(f"n {self.streamwise_points}\n")
 
         # Toggle quasi-normal lines fixed in x (This is only used when there is no duct, i.e. an open rotor/propeller. 
         # When there is a duct present, this option is disabled, so the input has no effect)

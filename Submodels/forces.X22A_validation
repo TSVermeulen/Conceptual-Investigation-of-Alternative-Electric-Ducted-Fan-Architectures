@@ -1,0 +1,44 @@
+
+ Case name: X22A_validation                 
+
+ Ma =   0.20000
+ Re =   0.0000e6     Ncrit =    9.0000
+
+  Total power    CP  =   0.0000         EtaP  =   0.00000
+  Total force    CT  = -0.62522E-03
+
+  Element  2 top CTV =  -0.0000    
+             bot CTv =  -0.0000    
+  Axis body      CTv =  -0.0000    
+
+   CT breakdown
+ Viscous ,inviscid:   CTv =   0.0000       CTi = -0.62522E-03
+ Friction,pressure:   CTf =   0.0000       CTp = -0.62522E-03
+
+  Element  2          CTf =  -0.0000       CTp =  0.69744E-01 top Xtr =   0.00000 bot Xtr =   0.00000
+
+  Axis body           CTf =  -0.0000       CTp = -0.11243E-01     Xtr =   0.00000
+
+ Source = -0.38467E-01   Doublet =   1.8153       at  z =   0.67751      rms(V-Vff) =  0.19675E-04
+
+ Pexit/Po =  0.97243    
+
+ Inter-element passage properties...
+                 Capture area  Exit area       CTi          Cpi
+      Total    :   73.563       73.554     -0.62522E-03   0.0000    
+   elements 2-3:   69.262       69.254     -0.30702E-04   0.0000    
+   elements 1-2:   4.3017       4.2890     -0.59452E-03   0.0000    
+
+                 Wetted areas
+      Total    :   22.602    
+      element 2:   19.226    
+      element 1:   3.3758    
+
+                   Volumes
+      Total    :   1.6068    
+      element 2:   1.3528    
+      element 1:  0.25402    
+
+                    CPK1        CPV1       CPK1+CPV1    CPK2        CPV2       CPK2+CPV2    CPK         CPV        CPK +CPV 
+   elements 2-3:  0.5945E-05   0.000      0.5945E-05 -0.3147E-04   0.000     -0.3147E-04 -0.2552E-04   0.000     -0.2552E-04
+   elements 1-2:  0.2669E-02 -0.2568E-02  0.1011E-03 -0.1382E-02  0.5310E-03 -0.8508E-03  0.1288E-02 -0.2037E-02 -0.7497E-03

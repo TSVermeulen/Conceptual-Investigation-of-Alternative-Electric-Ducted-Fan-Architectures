@@ -39,6 +39,7 @@ Changelog:
 """
 
 import os
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -463,7 +464,7 @@ class output_visualisation:
     
 class output_processing:
     """
-    A class respoinsible for post-processing MTFLOW output data.
+    A class responsible for post-processing MTFLOW output data.
 
     TODO
     ----
@@ -478,14 +479,73 @@ class output_processing:
     - This class is currently a placeholder and will be implemented in future versions.
     """
 
-    def __init__(self):
+    def __init__(self,
+                 analysis_name: str = None):
         # TODO: Implement initialization
+
+        # Simple input validation
+        if analysis_name is None:
+            raise IOError("The variable 'analysis_name' cannot be none in output_visualisation!")
+
+        self.analysis_name = analysis_name
+
+        # Write the local directory to self
+        self.local_dir = Path(__file__).parent.resolve()
+
+        # Validate if the required forces file exist
+        self.forces_path = self.local_dir / f"forces.{self.analysis_name}"
+
+        if not os.path.exists(self.forces_path):
+            raise FileNotFoundError(f"The required file forces.{self.analysis_name} was not found.")
+
         pass
 
 
+    def GetCTCPEtaP(self,
+                ) -> tuple[float, float]:
+        """
+        Read the forces.analysis_name file and return the thrust and power coefficients with the propulsive efficiency.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        - tuple[float, float, float]
+            A tuple of the form (CT, CP, EtaP) containing the thrust and power coefficients, together with the propulsive efficiency for the analysed case
+        """
+
+        try:
+            with open(self.forces_path, 'r') as file:
+                forces_file_contents = file.readlines()
+                forces_file_contents = ''.join(forces_file_contents)
+        except OSError as e:
+            raise OSError(f"An error occurred opening the forces.{self.analysis_name} file: {e}")
+        
+        # Define regex pattern to extract CP, CT, and EtaP
+        # pattern accepts both scientific notation and regular float notation. 
+        pattern = r"Total power\s+CP\s+=\s+([-\d.]+(?:E[-+]?\d+)?)\s+EtaP\s+=\s+([-\d.]+(?:E[-+]?\d+)?)\s+Total force\s+CT\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+
+        # Search for the pattern and extract the data
+        match = re.search(pattern, forces_file_contents)
+        if match is None:
+            raise ValueError(f"Failed to extract the CP, CT, and EtaP values from the forces.{self.analysis_name} file.")
+        
+        total_CP = float(match.group(1))
+        EtaP = float(match.group(2))
+        total_CT = float(match.group(3))
+
+        return total_CT, total_CP, EtaP
+       
+
 if __name__ == "__main__":
-    # Example usage
+    # Example usage for the output_visualisation class
     test = output_visualisation(analysis_name='test_case')
 
     create_individual_plots = False
-    test.PlotOutputs(plot_individual=create_individual_plots)
+    #test.PlotOutputs(plot_individual=create_individual_plots)
+
+    # Example usage for the output_processing class 
+    test = output_processing(analysis_name='test_case')
+    test.GetCTCPEtaP()
