@@ -21,16 +21,34 @@ from MTFLOW_caller import MTFLOW_caller
 from Submodels.file_handling import fileHandling
 from Submodels.output_handling import output_processing
 
-REFERENCE_BLADE_ANGLE = np.radians(19)  # radians
+REFERENCE_BLADE_ANGLE = np.deg2rad(29)  # radians, converted from degrees
 ANALYSIS_NAME = "X22A_validation"  # Analysis name for MTFLOW
-FREESTREAM_VELOCITY = 95.83  # m/s, taken from [3]
+FREESTREAM_VELOCITY = 40  # m/s, taken from [3]
 ALTITUDE = 3355  # m, taken from [3]
 FAN_DIAMETER = 84.75 * 2.54 / 100  # m, taken from [3] and converted to meters from inches
-RPM = []
-J = []
+
+J = np.linspace(0.2, 1.3, 10)  # Advance ratio range to be used for the validation
+
+# Compute the rotational speed of the rotor in rotations per second
+RPS = FREESTREAM_VELOCITY / (J * FAN_DIAMETER)
+
+# Use the calculated rotational speed to obtain the non-dimensional Omega used as input into MTFLOW
+OMEGA = RPS * 1 / FREESTREAM_VELOCITY
+print(f"OMEGA [-]: {OMEGA}")
+
+# Construct atmosphere object to obtain the atmospheric properties at the cruise altitude
+# These properties can then be used to compute the inlet mach number and reynolds number
+atmosphere = Atmosphere(ALTITUDE)
+inlet_mach = FREESTREAM_VELOCITY / atmosphere.speed_of_sound
+print(f"Inlet Mach Number [-]: {inlet_mach}")
+
+reynolds_inlet = (FREESTREAM_VELOCITY * 1 / (atmosphere.kinematic_viscosity)).astype(int)  # Uses the MTFLOW internal reference length! 
+print(f"Inlet Reynolds Number [-]: {reynolds_inlet}")
+
 
 def GenerateMTFLOBlading(Omega: float = 0.,
-                         ref_blade_angle: float = np.deg2rad(19)):
+                         ref_blade_angle: float = np.deg2rad(19),
+                         perform_parameterization: bool = False):
     """
     Generate MTFLO blading
     [2] mentions the use of a modified NASA 001-64 profile. We scale this profile to have the correct thickness for each radial station, 
@@ -47,38 +65,70 @@ def GenerateMTFLOBlading(Omega: float = 0.,
     """
 
     # Start defining the MTFLO blading inputs
-    blading_parameters = [{"root_LE_coordinate": 0.26035, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, ".75R_blade_angle": np.deg2rad(34.3), "blade_count": 3, "radial_stations": [0.21294, 0.53235, 1.0647], 
-                                                                                                                                                                        "chord_length": [0.35052, 
-                                                                                                                                                                                        0.254, 
-                                                                                                                                                                                        0.22098], 
-                                                                                                                                                                                        "sweep_angle": [0, 
-                                                                                                                                                                                                        np.atan((0.35052 - 0.254) / (0.53235 - 0.21294)), 
-                                                                                                                                                                                                        np.atan((0.35052 - 0.22098) / (1.0647 - 0.21294))], 
-                                                                                                                                                                                                        "blade_angle": [np.deg2rad(53), 
-                                                                                                                                                                                                                        np.deg2rad(32), 
-                                                                                                                                                                                                                        np.deg2rad(15)]}]
+    blading_parameters = [{"root_LE_coordinate": 0.181102, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, ".75R_blade_angle": np.deg2rad(34.3), "blade_count": 3, "radial_stations": [0.10647, 
+                                                                                                                                                                                                     0.21294, 
+                                                                                                                                                                                                     0.42588,
+                                                                                                                                                                                                     0.53235,
+                                                                                                                                                                                                     0.74529, 
+                                                                                                                                                                                                     1.0647], 
+                                                                                                                                                                                    "chord_length": [0.3856,
+                                                                                                                                                                                                    0.35052,
+                                                                                                                                                                                                    0.2794, 
+                                                                                                                                                                                                    0.254, 
+                                                                                                                                                                                                    0.235527,
+                                                                                                                                                                                                    0.22098], 
+                                                                                                                                                                                                    "sweep_angle": [0,
+                                                                                                                                                                                                                    np.atan((0.3856 - 0.35052) / (2 * (0.21294 - 0.10647))), 
+                                                                                                                                                                                                                    np.atan((0.3856 - 0.2794) / (2 * (0.42588 - 0.10647))),
+                                                                                                                                                                                                                    np.atan((0.3856 - 0.254) / (2 * (0.53235 - 0.10647))), 
+                                                                                                                                                                                                                    np.atan((0.3856 - 0.235527) / (2 * (0.74529 - 0.10647))),
+                                                                                                                                                                                                                    np.atan((0.3856 - 0.22098) / (2 * (1.0647 - 0.10647)))], 
+                                                                                                                                                                                                                    "blade_angle": [np.deg2rad(60.91),
+                                                                                                                                                                                                                                    np.deg2rad(53), 
+                                                                                                                                                                                                                                    np.deg2rad(40),
+                                                                                                                                                                                                                                    np.deg2rad(32), 
+                                                                                                                                                                                                                                    np.deg2rad(21.82),
+                                                                                                                                                                                                                                    np.deg2rad(15)]}]
+    if perform_parameterization:
+        # Obtain the parameterizations for the profile sections. 
+        local_dir_path = Path('Validation')
+        root_fpath = local_dir_path / 'X22_root.dat'
+        R02_fpath = local_dir_path / 'X22_02R.dat'
+        R04_fpath = local_dir_path / 'X22_04R.dat'
+        mid_fpath = local_dir_path / 'X22_mid.dat'
+        R07_fpath = local_dir_path / 'X22_07R.dat'
+        tip_fpath = local_dir_path / 'X22_tip.dat'
 
-    # Obtain the parameterizations for the profile sections. 
-    local_dir_path = Path('Validation')
-    root_fpath = local_dir_path / 'X22_root.dat'
-    mid_fpath = local_dir_path / 'X22_mid.dat'
-    tip_fpath = local_dir_path / 'X22_tip.dat'
-
-    # Compute parameterization for root airfoil section
-    param_class = AirfoilParameterization()
-    root_section = param_class.FindInitialParameterization(reference_file=root_fpath,
-                                                        plot=False)
-
-    # Compute parameterization for the mid airfoil section
-    mid_section = param_class.FindInitialParameterization(reference_file=mid_fpath,
-                                                        plot=False)
-
-    # Compute parameterization for the tip airfoil section
-    tip_section = param_class.FindInitialParameterization(reference_file=tip_fpath,
-                                                        plot=False)
+        # Compute parameterization for root airfoil section
+        param_class = AirfoilParameterization()
+        root_section = param_class.FindInitialParameterization(reference_file=root_fpath,
+                                                            plot=False)
+        # Compute parameterization for the airfoil section at r=0.2R
+        R02_section = param_class.FindInitialParameterization(reference_file=R02_fpath,
+                                                            plot=False)
+        # Compute parameterization for the airfoil section at r=0.4R
+        R04_section = param_class.FindInitialParameterization(reference_file=R04_fpath,
+                                                            plot=False)
+        # Compute parameterization for the mid airfoil section
+        mid_section = param_class.FindInitialParameterization(reference_file=mid_fpath,
+                                                            plot=False)
+        # Compute parameterization for the airfoil section at r=0.7R
+        R07_section = param_class.FindInitialParameterization(reference_file=R07_fpath,
+                                                            plot=False)
+        # Compute parameterization for the tip airfoil section
+        tip_section = param_class.FindInitialParameterization(reference_file=tip_fpath,
+                                                            plot=False)
+    else:
+        # If we do not perform the parameterization, we can use the default data directly.
+        root_section = {'b_0': np.float64(0.0959929218906344), 'b_2': np.float64(0.5055198664566194), 'b_8': np.float64(0.07960850662666757), 'b_15': np.float64(0.7810344958949277), 'b_17': np.float64(0.8000000000000016), 'x_t': np.float64(0.36256314499790204), 'y_t': np.float64(0.1588468626780066), 'x_c': np.float64(0.9999999998999995), 'y_c': np.float64(-2.213257123223157), 'z_TE': np.float64(1.0295525282387845), 'dz_TE': np.float64(0.005048868596683807), 'r_LE': np.float64(-0.07794540733245262), 'trailing_wedge_angle': np.float64(0.39123524586621944), 'trailing_camberline_angle': np.float64(-0.0037995834682156182), 'leading_edge_direction': np.float64(-0.028784089266672867)}
+        R02_section = {'b_0': np.float64(0.0), 'b_2': np.float64(-1.6015448245552788e-18), 'b_8': np.float64(0.07938850615648092), 'b_15': np.float64(0.7834186798106341), 'b_17': np.float64(0.8), 'x_t': np.float64(0.36329881056992414), 'y_t': np.float64(0.15714856661614984), 'x_c': np.float64(1.0000000000621005e-10), 'y_c': np.float64(2.8837455065765125e-31), 'z_TE': np.float64(1.5420585290878846e-31), 'dz_TE': np.float64(0.004979611635648663), 'r_LE': np.float64(-0.07670381417045467), 'trailing_wedge_angle': np.float64(0.38764252377470126), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        R04_section = {'b_0': np.float64(0.0), 'b_2': np.float64(-2.303349036188369e-18), 'b_8': np.float64(0.05909929469107383), 'b_15': np.float64(0.761590676673648), 'b_17': np.float64(0.8), 'x_t': np.float64(0.37016322127831186), 'y_t': np.float64(0.10314850608719811), 'x_c': np.float64(1.000000000039312e-10), 'y_c': np.float64(-2.9146761596293495e-32), 'z_TE': np.float64(-1.8445040397270788e-32), 'dz_TE': np.float64(0.0030969179265496628), 'r_LE': np.float64(-0.03533032261317036), 'trailing_wedge_angle': np.float64(0.2735843700675792), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        mid_section = {'b_0': np.float64(0.0), 'b_2': np.float64(-7.480007717645859e-19), 'b_8': np.float64(0.05366468158819504), 'b_15': np.float64(0.7581979955516953), 'b_17': np.float64(0.8), 'x_t': np.float64(0.3758481979028474), 'y_t': np.float64(0.08693435994735386), 'x_c': np.float64(1.0000000000375219e-10), 'y_c': np.float64(3.1532033231399504e-31), 'z_TE': np.float64(1.1663796349056909e-31), 'dz_TE': np.float64(0.002455048446545025), 'r_LE': np.float64(-0.02605625915598885), 'trailing_wedge_angle': np.float64(0.2390393084978324), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        R07_section = {'b_0': np.float64(0.0), 'b_2': np.float64(-6.599169007689791e-19), 'b_8': np.float64(0.04130598342251118), 'b_15': np.float64(0.7518983627959437), 'b_17': np.float64(0.8), 'x_t': np.float64(0.389391509494732), 'y_t': np.float64(0.0581202522837689), 'x_c': np.float64(9.999999999935408e-11), 'y_c': np.float64(3.2549258126219314e-34), 'z_TE': np.float64(-9.757434897806068e-35), 'dz_TE': np.float64(0.0014372059257603737), 'r_LE': np.float64(-0.012418278748750618), 'trailing_wedge_angle': np.float64(0.1713112070773209), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        tip_section = {'b_0': np.float64(0.0), 'b_2': np.float64(-1.8221176558032628), 'b_8': np.float64(0.04050328282737513), 'b_15': np.float64(0.7535544788925614), 'b_17': np.float64(0.8243303423622311), 'x_t': np.float64(0.3904202504820698), 'y_t': np.float64(0.0565726619312102), 'x_c': np.float64(0.008327798056102542), 'y_c': np.float64(-4.021740487047529e-17), 'z_TE': np.float64(-5.000000000015975e-06), 'dz_TE': np.float64(0.0013869233576762456), 'r_LE': np.float64(-0.01180173208324647), 'trailing_wedge_angle': np.float64(0.16756899676425166), 'trailing_camberline_angle': np.float64(4.336808689942014e-18), 'leading_edge_direction': np.float64(0.0)}
 
     # Construct blading list
-    design_parameters = [[root_section, mid_section, tip_section]]
+    design_parameters = [[root_section, R02_section, R04_section, mid_section, R07_section, tip_section]]
 
     return blading_parameters, design_parameters
 
@@ -91,6 +141,7 @@ def GenerateMTFLOInput(blading_parameters,
     
     fileHandling.fileHandlingMTFLO(case_name=ANALYSIS_NAME).GenerateMTFLOInput(blading_params=blading_parameters,
                                                                                design_params=design_parameters)
+
 
 def GenerateMTSETGeometry():
     """
@@ -159,26 +210,22 @@ def GenerateMTSETGeometry():
 
     # Data taken from [1]
     centerbody_x = (np.array([40.5, 40.4, 39, 36.6, 32.94, 26.75, 25.286, 21.89, 18.494, 17.03, 14.03, 10.98, 7.32, 3.4, 2.196, 0.8, 0.15, 0]) - 3.67) * 2.54 / 100 
-    centerbody_y = np.array([5.5, 5.5, 5.6, 5.856, 6.588, 8.15, 8.53, 8.75, 8.53, 8.25, 7.5, 6.4, 5.05, 3.65, 3.0, 2.1, 0.732, 0]) * 2.54 / 100
+    centerbody_y = np.array([5.5, 5.5, 5.6, 5.856, 6.588, 8.15, 8.53, 8.75, 8.53, 8.25, 7.5, 6.4, 5.05, 3.65, 3.0, 2.1, 0.732, 0]) * 2.54 / 100   
 
-    # Raw data from Bram:
-    #centerbody_x = np.array([56, 45, 43, 40, 34, 32, 30, 25, 22, 19, 15, 11, 6.3, 2.3, 0, 0, 0]) * 2.54 / 100
-    #centerbody_y = np.array([5, 5.2, 5.6, 6.2, 7.1, 7.8, 8.5, 8.7, 8.2, 7.5, 6.5, 5.6, 4.4, 3.3, 1.7, 0, 0]) * 2.54 / 100
+    # plt.figure()
+    # plt.title("Centre body geometry")
+    # plt.xlabel('x [m]')
+    # plt.ylabel('y [m]')
+    # plt.plot(centerbody_x, centerbody_y)
+    # plt.plot(centerbody_x, -centerbody_y)
+    # plt.show()
 
-    plt.figure()
-    plt.title("Centre body geometry")
-    plt.xlabel('x [m]')
-    plt.ylabel('y [m]')
-    plt.plot(centerbody_x, centerbody_y)
-    plt.plot(centerbody_x, -centerbody_y)
-    plt.show()
-
-    plt.figure()
-    plt.title("Duct geometry")
-    plt.xlabel('x [m]')
-    plt.ylabel('y [m]')
-    plt.plot(x_duct, y_duct)
-    plt.show()
+    # plt.figure()
+    # plt.title("Duct geometry")
+    # plt.xlabel('x [m]')
+    # plt.ylabel('y [m]')
+    # plt.plot(x_duct, y_duct)
+    # plt.show()
 
     # Transform the data to the correct format
     # Ensures leading edge data point only occurs once to make sure a smooth spline is constructed, in accordance with the MTFLOW documentation. 
@@ -200,13 +247,10 @@ def GenerateMTSETGeometry():
                                      external_input=True).GenerateMTSETInput(xy_centerbody=xy_centerbody,
                                                                              xy_duct=xy_duct)
 
-    return xy_centerbody, xy_duct
-
 
 def RunMTFLOW(oper: dict,
-              Omega: float = 0.,
-              ref_blade_angle: float = np.deg2rad(19),
-              
+              Omega: float,
+              ref_blade_angle: float,
               ):
     """
     Execute MTFLOW
@@ -217,11 +261,15 @@ def RunMTFLOW(oper: dict,
     Returns
     -------
     """
+    
+    # Create the MTSET geometry and write the input file walls.ANALYSIS_NAME
+    GenerateMTSETGeometry()
 
-    xy_centerbody, xy_duct = GenerateMTSETGeometry()
-
+    # Construct the MTFLO blading using the provided omega and reference blade angle. 
+    # Perform parameterization can be optionally set to true in case 
     blading_parameters, design_parameters = GenerateMTFLOBlading(Omega,
-                                                                 ref_blade_angle)
+                                                                 ref_blade_angle,
+                                                                 perform_parameterization=False)
 
     GenerateMTFLOInput(blading_parameters,
                        design_parameters)
@@ -240,14 +288,15 @@ def RunMTFLOW(oper: dict,
 
 
 if __name__ == "__main__":
-
     # Define operating conditions
-    oper = {"Inlet_Mach": 0.2,
-            "Inlet_Reynolds": 0,
+    oper = {"Inlet_Mach": inlet_mach,
+            "Inlet_Reynolds": reynolds_inlet,
             "N_crit": 9,
             }
 
-    # RunMTFLOW(oper=oper,
-    #           )
+    for omega in OMEGA:
+        CT, CP, etaP = RunMTFLOW(oper=oper,
+                                 Omega=omega,
+                                 ref_blade_angle=REFERENCE_BLADE_ANGLE)
+        print(f"Omega: {omega}, CT: {CT}, CP: {CP}, etaP: {etaP}")
 
-    CT, CP, etaP = output_processing(ANALYSIS_NAME).GetCTCPEtaP()
