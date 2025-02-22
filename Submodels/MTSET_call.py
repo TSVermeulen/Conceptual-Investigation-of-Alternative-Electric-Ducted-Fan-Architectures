@@ -87,7 +87,7 @@ class MTSET_call:
             self.grid_x_coeff = grid_x_coeff
 
         if streamwise_points is None:
-            self.streamwise_points = 141
+            self.streamwise_points = 200
         else:
             self.streamwise_poits = streamwise_points
 
@@ -178,6 +178,11 @@ class MTSET_call:
 
         # Set the number of streamwise points 
         self.process.stdin.write(f"n {self.streamwise_points}\n")
+
+        # Increase number of streamlines internal to the ducted fan and increase the number of streamlines focussed towards the centerbody.
+        self.process.stdin.write("w1 0.75\n")
+        self.process.stdin.write('t1 0.05\n')
+        self.process.stdin.write('w2 0.25\n')
 
         # Toggle quasi-normal lines fixed in x (This is only used when there is no duct, i.e. an open rotor/propeller. 
         # When there is a duct present, this option is disabled, so the input has no effect)

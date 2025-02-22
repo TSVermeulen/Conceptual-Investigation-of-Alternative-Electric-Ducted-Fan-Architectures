@@ -121,7 +121,7 @@ class MTSOL_call:
         # Define constants for the class
         self.ITER_STEP_SIZE = 2  # Step size in which iterations are performed in MTSOL
         self.SAMPLE_SIZE = 10  # Number of iterations to use to average over in case of non-convergence. 
-        self.ITER_LIMIT = 100 # Maximum number of iterations to perform before non-convergence is assumed.
+        self.ITER_LIMIT = 50 # Maximum number of iterations to perform before non-convergence is assumed.
 
         # Define filepath of MTSOL as being in the same folder as this Python file
         self.fpath: str = os.getenv('MTSOL_PATH', 'mtsol.exe')

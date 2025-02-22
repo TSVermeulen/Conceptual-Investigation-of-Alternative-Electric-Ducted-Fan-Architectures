@@ -78,17 +78,20 @@ The required input data, limitations, and structures are documented within the M
 https://web.mit.edu/drela/Public/web/mtflow/mtflow.pdf
 
 Versioning
-------
+----------
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.2.0
+Version: 1.2.1
+Date [dd-mm-yyyy]: 20-02-2025
 
-Changelog:
+Changelog
+---------
 - V1.0: Initial working version
 - V1.1: Updated test values. Added leading edge coordinate control of centrebody. Added floating point precision of 3 decimals for domain size. Updated input validation logic.
 - V1.1.5: Fixed import logic of the Parameterizations module to handle local versus global file execution. 
 - V1.2.0: Updated class initialization logic and function inputs to enable existing geometry inputs for debugging/validation
+- V1.2.1: Fixed duplicate leading edge coordinate in fileHandling.fileHandlingMTSET.GetProfileCoordinates(). Implemented nondimensionalisation of geometric parameters for both MTSET and MTFLO input files. 
 """
 
 import numpy as np
@@ -138,6 +141,7 @@ class fileHandling:
                      params_CB: dict,
                      params_duct: dict,
                      case_name: str,
+                     ref_length: float,
                      external_input : bool = False,
                      ) -> None:
             """
@@ -153,6 +157,8 @@ class fileHandling:
                 Dictionary containing parameters for the duct.
             - case_name : str
                 Name of the case being handled.
+            - ref_length : float
+                The refence length used by MTFLOW to non-dimensionalise all the dimensions.
             - external_input : bool, optional
                 A control boolean to bypass the input of the "proper" centerbody and duct dictionaries. This is 
                 useful when debugging or running cases where pre-existing geometry is to be used, rather than parameterized geometry. 
@@ -189,9 +195,13 @@ class fileHandling:
             if not isinstance(case_name, str):
                 raise TypeError("case_name must be a string")
             
+            if ref_length <= 0:
+                raise ValueError("ref_length must be a positive float")
+            
             self.centerbody_params = params_CB
             self.duct_params = params_duct
             self.case_name = case_name
+            self.ref_length = ref_length
 
             # Define the Grid size calculation constants
             self.DEFAULT_Y_TOP = 1.0
@@ -203,34 +213,27 @@ class fileHandling:
         def GetGridSize(self) -> list[float, float, float, float]:
             """
             Determine grid size - x & y coordinates of grid boundary. 
-            Ideally find some way to automatically determine suitable values for YTOP and XFRONT/REAR based on operating condition
+            Non-dimensionalises all geometry based on the reference length, in accordance with the MTFLOW documentation. 
 
-            This would imply some dependency on the variation of (inviscid) flow variables
-
-            Can use the output from an inviscid MTSOL run at cruising conditions to determine the grid boundaries 
-            (variation in Mach at outermost streamline < 1E-3)
-
-            Use a default initial grid of:
-            (Note this is in reference to the outer edges of the ducted fan itself)
-
-            Y_top = max(Y_TOP_MULTIPLIER * max diameter, DEFAULT_Y_TOP()
-            X_FRONT = leading edge - X_FRONT_OFFSET
-            X_AFT = leading edge + chord length + X_AFT_OFFSET
+            Returns
+            -------
+            - list[float, float, float, float]
+                A list containing the grid boundaries in the format [XFRONT, XREAR, YBOT, YTOP]
             """
 
             # Calculate Y-domain boundaries based on ducted fan design parameters. 
             # Y_bottom is always 0 as it is the symmetry line
             Y_TOP = round(max(self.DEFAULT_Y_TOP, 
-+                             self.Y_TOP_MULTIPLIER * self.duct_params["Leading Edge Coordinates"][1]),
++                             self.Y_TOP_MULTIPLIER * self.duct_params["Leading Edge Coordinates"][1] / self.ref_length),
                           3)
             Y_BOT = 0
 
             # Calculate X-domain boundaries based on ducted fan design parameters.
-            X_FRONT = round(min(self.duct_params["Leading Edge Coordinates"][0], 
-                                self.centerbody_params["Leading Edge Coordinates"][0]) - self.X_FRONT_OFFSET,
+            X_FRONT = round((min(self.duct_params["Leading Edge Coordinates"][0], 
+                                self.centerbody_params["Leading Edge Coordinates"][0]) - self.X_FRONT_OFFSET) / self.ref_length,
                             3)
-            X_AFT = round(max(self.duct_params["Leading Edge Coordinates"][0] + self.duct_params["Chord Length"], 
-                              self.centerbody_params["Leading Edge Coordinates"][0] + self.centerbody_params["Chord Length"]) + self.X_AFT_OFFSET,
+            X_AFT = round((max(self.duct_params["Leading Edge Coordinates"][0] + self.duct_params["Chord Length"], 
+                              self.centerbody_params["Leading Edge Coordinates"][0] + self.centerbody_params["Chord Length"]) + self.X_AFT_OFFSET) / self.ref_length,
                           3)
 
             return [X_FRONT, X_AFT, Y_BOT, Y_TOP]
@@ -241,6 +244,8 @@ class fileHandling:
                                   ) -> tuple[np.ndarray[float], np.ndarray[float]]:
             """
             Compute the profile coordinates of an airfoil based on given design parameters and leading edge coordinates.
+            Note that the outputs are still dimensional, and are yet to be non-dimensionalised!
+
             Parameters:
             -----------
             x : dict
@@ -284,8 +289,9 @@ class fileHandling:
             upper_y += x["Leading Edge Coordinates"][1]
             lower_y += x["Leading Edge Coordinates"][1]
             
-            x = np.concatenate((np.flip(upper_x), lower_x), axis=0)
-            y = np.concatenate((np.flip(upper_y), lower_y), axis=0)
+            # Combine the upper and lower profile coordinates to get the complete coordinate set
+            x = np.concatenate((np.flip(upper_x), lower_x[1:]), axis=0) 
+            y = np.concatenate((np.flip(upper_y), lower_y[1:]), axis=0) 
 
             return np.vstack((x, y)).T
         
@@ -299,8 +305,10 @@ class fileHandling:
 
             Parameters:
             -----------
-            domain_boundaries : np.ndarray[float]
-                Array containing the domain boundaries in the format [XFRONT, XREAR, YBOT, YTOP]
+            xy_centerbody : tuple[np.ndarray[float], np.ndarray[float]], optional
+                Tuple containing the x and y coordinates of the centerbody profile.
+            xy_duct : tuple[np.ndarray[float], np.ndarray[float]], optional
+                Tuple containing the x and y coordinates of the duct profile.
 
             Returns:
             --------
@@ -318,6 +326,10 @@ class fileHandling:
             if xy_duct is None:
                 xy_duct = self.GetProfileCoordinates(self.duct_params)
             
+            # Non-dimensionalise the profile coordinates
+            xy_centerbody = xy_centerbody / self.ref_length
+            xy_duct = xy_duct / self.ref_length
+
             # Generate walls.xxx input data structure
             output_dir = Path(os.path.dirname(os.path.abspath(__file__)))
             file_path = output_dir / f"walls.{self.case_name}"
@@ -344,11 +356,18 @@ class fileHandling:
 
         def __init__(self, 
                      case_name: str,
+                     ref_length: float,
                      ) -> None:
             """
             Initialize the fileHandlingMTFLO class.
-
             This method sets up the initial state of the class.
+
+            Parameters
+            ----------
+            - case_name : str
+                Name of the case being handled.
+            - ref_length : float
+                The refence length used by MTFLOW to non-dimensionalise all the dimensions.
 
             Returns
             -------
@@ -356,6 +375,7 @@ class fileHandling:
             """
 
             self.case_name= case_name
+            self.ref_length = ref_length
 
 
         def ValidateBladeThickness(self, 
@@ -590,11 +610,14 @@ class fileHandling:
                 - "rotational_rate": The rotational rate of the blade.
                 - "blade_count": The number of blades.
                 - "radial_stations": Numpy array of the radial stations along the blade span.
+                - "ref_blade_angle": The set angle of the blades.
+                - ".75R_blade_angle": The blade angle at 75% of the blade span. This is used as the value on which the other blade angles are computed.
                 - "chord_length": Numpy array of the chord length distribution along the blade span.
                 - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
                 - "blade_angle": Numpy array of the twist angle distribution along the blade span.
             - design_params: np.ndarray[dict]
-                Array containing an equal number of dictionary entries as there are stages. Each dictionary must contain the following keys:
+                Nested array containing an equal number of nests as there are stages. Each nested array has dictionary entries equal to the amount of radial stations considered. 
+                Each dictionary must contain the following keys:
                 - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
                 - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
                 - "z_TE", "dz_TE": Trailing edge parameters.
@@ -620,7 +643,6 @@ class fileHandling:
 
                 # Loop over the number of stages and write the data for each stage
                 for stage in range(len(blading_params)):
-                    
                     # First write the "generic" data for the stage
                     # This includes the number of blades, the rotational rate, and the data types to be provided
                     # Formatting is in-line with the user guide from the MTFLOW documentation
@@ -641,7 +663,7 @@ class fileHandling:
                     # Write the data types to be provided for the stage
                     file.write('DATYPE \n')
                     file.write('x    r    T    Sr    DS\n')  # Use the x,r coordinates, together with thickness, blade slope, and entropy
-                    multipliers = [1., 1., 1., 1., 1.]  # Add multipliers for each data type
+                    multipliers = [1./self.ref_length, 1./self.ref_length, 1./self.ref_length, 1., 1.]  # Add multipliers for each data type
                     additions = [0., 0., 0., 0., 0.]  # Add additions for each data type
                     file.write('*' + '    '.join(map(str, multipliers)) + '\n')
                     file.write('+' + '    '.join(map(str, additions)) + '\n')
@@ -708,6 +730,7 @@ class fileHandling:
 
                         # Loop over the streamwise points and construct the data for each streamwise point
                         # Each data point consists of the data [x, r, T, sRel, dS]
+                        # Data is non-dimensionalised through the multiplier row in the DATYPE section.
                         for j in range(n_points):  
                             # Write data to row
                             row = np.array([axial_coordinates[j] + sweep,
@@ -728,7 +751,6 @@ class fileHandling:
 
 
 if __name__ == "__main__":
-
     import time
 
     # Perform test generation of walls.xxx file using dummy inputs
@@ -737,10 +759,9 @@ if __name__ == "__main__":
     n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815, "Chord Length": 2.5, "Leading Edge Coordinates": (0, 1.2)}
     n6409_coeff = {"b_0": 0.07979831, "b_2": 0.20013347, "b_8": 0.02901246, "b_15": 0.74993802, "b_17": 0.78496242, 'x_t': 0.30429947838135246, 'y_t': 0.0452171520304373, 'x_c': 0.4249653844429819, 'y_c': 0.06028051002570214, 'z_TE': -0.0003886462495685791, 'dz_TE': 0.0004425237127035188, 'r_LE': -0.009225474218611841, 'trailing_wedge_angle': 0.10293203348896998, 'trailing_camberline_angle': 0.21034003141636426, 'leading_edge_direction': 0.26559481057525414, "Chord Length": 2.5, "Leading Edge Coordinates": (0, 2)}
     
-
     starttime = time.time()
     call_class = fileHandling()
-    call_class_MTSET = call_class.fileHandlingMTSET(centre_body_coeff, n6409_coeff, "test_case")
+    call_class_MTSET = call_class.fileHandlingMTSET(centre_body_coeff, n6409_coeff, "test_case", 2)
     call_class_MTSET.GenerateMTSETInput()
     endtime = time.time()
     print("Execution of GenerateMTSETInput() took", endtime - starttime, "seconds")
@@ -753,9 +774,8 @@ if __name__ == "__main__":
                          [n2415_coeff, n2415_coeff]]
     
     starttime = time.time()
-    call_class_MTFLO = call_class.fileHandlingMTFLO("test_case")
+    call_class_MTFLO = call_class.fileHandlingMTFLO("test_case", 2)
     call_class_MTFLO.GenerateMTFLOInput(blading_parameters, 
                                         design_parameters)
     endtime = time.time()
     print("Execution of GenerateMTFLOInput() took", endtime - starttime, "seconds")
-    

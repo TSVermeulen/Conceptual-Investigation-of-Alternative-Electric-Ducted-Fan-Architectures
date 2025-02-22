@@ -66,6 +66,8 @@ References
 The required input data, limitations, and structures are documented within the MTFLOW user manual:
 https://web.mit.edu/drela/Public/web/mtflow/mtflow.pdf
 
+[1] https://www.easa.europa.eu/sites/default/files/dfu/EASA_E110_TCDS_Issue_13_LEAP-1A-1C.pdf?form=MG0AV3
+
 Versioning
 ----------
 Author: T.S. Vermeulen
@@ -134,6 +136,7 @@ class MTFLOW_caller:
                  duct_params: dict,
                  blading_parameters: list[dict],
                  design_parameters: list[dict],
+                 ref_length: float,
                  analysis_name: str
                  ) -> None:
         """
@@ -169,6 +172,8 @@ class MTFLOW_caller:
                 - "trailing_camberline_angle": Trailing camberline angle.
                 - "leading_edge_direction": Leading edge direction.
                 - "Chord Length": The chord length of the blade.
+        - ref_length : float
+            Reference length used to non-dimensionalise all geometric parameters. By convention, this is equal to the fan diameter. 
         - analysis_name : str
             String of the casename
 
@@ -184,6 +189,7 @@ class MTFLOW_caller:
         self.design_parameters = design_parameters
         self.centrebody_params = centrebody_params
         self.duct_params = duct_params
+        self.ref_length = ref_length
 
 
     def HandleExitFlag(self,
@@ -295,7 +301,8 @@ class MTFLOW_caller:
             if not external_inputs:
                 file_handler.fileHandlingMTSET(params_CB=self.centrebody_params,
                                                params_duct=self.duct_params,
-                                               case_name=self.analysis_name).GenerateMTSETInput()
+                                               case_name=self.analysis_name,
+                                               ref_length=self.ref_length).GenerateMTSETInput()
 
             
             # --------------------
@@ -378,8 +385,9 @@ class MTFLOW_caller:
                     logger.info("Loading blade row(s) from MTFLO")
 
                 if not external_inputs:
-                    file_handler.fileHandlingMTFLO(self.analysis_name).GenerateMTFLOInput(blading_params=self.blading_parameters,
-                                                                                          design_params=self.design_parameters)  # Create the MTFLO input file
+                    file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
+                                                   ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
+                                                                                                  design_params=self.design_parameters)  # Create the MTFLO input file
                 
                 MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
 
@@ -419,18 +427,33 @@ class MTFLOW_caller:
 
 if __name__ == "__main__":
     import time
+    from ambiance import Atmosphere
 
-    # Define some test inputs
-    oper = {"Inlet_Mach": 0.6,
-            "Inlet_Reynolds": 5e6,
+    fan_diameter = 2.3  # meters
+
+    # Collect sea level atmosphere properties and calculate the mach number and reynolds number at the inlet
+    atmosphere = Atmosphere(0)
+    speed = 200  # m/s
+
+    Inlet_Reynolds = (speed * fan_diameter / (atmosphere.kinematic_viscosity))[0]
+    Inlet_Mach = (speed / atmosphere.speed_of_sound)[0]
+
+    # Construct the operating conditions dictionary
+    oper = {"Inlet_Mach": Inlet_Mach,
+            "Inlet_Reynolds": Inlet_Reynolds,
             "N_crit": 9,
             }
 
     analysisName = "test_case"
+
+    # Construct the non-dimensional RPM for the rotor
+    RPM = 3894  # max rpm of the low speed spool of the CFM LEAP-1A engine according to [1]
+    RPS = RPM / 60  # Hz
+    Omega = RPS * fan_diameter / speed  # Non-dimensional RPM
     
     # Roughly basing the blade design on the CFM Leap engine (approximate chord lengths)
-    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 0.75, "blade_count": 15, "radial_stations": [0.1, 1.15], "chord_length": [0.3, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "blade_angle": [0, np.pi/8]},
-                          {"root_LE_coordinate": 1.1, "rotational_rate": 0., "blade_count": 15, "radial_stations": [0.1, 1.15], "chord_length": [0.15, 0.1], "sweep_angle":[np.pi/16, np.pi/16], "blade_angle": [0, np.pi/8]}]
+    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": Omega, "blade_count": 15, "ref_blade_angle": np.deg2rad(29), ".75R_blade_angle": np.deg2rad(19), "radial_stations": [0.1, 1.15], "chord_length": [0.3, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "blade_angle": [0, np.pi/8]},
+                          {"root_LE_coordinate": 1.1, "rotational_rate": 0., "blade_count": 15, "ref_blade_angle": np.deg2rad(-29), ".75R_blade_angle": np.deg2rad(-19),"radial_stations": [0.1, 1.3], "chord_length": [0.15, 0.1], "sweep_angle":[np.pi/16, np.pi/16], "blade_angle": [0, np.pi/8]}]
     
     # Model the fan and stator blades using a uniform naca2415 profile along the blade span
     n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815}
@@ -449,8 +472,10 @@ if __name__ == "__main__":
                                duct_params=duct_parameters,
                                blading_parameters=blading_parameters,
                                design_parameters=design_parameters,
+                               ref_length=fan_diameter,
                                analysis_name=analysisName,
-                               ).caller(debug=True)
+                               ).caller(debug=True,
+                                        external_inputs=False)
     end_time = time.time()
 
     print(f"Execution of MTFLOW_call.caller() took {end_time - start_time} second")

@@ -23,26 +23,29 @@ from Submodels.output_handling import output_processing
 
 REFERENCE_BLADE_ANGLE = np.deg2rad(29)  # radians, converted from degrees
 ANALYSIS_NAME = "X22A_validation"  # Analysis name for MTFLOW
-FREESTREAM_VELOCITY = 40  # m/s, taken from [3]
-ALTITUDE = 3355  # m, taken from [3]
+FREESTREAM_VELOCITY = np.array([39, 39, 60, 60])  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered. 
+ALTITUDE = 0  # m
 FAN_DIAMETER = 84.75 * 2.54 / 100  # m, taken from [3] and converted to meters from inches
 
-J = np.linspace(0.2, 1.3, 10)  # Advance ratio range to be used for the validation
+# Advance ratio range to be used for the validation. Taken from figure 5 in [1]. Note that J is approximate, as the data is read from a (scanned) graph
+J = np.array([0.43, 0.45, 0.61, 0.62])  
+
 
 # Compute the rotational speed of the rotor in rotations per second
 RPS = FREESTREAM_VELOCITY / (J * FAN_DIAMETER)
+print(f"RPM (Should be between 1200-2590 RPM) [-]: {RPS * 60}")
 
 # Use the calculated rotational speed to obtain the non-dimensional Omega used as input into MTFLOW
-OMEGA = RPS * 1 / FREESTREAM_VELOCITY
+OMEGA = RPS * FAN_DIAMETER / FREESTREAM_VELOCITY
 print(f"OMEGA [-]: {OMEGA}")
 
 # Construct atmosphere object to obtain the atmospheric properties at the cruise altitude
 # These properties can then be used to compute the inlet mach number and reynolds number
 atmosphere = Atmosphere(ALTITUDE)
-inlet_mach = FREESTREAM_VELOCITY / atmosphere.speed_of_sound
+inlet_mach = (FREESTREAM_VELOCITY / atmosphere.speed_of_sound)
 print(f"Inlet Mach Number [-]: {inlet_mach}")
 
-reynolds_inlet = (FREESTREAM_VELOCITY * 1 / (atmosphere.kinematic_viscosity)).astype(int)  # Uses the MTFLOW internal reference length! 
+reynolds_inlet = (FREESTREAM_VELOCITY * FAN_DIAMETER / (atmosphere.kinematic_viscosity))  # Uses the MTFLOW internal reference length! 
 print(f"Inlet Reynolds Number [-]: {reynolds_inlet}")
 
 
@@ -139,7 +142,8 @@ def GenerateMTFLOInput(blading_parameters,
     Generate MTFLO input file tflow.X22A_validation
     """
     
-    fileHandling.fileHandlingMTFLO(case_name=ANALYSIS_NAME).GenerateMTFLOInput(blading_params=blading_parameters,
+    fileHandling.fileHandlingMTFLO(case_name=ANALYSIS_NAME,
+                                   ref_length=FAN_DIAMETER).GenerateMTFLOInput(blading_params=blading_parameters,
                                                                                design_params=design_parameters)
 
 
@@ -209,8 +213,11 @@ def GenerateMTSETGeometry():
     # --------------------
 
     # Data taken from [1]
-    centerbody_x = (np.array([40.5, 40.4, 39, 36.6, 32.94, 26.75, 25.286, 21.89, 18.494, 17.03, 14.03, 10.98, 7.32, 3.4, 2.196, 0.8, 0.15, 0]) - 3.67) * 2.54 / 100 
-    centerbody_y = np.array([5.5, 5.5, 5.6, 5.856, 6.588, 8.15, 8.53, 8.75, 8.53, 8.25, 7.5, 6.4, 5.05, 3.65, 3.0, 2.1, 0.732, 0]) * 2.54 / 100   
+    centerbody_x = (np.array([40.5, 36.6, 32.94, 26.75, 25.286, 21.89, 18.494, 17.03, 14.03, 10.98, 7.32, 3.4, 2.196, 0.8, 0.15, 0]) - 3.67) * 2.54 / 100 
+    centerbody_y = np.array([5.5, 5.856, 6.588, 8.15, 8.53, 8.75, 8.53, 8.25, 7.5, 6.4, 5.05, 3.65, 3.0, 2.1, 0.732, 0]) * 2.54 / 100   
+
+    centerbody_x = (np.array([40.5, 39, 36.6, 32.94, 26.75, 25.286, 21.89, 18.494, 17.03, 14.03, 10.98, 7.32, 3.4, 2.196, 0.8, 0.15, 0]) - 3.67) * 2.54 / 100 
+    centerbody_y = np.array([2.1, 3.3, 4.5, 6.3, 8.15, 8.53, 8.75, 8.53, 8.25, 7.5, 6.4, 5.05, 3.65, 3.0, 2.1, 0.732, 0]) * 2.54 / 100   
 
     # plt.figure()
     # plt.title("Centre body geometry")
@@ -244,6 +251,7 @@ def GenerateMTSETGeometry():
     fileHandling().fileHandlingMTSET(params_CB=params_CB,
                                      params_duct=params_duct,
                                      case_name=ANALYSIS_NAME,
+                                     ref_length=FAN_DIAMETER,
                                      external_input=True).GenerateMTSETInput(xy_centerbody=xy_centerbody,
                                                                              xy_duct=xy_duct)
 
@@ -279,6 +287,7 @@ def RunMTFLOW(oper: dict,
                   duct_params={},
                   blading_parameters=blading_parameters,
                   design_parameters=design_parameters,
+                  ref_length=FAN_DIAMETER,
                   analysis_name=ANALYSIS_NAME).caller(debug=True,
                                                       external_inputs=True)
     
@@ -288,15 +297,17 @@ def RunMTFLOW(oper: dict,
 
 
 if __name__ == "__main__":
-    # Define operating conditions
-    oper = {"Inlet_Mach": inlet_mach,
-            "Inlet_Reynolds": reynolds_inlet,
-            "N_crit": 9,
-            }
+    
 
-    for omega in OMEGA:
+    for i in range(len(OMEGA)):
+        # Define operating conditions
+        oper = {"Inlet_Mach": inlet_mach[i],
+                "Inlet_Reynolds": reynolds_inlet[i],
+                "N_crit": 9,
+                }
+        
         CT, CP, etaP = RunMTFLOW(oper=oper,
-                                 Omega=omega,
+                                 Omega=OMEGA[i],
                                  ref_blade_angle=REFERENCE_BLADE_ANGLE)
-        print(f"Omega: {omega}, CT: {CT}, CP: {CP}, etaP: {etaP}")
+        print(f"Omega: {OMEGA[i]}, CT: {CT}, CP: {CP}, etaP: {etaP}")
 

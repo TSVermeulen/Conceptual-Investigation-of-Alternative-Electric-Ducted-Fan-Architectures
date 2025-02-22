@@ -291,8 +291,8 @@ class output_visualisation:
             for shape in shapes:
                 plt.fill(shape[:,0], shape[:,1], 'dimgrey')
 
-            plt.xlabel('Axial coordinate $x$ [m]')
-            plt.ylabel('Radial coordinate $r$ [m]')
+            plt.xlabel('Axial coordinate $x/L_{ref}$ [-]')
+            plt.ylabel('Radial coordinate $r/L_{ref}$ [-]')
             plt.ylim(bottom=0)
             plt.minorticks_on()
             plt.grid()
@@ -327,7 +327,7 @@ class output_visualisation:
             # Create plot window, define plot title and axis labels
             plt.figure()  
             plt.title(f"{param} streamline distribution")
-            plt.xlabel('Axial coordinate $x$ [m]')
+            plt.xlabel('Axial coordinate $x/L_{ref}$ [-]')
             plt.ylabel(f'{param} [-]')
 
             # Plot all streamlines
@@ -341,7 +341,7 @@ class output_visualisation:
             # Create plot window for interior streamlines, define plot title and axis labels
             plt.figure()  
             plt.title(f"{param} interior streamline distribution")
-            plt.xlabel('Axial coordinate $x$ [m]')
+            plt.xlabel('Axial coordinate $x/L_{ref}$ [-]')
             plt.ylabel(f'{param} [-]')
 
             # Plot interior streamlines
@@ -356,7 +356,7 @@ class output_visualisation:
             # Create plot window for exterior streamlines, define plot title and axis labels
             plt.figure()  
             plt.title(f"{param} exterior streamline distribution")
-            plt.xlabel('Axial coordinate $x$ [m]')
+            plt.xlabel('Axial coordinate $x/L_{ref}$ [-]')
             plt.ylabel(f'{param} [-]')
 
             # Plot interior streamlines
@@ -379,7 +379,7 @@ class output_visualisation:
                         # Create plot window, define plot tile and axis labels
                         plt.figure()
                         plt.title(f"{param} distribution for streamline {i + 1}")
-                        plt.xlabel('Axial coordinate $x$ [m]')
+                        plt.xlabel('Axial coordinate $x/L_{ref}$ [-]')
                         plt.ylabel(f'{param} [-]')
 
                         # Plot the streamline distribution
@@ -415,7 +415,7 @@ class output_visualisation:
         for param in self.BOUNDARY_LAYER_COLUMNS[2:]:  # skip x and r 
             plt.figure()  
             plt.title(f"{param} boundary layer distributions")
-            plt.xlabel('Axial coordinate $x$ [m]')
+            plt.xlabel('Axial coordinate $x/L_{ref}$ [-]')
             plt.ylabel(f'{param} [-]')
 
             # Plot all streamlines
@@ -544,7 +544,7 @@ if __name__ == "__main__":
     test = output_visualisation(analysis_name='test_case')
 
     create_individual_plots = False
-    #test.PlotOutputs(plot_individual=create_individual_plots)
+    test.PlotOutputs(plot_individual=create_individual_plots)
 
     # Example usage for the output_processing class 
     test = output_processing(analysis_name='test_case')
