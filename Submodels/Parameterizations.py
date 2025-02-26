@@ -738,8 +738,9 @@ class AirfoilParameterization:
             if airfoil_params["y_c"] >= self.symmetric_limit:
                 # Calculate bezier coefficients for the camber curves for plotting
                 x_LE_camber_coeff, y_LE_camber_coeff, x_TE_camber_coeff, y_TE_camber_coeff = self.GetCamberControlPoints(airfoil_params["b_0"],
-                                                                                                                        airfoil_params["b_2"],
-                                                                                                                        airfoil_params["b_17"])
+                                                                                                                         airfoil_params["b_2"],
+                                                                                                                         airfoil_params["b_17"],
+                                                                                                                         airfoil_params)
 
                 plt.figure("Camber Distributions")
                 plt.plot(bezier_camber_x, bezier_camber, label="BezierCamber")
@@ -940,7 +941,7 @@ class AirfoilParameterization:
 
         # Generate plots if requested
         if plot:
-            self.CheckOptimizedResult(airfoil_params=airfoil_params_optimized)
+            self.CheckOptimizedResult(airfoil_params_optimized)
 
         return airfoil_params_optimized
 
