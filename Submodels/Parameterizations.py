@@ -21,7 +21,7 @@ AirfoilParameterization
 
 Examples
 --------
->>> inputFile = r'Test Airfoils\n0015.dat'
+>>> inputfile = r'Test Airfoils\n0015.dat'
 >>> call_class = AirfoilParameterization()
 >>> coefficients = call_class.FindInitialParameterization(inputfile,
                                                           plot=True)
@@ -45,12 +45,14 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID 4995309
-Version: 1.1
+Version: 1.2
+Date [dd-mm-yyyy]: 27-02-2025
 
 Changelog:
 - V1.1: Updated with comments from coderabbitAI. 
 - V1.0: Adapted version of a parameterization using only the bezier coefficients to give an improved fit to the reference data. 
 - V1.1: Updated docstring, and working implementation for symmetric profiles (i.e. zero camber)
+- V1.2: Updated FindInitialParameterization method to use SLSQP optimization rather than least squares to enable correct constraint handling. 
 """
 
 import numpy as np
@@ -89,7 +91,7 @@ class AirfoilParameterization:
     """
 
     def __init__(self,
-                 symmetric_limit : float = 1E-3) -> None:
+                 symmetric_limit: float = 1E-3) -> None:
         """
         Initialize the AirfoilParameterization class.
         
@@ -110,7 +112,7 @@ class AirfoilParameterization:
         
 
     def BezierCurve3(self,
-                     coeff: list[float], 
+                     coefficients: list[float], 
                      u: float,
                      ) -> np.ndarray|float:
         """
@@ -118,7 +120,7 @@ class AirfoilParameterization:
 
         Parameters
          ----------
-        coeff : list[float]
+        coefficients : list[float]
             List of 4 control points for the Bezier curve.
         u : float
             Parameter ranging from 0 to 1.
@@ -130,15 +132,15 @@ class AirfoilParameterization:
         """
 
         #Input checking
-        if len(coeff) != 4:
-            raise ValueError(f"Coefficient list must contain exactly 4 elements. Coefficient list contains {len(coeff)} elements")
+        if len(coefficients) != 4:
+            raise ValueError(f"Coefficient list must contain exactly 4 elements. Coefficient list contains {len(coefficients)} elements")
     
         # Calculate the value of y at u using a 3rd degree Bezier curve
-        return coeff[0] * (1 - u) ** 3 + 3 * coeff[1] * u * (1 - u) ** 2 + 3 * coeff[2] * u ** 2 * (1 - u) + coeff[3] * u ** 3
+        return coefficients[0] * (1 - u) ** 3 + 3 * coefficients[1] * u * (1 - u) ** 2 + 3 * coefficients[2] * u ** 2 * (1 - u) + coefficients[3] * u ** 3
         
 
     def BezierCurve4(self,
-                     coeff: list[float], 
+                     coefficients: list[float], 
                      u: float,
                      ) -> np.ndarray|float:
         """
@@ -146,7 +148,7 @@ class AirfoilParameterization:
 
         Parameters
         ----------
-        coeff : list[float]
+        coefficients : list[float]
             List of 5 control points for the Bezier curve.
         u : float
             Parameter ranging from 0 to 1.
@@ -158,24 +160,24 @@ class AirfoilParameterization:
         """
 
         # Input checking
-        if len(coeff) != 5:
-            raise ValueError(f"Coefficient list must contain exactly 5 elements. Coefficient list contains {len(coeff)} elements.")     
+        if len(coefficients) != 5:
+            raise ValueError(f"Coefficient list must contain exactly 5 elements. Coefficient list contains {len(coefficients)} elements.")     
 
-        return coeff[0] * (1 - u) ** 4 + 4 * coeff[1] * u * (1 - u) ** 3 + 6 * coeff[2] * u ** 2 * (1 - u) ** 2 + 4 * coeff[3] * u ** 3 * (1 - u) + coeff[4] * u ** 4
+        return coefficients[0] * (1 - u) ** 4 + 4 * coefficients[1] * u * (1 - u) ** 3 + 6 * coefficients[2] * u ** 2 * (1 - u) ** 2 + 4 * coefficients[3] * u ** 3 * (1 - u) + coefficients[4] * u ** 4
 
 
     def GetCamberAngleDistribution(self,
-                       X: np.ndarray|float,
-                       Y: np.ndarray|float,
-                       ) -> np.ndarray|float:
+                                   x: np.ndarray|float,
+                                   y: np.ndarray|float,
+                                   ) -> np.ndarray|float:
         """
         Calculate the camber angle distribution over the length of the airfoil.
 
         Parameters
         ----------
-        X : np.ndarray
+        x : np.ndarray
             Array of x-coordinates along the airfoil.
-        Y : np.ndarray
+        y : np.ndarray
             Array of camber values corresponding to the x-coordinates.
 
         Returns
@@ -184,7 +186,7 @@ class AirfoilParameterization:
             Array of camber gradient angles at each x-coordinate.
         """
 
-        camber_gradient = np.gradient(Y, X)
+        camber_gradient = np.gradient(y, x)
         
 
         return np.arctan(camber_gradient)
@@ -260,7 +262,7 @@ class AirfoilParameterization:
 
         Returns
         -------
-        output: dict
+        output_dict: dict
             Dictionary containing the following parameters:
                 x_t : float
                     X-coordinate of maximum thickness.
@@ -725,7 +727,7 @@ class AirfoilParameterization:
                                                                                                                                 airfoil_params["b_15"],
                                                                                                                                 airfoil_params)
         try:
-            # Create plots of the thickness distribution compared to the input data
+            #Create plots of the thickness distribution compared to the input data
             plt.figure("Thickness Distributions")
             plt.plot(bezier_thickness_x, bezier_thickness, label="BezierThickness")
             plt.plot(x_LE_thickness_coeff, y_LE_thickness_coeff, '*', color='k', label="Bezier Coefficients")
@@ -745,7 +747,7 @@ class AirfoilParameterization:
                 plt.figure("Camber Distributions")
                 plt.plot(bezier_camber_x, bezier_camber, label="BezierCamber")
                 plt.plot(x_LE_camber_coeff, y_LE_camber_coeff, '*', color='k', label="Bezier Coefficients")
-                plt.plot(x_TE_camber_coeff, y_TE_camber_coeff, '*', color='k')  # Do not label this line to avoid duplicate legend entry
+                plt.plot(x_TE_camber_coeff, y_TE_camber_coeff, '*', color='b')  # Do not label this line to avoid duplicate legend entry
                 plt.plot(self.x_points_camber, self.camber_distribution, "-.", label="CamberInputData")
                 plt.xlabel("x/c [-]")
                 plt.ylabel("y_c/c [-]")
@@ -762,6 +764,64 @@ class AirfoilParameterization:
 
         except Exception as e:
             print(f"Warning: Failed to generate plots: {str(e)}")
+
+    
+    def Objective(self,
+                  x: list[float],
+                      ) -> float:
+        """
+        Objective function for least-squares minimization.
+
+        Parameters
+        ----------
+        x : list[float]
+            List of normalised design variables [b_0, b_2, b_8, b_15, b_17, x_t, y_t, x_c, y_c, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction].
+            These are denormalised using the guess design vector given by self.guess_design_vector. 
+
+        Returns
+        -------
+        squared_fit_error : float
+            Sum of squared fit errors of the upper and lower surfaces.
+        """
+        
+        # Denormalise design vector
+        x = np.multiply(self.guess_design_vector, x)
+
+        # Split out the design vector into a bezier coefficient list and airfoil parameters dictionary.
+        b_coeff = x[0:5]
+        airfoil_params = {"b_0": x[0],
+                          "b_2": x[1],
+                          "b_8": x[2],
+                          "b_15": x[3],
+                          "b_17": x[4],
+                          "x_t": x[5],
+                          "y_t": x[6],
+                          "x_c": x[7],
+                          "y_c": x[8],
+                          "z_TE": x[9],
+                          "dz_TE": x[10],
+                          "r_LE": x[11],
+                          "trailing_wedge_angle": x[12],
+                          "trailing_camberline_angle": x[13],
+                          "leading_edge_direction": x[14]}       
+
+        # Compute the upper and lower surface coordinates from the parameterization
+        upper_x, upper_y, lower_x, lower_y = self.ComputeProfileCoordinates(b_coeff,
+                                                                            airfoil_params)
+
+        # Create interpolation of upper and lower surfaces to ensure we take data from same x-coordinates
+        interpolated_upper_surface_data = interpolate.CubicSpline(np.flip(self.reference_data[:self.idx_LE + 1, 0]), 
+                                                                  np.flip(self.reference_data[:self.idx_LE + 1, 1])
+                                                                  )(upper_x)
+            
+        interpolated_lower_surface_data = interpolate.CubicSpline(self.reference_data[self.idx_LE:, 0], 
+                                                                  self.reference_data[self.idx_LE:, 1])(lower_x)
+            
+        # Calculate the squared fit errors of the upper and lower surfaces and sum them to obtain the objective function
+        squared_fit_error_upper_surface = np.sum((upper_y - interpolated_upper_surface_data) ** 2)
+        squared_fit_error_lower_surface = np.sum((lower_y - interpolated_lower_surface_data) ** 2)
+
+        return squared_fit_error_upper_surface + squared_fit_error_lower_surface
         
 
     def FindInitialParameterization(self, 
@@ -770,9 +830,7 @@ class AirfoilParameterization:
                                     plot: bool = False) -> dict:
         """
         Find the initial parameterization for the profile.
-
-        Uses least-squares minimization of the squared fit error between the reconstructed profile shape 
-        and the reference profile shape to find the optimal Bezier control points.
+        Uses the SLSQP algorithm to minimize the squared fit error between the input reference file and the reconstructed profile shape. 
 
         Parameters
         ----------
@@ -785,144 +843,92 @@ class AirfoilParameterization:
         -------
         dict
             Dictionary containing the optimized airfoil parameters.
-        """
+        """    
 
-        def Objective(x: list[float],
-                      ) -> float:
+        def GetBounds() -> optimize.Bounds:
             """
-            Objective function for least-squares minimization.
+            Get the bounds for the optimization problem. Note that the bounds are given in normalised form. 
 
-            Parameters
-            ----------
-            x : list[float]
-                List of design variables [b_0, b_2, b_8, b_15, b_17, x_t, y_t, x_c, y_c, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction].
 
             Returns
             -------
-            squared_fit_error : float
-                Sum of squared fit errors of the upper and lower surfaces.
+            - optimize.Bounds()
+                A scipy.optimize.bounds instance of the bounds for the optimization problem. 
             """
 
-            b_coeff = x[0:5]
-
-            airfoil_params = {"x_t": x[5],
-                              "y_t": x[6],
-                              "x_c": x[7],
-                              "y_c": x[8],
-                              "z_TE": x[9],
-                              "dz_TE": x[10],
-                              "r_LE": x[11],
-                              "trailing_wedge_angle": x[12],
-                              "trailing_camberline_angle": x[13],
-                              "leading_edge_direction": x[14]}
-
-            upper_x, upper_y, lower_x, lower_y = self.ComputeProfileCoordinates(b_coeff,
-                                                                                airfoil_params)
-
-            #Need to create interpolation of upper and lower surfaces to ensure we take data from same x-coordinates
-            interpolated_upper_surface_data = interpolate.CubicSpline(np.flip(self.reference_data[:self.idx_LE + 1, 0]), 
-                                                                      np.flip(self.reference_data[:self.idx_LE + 1, 1])
-                                                                      )(upper_x)
-            
-            interpolated_lower_surface_data = interpolate.CubicSpline(self.reference_data[self.idx_LE:, 0], 
-                                                                      self.reference_data[self.idx_LE:, 1])(lower_x)
-            
-            # Calculate the squared fit errors of the upper and lower surfaces and sum them to obtain the objective function
-            squared_fit_error_upper_surface = np.sum((upper_y - interpolated_upper_surface_data) ** 2)
-            squared_fit_error_lower_surface = np.sum((lower_y - interpolated_lower_surface_data) ** 2)
-
-            return squared_fit_error_upper_surface + squared_fit_error_lower_surface
-    
-
-        def GetBounds(x: list[float]) -> optimize.Bounds:
-            """
-            Get the bounds for the optimization problem.
-
-            Parameters
-            ----------
-            x : np.ndarray[float]
-                Array of design variables.
-
-            Returns
-            -------
-            l_bounds : np.ndarray[float]
-                Lower bounds for the design variables.
-            u_bounds : np.ndarray[float]
-                Upper bounds for the design variables.
-            """
-
-            # First define the upper and lower bounds on the bezier parameters 
-            # [b_0, b_2, b_8, b_15, b_17, x_t, y_t, x_c, y_c, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction]
-            u_bounds = [np.inf, 
-                        np.inf, 
-                        min(x[6], np.sqrt(-2 * x[11] * x[5] / 3)),
-                        1, 
-                        1,
-                        1,
-                        1,
-                        1,
-                        np.inf,
-                        np.inf,
-                        np.inf,
-                        0,
-                        np.pi / 2,
-                        np.pi / 2,
-                        np.pi / 2,
-                        ]
-            l_bounds = [-np.inf,
-                        -np.inf,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        -np.inf,
-                        -np.inf,
-                        0, 
-                        -np.inf,
-                        -np.pi / 2,
-                        -np.pi / 2,
-                        -np.pi / 2,
-                        ]           
-
-            return optimize.Bounds(l_bounds, u_bounds, keep_feasible=True)
-
+            return optimize.Bounds(0.9, 1.1, keep_feasible=True)
 
         # Load in the reference profile shape and obtain the relevant parameters
         self.GetReferenceThicknessCamber(reference_file)
-        airfoil_params = self.GetReferenceParameters()
+        self.airfoil_params = self.GetReferenceParameters()
+
+        # Define a guess of the initial design vector
+        self.guess_design_vector = np.array([0.1 * self.airfoil_params["x_c"],
+                                            0.5 * self.airfoil_params["x_c"],
+                                            0.7 * min(self.airfoil_params["y_t"], np.sqrt(-2 * self.airfoil_params["r_LE"] * self.airfoil_params["x_t"] / 3)),
+                                            0.75,
+                                            0.8,
+                                            self.airfoil_params["x_t"],
+                                            self.airfoil_params["y_t"],
+                                            self.airfoil_params["x_c"],
+                                            self.airfoil_params["y_c"],
+                                            self.airfoil_params["z_TE"],
+                                            self.airfoil_params["dz_TE"],
+                                            self.airfoil_params["r_LE"],
+                                            self.airfoil_params["trailing_wedge_angle"],
+                                            self.airfoil_params["trailing_camberline_angle"],
+                                            self.airfoil_params["leading_edge_direction"],
+                                            ])
         
-        # Perform non-linear least-squares regression
-        guess_design_vector = [0.1 * airfoil_params["x_c"],
-                               0.5 * airfoil_params["x_c"],
-                               0.7 * min(airfoil_params["y_t"], np.sqrt(-2 * airfoil_params["r_LE"] * airfoil_params["x_t"] / 3)),
-                               0.75,
-                               0.8,
-                               airfoil_params["x_t"],
-                               airfoil_params["y_t"],
-                               airfoil_params["x_c"],
-                               airfoil_params["y_c"],
-                               airfoil_params["z_TE"],
-                               airfoil_params["dz_TE"],
-                               airfoil_params["r_LE"],
-                               airfoil_params["trailing_wedge_angle"],
-                               airfoil_params["trailing_camberline_angle"],
-                               airfoil_params["leading_edge_direction"],
-                              ]
+        # Define nonlinear constraint for the leading edge direction:
+        def leading_edge_direction_constraint(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            if x[14] != 0:
+                return x[14] - np.arctan(8 * x[8] / (7 * x[7]))
+            else:
+                return x[14]
+
+        # Define nonlinear constraint for b8
+        def b8_constraint(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return np.min([x[6], np.sqrt(-2 * x[11] * x[5] / 3)]) - x[2]
         
-        optimized_coefficients = optimize.least_squares(Objective, 
-                                                        x0=guess_design_vector, 
-                                                        bounds=GetBounds(guess_design_vector),
-                                                        verbose=1,
-                                                        gtol=1e-12,
-                                                        ftol=1e-12,
-                                                        xtol=1e-12,
-                                                        max_nfev = 1000,
-                                                        )
+        # Define constraint for bezier control point 1 x-coordinate of TE thickness curve
+        def x1_constraint_lower_thickness(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return (7 * x[5] + 9 * x[2] / (2 * x[11])) / 4 - x[5]
+        def x1_constraint_upper_thickness(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return 1 - (7 * x[5] + 9 * x[2] / (2 * x[11])) / 4
         
-        # Write found coefficients to variables
+        # Define constraint for bezier control point 2 x-coordinate of TE thickness curve
+        def x2_constraint_lower_thickness(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return 2 * x[5] + 15 * x[2] ** 2 / (4 * x[11])
+        def x2_constraint_upper_thickness(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return 1 - 2 * x[5] + 15 * x[2] ** 2 / (4 * x[11])
+                
+        cons = [{'type': 'ineq', 'fun': leading_edge_direction_constraint},
+                {'type': 'ineq', 'fun': b8_constraint},
+                {'type': 'ineq', 'fun': x1_constraint_lower_thickness},
+                {'type': 'ineq', 'fun': x1_constraint_upper_thickness},
+                {'type': 'ineq', 'fun': x2_constraint_lower_thickness},
+                {'type': 'ineq', 'fun': x2_constraint_upper_thickness}]
+        
+        optimized_coefficients = optimize.minimize(self.Objective,
+                                 np.ones(15),
+                                 method="SLSQP",
+                                 bounds=GetBounds(),
+                                 constraints=cons,
+                                 options={'maxiter': 100,
+                                          'disp': True},
+                                          jac='2-point')
+        
+        # Denormalise the found coefficients and write them to the output dictionary
         optimized_coefficients.x = optimized_coefficients.x.astype(float)
+        optimized_coefficients.x = np.multiply(optimized_coefficients.x, self.guess_design_vector)
+        
         airfoil_params_optimized = {"b_0": optimized_coefficients.x[0],
                                     "b_2": optimized_coefficients.x[1],
                                     "b_8": optimized_coefficients.x[2],
@@ -947,14 +953,13 @@ class AirfoilParameterization:
 
 
 if __name__ == "__main__":
-
     import time
     call_class = AirfoilParameterization()
     
     start_time = time.time()
     inputfile = Path('Test Airfoils') / 'n0025.dat'
     airf_params = call_class.FindInitialParameterization(inputfile,
-                                                          plot=True)
+                                                         plot=False)
     end_time = time.time()
     print(f"Execution of FindInitialParameterization({inputfile}) took {end_time-start_time} seconds")
     print("-----")
