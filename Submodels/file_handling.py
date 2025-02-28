@@ -357,6 +357,7 @@ class fileHandling:
         def __init__(self, 
                      case_name: str,
                      ref_length: float,
+                     centerbody_rotor_thickness: float = 0.15,
                      ) -> None:
             """
             Initialize the fileHandlingMTFLO class.
@@ -368,6 +369,8 @@ class fileHandling:
                 Name of the case being handled.
             - ref_length : float
                 The refence length used by MTFLOW to non-dimensionalise all the dimensions.
+            - centerbody_rotor_thickness : float, optional
+                The cutoff radius in meters below which we do not check the circumferential thickness limit to avoid numerical false triggers. 
 
             Returns
             -------
@@ -376,6 +379,7 @@ class fileHandling:
 
             self.case_name= case_name
             self.ref_length = ref_length
+            self.CENTERBODY_ROTOR_THICKNESS = centerbody_rotor_thickness
 
 
         def ValidateBladeThickness(self, 
@@ -384,7 +388,7 @@ class fileHandling:
                                    blade_count: int) -> None:
             """
             Validate that blade thickness doesn't exceed the complete blockage limit.
-            If radius is zero, function does nothing. 
+            If radius is less than self.CENTERBODY_ROTOR_THICKNESS, the function does nothing. 
 
             Parameters
             ----------
@@ -401,7 +405,7 @@ class fileHandling:
             """
 
             thickness_limit = 2 * np.pi * local_radius / blade_count
-            if local_thickness >= thickness_limit and local_radius > 0:
+            if local_thickness >= thickness_limit and local_radius > self.CENTERBODY_ROTOR_THICKNESS:
                 raise ValueError(f"The cumulative blade thickness exceeds the complete blockage limit of 2PIr at r={local_radius}")
 
 
@@ -524,7 +528,7 @@ class fileHandling:
 
             for station in range(len(design_params)):
                 blade_geometry[station] = self.GetBladeParameters(design_params[station])
-                thickness_profile_distributions[station] = blade_geometry[station]["thickness_data"] / np.cos(blading_params["blade_angle"][station])
+                thickness_profile_distributions[station] = blade_geometry[station]["thickness_data"] #/ np.cos(blading_params["blade_angle"][station] + blading_params["ref_blade_angle"] - blading_params[".75R_blade_angle"])
                 thickness_data_points[station] = blade_geometry[station]["thickness_points"] 
                 camber_profile_distributions[station] = blade_geometry[station]["camber_data"]
                 camber_data_points[station] = blade_geometry[station]["camber_points"]
@@ -541,14 +545,20 @@ class fileHandling:
                                                          blading_params["root_LE_coordinate"] + blading_params["radial_stations"] * np.sin(blading_params["sweep_angle"]),
                                                          extrapolate=False,
                                                          )
+            
+            # Construct the blade angle (pitch) distribution
+            pitch_distribution = interpolate.CubicSpline(blading_params["radial_stations"],
+                                                         blading_params["blade_angle"],
+                                                         extrapolate=False,
+                                                         )
                         
             # Construct the thickness and camber bivariate spline interpolations
             # First determine the appropriate interpolation method based on the minimum dimension of the data input
             # Then use the RegularGridInterpolator to create the interpolation function
             method = 'quintic'
-            if 4 <= len(thickness_data_points) < 6:
+            if 4 <= len(design_params) < 6:
                 method = 'cubic'
-            elif len(thickness_data_points) < 4:
+            elif len(design_params) < 4:
                 method = 'linear'
 
             thickness_distribution = interpolate.RegularGridInterpolator((blading_params["radial_stations"],
@@ -557,13 +567,6 @@ class fileHandling:
                                                                          method=method,
                                                                          bounds_error=True,
                                                                          ) 
-    
-            # Determine the appropriate interpolation method for the camber distribution
-            method = 'quintic'
-            if 4 <= len(camber_data_points) < 6:
-                method = 'cubic'
-            elif len(camber_data_points) < 4:
-                method = 'linear'
 
             camber_distribution = interpolate.RegularGridInterpolator((blading_params["radial_stations"],
                                                                        camber_data_points[0]),
@@ -590,6 +593,7 @@ class fileHandling:
                                  "thickness_distribution": thickness_distribution,
                                  "camber_distribution": camber_distribution,
                                  "entropy_distribution": entropy_distribution,
+                                 "pitch_distribution": pitch_distribution,
                                  }
             
             return constructed_blade
@@ -663,7 +667,7 @@ class fileHandling:
                     # Write the data types to be provided for the stage
                     file.write('DATYPE \n')
                     file.write('x    r    T    Sr    DS\n')  # Use the x,r coordinates, together with thickness, blade slope, and entropy
-                    multipliers = [1./self.ref_length, 1./self.ref_length, 1./self.ref_length, 1., 1.]  # Add multipliers for each data type
+                    multipliers = [1., 1., 1., 1., 1.]  # Add multipliers for each data type
                     additions = [0., 0., 0., 0., 0.]  # Add additions for each data type
                     file.write('*' + '    '.join(map(str, multipliers)) + '\n')
                     file.write('+' + '    '.join(map(str, additions)) + '\n')
@@ -699,30 +703,60 @@ class fileHandling:
                         # Camber is denormalised using the local chord length
                         camber_distribution = blade_geometry["camber_distribution"]((radial_points[i], axial_points)) * local_chord 
 
+                        # Rotate the camber distribution to the correct pitch 
+                        # This is done by shifting the data to the half-chord line, and applying a rotation matrix
+                        blade_pitch = (blade_geometry["pitch_distribution"](radial_points[i]) + blading_params[stage]["ref_blade_angle"] - blading_params[stage][".75R_blade_angle"])
+                        rotation_angle = np.pi / 2 - blade_pitch
+                        #rotation_angle = blade_pitch
+                        shifted_axial_coordinates = axial_coordinates - 0.5 * local_chord
+                        shifted_camber_distribution = camber_distribution - camber_distribution[len(camber_distribution) // 2]
+                        rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
+                                                    [np.sin(rotation_angle), np.cos(rotation_angle)]])
+                        
+                        rotated_camber = np.dot(rotation_matrix, np.vstack((shifted_axial_coordinates, shifted_camber_distribution)))
+
+                        # Shift the camber distribution back to the original coordinate system
+                        rotated_axial_coordinates = rotated_camber[0,:] + 0.5 * local_chord
+                        rotated_camber_distribution = rotated_camber[1,:] + camber_distribution[len(camber_distribution) // 2]
+
                         # Compute the circumferential angle and local streamsurface radius distributions
-                        theta = np.atan2(camber_distribution, radial_points[i])
-                        r = np.sqrt(camber_distribution ** 2 + radial_points[i] ** 2)
+                        rotated_camber_line = np.gradient(rotated_camber_distribution, rotated_axial_coordinates)
+                        camber_angle = np.atan2(rotated_camber_line, rotated_axial_coordinates)
+
+                        if radial_points[i] != 0:
+                            theta = np.atan2(camber_angle, radial_points[i])
+                        else:
+                            theta = np.zeros_like(camber_distribution)
+
+                        r = np.sqrt(camber_angle ** 2 + radial_points[i] ** 2)
                         
                         # Compute the m' coordinate distribution. 
                         m_prime = np.zeros_like(r)
                         for j in range(len(m_prime)):
-                            if j != 0:
+                            if j != 0 and not np.all(r == 0):
                                 # Initial coordinate m_prime[0] is arbitrary, and merely shifts the profile to the origin
                                 # Use trapezoidal integration to compute the m_prime coordinates
-                                m_prime[j] = m_prime[j - 1] + 2 / (r[j] + r[j - 1]) * np.sqrt((r[j] - r[j-1]) ** 2 + (axial_coordinates[j] - axial_coordinates[j - 1]) ** 2)
+                                m_prime[j] = m_prime[j - 1] + 2 / (r[j] + r[j - 1]) * np.sqrt((r[j] - r[j-1]) ** 2 + (rotated_axial_coordinates[j] - rotated_axial_coordinates[j - 1]) ** 2)
+                            if j != 0 and np.any(r == 0):
+                                # If r = 0 (i.e. at the centerline, with no camber _and_ zero pitch), we define m_prime to simply equal the axial coordinates, to avoid division by zero
+                                m_prime = rotated_axial_coordinates                     
 
-                        # Compute the blade slope distribution, defined as dtheta/dm'. Use a second order scheme at the domain edges for improved accuracy. 
-                        blade_slope_distribution = np.gradient(theta, m_prime, edge_order=2) + np.tan(blading_params[stage]["ref_blade_angle"]) - np.tan(blading_params[stage][".75R_blade_angle"])
-
+                        # Compute the blade slope distribution, defined as dtheta/dm'. Use a second order scheme at the domain edges for improved accuracy.
+                        blade_slope_distribution = np.gradient(theta, m_prime, edge_order=2)
+ 
                         # Compute the local sweep (i.e. LE offset) at the radial station from the provided interpolant
                         sweep = blade_geometry["sweep_distribution"](radial_points[i]) 
 
-                        # Compute the thickness distribution at the radial station from the provided interpolant
+                        # Compute circumferential blade thickness distribution at the radial station from the provided interpolant
                         # Thickness is denormalised using the local chord length
                         # Run check to ensure circumferential thickness does NOT exceed the limit of complete blockage.
                         # If limit is exceeded, raises value error with radial point at which thickness was exceeded. 
-                        thickness_distribution = blade_geometry["thickness_distribution"]((radial_points[i], axial_points)) * local_chord   
-                        self.ValidateBladeThickness(max(thickness_distribution), radial_points[i], blading_params[stage]["blade_count"])
+                        profile_thickness = blade_geometry["thickness_distribution"]((radial_points[i], axial_points)) * local_chord * 2  # Multiplied by 2 since the thickness distribution gives the half thickness of the profile
+                        circumferential_thickness = profile_thickness * np.sin(blade_pitch)
+
+                        if radial_points[i] == 0:
+                            circumferential_thickness = np.zeros_like(profile_thickness)
+                        self.ValidateBladeThickness(max(circumferential_thickness), radial_points[i], blading_params[stage]["blade_count"])
                            
                         # Compute the entropy distribution at the radial station from the provided interpolant
                         # Entropy is denormalised using the local chord length
@@ -733,9 +767,9 @@ class fileHandling:
                         # Data is non-dimensionalised through the multiplier row in the DATYPE section.
                         for j in range(n_points):  
                             # Write data to row
-                            row = np.array([axial_coordinates[j] + sweep,
-                                            radial_points[i],
-                                            thickness_distribution[j],
+                            row = np.array([(axial_coordinates[j] + sweep) / self.ref_length,
+                                            radial_points[i] / self.ref_length,
+                                            circumferential_thickness[j] / self.ref_length,
                                             blade_slope_distribution[j],
                                             entropy_distribution[j],
                                             ])

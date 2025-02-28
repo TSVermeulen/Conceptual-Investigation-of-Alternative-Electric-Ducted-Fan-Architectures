@@ -56,6 +56,7 @@ import shutil
 import glob
 import re
 from enum import Enum
+from pathlib import Path
 
 
 class ExitFlag(Enum):
@@ -184,7 +185,15 @@ class MTSOL_call:
         # Set the Reynolds number to 0 to ensure an inviscid solve is performed initially
         self.process.stdin.write("R 0 \n")
         self.process.stdin.flush()
-        
+
+        # Set the dissipation coefficient to ensure the default value is used when starting an analysis. 
+        self.process.stdin.write("K -1 \n")
+        self.process.stdin.flush()
+
+        # Set momentum/entropy conservation Smom flag
+        self.process.stdin.write("S 4 \n")
+        self.process.stdin.flush()
+
         # Exit the modify solution parameters menu
         self.process.stdin.write("\n")
         self.process.stdin.flush()
@@ -194,7 +203,8 @@ class MTSOL_call:
                       ) -> None:
         """
         Toggle the viscous setting for all elements by setting the inlet Reynolds number.
-        Note that the Reynolds number is defined using the reference length LREF=1 m
+        Note that the Reynolds number is defined using the reference length LREF.
+        Also toggles the dissipation coefficient to -1.4 to improve (initial) boundary layer convergence. 
 
         Returns
         -------
@@ -207,6 +217,35 @@ class MTSOL_call:
 
         # Set the viscous Reynolds number, calculated using the length self.LREF = 1!
         self.process.stdin.write(f"R {self.operating_conditions['Inlet_Reynolds']} \n")
+        self.process.stdin.flush()
+
+        # Set the dissipation coefficient. This can help with convergence of the initial viscous solve. 
+        # self.process.stdin.write("K -1.4 \n")
+        # self.process.stdin.flush()
+
+        # Exit the Modify solution parameters menu
+        self.process.stdin.write("\n")
+        self.process.stdin.flush()
+
+        # Wait for the change to be processed in MTSOL
+        self.WaitForCompletion(type=3)
+    
+    def SetDissipationCoeff(self,
+                            ) -> None:
+        """
+        Set the dissipation coefficient K back to the default value of -1.
+
+        Returns
+        -------
+        None
+        """
+
+        # Enter the Modify solution parameters menu
+        self.process.stdin.write("m \n")
+        self.process.stdin.flush()
+
+        # Set the dissipation coefficient
+        self.process.stdin.write("K -1 \n")
         self.process.stdin.flush()
 
         # Exit the Modify solution parameters menu
@@ -464,7 +503,8 @@ class MTSOL_call:
         """
 
         # Create subfolder to put all output files into if the folder doesn't already exist
-        dump_folder = r"MTSOL_output_files\\"
+        dump_folder = Path("MTSOL_output_files")
+
         os.makedirs(dump_folder, 
                     exist_ok=True)
 
@@ -485,10 +525,7 @@ class MTSOL_call:
 
             # Rename file to indicate the iteration number, and avoid overwriting the same file. 
             # Also move the file to the output folder
-            os.replace(f"forces.{self.analysis_name}", f"forces.{self.analysis_name}.{iter_counter}")
-            shutil.move(f"forces.{self.analysis_name}.{iter_counter}",
-                        dump_folder,
-                        )
+            os.replace(f"forces.{self.analysis_name}", dump_folder / f'forces.{self.analysis_name}.{iter_counter}')
 
             # Increase iteration counter by step size
             iter_counter += self.ITER_STEP_SIZE
@@ -574,7 +611,16 @@ class MTSOL_call:
             # Toggle viscous on all surfaces
             self.ToggleViscous()
 
-            # Execute viscous solve
+            # Execute initial viscous solve
+            exit_flag_visc_init, iter_count_visc_init = self.ExecuteSolver()
+
+            # Handle solver based on exit flag
+            self.HandleExitFlag(exit_flag_visc_init)
+
+            # Toggle the dissipation coefficient back to the default value
+            self.SetDissipationCoeff()
+
+            # Execute initial viscous solve
             exit_flag_visc, iter_count_visc = self.ExecuteSolver()
 
             # Handle solver based on exit flag

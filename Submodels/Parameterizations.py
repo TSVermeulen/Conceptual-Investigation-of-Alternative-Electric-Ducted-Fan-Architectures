@@ -820,8 +820,9 @@ class AirfoilParameterization:
         # Calculate the squared fit errors of the upper and lower surfaces and sum them to obtain the objective function
         squared_fit_error_upper_surface = np.sum((upper_y - interpolated_upper_surface_data) ** 2)
         squared_fit_error_lower_surface = np.sum((lower_y - interpolated_lower_surface_data) ** 2)
-
-        return squared_fit_error_upper_surface + squared_fit_error_lower_surface
+        
+        # Objective is multiplied by 10 to ensure more weight is put on the error.
+        return (squared_fit_error_upper_surface + squared_fit_error_lower_surface) * 10
         
 
     def FindInitialParameterization(self, 
@@ -908,13 +909,24 @@ class AirfoilParameterization:
         def x2_constraint_upper_thickness(x):
             x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
             return 1 - 2 * x[5] + 15 * x[2] ** 2 / (4 * x[11])
+        
+        # Define constraint for bezier control point 2 x-coordinate of TE camber curve
+        def constraint_6_lower(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return (3 * x[7] - x[8] / np.tan(x[14])) / 2 - x[7]
+
+        def constraint_6_upper(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return 1 - (3 * x[7] - x[8] / np.tan(x[14])) / 2
                 
         cons = [{'type': 'ineq', 'fun': leading_edge_direction_constraint},
                 {'type': 'ineq', 'fun': b8_constraint},
                 {'type': 'ineq', 'fun': x1_constraint_lower_thickness},
                 {'type': 'ineq', 'fun': x1_constraint_upper_thickness},
                 {'type': 'ineq', 'fun': x2_constraint_lower_thickness},
-                {'type': 'ineq', 'fun': x2_constraint_upper_thickness}]
+                {'type': 'ineq', 'fun': x2_constraint_upper_thickness},
+                {'type': 'ineq', 'fun': constraint_6_lower},
+                {'type': 'ineq', 'fun': constraint_6_upper}]
         
         optimized_coefficients = optimize.minimize(self.Objective,
                                  np.ones(15),
@@ -923,7 +935,7 @@ class AirfoilParameterization:
                                  constraints=cons,
                                  options={'maxiter': 100,
                                           'disp': True},
-                                          jac='2-point')
+                                          jac='3-point')
         
         # Denormalise the found coefficients and write them to the output dictionary
         optimized_coefficients.x = optimized_coefficients.x.astype(float)
@@ -957,7 +969,7 @@ if __name__ == "__main__":
     call_class = AirfoilParameterization()
     
     start_time = time.time()
-    inputfile = Path('Test Airfoils') / 'n0025.dat'
+    inputfile = Path('Test Airfoils') / 'X22_root.dat'
     airf_params = call_class.FindInitialParameterization(inputfile,
                                                          plot=False)
     end_time = time.time()
