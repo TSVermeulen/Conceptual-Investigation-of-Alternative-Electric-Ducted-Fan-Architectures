@@ -933,7 +933,7 @@ class AirfoilParameterization:
                                  method="SLSQP",
                                  bounds=GetBounds(),
                                  constraints=cons,
-                                 options={'maxiter': 100,
+                                 options={'maxiter': 500,
                                           'disp': True},
                                           jac='3-point')
         
