@@ -89,7 +89,7 @@ class MTSET_call:
         if streamwise_points is None:
             self.streamwise_points = 200
         else:
-            self.streamwise_poits = streamwise_points
+            self.streamwise_points = streamwise_points
 
         # Define constant filepath 
         self.fpath: str = os.getenv('MTSET_PATH', 'mtset.exe')
