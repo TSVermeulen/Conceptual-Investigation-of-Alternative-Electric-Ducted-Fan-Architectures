@@ -822,7 +822,7 @@ class AirfoilParameterization:
         squared_fit_error_lower_surface = np.sum((lower_y - interpolated_lower_surface_data) ** 2)
         
         # Objective is multiplied by 10 to ensure more weight is put on the error.
-        return (squared_fit_error_upper_surface + squared_fit_error_lower_surface) * 10
+        return (squared_fit_error_upper_surface + squared_fit_error_lower_surface)
         
 
     def FindInitialParameterization(self, 
@@ -913,11 +913,17 @@ class AirfoilParameterization:
         # Define constraint for bezier control point 2 x-coordinate of TE camber curve
         def constraint_6_lower(x):
             x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
-            return (3 * x[7] - x[8] / np.tan(x[14])) / 2 - x[7]
+            if x[14] !=0:
+                return (3 * x[7] - x[8] / np.tan(x[14])) / 2 - x[7]
+            else:
+                return x[14]
 
         def constraint_6_upper(x):
             x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
-            return 1 - (3 * x[7] - x[8] / np.tan(x[14])) / 2
+            if x[14] != 0:
+                return 1 - (3 * x[7] - x[8] / np.tan(x[14])) / 2
+            else:
+                return x[14]
                 
         cons = [{'type': 'ineq', 'fun': leading_edge_direction_constraint},
                 {'type': 'ineq', 'fun': b8_constraint},
