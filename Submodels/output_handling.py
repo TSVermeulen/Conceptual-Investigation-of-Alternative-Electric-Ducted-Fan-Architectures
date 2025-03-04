@@ -541,7 +541,7 @@ class output_processing:
 
 if __name__ == "__main__":
     # Example usage for the output_visualisation class
-    test = output_visualisation(analysis_name='test_case')
+    test = output_visualisation(analysis_name='x22a_validation')
 
     create_individual_plots = False
     test.PlotOutputs(plot_individual=create_individual_plots)

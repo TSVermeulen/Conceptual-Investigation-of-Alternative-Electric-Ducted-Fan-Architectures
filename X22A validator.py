@@ -15,20 +15,24 @@ from pathlib import Path
 from scipy import interpolate
 from ambiance import Atmosphere
 import matplotlib.pyplot as plt
+import os
+import time
 
 from Submodels.Parameterizations import AirfoilParameterization
-from MTFLOW_caller import MTFLOW_caller
 from Submodels.file_handling import fileHandling
 from Submodels.output_handling import output_processing
+from Submodels.MTSOL_call import MTSOL_call
+from Submodels.MTSET_call import MTSET_call
+from Submodels.MTFLO_call import MTFLO_call
 
 REFERENCE_BLADE_ANGLE = np.deg2rad(29)  # radians, converted from degrees
 ANALYSIS_NAME = "X22A_validation"  # Analysis name for MTFLOW
-FREESTREAM_VELOCITY = np.array([30, 30, 36, 44])  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered. 
 ALTITUDE = 3352  # m
 FAN_DIAMETER = 84.75 * 2.54 / 100  # m, taken from [3] and converted to meters from inches
 
 # Advance ratio range to be used for the validation. Taken from figure 5 in [1]. Note that J is approximate, as the data is read from a (scanned) graph
-J = np.array([0.3, 0.4, 0.5, 0.6])  
+J = (np.array([0.4, 0.45, 0.5, 0.55, 0.6, 0.65]))  
+FREESTREAM_VELOCITY = np.ones_like(J) * 40  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered. 
 
 # Compute the rotational speed of the rotor in rotations per second
 RPS = FREESTREAM_VELOCITY / (J * FAN_DIAMETER)
@@ -48,8 +52,8 @@ reynolds_inlet = (FREESTREAM_VELOCITY * FAN_DIAMETER / (atmosphere.kinematic_vis
 print(f"Inlet Reynolds Number [-]: {reynolds_inlet}")
 
 
-def GenerateMTFLOBlading(Omega: float = 0.,
-                         ref_blade_angle: float = np.deg2rad(19),
+def GenerateMTFLOBlading(Omega: float,
+                         ref_blade_angle: float,
                          perform_parameterization: bool = False):
     """
     Generate MTFLO blading
@@ -67,21 +71,27 @@ def GenerateMTFLOBlading(Omega: float = 0.,
     """
 
     # Start defining the MTFLO blading inputs
-    blading_parameters = [{"root_LE_coordinate": 0.181102, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, ".75R_blade_angle": np.deg2rad(34.3), "blade_count": 3, "radial_stations": [0.0,
+    blading_parameters = [{"root_LE_coordinate": 0.181102, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, ".75R_blade_angle": np.deg2rad(20), "blade_count": 3, "radial_stations": [0.0,
                                                                                                                                                                                                      0.10647, 
                                                                                                                                                                                                      0.21294,
                                                                                                                                                                                                      0.31941, 
                                                                                                                                                                                                      0.42588,
                                                                                                                                                                                                      0.53235,
+                                                                                                                                                                                                     0.63882,
                                                                                                                                                                                                      0.74529, 
+                                                                                                                                                                                                     0.85176,
+                                                                                                                                                                                                     0.95823,
                                                                                                                                                                                                      1.0647], 
                                                                                                                                                                                     "chord_length": [0.42256,
                                                                                                                                                                                                      0.3856,
                                                                                                                                                                                                     0.35052,
                                                                                                                                                                                                     0.3152,
                                                                                                                                                                                                     0.2794, 
-                                                                                                                                                                                                    0.254, 
+                                                                                                                                                                                                    0.254,
+                                                                                                                                                                                                    0.2413, 
                                                                                                                                                                                                     0.235527,
+                                                                                                                                                                                                    0.230332,
+                                                                                                                                                                                                    0.2251364,
                                                                                                                                                                                                     0.22098], 
                                                                                                                                                                                                     "sweep_angle": [0,
                                                                                                                                                                                                                     np.atan((0.42256 - 0.3856) / (2 * (0.10647 - 0.0))),
@@ -89,34 +99,44 @@ def GenerateMTFLOBlading(Omega: float = 0.,
                                                                                                                                                                                                                     np.atan((0.3856 - 0.3152) / (2 * (0.31941 - 0.10647))),
                                                                                                                                                                                                                     np.atan((0.3856 - 0.2794) / (2 * (0.42588 - 0.10647))),
                                                                                                                                                                                                                     np.atan((0.3856 - 0.254) / (2 * (0.53235 - 0.10647))), 
+                                                                                                                                                                                                                    np.atan((0.3856 - 0.2413) / (2 * (0.63882 - 0.10647))),
                                                                                                                                                                                                                     np.atan((0.3856 - 0.235527) / (2 * (0.74529 - 0.10647))),
+                                                                                                                                                                                                                    np.atan((0.3856 - 0.230332) / (2 * (0.85176 - 0.10647))),
+                                                                                                                                                                                                                    np.atan((0.3856 - 0.2251364) / (2 * (0.95823 - 0.10647))),
                                                                                                                                                                                                                     np.atan((0.3856 - 0.22098) / (2 * (1.0647 - 0.10647)))], 
                                                                                                                                                                                                                     "blade_angle": [np.deg2rad(67.73),
                                                                                                                                                                                                                                     np.deg2rad(60.91),
-                                                                                                                                                                                                                                    np.deg2rad(54), 
-                                                                                                                                                                                                                                    np.deg2rad(50.2),
-                                                                                                                                                                                                                                    np.deg2rad(46.9),
-                                                                                                                                                                                                                                    np.deg2rad(43.3), 
-                                                                                                                                                                                                                                    np.deg2rad(35.9),
-                                                                                                                                                                                                                                    np.deg2rad(26.5)]}]
+                                                                                                                                                                                                                                    np.deg2rad(53.64), 
+                                                                                                                                                                                                                                    np.deg2rad(46.82),
+                                                                                                                                                                                                                                    np.deg2rad(40.00),
+                                                                                                                                                                                                                                    np.deg2rad(32.27),
+                                                                                                                                                                                                                                    np.deg2rad(26.36), 
+                                                                                                                                                                                                                                    np.deg2rad(21.82),
+                                                                                                                                                                                                                                    np.deg2rad(19.09),
+                                                                                                                                                                                                                                    np.deg2rad(16.82),
+                                                                                                                                                                                                                                    np.deg2rad(15.45)]}]
     
     if perform_parameterization:
+        print("Generating Section Parameterizations....")
         # Obtain the parameterizations for the profile sections. 
         local_dir_path = Path('Validation')
-        root_fpath = local_dir_path / 'X22_root.dat'
+        R00_fpath = local_dir_path / 'X22_00R.dat'
         R01_fpath = local_dir_path / 'X22_01R.dat'
         R02_fpath = local_dir_path / 'X22_02R.dat'
         R03_fpath = local_dir_path / 'X22_03R.dat'
         R04_fpath = local_dir_path / 'X22_04R.dat'
-        mid_fpath = local_dir_path / 'X22_mid.dat'
+        R05_fpath = local_dir_path / 'X22_05R.dat'
+        R06_fpath = local_dir_path / 'X22_06R.dat'
         R07_fpath = local_dir_path / 'X22_07R.dat'
-        tip_fpath = local_dir_path / 'X22_tip.dat'
+        R08_fpath = local_dir_path / 'X22_08R.dat'
+        R09_fpath = local_dir_path / 'X22_09R.dat'
+        R10_fpath = local_dir_path / 'X22_10R.dat'
 
         # Compute parameterization for root airfoil section
         param_class = AirfoilParameterization()
-        root_section = param_class.FindInitialParameterization(reference_file=root_fpath,
+        R00_section = param_class.FindInitialParameterization(reference_file=R00_fpath,
                                                             plot=True)
-        print(root_section)
+        print(R00_section)
         # Compute parameterization for the airfoil section at r=0.1R
         R01_section = param_class.FindInitialParameterization(reference_file=R01_fpath,
                                                             plot=True)
@@ -134,42 +154,61 @@ def GenerateMTFLOBlading(Omega: float = 0.,
                                                             plot=True)
         print(R04_section)
         # Compute parameterization for the mid airfoil section
-        mid_section = param_class.FindInitialParameterization(reference_file=mid_fpath,
+        R05_section = param_class.FindInitialParameterization(reference_file=R05_fpath,
                                                             plot=True)
-        print(mid_section)
+        print(R05_section)
+        # Compute parameterization for the airfoil section at r=0.6R
+        R06_section = param_class.FindInitialParameterization(reference_file=R06_fpath,
+                                                            plot=True)
+        print(R06_section)
         # Compute parameterization for the airfoil section at r=0.7R
         R07_section = param_class.FindInitialParameterization(reference_file=R07_fpath,
                                                             plot=True)
         print(R07_section)
-        # Compute parameterization for the tip airfoil section
-        tip_section = param_class.FindInitialParameterization(reference_file=tip_fpath,
+        # Compute parameterization for the airfoil section at r=0.8R
+        R08_section = param_class.FindInitialParameterization(reference_file=R08_fpath,
                                                             plot=True)
-        print(tip_section)
+        print(R08_section)
+        # Compute parameterization for the airfoil section at r=0.9R
+        R09_section = param_class.FindInitialParameterization(reference_file=R09_fpath,
+                                                            plot=True)
+        print(R09_section)
+        # Compute parameterization for the tip airfoil section
+        R10_section = param_class.FindInitialParameterization(reference_file=R10_fpath,
+                                                            plot=True)
+        print(R10_section)
+        print("Sections successfully parameterized...")
     else:
         # If we do not perform the parameterization, we can use the default data directly.
 
         # Uncomment below for parameterizations of the NASA 0010-64 modified airfoils, scaled to the correct t/c at each section as given by [1]
-        # root_section = {'b_0': np.float64(0.0), 'b_2': np.float64(1.0494616332700592e-15), 'b_8': np.float64(0.09411341148635839), 'b_15': np.float64(0.8152267119721809), 'b_17': np.float64(0.8000000000000003), 'x_t': np.float64(0.35573319329500624), 'y_t': np.float64(0.22432627899827806), 'x_c': np.float64(9.999999988685286e-11), 'y_c': np.float64(7.5349244317312e-31), 'z_TE': np.float64(-6.718537758389443e-31), 'dz_TE': np.float64(0.0075424270184872326), 'r_LE': np.float64(-0.14007004061826644), 'trailing_wedge_angle': np.float64(0.4940307727103302), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
-        # R01_section = {'b_0': np.float64(0.0), 'b_2': np.float64(-2.672828584724189e-17), 'b_8': np.float64(0.08585115547974777), 'b_15': np.float64(0.7953275053930488), 'b_17': np.float64(0.8), 'x_t': np.float64(0.3579281911479124), 'y_t': np.float64(0.19020051373531507), 'x_c': np.float64(9.999999999017217e-11), 'y_c': np.float64(-3.3343083965088264e-32), 'z_TE': np.float64(-1.584857263205951e-32), 'dz_TE': np.float64(0.006341139075957525), 'r_LE': np.float64(-0.10521337071236224), 'trailing_wedge_angle': np.float64(0.44221908197314785), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
-        # R02_section = {'b_0': np.float64(0.0), 'b_2': np.float64(-1.6015448245552788e-18), 'b_8': np.float64(0.07938850615648092), 'b_15': np.float64(0.7834186798106341), 'b_17': np.float64(0.8), 'x_t': np.float64(0.36329881056992414), 'y_t': np.float64(0.15714856661614984), 'x_c': np.float64(1.0000000000621005e-10), 'y_c': np.float64(2.8837455065765125e-31), 'z_TE': np.float64(1.5420585290878846e-31), 'dz_TE': np.float64(0.004979611635648663), 'r_LE': np.float64(-0.07670381417045467), 'trailing_wedge_angle': np.float64(0.38764252377470126), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
-        # R03_section = {'b_0': np.float64(0.0), 'b_2': np.float64(1.931425156225862e-18), 'b_8': np.float64(0.06633556260351585), 'b_15': np.float64(0.7681322724996446), 'b_17': np.float64(0.8), 'x_t': np.float64(0.3654308552023536), 'y_t': np.float64(0.12474390795031891), 'x_c': np.float64(9.99999999991782e-11), 'y_c': np.float64(1.1746330286395878e-21), 'z_TE': np.float64(-5.816115912830538e-23), 'dz_TE': np.float64(0.003922353074894919), 'r_LE': np.float64(-0.04969230569437875), 'trailing_wedge_angle': np.float64(0.31884907958902486), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
-        # R04_section = {'b_0': np.float64(0.0), 'b_2': np.float64(-2.303349036188369e-18), 'b_8': np.float64(0.05909929469107383), 'b_15': np.float64(0.761590676673648), 'b_17': np.float64(0.8), 'x_t': np.float64(0.37016322127831186), 'y_t': np.float64(0.10314850608719811), 'x_c': np.float64(1.000000000039312e-10), 'y_c': np.float64(-2.9146761596293495e-32), 'z_TE': np.float64(-1.8445040397270788e-32), 'dz_TE': np.float64(0.0030969179265496628), 'r_LE': np.float64(-0.03533032261317036), 'trailing_wedge_angle': np.float64(0.2735843700675792), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
-        # mid_section = {'b_0': np.float64(0.0), 'b_2': np.float64(-7.480007717645859e-19), 'b_8': np.float64(0.05366468158819504), 'b_15': np.float64(0.7581979955516953), 'b_17': np.float64(0.8), 'x_t': np.float64(0.3758481979028474), 'y_t': np.float64(0.08693435994735386), 'x_c': np.float64(1.0000000000375219e-10), 'y_c': np.float64(3.1532033231399504e-31), 'z_TE': np.float64(1.1663796349056909e-31), 'dz_TE': np.float64(0.002455048446545025), 'r_LE': np.float64(-0.02605625915598885), 'trailing_wedge_angle': np.float64(0.2390393084978324), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
-        # R07_section = {'b_0': np.float64(0.0), 'b_2': np.float64(-6.599169007689791e-19), 'b_8': np.float64(0.04130598342251118), 'b_15': np.float64(0.7518983627959437), 'b_17': np.float64(0.8), 'x_t': np.float64(0.389391509494732), 'y_t': np.float64(0.0581202522837689), 'x_c': np.float64(9.999999999935408e-11), 'y_c': np.float64(3.2549258126219314e-34), 'z_TE': np.float64(-9.757434897806068e-35), 'dz_TE': np.float64(0.0014372059257603737), 'r_LE': np.float64(-0.012418278748750618), 'trailing_wedge_angle': np.float64(0.1713112070773209), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
-        # tip_section = {'b_0': np.float64(0.0), 'b_2': np.float64(-1.8221176558032628), 'b_8': np.float64(0.04050328282737513), 'b_15': np.float64(0.7535544788925614), 'b_17': np.float64(0.8243303423622311), 'x_t': np.float64(0.3904202504820698), 'y_t': np.float64(0.0565726619312102), 'x_c': np.float64(0.008327798056102542), 'y_c': np.float64(-4.021740487047529e-17), 'z_TE': np.float64(-5.000000000015975e-06), 'dz_TE': np.float64(0.0013869233576762456), 'r_LE': np.float64(-0.01180173208324647), 'trailing_wedge_angle': np.float64(0.16756899676425166), 'trailing_camberline_angle': np.float64(4.336808689942014e-18), 'leading_edge_direction': np.float64(0.0)}
+        R00_section = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.12398236503839008), 'b_15': np.float64(0.8249999999999986), 'b_17': np.float64(0.8), 'x_t': np.float64(0.319385), 'y_t': np.float64(0.22272254900122362), 'x_c': np.float64(0.0), 'y_c': np.float64(0.0), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.00519199999999953), 'r_LE': np.float64(-0.22009027242727328), 'trailing_wedge_angle': np.float64(0.4052859613533125), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        R01_section = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.10886988285035995), 'b_15': np.float64(0.8250000000000001), 'b_17': np.float64(0.8), 'x_t': np.float64(0.31938500000000003), 'y_t': np.float64(0.1926416222727293), 'x_c': np.float64(0.0), 'y_c': np.float64(0.0), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.004202149127453786), 'r_LE': np.float64(-0.16970573777797837), 'trailing_wedge_angle': np.float64(0.3626844170472994), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        R02_section = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.09158884682085988), 'b_15': np.float64(0.8250000000000001), 'b_17': np.float64(0.8), 'x_t': np.float64(0.3193849999999999), 'y_t': np.float64(0.15752903893022369), 'x_c': np.float64(0.0), 'y_c': np.float64(0.0), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0030414982160082457), 'r_LE': np.float64(-0.12010641297556184), 'trailing_wedge_angle': np.float64(0.30807507013856983), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        R03_section = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.07493804137479351), 'b_15': np.float64(0.8249999999998017), 'b_17': np.float64(0.8), 'x_t': np.float64(0.31938500000000003), 'y_t': np.float64(0.12226435701015367), 'x_c': np.float64(0.0), 'y_c': np.float64(0.0), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0023580000000000025), 'r_LE': np.float64(-0.08040548775481944), 'trailing_wedge_angle': np.float64(0.248871152206594), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        R04_section = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.06299369999999999), 'b_15': np.float64(0.8249999999998896), 'b_17': np.float64(0.8), 'x_t': np.float64(0.319385), 'y_t': np.float64(0.09684839124421991), 'x_c': np.float64(0.0), 'y_c': np.float64(0.0), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.00189), 'r_LE': np.float64(-0.05817190574018529), 'trailing_wedge_angle': np.float64(0.20280490950701618), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        R05_section = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.056700000001260874), 'b_15': np.float64(0.8249999999847404), 'b_17': np.float64(0.8), 'x_t': np.float64(0.31938499998257885), 'y_t': np.float64(0.08639770413693541), 'x_c': np.float64(0.0), 'y_c': np.float64(0.0), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0017010000000769743), 'r_LE': np.float64(-0.050746982198026466), 'trailing_wedge_angle': np.float64(0.18346909680831783), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        R06_section = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.0441), 'b_15': np.float64(0.8250000000000001), 'b_17': np.float64(0.8), 'x_t': np.float64(0.3193849999999842), 'y_t': np.float64(0.0655563955174534), 'x_c': np.float64(0.0), 'y_c': np.float64(0.0), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.001323000000000001), 'r_LE': np.float64(-0.038589159832080076), 'trailing_wedge_angle': np.float64(0.1437477569719401), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        R07_section = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.0378), 'b_15': np.float64(0.8250000000000001), 'b_17': np.float64(0.8), 'x_t': np.float64(0.31938500000000003), 'y_t': np.float64(0.055222838904078426), 'x_c': np.float64(0.0), 'y_c': np.float64(0.0), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0011340000000000386), 'r_LE': np.float64(-0.033962787690348176), 'trailing_wedge_angle': np.float64(0.12462875900123835), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        R08_section = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.025200000000038122), 'b_15': np.float64(0.8250000000000001), 'b_17': np.float64(0.8), 'x_t': np.float64(0.3193849999993754), 'y_t': np.float64(0.03600000000002191), 'x_c': np.float64(0.0), 'y_c': np.float64(0.0), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0007560000000044782), 'r_LE': np.float64(-0.028456466460144818), 'trailing_wedge_angle': np.float64(0.08327107566449986), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        R09_section = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.0189), 'b_15': np.float64(0.8250000000000001), 'b_17': np.float64(0.8), 'x_t': np.float64(0.3193849999996647), 'y_t': np.float64(0.027000000000000322), 'x_c': np.float64(0.0), 'y_c': np.float64(0.0), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0005670000000000002), 'r_LE': np.float64(-0.029008119264659373), 'trailing_wedge_angle': np.float64(0.06230012067313717), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
+        R10_section = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.00945), 'b_15': np.float64(0.8249999995130213), 'b_17': np.float64(0.8), 'x_t': np.float64(0.31938500000000003), 'y_t': np.float64(0.0135), 'x_c': np.float64(0.0), 'y_c': np.float64(0.0), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0002790000001227517), 'r_LE': np.float64(-0.04298164745722162), 'trailing_wedge_angle': np.float64(0.032471786876037884), 'trailing_camberline_angle': np.float64(-0.0), 'leading_edge_direction': np.float64(0.0)}
 
         # Uncomment below for parameterizations of the NACA 24xx airfoils where xx is the correct t/c at each section as given by [1]
-        root_section = {'b_0': np.float64(0.043436799999999866), 'b_2': np.float64(0.2171839999999995), 'b_8': np.float64(0.11726758398228249), 'b_15': np.float64(0.8249999999999961), 'b_17': np.float64(0.8799999999995232), 'x_t': np.float64(0.31257230128178937), 'y_t': np.float64(0.22337313723665178), 'x_c': np.float64(0.43436799999999987), 'y_c': np.float64(0.017995500000004886), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.005203286392116128), 'r_LE': np.float64(-0.20118750070286548), 'trailing_wedge_angle': np.float64(0.4162288664907536), 'trailing_camberline_angle': np.float64(0.06014948230313067), 'leading_edge_direction': np.float64(0.08601042561658903)}
-        R01_section = {'b_0': np.float64(0.043436800000000005), 'b_2': np.float64(0.21718400000000002), 'b_8': np.float64(0.1033965981555799), 'b_15': np.float64(0.8250000000000001), 'b_17': np.float64(0.8799999999426072), 'x_t': np.float64(0.31347926061091796), 'y_t': np.float64(0.193203872014576), 'x_c': np.float64(0.4343679999998398), 'y_c': np.float64(0.0179955), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.004508631764151873), 'r_LE': np.float64(-0.1559549692216496), 'trailing_wedge_angle': np.float64(0.3724798349891539), 'trailing_camberline_angle': np.float64(0.06664971979179658), 'leading_edge_direction': np.float64(0.0860104256165266)}
-        R02_section = {'b_0': np.float64(0.043436800000000005), 'b_2': np.float64(0.21718400000000002), 'b_8': np.float64(0.0872200829966604), 'b_15': np.float64(0.824999999999641), 'b_17': np.float64(0.8799999999297953), 'x_t': np.float64(0.31455761646087627), 'y_t': np.float64(0.1579002508328601), 'x_c': np.float64(0.4343679999998469), 'y_c': np.float64(0.01809369346624768), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0035577328831318694), 'r_LE': np.float64(-0.11059317245818538), 'trailing_wedge_angle': np.float64(0.31511452613744084), 'trailing_camberline_angle': np.float64(0.07311710561474492), 'leading_edge_direction': np.float64(0.08601042561654795)}
-        R03_section = {'b_0': np.float64(0.04337204470291165), 'b_2': np.float64(0.21272120200496192), 'b_8': np.float64(0.0710043463646321), 'b_15': np.float64(0.825), 'b_17': np.float64(0.8732266828645529), 'x_t': np.float64(0.31562781658742023), 'y_t': np.float64(0.12183457677329662), 'x_c': np.float64(0.4311965007745416), 'y_c': np.float64(0.017999382320190837), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0025526339030829876), 'r_LE': np.float64(-0.07304493839651645), 'trailing_wedge_angle': np.float64(0.25369493364847046), 'trailing_camberline_angle': np.float64(0.07298637804534369), 'leading_edge_direction': np.float64(0.08693031622038633)}
-        R04_section = {'b_0': np.float64(0.043436800000000005), 'b_2': np.float64(0.21718399999998275), 'b_8': np.float64(0.06022029571699291), 'b_15': np.float64(0.8249999999993514), 'b_17': np.float64(0.8799999999999994), 'x_t': np.float64(0.3163685191920674), 'y_t': np.float64(0.09752558801509807), 'x_c': np.float64(0.43436799999999975), 'y_c': np.float64(0.019787545100461976), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.001894108490202252), 'r_LE': np.float64(-0.052418916083071386), 'trailing_wedge_angle': np.float64(0.2055523679181529), 'trailing_camberline_angle': np.float64(0.07235988269089702), 'leading_edge_direction': np.float64(0.09166773705192859)}
-        mid_section = {'b_0': np.float64(0.04343679999382484), 'b_2': np.float64(0.2171839999977746), 'b_8': np.float64(0.05598511590076289), 'b_15': np.float64(0.8249999999999986), 'b_17': np.float64(0.8799594643153933), 'x_t': np.float64(0.31667987002507975), 'y_t': np.float64(0.08738195392982298), 'x_c': np.float64(0.43436799999984527), 'y_c': np.float64(0.02009683394747112), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0017047758093173887), 'r_LE': np.float64(-0.04526059257826665), 'trailing_wedge_angle': np.float64(0.18625096027106675), 'trailing_camberline_angle': np.float64(0.07311710570740025), 'leading_edge_direction': np.float64(0.08601042561688882)}
-        R07_section = {'b_0': np.float64(0.043388767618650605), 'b_2': np.float64(0.217183999999723), 'b_8': np.float64(0.03781095908017323), 'b_15': np.float64(0.8249999999992228), 'b_17': np.float64(0.8799999999999821), 'x_t': np.float64(0.31758163011450247), 'y_t': np.float64(0.056155497269749194), 'x_c': np.float64(0.4306324551761999), 'y_c': np.float64(0.020402430492400765), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0011364650941242164), 'r_LE': np.float64(-0.029842340898292304), 'trailing_wedge_angle': np.float64(0.12540512697471534), 'trailing_camberline_angle': np.float64(0.07235988269089534), 'leading_edge_direction': np.float64(0.09166773705192825)}
-        tip_section = {'b_0': np.float64(0.043388767618650605), 'b_2': np.float64(0.217183999999723), 'b_8': np.float64(0.03781095908017323), 'b_15': np.float64(0.8249999999992228), 'b_17': np.float64(0.8799999999999821), 'x_t': np.float64(0.31758163011450247), 'y_t': np.float64(0.056155497269749194), 'x_c': np.float64(0.4306324551761999), 'y_c': np.float64(0.020402430492400765), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0011364650941242164), 'r_LE': np.float64(-0.029842340898292304), 'trailing_wedge_angle': np.float64(0.12540512697471534), 'trailing_camberline_angle': np.float64(0.07235988269089534), 'leading_edge_direction': np.float64(0.09166773705192825)}
+        R00_section = {'b_0': np.float64(0.043436799999999894), 'b_2': np.float64(0.21718399999989457), 'b_8': np.float64(0.11726758398228249), 'b_15': np.float64(0.825), 'b_17': np.float64(0.8799999999999977), 'x_t': np.float64(0.31257230128178937), 'y_t': np.float64(0.22337313795225675), 'x_c': np.float64(0.43436799999999137), 'y_c': np.float64(0.01932320189174007), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.005203286392132102), 'r_LE': np.float64(-0.20118750070286548), 'trailing_wedge_angle': np.float64(0.41622924910547937), 'trailing_camberline_angle': np.float64(0.06015380862316172), 'leading_edge_direction': np.float64(0.08601042561657472)}
+        R01_section = {'b_0': np.float64(0.043436799999999894), 'b_2': np.float64(0.21718399999989457), 'b_8': np.float64(0.11726758398228249), 'b_15': np.float64(0.825), 'b_17': np.float64(0.8799999999999977), 'x_t': np.float64(0.31257230128178937), 'y_t': np.float64(0.22337313795225675), 'x_c': np.float64(0.43436799999999137), 'y_c': np.float64(0.01932320189174007), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.005203286392132102), 'r_LE': np.float64(-0.20118750070286548), 'trailing_wedge_angle': np.float64(0.41622924910547937), 'trailing_camberline_angle': np.float64(0.06015380862316172), 'leading_edge_direction': np.float64(0.08601042561657472)}
+        R02_section = {'b_0': np.float64(0.043436799999976905), 'b_2': np.float64(0.21718399999979043), 'b_8': np.float64(0.0872200829966604), 'b_15': np.float64(0.8250000000000001), 'b_17': np.float64(0.8799999999986879), 'x_t': np.float64(0.31455761646087627), 'y_t': np.float64(0.15805045670186377), 'x_c': np.float64(0.43436800000000003), 'y_c': np.float64(0.01932320189174007), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.003312476954544271), 'r_LE': np.float64(-0.11059317245818538), 'trailing_wedge_angle': np.float64(0.31511452613791263), 'trailing_camberline_angle': np.float64(0.07311710570741244), 'leading_edge_direction': np.float64(0.0860104256165266)}
+        R03_section = {'b_0': np.float64(0.043436799999999734), 'b_2': np.float64(0.2171839999999994), 'b_8': np.float64(0.0710043463646321), 'b_15': np.float64(0.8249999999999982), 'b_17': np.float64(0.8799999999982436), 'x_t': np.float64(0.3156278165874202), 'y_t': np.float64(0.1228105274087834), 'x_c': np.float64(0.4343679999999997), 'y_c': np.float64(0.019323202393123108), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0023632341906802226), 'r_LE': np.float64(-0.07304493839651645), 'trailing_wedge_angle': np.float64(0.25369493364862317), 'trailing_camberline_angle': np.float64(0.07311710570741237), 'leading_edge_direction': np.float64(0.08601042561652661)}
+        R04_section = {'b_0': np.float64(0.043436799999991185), 'b_2': np.float64(0.21718399999958032), 'b_8': np.float64(0.06022029571699291), 'b_15': np.float64(0.8249999999999984), 'b_17': np.float64(0.8799999999997878), 'x_t': np.float64(0.3163685191919138), 'y_t': np.float64(0.09752560792091045), 'x_c': np.float64(0.4343679999999996), 'y_c': np.float64(0.019786992122682503), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0018941084902022582), 'r_LE': np.float64(-0.052418916083071386), 'trailing_wedge_angle': np.float64(0.20555236791833145), 'trailing_camberline_angle': np.float64(0.07235988269088045), 'leading_edge_direction': np.float64(0.09166773705192793)}
+        R05_section = {'b_0': np.float64(0.043436800000000005), 'b_2': np.float64(0.21718399999981555), 'b_8': np.float64(0.055985115900761086), 'b_15': np.float64(0.8250000000000001), 'b_17': np.float64(0.8800000000000001), 'x_t': np.float64(0.3166798700248241), 'y_t': np.float64(0.08738273661728485), 'x_c': np.float64(0.43436800000000003), 'y_c': np.float64(0.01932320189174007), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.001704775809307488), 'r_LE': np.float64(-0.045260592578268165), 'trailing_wedge_angle': np.float64(0.1862509602710665), 'trailing_camberline_angle': np.float64(0.07311710570741246), 'leading_edge_direction': np.float64(0.08601042561652611)}
+        R06_section = {'b_0': np.float64(0.0434367999999999), 'b_2': np.float64(0.21718399999983917), 'b_8': np.float64(0.0441133107895112), 'b_15': np.float64(0.8249999999998703), 'b_17': np.float64(0.8799999999996602), 'x_t': np.float64(0.3172810434180286), 'y_t': np.float64(0.06650838994007396), 'x_c': np.float64(0.43224434335031214), 'y_c': np.float64(0.01932320189174007), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0013258759431415772), 'r_LE': np.float64(-0.0340257104268357), 'trailing_wedge_angle': np.float64(0.14615001928109467), 'trailing_camberline_angle': np.float64(0.07235988269089653), 'leading_edge_direction': np.float64(0.09166773705195394)}
+        R07_section = {'b_0': np.float64(0.04343679999999999), 'b_2': np.float64(0.21718399999999946), 'b_8': np.float64(0.03781095908017323), 'b_15': np.float64(0.8249999999999997), 'b_17': np.float64(0.8800000000000001), 'x_t': np.float64(0.3175816301145028), 'y_t': np.float64(0.05616229103205138), 'x_c': np.float64(0.4301062545016437), 'y_c': np.float64(0.01932320189174007), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0011364650941213513), 'r_LE': np.float64(-0.02984234089829805), 'trailing_wedge_angle': np.float64(0.12540512697470668), 'trailing_camberline_angle': np.float64(0.072359882690897), 'leading_edge_direction': np.float64(0.0916677370519278)}
+        R08_section = {'b_0': np.float64(0.043435840490908366), 'b_2': np.float64(0.21717156107333008), 'b_8': np.float64(0.025206327358623846), 'b_15': np.float64(0.7198439596493504), 'b_17': np.float64(0.879999999850039), 'x_t': np.float64(0.3181782295043778), 'y_t': np.float64(0.03609913118415931), 'x_c': np.float64(0.42887440271799854), 'y_c': np.float64(0.01932320189174007), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0007576781374716192), 'r_LE': np.float64(-0.024971909460576956), 'trailing_wedge_angle': np.float64(0.08395161994845322), 'trailing_camberline_angle': np.float64(0.07311710570741244), 'leading_edge_direction': np.float64(0.09166773705192754)}
+        R09_section = {'b_0': np.float64(0.0434368), 'b_2': np.float64(0.21718400000000002), 'b_8': np.float64(0.018907108904881547), 'b_15': np.float64(0.675), 'b_17': np.float64(0.879999999997568), 'x_t': np.float64(0.31847980901197753), 'y_t': np.float64(0.02701015557843469), 'x_c': np.float64(0.42772801400972266), 'y_c': np.float64(0.01932320189174007), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.0005682325470607155), 'r_LE': np.float64(-0.025664754474186754), 'trailing_wedge_angle': np.float64(0.06333992083729073), 'trailing_camberline_angle': np.float64(0.07235988269086556), 'leading_edge_direction': np.float64(0.09193464971585504)}
+        R10_section = {'b_0': np.float64(0.043436799978288414), 'b_2': np.float64(0.21345586161713498), 'b_8': np.float64(0.009453554452440775), 'b_15': np.float64(0.6750000000000098), 'b_17': np.float64(0.7200000001174014), 'x_t': np.float64(0.3189324045059888), 'y_t': np.float64(0.013505077789201183), 'x_c': np.float64(0.38800644116728733), 'y_c': np.float64(0.01932320189174007), 'z_TE': np.float64(0.0), 'dz_TE': np.float64(0.00027960649157178285), 'r_LE': np.float64(-0.03969016947523491), 'trailing_wedge_angle': np.float64(0.031990793322947644), 'trailing_camberline_angle': np.float64(0.07169022917751999), 'leading_edge_direction': np.float64(0.08601042564128364)}
 
     # Construct blading list
-    design_parameters = [[root_section, R01_section, R02_section, R03_section, R04_section, mid_section, R07_section, tip_section]]
+    design_parameters = [[R00_section, R01_section, R02_section, R03_section, R04_section, R05_section, R06_section, R07_section, R08_section, R09_section, R10_section]]
 
     return blading_parameters, design_parameters
 
@@ -251,22 +290,49 @@ def GenerateMTSETGeometry():
     # --------------------
 
     # Data taken from [1]
-    centerbody_x = (np.array([40.5, 36.6, 32.94, 26.75, 25.286, 21.89, 18.494, 17.03, 14.03, 10.98, 7.32, 3.4, 2.196, 0.8, 0.15, 0]) - 3.67) * 2.54 / 100 
-    centerbody_y = np.array([5.5, 5.866, 6.588, 8.15, 8.53, 8.75, 8.53, 8.25, 7.5, 6.4, 5.05, 3.65, 3.0, 2.1, 0.732, 0]) * 2.54 / 100   
+    centerbody_x = np.flip(np.array([40.5, 36.6, 32.94, 26.75, 25.286, 21.89, 18.494, 17.03, 14.03, 10.98, 7.32, 3.4, 2.196, 0.8, 0.15, 0]) - 3.67) * 2.54 / 100 
+    centerbody_y = np.flip(np.array([5.5, 5.866, 6.588, 8.15, 8.53, 8.75, 8.53, 8.25, 7.5, 6.4, 5.05, 3.65, 3.0, 2.1, 0.732, 0]) * 2.54 / 100)
 
-    centerbody_x = (np.array([40.5, 39, 36.6, 32.94, 26.75, 25.286, 21.89, 18.494, 17.03, 14.03, 10.98, 7.32, 3.4, 2.196, 0.8, 0.15, 0]) - 3.67) * 2.54 / 100 
-    centerbody_y = np.array([2.1, 3.3, 4.5, 6.3, 8.15, 8.53, 8.75, 8.53, 8.25, 7.5, 6.4, 5.05, 3.65, 3.0, 2.1, 0.732, 0]) * 2.54 / 100  
-     
-    # centerbody_x = (np.array([40.5, 39, 36.6, 32.94, 26.75, 25.286, 21.89, 18.494, 17.03, 14.03, 10.98, 7.32, 3.4, 2.196, 0.8, 0.15, 0]) - 3.67) * 2.54 / 100 
-    # centerbody_y = np.array([5.9, 5.9, 6.0, 6.3, 8.15, 8.53, 8.75, 8.53, 8.25, 7.5, 6.4, 5.05, 3.65, 3.0, 2.1, 0.732, 0]) * 2.54 / 100   
+    centerbody_x = np.flip(np.array([63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 43, 40, 34, 32, 30, 25, 22, 19, 15, 11, 6.3, 2.3, 0.7, 0.5, 0]) * 2.54 / 100) - 3.67 * 2.54 / 100
+    centerbody_y = np.flip(np.array([1.7, 1.8, 2, 2.2, 2.4, 2.6, 2.8, 3, 3.2, 3.4, 3.6, 3.8, 4, 4.2, 4.4, 4.6, 4.8, 5, 5.2, 5.6, 6.2, 7.1, 7.8, 8.5, 8.7, 8.2, 7.5, 6.5, 5.6, 4.4, 3.3, 1.7, 1.0, 0]) * 2.54 / 100)
 
-    # plt.figure()
-    # plt.title("Centre body geometry")
-    # plt.xlabel('x [m]')
-    # plt.ylabel('y [m]')
-    # plt.plot(centerbody_x, centerbody_y)
-    # plt.plot(centerbody_x, -centerbody_y)
-    # plt.show()
+
+
+    # centerbody_x = np.flip((np.array([40.5, 40.4, 40.3, 40, 39, 36.6, 32.94, 26.75, 25.286, 21.89, 18.494, 17.03, 14.03, 10.98, 7.32, 3.4, 2.196, 0.8, 0.15, 0]) - 3.67) * 2.54 / 100)
+    # centerbody_y = np.flip(np.array([2.1, 2.1, 2.2, 2.3, 3.3, 4.5, 6.3, 8.15, 8.53, 8.75, 8.53, 8.25, 7.5, 6.4, 5.05, 3.65, 3.0, 2.1, 0.732, 0]) * 2.54 / 100)
+    
+    # centerbody_x = np.array([-3.237188708, -3.133349816, -3.055470646, -2.624044772, -2.458397015, -1.537444934, -1.454621055, -0.285197339, 
+    #                          0.795221613, 3.208239684, 4.539602625, 6.202261081, 8.449631394, 10.6104693, 12.44248404, 
+    #                          14.18796638, 15.76903713, 16.35127663, 17.43293176, 19.1784141, 19.34406185, 21.16742336, 
+    #                          21.49871887, 23.07237256, 23.65213971, 24.31473074, 25.88220354, 26.95273308, 27.94043873, 30.41773802, 
+    #                          30.66744583, 31.98768318, 32.15456711, 33.39321676, 35.21163355, 36.12022386, 36.86316641, 38.35152387, 
+    #                          39.09446642, 39.59017351, 40.41717612, 40.45, 40.47, 40.5]) * 2.54 / 100
+    
+    # centerbody_y = np.array([0, 1.245572238, 0.916749078, 2.063427133, 2.062438191, 2.713656388, 2.713161917, 3.362896701, 
+    #                          3.602715095, 4.327114987, 4.729614313, 5.130135755, 5.855524589, 6.335161377, 
+    #                          6.980940394, 7.380967365, 7.86406545, 8.024768498, 8.346669064, 8.746696035, 8.745707093, 8.816910905, 
+    #                          8.814933022, 8.805538074, 8.802076778, 8.798121011, 8.378315203, 7.96147622, 7.545131709, 7.037804549, 
+    #                          7.118403308, 6.782163085, 6.863256316, 6.609592736, 6.352467859, 6.182864335, 6.014249753, 5.841184932, 
+    #                          5.67257035, 5.587521352, 5.500494471, 5.5, 5.5, 5.5]) * 2.54 / 100
+    
+
+    # Perform smoothing interpolation on the centerbody geometry
+    interpolated_centerbody_x = centerbody_x[0] + ((1 - np.cos(np.linspace(0, np.pi, 30))) / 2) * (centerbody_x[-1] - centerbody_x[0])  #  cosine spacing for increased resolution at LE and TE
+    
+
+    interpolated_centerbody_y = interpolate.LSQUnivariateSpline(centerbody_x,
+                                                                centerbody_y,
+                                                                t=np.linspace(centerbody_x[1], centerbody_x[-2], 5),
+                                                                k=3,
+                                                                )(interpolated_centerbody_x)  
+    
+    plt.figure()
+    plt.title("Centre body geometry")
+    plt.xlabel('x [m]')
+    plt.ylabel('y [m]')
+    plt.plot(centerbody_x, centerbody_y)
+    plt.plot(interpolated_centerbody_x, interpolated_centerbody_y)
+    plt.show()
 
     # plt.figure()
     # plt.title("Duct geometry")
@@ -277,13 +343,20 @@ def GenerateMTSETGeometry():
 
     # Transform the data to the correct format
     # Ensures leading edge data point only occurs once to make sure a smooth spline is constructed, in accordance with the MTFLOW documentation. 
-    centerbody_x_complete = np.concatenate((centerbody_x, np.flip(centerbody_x[:-2])), axis=0)
-    centerbody_y_complete = np.concatenate((centerbody_y, np.flip(-centerbody_y[:-2])), axis=0)
+    centerbody_x_complete = np.concatenate((np.flip(interpolated_centerbody_x), interpolated_centerbody_x[:-2]), axis=0)
+    centerbody_y_complete = np.concatenate((np.flip(interpolated_centerbody_y), -interpolated_centerbody_y[:-2]), axis=0)
     xy_centerbody = np.vstack((centerbody_x_complete, centerbody_y_complete)).T
 
-    centerbody_x_0030 = np.array([1.0, 0.97927, 0.94287, 0.89780, 0.84691, 0.79199, 0.73438, 0.67512, 0.61510, 0.55507, 0.49571, 0.43759, 0.38128, 0.32727, 0.27602, 0.22796, 0.18350, 0.14303, 0.10691, 0.07549, 0.04909, 0.02805, 0.01265, 0.00321, 0.00000, 0.00321, 0.01265, 0.02805, 0.04909, 0.07549, 0.10691, 0.14303, 0.18350, 0.22796, 0.27602, 0.32727, 0.38128, 0.43759, 0.49571, 0.55507, 0.61510, 0.67512, 0.73438, 0.79199, 0.84691, 0.89780]) * 1.5 - 3.67 * 2.54 / 100
-    centerbody_y_0030 = np.array([0.012, 0.01359, 0.02619, 0.04373, 0.06264, 0.08165, 0.09963, 0.11559, 0.12882, 0.13889, 0.14564, 0.14912, 0.14951, 0.14726, 0.14280, 0.13637, 0.12799, 0.11788, 0.10592, 0.09190, 0.07771, 0.05785, 0.04416, 0.01940, 0.00000, -0.01940, -0.04416, -0.05785, -0.07771, -0.09190, -0.10592, -0.11788, -0.12799, -0.13637, -0.14280, -0.14726, -0.14951, -0.14912, -0.14564, -0.13889, -0.12882, -0.11559, -0.09963, -0.08165, -0.06264, -0.04373]) * 1.5 
-    #xy_centerbody = np.vstack((centerbody_x_0030, centerbody_y_0030)).T
+
+    # NACA 0030-based centerbody coordinates, scaled and shifted to the correct size/location.
+    # centerbody_x = np.array([1.0, 0.97927, 0.94287, 0.89780, 0.84691, 0.79199, 0.73438, 0.67512, 0.61510, 0.55507, 0.49571, 0.43759, 0.38128, 0.32727, 0.27602, 0.22796, 0.18350, 0.14303, 0.10691, 0.07549, 0.04909, 0.02805, 0.01265, 0.00321, 0.00000, 0.00321, 0.01265, 0.02805, 0.04909, 0.07549, 0.10691, 0.14303, 0.18350, 0.22796, 0.27602, 0.32727, 0.38128, 0.43759, 0.49571, 0.55507, 0.61510, 0.67512, 0.73438, 0.79199, 0.84691, 0.89780]) - 3.67 * 2.54 / 100
+    # centerbody_y = np.array([0.005, 0.01359, 0.02619, 0.04373, 0.06264, 0.08165, 0.09963, 0.11559, 0.12882, 0.13889, 0.14564, 0.14912, 0.14951, 0.14726, 0.14280, 0.13637, 0.12799, 0.11788, 0.10592, 0.09190, 0.07771, 0.05785, 0.04416, 0.01940, 0.00000, -0.01940, -0.04416, -0.05785, -0.07771, -0.09190, -0.10592, -0.11788, -0.12799, -0.13637, -0.14280, -0.14726, -0.14951, -0.14912, -0.14564, -0.13889, -0.12882, -0.11559, -0.09963, -0.08165, -0.06264, -0.04373])  
+    
+    # centerbody_x = (np.array([0.79199, 0.73438, 0.67512, 0.61510, 0.55507, 0.49571, 0.43759, 0.38128, 0.32727, 0.27602, 0.22796, 0.18350, 0.14303, 0.10691, 0.07549, 0.04909, 0.02805, 0.01265, 0.00321, 0.00000, 0.00321, 0.01265, 0.02805, 0.04909, 0.07549, 0.10691, 0.14303, 0.18350, 0.22796, 0.27602, 0.32727, 0.38128, 0.43759, 0.49571, 0.55507, 0.61510, 0.67512, 0.73438, 0.79199, 0.84691, 0.89780]) - 3.67 * 2.54 / 100) * 1.2
+    # centerbody_y = np.array([0.08165, 0.09963, 0.11559, 0.12882, 0.13889, 0.14564, 0.14912, 0.14951, 0.14726, 0.14280, 0.13637, 0.12799, 0.11788, 0.10592, 0.09190, 0.07771, 0.05785, 0.04416, 0.01940, 0.00000, -0.01940, -0.04416, -0.05785, -0.07771, -0.09190, -0.10592, -0.11788, -0.12799, -0.13637, -0.14280, -0.14726, -0.14951, -0.14912, -0.14564, -0.13889, -0.12882, -0.11559, -0.09963, -0.08165, -0.06264, -0.04373]) * 1.33
+
+    # xy_centerbody = np.vstack((centerbody_x, centerbody_y)).T
+    
 
     # --------------------
     # Generate MTSET input file walls.X22A_validation
@@ -301,58 +374,83 @@ def GenerateMTSETGeometry():
                                                                              xy_duct=xy_duct)
 
 
-def RunMTFLOW(oper: dict,
-              Omega: float,
-              ref_blade_angle: float,
-              perform_param: bool = False
-              ):
+def ChangeOMEGA(omega):
     """
-    Execute MTFLOW
-
-    Parameters
-    ----------
-
-    Returns
-    -------
+    Rather than regenerating the tflow.xxx file from scratch, simply change omega 
     """
-    
-    # Create the MTSET geometry and write the input file walls.ANALYSIS_NAME
-    GenerateMTSETGeometry()
 
-    # Construct the MTFLO blading using the provided omega and reference blade angle. 
-    # Perform parameterization can be optionally set to true in case 
-    blading_parameters, design_parameters = GenerateMTFLOBlading(Omega,
-                                                                 ref_blade_angle,
-                                                                 perform_parameterization=perform_param)
+    with open(f"tflow.{ANALYSIS_NAME}", "r") as file:
+        lines = file.readlines()
 
-    GenerateMTFLOInput(blading_parameters,
-                       design_parameters)
+    omega_line = 11
+    updated_omega = f"{omega} \n"
+    lines[omega_line] = updated_omega
 
-    MTFLOW_caller(operating_conditions=oper,
-                  centrebody_params={},
-                  duct_params={},
-                  blading_parameters=blading_parameters,
-                  design_parameters=design_parameters,
-                  ref_length=FAN_DIAMETER,
-                  analysis_name=ANALYSIS_NAME).caller(debug=False,
-                                                      external_inputs=True)
-    
-    CT, CP, etaP = output_processing(ANALYSIS_NAME).GetCTCPEtaP()
-
-    return CT, CP, etaP
+    with open(f"tflow.{ANALYSIS_NAME}", "w") as file:
+        file.writelines(lines)
 
 
 if __name__ == "__main__":
+    # Create the MTSET geometry and write the input file walls.ANALYSIS_NAME
+    GenerateMTSETGeometry()
+
+    # Construct the MTFLO blading using omega=0 and reference blade angle. 
+    # Perform parameterization can be optionally set to true in case different profiles are used compared to the default inputs
+    blading_parameters, design_parameters = GenerateMTFLOBlading(Omega=0,
+                                                                 ref_blade_angle=REFERENCE_BLADE_ANGLE,
+                                                                 perform_parameterization=False)
     
+    # Generate the MTFLO input file
+    GenerateMTFLOInput(blading_parameters,
+                       design_parameters)
+
+    # Change working directory to the submodels folder
+    try:
+        current_dir = os.getcwd()
+        subfolder_path = os.path.join(current_dir, 'Submodels')
+        os.chdir(subfolder_path)
+    except OSError as e:
+        raise OSError from e
+    
+    # Create the grid
+    MTSET_call(analysis_name=ANALYSIS_NAME,
+               #streamwise_points=141
+               ).caller()
+    
+    # Perform analysis for all omega, Mach, and Re combinations defined at the top of the file
     for i in range(len(OMEGA)):
+        # Update the blade parameters to the correct omega 
+        ChangeOMEGA(OMEGA[i])      
+
+        # Create the grid
+        # MTSET_call(analysis_name=ANALYSIS_NAME,
+        #         #streamwise_points=141
+        #         ).caller()
+        
+        # Wait for the grid file to be loaded
+        time.sleep(1)
+
+        #Load in the blade row(s) from MTFLO 
+        MTFLO_call(ANALYSIS_NAME).caller() 
+
+        # wait to ensure blade rows are loaded in
+        time.sleep(1)
+
         # Define operating conditions
         oper = {"Inlet_Mach": inlet_mach[i],
                 "Inlet_Reynolds": reynolds_inlet[i],
                 "N_crit": 9,
                 }
         
-        CT, CP, etaP = RunMTFLOW(oper=oper,
-                                 Omega=OMEGA[i],
-                                 ref_blade_angle=REFERENCE_BLADE_ANGLE,
-                                 perform_param=False)
+        # Execute MTSOL
+        exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)] = MTSOL_call(operating_conditions=oper,
+                                                                                                           analysis_name=ANALYSIS_NAME,
+                                                                                                           ).caller(run_viscous=True,
+                                                                                                                    generate_output=True,
+                                                                                                                    )
+        
+        print(f"MTSOL finished with exit flags: {exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)]}")
+
+        # Collect outputs from the forces.xxx file
+        CT, CP, etaP = output_processing(ANALYSIS_NAME).GetCTCPEtaP()
         print(f"Omega: {OMEGA[i]}, CT: {CT}, CP: {CP}, etaP: {etaP}")

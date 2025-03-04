@@ -620,8 +620,9 @@ class MTSOL_call:
             # Toggle the dissipation coefficient back to the default value
             self.SetDissipationCoeff()
 
-            # Execute initial viscous solve
+            # Execute initial viscous solve and ensure viscous iteration count is correct. 
             exit_flag_visc, iter_count_visc = self.ExecuteSolver()
+            iter_count_visc += iter_count_visc_init
 
             # Handle solver based on exit flag
             self.HandleExitFlag(exit_flag_visc)

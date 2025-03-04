@@ -98,6 +98,7 @@ import numpy as np
 import os
 from scipy import interpolate
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 
 # Handle local versus global execution of the file with imports
@@ -659,7 +660,7 @@ class fileHandling:
                     file.write(str(blading_params[stage]["blade_count"]) + '\n')
                     file.write('END\n \n')
 
-                    # Write the rotational rate in units of omega * L / V
+                    # Write the rotational rate in units of RPS * L / V
                     file.write('OMEGA\n')
                     file.write(str(blading_params[stage]["rotational_rate"]) + '\n')
                     file.write('END\n \n')
@@ -678,7 +679,7 @@ class fileHandling:
                                                                 design_params[stage])
                     
                     # Generate interpolated data to construct the file geometry
-                    # The MTFLO code cannot accept an input file with more than 16x16 points in the streamwise and radial directions
+                    # The MTFLO code cannot accept an input file with more than 16x16 points in the streamwise and radial directions for each stage
                     # Hence n_points=16
                     # The axial points are spaced using a cosine spacing for increased resolution at the LE and TE
                     # The radial points are spaced using constant spacing. 
@@ -688,6 +689,13 @@ class fileHandling:
                                                 max(blading_params[stage]["radial_stations"]), 
                                                 n_points,
                                                 )
+                    
+                    # Uncomment the below lines to generate a plot of each profile section along r.
+                    plt.figure() 
+                    plt.ion()  # Enable code to continue while showing the plot
+                    plt.xlabel("Axial coordinate [m]")
+                    plt.ylabel("Y coordinate [m]")
+                    plt.title(f"Profile distributions along the span for stage {stage}")
 
                     # Loop over the radial points and construct the data for each radial point
                     # Each radial point is defined as a "section" within the input file
@@ -699,34 +707,76 @@ class fileHandling:
                         local_chord = blade_geometry["chord_distribution"](radial_points[i])
                         axial_coordinates = axial_points * local_chord
 
-                        # Compute the geometric blade slope dtheta/dm' in the blade-to-blade plane 
-                        # Camber is denormalised using the local chord length
+                        # Compute circumferential blade thickness distribution at the radial station from the provided interpolant
+                        # To do so, the blade must be reconstructed from the thickness and camber distributions and rotated through the bglade pitch angle. 
+                        # Thickness is denormalised using the local chord length
+                        # Run check to ensure circumferential thickness does NOT exceed the limit of complete blockage.
+                        # If limit is exceeded, raises value error with radial point at which thickness was exceeded. 
+                                                
+                        # Create complete airfoil representation from the camber and thickness distributions
                         camber_distribution = blade_geometry["camber_distribution"]((radial_points[i], axial_points)) * local_chord 
+                        thickness_distribution = blade_geometry["thickness_distribution"]((radial_points[i], axial_points)) * local_chord 
+                        
+                        # Compute the unrotated camber angle in the blade coordinate system (x,y), and use it to construc the unrotated upper and lower surface coordinates
+                        theta_xyz = np.atan(np.gradient(camber_distribution, axial_coordinates))
+                        
+                        upper_x = axial_coordinates - thickness_distribution * np.sin(theta_xyz)
+                        upper_y = camber_distribution + thickness_distribution * np.cos(theta_xyz)
+                        lower_x = axial_coordinates + thickness_distribution * np.sin(theta_xyz)
+                        lower_y = camber_distribution - thickness_distribution * np.cos(theta_xyz)
 
-                        # Rotate the camber distribution to the correct pitch 
-                        # This is done by shifting the data to the half-chord line, and applying a rotation matrix
+                        # Rotate the profile to the correct angle
                         blade_pitch = (blade_geometry["pitch_distribution"](radial_points[i]) + blading_params[stage]["ref_blade_angle"] - blading_params[stage][".75R_blade_angle"])
                         rotation_angle = np.pi / 2 - blade_pitch
-                        #rotation_angle = blade_pitch
-                        shifted_axial_coordinates = axial_coordinates - 0.5 * local_chord
-                        shifted_camber_distribution = camber_distribution - camber_distribution[len(camber_distribution) // 2]
-                        rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
-                                                    [np.sin(rotation_angle), np.cos(rotation_angle)]])
+
+                        # Center x at the mid chord point and perform rotation. Note that this is a counterclockwise rotation to get the profile aligned correctly. 
+                        shifted_upper_x = upper_x - upper_x[-1] / 2
+                        shifted_lower_x = lower_x - lower_x[-1] / 2
+                        rotated_upper_x = shifted_upper_x * np.cos(rotation_angle) - upper_y * np.sin(rotation_angle) + upper_x[-1] / 2
+                        rotated_lower_x = shifted_lower_x * np.cos(rotation_angle) - lower_y * np.sin(rotation_angle) + lower_x[-1] / 2
+                        rotated_upper_y = shifted_upper_x * np.sin(rotation_angle) + upper_y * np.cos(rotation_angle)
+                        rotated_lower_y = shifted_lower_x * np.sin(rotation_angle) + lower_y * np.cos(rotation_angle)
+
+                        # Calculate profile x coordinates from average between upper and lower surface coordinates
+                        # We use these coordinates to create the input file for MTFLO
+                        profile_x_coordinates = (rotated_upper_x + rotated_lower_x) / 2
+
+                        # We need the circumferential thickness at the axial_coordinates, so we interpolate the surfaces
+                        # The SciPy interpolate.interp1d method is cosnidered legacy, but it is the only method I could think of that accepts non-sorted x coordinates. 
+                        # This is important, as rotated_upper_x can have non-sorted coordinates at the leading edge due to the rotation.
+                        interpolated_lower_y = interpolate.interp1d(rotated_lower_x, 
+                                                                    rotated_lower_y, 
+                                                                    fill_value='extrapolate',
+                                                                    kind='cubic')(profile_x_coordinates)
+                        interpolated_upper_y = interpolate.interp1d(rotated_upper_x, 
+                                                                    rotated_upper_y,
+                                                                    fill_value='extrapolate',
+                                                                    kind='cubic')(profile_x_coordinates)
                         
-                        rotated_camber = np.dot(rotation_matrix, np.vstack((shifted_axial_coordinates, shifted_camber_distribution)))
+                        # Finally compute the circumferential blade thickness by subtracting the upper and lower surfaces
+                        circumferential_thickness = (interpolated_upper_y - interpolated_lower_y)                        
+                        
+                        # Uncomment the below lines to generate a plot of the rotated section profiles
+                        # plt.plot(np.concatenate((rotated_upper_x, np.flip(rotated_lower_x)), axis=0), np.concatenate((rotated_upper_y, np.flip(rotated_lower_y)), axis=0), label=f"R={round(radial_points[i], 2)} m")     
+                        # plt.pause(0.1)             
 
-                        # Shift the camber distribution back to the original coordinate system
-                        rotated_axial_coordinates = rotated_camber[0,:] + 0.5 * local_chord
-                        rotated_camber_distribution = rotated_camber[1,:] + camber_distribution[len(camber_distribution) // 2]
+                        # Handle the case at the centerline, where we define the thickness to be zero. 
+                        if radial_points[i] == 0:
+                            circumferential_thickness = np.zeros_like(axial_coordinates)
+                        self.ValidateBladeThickness(max(circumferential_thickness), radial_points[i], blading_params[stage]["blade_count"])
 
-                        # Compute the circumferential angle and local streamsurface radius distributions
-                        rotated_camber_line = np.gradient(rotated_camber_distribution, rotated_axial_coordinates)
-                        camber_angle = np.atan2(rotated_camber_line, rotated_axial_coordinates)
+                        # Compute the geometric blade slope dtheta/dm' in the blade-to-blade plane
+                        # We make use of the fact that the theta-m'coordinate system is angle preserving.
+                        # First compute the rotated camber distribution of the blade section in the cartesian plane. 
+                        rotated_camber_distribution = (rotated_upper_y + rotated_lower_y) / 2
+                        camber_gradient = np.gradient(rotated_camber_distribution, profile_x_coordinates)
+                        camber_angle = np.atan2(camber_gradient, profile_x_coordinates)
 
                         if radial_points[i] != 0:
                             theta = np.atan2(camber_angle, radial_points[i])
+                            theta = np.atan2(radial_points[i], camber_angle)
                         else:
-                            theta = np.zeros_like(camber_distribution)
+                            theta = np.atan2(camber_angle, radial_points[1])
 
                         r = np.sqrt(camber_angle ** 2 + radial_points[i] ** 2)
                         
@@ -736,27 +786,23 @@ class fileHandling:
                             if j != 0 and not np.all(r == 0):
                                 # Initial coordinate m_prime[0] is arbitrary, and merely shifts the profile to the origin
                                 # Use trapezoidal integration to compute the m_prime coordinates
-                                m_prime[j] = m_prime[j - 1] + 2 / (r[j] + r[j - 1]) * np.sqrt((r[j] - r[j-1]) ** 2 + (rotated_axial_coordinates[j] - rotated_axial_coordinates[j - 1]) ** 2)
+                                m_prime[j] = m_prime[j - 1] + 2 / (r[j] + r[j - 1]) * np.sqrt((r[j] - r[j-1]) ** 2 + (profile_x_coordinates[j] - profile_x_coordinates[j - 1]) ** 2)
                             if j != 0 and np.any(r == 0):
                                 # If r = 0 (i.e. at the centerline, with no camber _and_ zero pitch), we define m_prime to simply equal the axial coordinates, to avoid division by zero
-                                m_prime = rotated_axial_coordinates                     
+                                m_prime = profile_x_coordinates                 
 
-                        # Compute the blade slope distribution, defined as dtheta/dm'. Use a second order scheme at the domain edges for improved accuracy.
-                        blade_slope_distribution = np.gradient(theta, m_prime, edge_order=2)
- 
+                        # Compute the blade slope distribution, defined as dtheta/dm'. 
+                        # Use a second order scheme at the domain edges for improved accuracy in case a cambered profile if used, otherwise use a first order scheme
+                        if camber_gradient[0] == camber_gradient[1] and camber_gradient[-1] == camber_gradient[-2]:
+                            blade_slope_distribution = np.gradient(theta, m_prime, edge_order=1)  # For a non-cambered profile, a second order scheme induces errors at the domain boundaries, so use a 1st order scheme
+                        else:
+                            blade_slope_distribution = np.gradient(theta, m_prime, edge_order=2)
+
+                        plt.plot(m_prime, np.degrees(np.atan(blade_slope_distribution)))
+                        plt.pause(0.1)
+
                         # Compute the local sweep (i.e. LE offset) at the radial station from the provided interpolant
                         sweep = blade_geometry["sweep_distribution"](radial_points[i]) 
-
-                        # Compute circumferential blade thickness distribution at the radial station from the provided interpolant
-                        # Thickness is denormalised using the local chord length
-                        # Run check to ensure circumferential thickness does NOT exceed the limit of complete blockage.
-                        # If limit is exceeded, raises value error with radial point at which thickness was exceeded. 
-                        profile_thickness = blade_geometry["thickness_distribution"]((radial_points[i], axial_points)) * local_chord * 2  # Multiplied by 2 since the thickness distribution gives the half thickness of the profile
-                        circumferential_thickness = profile_thickness * np.sin(blade_pitch)
-
-                        if radial_points[i] == 0:
-                            circumferential_thickness = np.zeros_like(profile_thickness)
-                        self.ValidateBladeThickness(max(circumferential_thickness), radial_points[i], blading_params[stage]["blade_count"])
                            
                         # Compute the entropy distribution at the radial station from the provided interpolant
                         # Entropy is denormalised using the local chord length
@@ -767,7 +813,7 @@ class fileHandling:
                         # Data is non-dimensionalised through the multiplier row in the DATYPE section.
                         for j in range(n_points):  
                             # Write data to row
-                            row = np.array([(axial_coordinates[j] + sweep) / self.ref_length,
+                            row = np.array([(profile_x_coordinates[j] + sweep) / self.ref_length,
                                             radial_points[i] / self.ref_length,
                                             circumferential_thickness[j] / self.ref_length,
                                             blade_slope_distribution[j],
@@ -778,6 +824,10 @@ class fileHandling:
                             file.write('    '.join(map(str, row)) + '\n')
                         # End the radial section
                         file.write('END\n')
+                        plt.legend(loc='upper left', bbox_to_anchor=(1,1))
+                        plt.tight_layout()
+                    
+                    #plt.show()  
                     # End the stage 
                     file.write('\nEND\n \n')
                 # End the input file
