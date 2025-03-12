@@ -346,7 +346,7 @@ class output_visualisation:
 
             # Plot interior streamlines
             for i, df in enumerate(blocks):
-                if i < (len(blocks) / 2 - 3):
+                if (df["Vtheta/Uinf"].abs() > 0).any():
                     plt.plot(df['x'], df[param], label=f'Streamline {i + 1}')
             
             # Set grid and minor ticks 
@@ -359,9 +359,9 @@ class output_visualisation:
             plt.xlabel('Axial coordinate $x/L_{ref}$ [-]')
             plt.ylabel(f'{param} [-]')
 
-            # Plot interior streamlines
+            # Plot exterior streamlines
             for i, df in enumerate(blocks):
-                if i > (len(blocks) / 2 - 3):
+                if not (df["Vtheta/Uinf"].abs() > 0).any():
                     plt.plot(df['x'], df[param], label=f'Streamline {i + 1}')
             
             # Set grid and minor ticks 
