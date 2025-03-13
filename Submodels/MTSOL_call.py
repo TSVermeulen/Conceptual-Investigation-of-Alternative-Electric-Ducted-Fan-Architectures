@@ -57,6 +57,7 @@ import glob
 import re
 from enum import Enum
 from pathlib import Path
+import time
 
 
 class ExitFlag(Enum):
@@ -504,7 +505,6 @@ class MTSOL_call:
 
         # Create subfolder to put all output files into if the folder doesn't already exist
         dump_folder = Path("MTSOL_output_files")
-
         os.makedirs(dump_folder, 
                     exist_ok=True)
 
@@ -513,6 +513,11 @@ class MTSOL_call:
 
         # Keep looping until iter_count exceeds the target value for number of iterations to average 
         while iter_counter <= self.SAMPLE_SIZE:
+            
+            # Delete the forces.analysisname file if it exists already
+            if os.path.exists(f"forces.{self.analysis_name}"):
+                os.remove(f"forces.{self.analysis_name}")
+
             #Execute iteration
             self.process.stdin.write("x 1 \n")
             self.process.stdin.flush()
@@ -525,10 +530,14 @@ class MTSOL_call:
 
             # Rename file to indicate the iteration number, and avoid overwriting the same file. 
             # Also move the file to the output folder
+            # Waits for the file to exist before copying.
+            while not os.path.exists(f"forces.{self.analysis_name}"):
+                time.sleep(0.1)  # wait for 100ms before checking if the file exists again
+
             os.replace(f"forces.{self.analysis_name}", dump_folder / f'forces.{self.analysis_name}.{iter_counter}')
 
             # Increase iteration counter by step size
-            iter_counter += self.ITER_STEP_SIZE
+            iter_counter += 1
 
         # Average the data from all the iterations to obtain the assumed true values. This effectively assumes that the iterations are oscillating about the true value.
         # This is a simplification, but it is the best we can do in this case.
@@ -612,20 +621,21 @@ class MTSOL_call:
             self.ToggleViscous()
 
             # Execute initial viscous solve
-            exit_flag_visc_init, iter_count_visc_init = self.ExecuteSolver()
-
-            # Handle solver based on exit flag
-            self.HandleExitFlag(exit_flag_visc_init)
-
-            # Toggle the dissipation coefficient back to the default value
-            self.SetDissipationCoeff()
-
-            # Execute initial viscous solve and ensure viscous iteration count is correct. 
             exit_flag_visc, iter_count_visc = self.ExecuteSolver()
-            iter_count_visc += iter_count_visc_init
 
             # Handle solver based on exit flag
             self.HandleExitFlag(exit_flag_visc)
+
+            # Below code would run a second viscous analysis. 
+            # # Toggle the dissipation coefficient back to the default value
+            # self.SetDissipationCoeff()
+
+            # # Execute initial viscous solve and ensure viscous iteration count is correct. 
+            # exit_flag_viscf, iter_count_viscf = self.ExecuteSolver()
+            # iter_count_visc += iter_count_viscf
+
+            # # Handle solver based on exit flag
+            # self.HandleExitFlag(exit_flag_visc)
 
         if generate_output:
             # Generate the solver output
