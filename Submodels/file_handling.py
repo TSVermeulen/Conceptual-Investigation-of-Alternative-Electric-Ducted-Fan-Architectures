@@ -669,7 +669,7 @@ class fileHandling:
                     # Write the data types to be provided for the stage
                     file.write('DATYPE \n')
                     file.write('x    r    T    Sr\n')  # Use the x,r coordinates, together with thickness and blade slope
-                    multipliers = [1 / self.ref_length, 1 / self.ref_length, 1 / self.ref_length, 1.]  # Add multipliers for each data type
+                    multipliers = [1, 1, 1, 1]  # Add multipliers for each data type
                     additions = [0., 0., 0., 0.]  # Add additions for each data type
                     file.write('*' + '    '.join(map(str, multipliers)) + '\n')
                     file.write('+' + '    '.join(map(str, additions)) + '\n')
@@ -685,16 +685,17 @@ class fileHandling:
                     # The axial points are spaced using a cosine spacing for increased resolution at the LE and TE
                     # The radial points are spaced using constant spacing. 
                     # Routine assumed at least 120 chord-wise points were used to construct the initial input curves from which the interpolants were constructed
-                    n_points = 16
+                    n_points_axial = 16
+                    n_points_radial = 16
                     n_data = 120
                     axial_points = (1 - np.cos(np.linspace(0, np.pi, n_data))) / 2
                     radial_points = np.linspace(blading_params[stage]["radial_stations"][0], 
                                                 blading_params[stage]["radial_stations"][-1], 
-                                                n_points,
+                                                n_points_radial,
                                                 )
                     
                     # Uncomment the below lines to generate a plot of each profile section along r.
-                    plt.figure() 
+                    plt.figure(1) 
                     plt.xlabel("Axial coordinate [m]")
                     plt.ylabel("Y coordinate [m]")
                     plt.title(f"Profile distributions along the span for stage {stage}")
@@ -726,7 +727,7 @@ class fileHandling:
 
                         # Rotate the profile to the correct angle
                         blade_pitch = (blade_geometry["pitch_distribution"](radial_points[i]) + blading_params[stage]["ref_blade_angle"] - blading_params[stage][".75R_blade_angle"])
-                        rotation_angle = -np.pi / 2 + blade_pitch
+                        rotation_angle = np.pi / 2 - blade_pitch
 
                         rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
                                                     [np.sin(rotation_angle), np.cos(rotation_angle)]])
@@ -751,8 +752,12 @@ class fileHandling:
                         if rotation_angle > 0:
                             # For a counter-clockwise rotation, the coordinates of the upper surface need to be shifted to the lower surface. 
                             # Shift the coordinates around to construct the correct upper and lower distributions
-                            rotated_upper_x = rotated_upper_x - np.min(rotated_upper_x)
                             rotated_lower_x = rotated_lower_x - np.min(rotated_upper_x)
+                            rotated_upper_x = rotated_upper_x - np.min(rotated_upper_x)
+
+                            plt.plot(rotated_upper_x, rotated_upper_y, label=f"R={round(radial_points[i], 2)} m")
+                            plt.plot(rotated_lower_x, rotated_lower_y, label=f"R={round(radial_points[i], 2)} m")
+                            plt.show()
 
                             idx_minx = np.where(rotated_upper_x == np.min(rotated_upper_x))[0][0]
                             rotated_upper_x_reconstructed = rotated_upper_x[idx_minx:]
@@ -794,19 +799,19 @@ class fileHandling:
                         circumferential_thickness = radial_points[i] * thickness_angle
 
                         # Define the sampling indices
-                        sampled_indices = np.linspace(0, len(profile_x_coordinates) - 1, n_points, dtype=int)
+                        sampled_indices = np.linspace(0, len(profile_x_coordinates) - 1, n_points_axial, dtype=int)
 
                         # Uncomment the below lines to generate a plot of the rotated section profiles
-                        # plt.title("Rotated profile sections")
-                        # plt.plot(np.concatenate((profile_x_coordinates, np.flip(profile_x_coordinates)), axis=0), np.concatenate((rotated_upper_y_reconstructed, np.flip(rotated_lower_y_reconstructed)), axis=0), label=f"R={round(radial_points[i], 2)} m")
+                        plt.figure(2)
+                        plt.title("Rotated profile sections")
+                        plt.plot(np.concatenate((profile_x_coordinates, np.flip(profile_x_coordinates)), axis=0), np.concatenate((rotated_upper_y_reconstructed, np.flip(rotated_lower_y_reconstructed)), axis=0), label=f"R={round(radial_points[i], 2)} m")
                         # plt.pause(0.1) 
                         # plt.show()
-                         
+                        plt.figure(1)
                         # Uncomment the below lines to generate a plot of the circumferential blade thickness
-                        plt.ylabel("Circumferential Blade Thickness $T_\\theta$ [m]")
-                        plt.plot(profile_x_coordinates, circumferential_thickness, label=f"R={round(radial_points[i], 2)} m")
-                        plt.plot(profile_x_coordinates, thickness, "-.")
-                        plt.pause(0.1)
+                        # plt.ylabel("Circumferential Blade Thickness $T_\\theta$ [m]")
+                        # plt.plot(profile_x_coordinates, circumferential_thickness, label=f"R={round(radial_points[i], 2)} m")
+                        # plt.pause(0.1)
                         # plt.show()
 
                         # Handle the case at the centerline, where we define the thickness to be zero. 
@@ -821,7 +826,7 @@ class fileHandling:
                         rotated_camber_distribution_x = (rotated_lower_x + rotated_upper_x) / 2                      
 
                         # Compute the sampling indices for the blade slope
-                        camber_sampling_indices = np.linspace(0, len(rotated_camber_distribution) - 1, n_points, dtype=int)
+                        camber_sampling_indices = np.linspace(0, len(rotated_camber_distribution) - 1, n_points_axial, dtype=int)
 
                         # Compute the circumferential angle theta
                         theta = np.atan2(rotated_camber_distribution, radial_points[i])
@@ -850,10 +855,10 @@ class fileHandling:
                         blade_slope = np.gradient(theta, m_prime, edge_order=2)
 
                         # Uncomment the below lines to generate a plot of the blade slope dtheta/dm' with respect to m'
-                        # plt.ylabel("Camberline blade slope $\\frac{d \\theta}{dm'}$ [-]")
-                        # plt.xlabel("Normalised meridional coordinate $m'$ [-]")
-                        # plt.plot(m_prime, blade_slope, label=f"R={round(radial_points[i], 2)} m")
-                        # plt.pause(0.1)
+                        plt.ylabel("Camberline blade slope $\\frac{d \\theta}{dm'}$ [-]")
+                        plt.xlabel("Normalised meridional coordinate $m'$ [-]")
+                        plt.plot(m_prime, blade_slope, label=f"R={round(radial_points[i], 2)} m")
+                        plt.pause(0.1)
                         # plt.show()
                         
                         # Compute the local leading edge offset at the radial station from the provided intrpolant
@@ -861,12 +866,12 @@ class fileHandling:
                            
                         # Loop over the streamwise points and construct the data for each streamwise point
                         # Each data point consists of the data [x, r, T, sRel]
-                        # Data is non-dimensionalised through the multiplier row in the DATYPE section at the start of this function.
-                        for j in range(n_points):  
+                        # Data is non-dimensionalised through the reference length.
+                        for j in range(n_points_axial):  
                             # Write data to row
-                            row = np.array([round((profile_x_coordinates[sampled_indices][j] + LE_coordinate), 5),
-                                            round(radial_points[i], 5),
-                                            round(circumferential_thickness[sampled_indices][j], 5),
+                            row = np.array([round((profile_x_coordinates[sampled_indices][j] + LE_coordinate) / self.ref_length, 5),
+                                            round(radial_points[i] / self.ref_length, 5),
+                                            round(circumferential_thickness[sampled_indices][j] / self.ref_length, 5),
                                             round(blade_slope[camber_sampling_indices][j], 5),
                                             ])
                             
