@@ -187,7 +187,6 @@ class AirfoilParameterization:
         """
 
         camber_gradient = np.gradient(y, x)
-        
 
         return np.arctan(camber_gradient)
     
@@ -220,20 +219,40 @@ class AirfoilParameterization:
          
 
         # Find index of LE coordinate and compute the camber and thickness distributions. 
-        #If number of coordinate points is even, use the middle of the array as the LE coordinate
-        if len(reference_coordinates[:,0]) % 2 == 0:  
-            self.idx_LE = len(reference_coordinates[:,0]) // 2
-        else:  # LE coordinate index must be the index for x,y = 0,0.
-            self.idx_LE = (np.abs(reference_coordinates[:,0] - 0)).argmin() 
+        # LE coordinate index must be the index for x = 0.
+        self.idx_LE = (np.abs(reference_coordinates[:,0] - 0)).argmin() 
 
-        # Calculate camber x & y, and slope of the camber line
-        x_camber = (np.flip(reference_coordinates[:self.idx_LE + 1, 0]) + reference_coordinates[self.idx_LE:, 0]) / 2
-        y_camber = (np.flip(reference_coordinates[:self.idx_LE + 1, 1]) + reference_coordinates[self.idx_LE:, 1]) / 2
-        theta = self.GetCamberAngleDistribution(x_camber,
-                                                y_camber)  # Calculate gradient of camber
+        if len(reference_coordinates[:self.idx_LE + 1, 0]) > len(reference_coordinates[self.idx_LE:, 0]):
+            # If there are more upper coordinates than lower coordinates
+            lower_coords = reference_coordinates[self.idx_LE:, 1] - np.flip(reference_coordinates[:self.idx_LE + 1, 1])[0]  # Also shift the lower coordinates to zero if they are not already at 0
+            x_camber = reference_coordinates[self.idx_LE:, 0]
+            upper_coords = interpolate.make_splrep(x=np.flip(reference_coordinates[:self.idx_LE + 1, 0]),
+                                                   y=np.flip(reference_coordinates[:self.idx_LE + 1, 1]),
+                                                   k=3,
+                                                   s=0)(x_camber) - np.flip(reference_coordinates[:self.idx_LE + 1, 1])[0]
+            
+        elif len(reference_coordinates[:self.idx_LE + 1, 0]) < len(reference_coordinates[self.idx_LE:, 0]):
+            # If there are more lower coordinates than upper coordinates
+            upper_coords = np.flip(reference_coordinates[:self.idx_LE + 1, 1]) - reference_coordinates[self.idx_LE:, 1][0]  # Also shift the upper coordinates to zero if they are not already at 0
+            x_camber = np.flip(reference_coordinates[:self.idx_LE + 1, 0])
+            lower_coords = interpolate.make_splrep(x=reference_coordinates[self.idx_LE:, 0],
+                                                   y=reference_coordinates[self.idx_LE:, 1],
+                                                   k=3,
+                                                   s=0)(x_camber) - reference_coordinates[self.idx_LE:, 1][0]
+        else:
+            # If there are an equal number of upper and lower surface coordinates
+            upper_coords = np.flip(reference_coordinates[:self.idx_LE + 1, 1]) - np.flip(reference_coordinates[:self.idx_LE + 1, 1])[0]  # Also shift the upper coordinates to zero if they are not already at 0
+            lower_coords = reference_coordinates[self.idx_LE:, 1] - np.flip(reference_coordinates[:self.idx_LE + 1, 1])[0]
+            x_camber = (np.flip(reference_coordinates[:self.idx_LE + 1, 0]) + reference_coordinates[self.idx_LE:, 0]) / 2
         
+        # Calculate camber
+        y_camber = (upper_coords + lower_coords) / 2
+
+        theta = self.GetCamberAngleDistribution(x_camber,
+                                                y_camber)  # Calculate gradient of camber angle
+            
         # Calculate thickness distribution
-        y_thickness = (np.flip(reference_coordinates[:self.idx_LE + 1, 1]) - reference_coordinates[self.idx_LE:, 1]) / (2 * np.cos(theta))    
+        y_thickness = (upper_coords - lower_coords) / (2 * np.cos(theta))  
 
         # Calculate x-coordinates of thickness distribution
         x_upper = x_camber - y_thickness * np.sin(theta)
@@ -317,7 +336,7 @@ class AirfoilParameterization:
         leading_edge_direction = np.atan(self.camber_gradient_distribution[0])
         trailing_wedge_angle = np.atan(-1 * self.thickness_gradient_distribution[-1])  # Multiply gradient by -1 to comply with sign convention
         trailing_camberline_angle = np.atan(-1 * self.camber_gradient_distribution[-1])  # Multiply gradient by -1 to comply with sign convention
-
+        
         # Return output dictionary
         return {
             "x_t": x_t,
@@ -818,11 +837,13 @@ class AirfoilParameterization:
         reference_thickness = interpolate.interp1d(self.x_points_thickness,
                                                    self.thickness_distribution,
                                                    kind='cubic',
-                                                   fill_value=(self.thickness_distribution[0], self.thickness_distribution[-1]))(bezier_thickness_x)
+                                                   fill_value=(self.thickness_distribution[0], self.thickness_distribution[-1]),
+                                                   bounds_error=False)(bezier_thickness_x)
         reference_camber = interpolate.interp1d(self.x_points_camber,
                                                 self.camber_distribution,
                                                 kind='cubic',
-                                                fill_value=(self.camber_distribution[0], self.camber_distribution[-1]))(bezier_camber_x)
+                                                fill_value=(self.camber_distribution[0], self.camber_distribution[-1]),
+                                                bounds_error=False)(bezier_camber_x)
         
         # Calculate the squared fit errors of the thickness and camber distributions and sum them to obtain the objective function
         squared_fit_error_camber = np.sum((bezier_camber - reference_camber) ** 2)
@@ -865,7 +886,7 @@ class AirfoilParameterization:
                 A scipy.optimize.bounds instance of the bounds for the optimization problem. 
             """
 
-            return optimize.Bounds(0.95, 1.05, keep_feasible=True)
+            return optimize.Bounds(0.95, 1.05)
 
         # Load in the reference profile shape and obtain the relevant parameters
         self.GetReferenceThicknessCamber(reference_file)
@@ -888,14 +909,6 @@ class AirfoilParameterization:
                                              self.airfoil_params["trailing_camberline_angle"],
                                              self.airfoil_params["leading_edge_direction"],
                                              ])
-        
-        # Define nonlinear constraint for the leading edge direction:
-        def leading_edge_direction_constraint(x):
-            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
-            if x[14] != 0:
-                return x[14] - np.arctan(8 * x[8] / (7 * x[7]))
-            else:
-                return x[14]
 
         # Define nonlinear constraint for b8
         def b8_constraint(x):
@@ -932,18 +945,34 @@ class AirfoilParameterization:
                 return 1 - (3 * x[7] - x[8] / np.tan(x[14])) / 2
             else:
                 return x[14]
+            
+        # Define constraint for contrl point 3 x-coordinate of TE camber curve
+        def constraint_7_lower(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            if x[14] != 0:
+                return (-8 * x[8] / np.tan(x[14]) + 13 * x[7]) / 6 - x[7]
+            else:
+                return x[14]
+        
+        def constraint_7_upper(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            if x[14] != 0:
+                return 1 - (-8 * x[8] / np.tan(x[14]) + 13 * x[7]) / 6
+            else:
+                return x[14]
                 
-        cons = [{'type': 'ineq', 'fun': leading_edge_direction_constraint},
-                {'type': 'ineq', 'fun': b8_constraint},
+        cons = [{'type': 'ineq', 'fun': b8_constraint},
                 {'type': 'ineq', 'fun': x1_constraint_lower_thickness},
                 {'type': 'ineq', 'fun': x1_constraint_upper_thickness},
                 {'type': 'ineq', 'fun': x2_constraint_lower_thickness},
                 {'type': 'ineq', 'fun': x2_constraint_upper_thickness},
                 {'type': 'ineq', 'fun': constraint_6_lower},
-                {'type': 'ineq', 'fun': constraint_6_upper}]
+                {'type': 'ineq', 'fun': constraint_6_upper},
+                {'type': 'ineq', 'fun': constraint_7_lower},
+                {'type': 'ineq', 'fun': constraint_7_upper}]
         
         optimized_coefficients = optimize.minimize(self.Objective,
-                                 np.ones(15),
+                                 np.ones_like(self.guess_design_vector),
                                  method="SLSQP",
                                  bounds=GetBounds(),
                                  constraints=cons,

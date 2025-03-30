@@ -755,10 +755,6 @@ class fileHandling:
                             rotated_lower_x = rotated_lower_x - np.min(rotated_upper_x)
                             rotated_upper_x = rotated_upper_x - np.min(rotated_upper_x)
 
-                            plt.plot(rotated_upper_x, rotated_upper_y, label=f"R={round(radial_points[i], 2)} m")
-                            plt.plot(rotated_lower_x, rotated_lower_y, label=f"R={round(radial_points[i], 2)} m")
-                            plt.show()
-
                             idx_minx = np.where(rotated_upper_x == np.min(rotated_upper_x))[0][0]
                             rotated_upper_x_reconstructed = rotated_upper_x[idx_minx:]
                             rotated_upper_y_reconstructed = rotated_upper_y[idx_minx:]
@@ -837,7 +833,6 @@ class fileHandling:
                         # plt.pause(0.1)
                         # plt.show()
                         
-
                         # Compute the radius of the meridional plane
                         # Divide the local radius by local chord to have a consistent normalised set of data. 
                         r = np.sqrt(np.square(rotated_camber_distribution) + np.square(radial_points[i]))
@@ -860,6 +855,12 @@ class fileHandling:
                         plt.plot(m_prime, blade_slope, label=f"R={round(radial_points[i], 2)} m")
                         plt.pause(0.1)
                         # plt.show()
+
+                        plt.figure(3)
+                        plt.ylabel("Blade angle $\\beta$ [deg]")
+                        plt.xlabel("Normalised meridional coordinate $m'$ [-]")
+                        plt.plot(m_prime, np.degrees(np.atan(blade_slope)), label=f"R={round(radial_points[i], 2)} m")
+                        plt.pause(0.1)
                         
                         # Compute the local leading edge offset at the radial station from the provided intrpolant
                         LE_coordinate = blade_geometry["leading_edge_distribution"](radial_points[i]) 

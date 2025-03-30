@@ -543,7 +543,7 @@ if __name__ == "__main__":
     # Example usage for the output_visualisation class
     test = output_visualisation(analysis_name='x22a_validation')
 
-    create_individual_plots = False
+    create_individual_plots = True
     test.PlotOutputs(plot_individual=create_individual_plots)
 
     # Example usage for the output_processing class 
