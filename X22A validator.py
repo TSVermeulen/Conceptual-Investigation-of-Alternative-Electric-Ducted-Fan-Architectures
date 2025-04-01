@@ -53,7 +53,7 @@ def GenerateMTFLOBlading(Omega: float,
     """
 
     # Start defining the MTFLO blading inputs
-    blading_parameters = [{"root_LE_coordinate": 0.1495672948767407, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, ".75R_blade_angle": np.deg2rad(20), "blade_count": 3, "radial_stations": np.array([0.15, 
+    propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, ".75R_blade_angle": np.deg2rad(20), "blade_count": 3, "radial_stations": np.array([0.15, 
                                                                                                                                                                                                                       0.2,
                                                                                                                                                                                                                       0.3, 
                                                                                                                                                                                                                       0.4,
@@ -82,15 +82,38 @@ def GenerateMTFLOBlading(Omega: float,
                                                                                                                                                                                                              np.deg2rad(22.3),
                                                                                                                                                                                                              np.deg2rad(19.1),
                                                                                                                                                                                                              np.deg2rad(16.8),
-                                                                                                                                                                                                             np.deg2rad(15.5)])}]
+                                                                                                                                                                                                             np.deg2rad(15.5)])}
+    
+    horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, "rotational_rate": 0, "ref_blade_angle": 0, ".75R_blade_angle": 0, "blade_count": 4, "radial_stations": np.array([0.08, 
+                                                                                                                                                                                    1]) * 1.1049, 
+                                                                                                                                                                                    "chord_length": np.array([0.57658,
+                                                                                                                                                                                                              0.14224]), 
+                                                                                                                                                                                    "blade_angle": np.array([np.deg2rad(90),
+                                                                                                                                                                                                             np.deg2rad(90)]),
+                                                                                                                                                                                    "sweep_angle": np.array([0,
+                                                                                                                                                                                                             0])}
+    
+    diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, "rotational_rate": 0, "ref_blade_angle": 0, ".75R_blade_angle": 0, "blade_count": 2, "radial_stations": np.array([0.08, 
+                                                                                                                                                                                    1]) * 1.1049, 
+                                                                                                                                                                                    "chord_length": np.array([0.10287,
+                                                                                                                                                                                                              0.10287]), 
+                                                                                                                                                                                    "blade_angle": np.array([np.deg2rad(90),
+                                                                                                                                                                                                             np.deg2rad(90)]),
+                                                                                                                                                                                    "sweep_angle": np.array([0,
+                                                                                                                                                                                                             0])}
+    
+    blading_parameters = [propeller_parameters,
+                          horizontal_strut_parameters,
+                          diagonal_strut_parameters]
+
     # Define the sweep angles
     # Note that this is approximate, since the rotation of the chord line is not completely accurate when rotating a complete profile
     sweep_angle = np.zeros_like(blading_parameters[0]["chord_length"])
-    root_blade_angle = (np.deg2rad(68.18) + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0][".75R_blade_angle"])
+    root_blade_angle = (np.deg2rad(53.6) + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0][".75R_blade_angle"])
     root_rotation_angle = np.pi / 2 - root_blade_angle
 
     root_LE = blading_parameters[0]["root_LE_coordinate"] # The location of the root LE is arbitrary for computing the sweep angles.
-    root_mid_chord = root_LE + (0.4226 / 2) * np.cos(root_rotation_angle)
+    root_mid_chord = root_LE + (0.3510 / 2) * np.cos(root_rotation_angle)
     for i in range(len(blading_parameters[0]["chord_length"])):
         blade_angle = (blading_parameters[0]["blade_angle"][i] + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0][".75R_blade_angle"])
         rotation_angle = np.pi / 2 - blade_angle
@@ -139,6 +162,8 @@ def GenerateMTFLOBlading(Omega: float,
     R08_fpath = local_dir_path / 'X22_08R.dat'
     R09_fpath = local_dir_path / 'X22_09R.dat'
     R10_fpath = local_dir_path / 'X22_10R.dat'
+    Hstrut_fpath = local_dir_path / 'Hstrut.dat'
+    Dstrut_fpath = local_dir_path / 'Dstrut.dat'
 
     # Compute parameterization for the airfoil section at r=0.2R
     # Note that we keep this section constant for r=0.1R and r=0.15R and equal to that of r=0.2R
@@ -179,9 +204,20 @@ def GenerateMTFLOBlading(Omega: float,
     R10_section = AirfoilParameterization().FindInitialParameterization(reference_file=R10_fpath,
                                                             plot=False)
     # print(R10_section)
+    # Compute parameterization for the horizontal & power struts
+    # Note that the power struts are technically incorrect, but are taken equal to the horizontal struts for simplicyt
+    Hstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Hstrut_fpath,
+                                                            plot=False)
+    # print(Hstrut_section)
+    # Compute parameterization for the diagonal struts
+    Dstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Dstrut_fpath,
+                                                            plot=False)
+    # print(Dstrut_section)
 
     # Construct blading list
-    design_parameters = [[R015_section, R02_section, R03_section, R04_section, R05_section, R06_section, R07_section, R08_section, R09_section, R10_section]]
+    design_parameters = [[R015_section, R02_section, R03_section, R04_section, R05_section, R06_section, R07_section, R08_section, R09_section, R10_section],
+                         [Hstrut_section, Hstrut_section],
+                         [Dstrut_section, Dstrut_section]]
 
     return blading_parameters, design_parameters
 
@@ -333,7 +369,6 @@ def ExecuteParameterSweep(OMEGA: np.ndarray[float],
                           inlet_mach: np.ndarray[float],
                           reynolds_inlet: np.ndarray[float],
                           reference_angle: float,
-                          perform_param: bool = False,
                           ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Perform a parameter sweep over a range of OMEGA, inlet Mach numbers, and Reynolds numbers.
@@ -346,8 +381,6 @@ def ExecuteParameterSweep(OMEGA: np.ndarray[float],
         Array of inlet Mach numbers.
     - reynolds_inlet : np.ndarray[float]
         Array of inlet Reynolds numbers.
-    - perform_param : bool, Optional
-        Optional boolean. Controls if airfoil sections must be parameterized based on input files or if default parameterizations are used. If True, uses the files in the Validation subfolder. 
 
     Returns
     -------
@@ -395,7 +428,7 @@ def ExecuteParameterSweep(OMEGA: np.ndarray[float],
 
         # Create the grid
         MTSET_call(analysis_name=ANALYSIS_NAME,
-                   streamwise_points=200
+                   streamwise_points=300
                    ).caller()
         
         # Wait for the grid file to be loaded
@@ -443,12 +476,12 @@ if __name__ == "__main__":
     REFERENCE_BLADE_ANGLE = np.array([np.deg2rad(29), np.deg2rad(19)])  # radians, converted from degrees
     ANALYSIS_NAME = "X22A_validation"  # Analysis name for MTFLOW
     ALTITUDE = 0  # m
-    FAN_DIAMETER = 84.7 * 2.54 / 100  # m, taken from [3] and converted to meters from inches
+    FAN_DIAMETER = 7 * 0.3048  # m, taken from [3] and converted to meters from feet
 
-    L_REF = FAN_DIAMETER / 2   # m, reference length for use by MTFLOW
+    L_REF = FAN_DIAMETER    # m, reference length for use by MTFLOW
 
     # Advance ratio range to be used for the validation, together with freestream velocity.
-    J = np.flip(np.array([0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65]))  # -
+    J = np.flip(np.array([0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]))  # -
     FREESTREAM_VELOCITY = np.ones_like(J) * 28  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered. 
 
     # Compute the rotational speed of the rotor in rotations per second
@@ -456,14 +489,14 @@ if __name__ == "__main__":
     print(f"RPM (Should be between 1200-2590 RPM) [-]: {RPS * 60}")
 
     # Use the calculated rotational speed to obtain the non-dimensional Omega used as input into MTFLOW
-    OMEGA = -(RPS * 2 * np.pi) * L_REF / FREESTREAM_VELOCITY
+    OMEGA = (RPS) * L_REF / FREESTREAM_VELOCITY
     print(f"Omega [-]: {OMEGA}")
 
     # Construct atmosphere object to obtain the atmospheric properties at the cruise altitude
     # These properties can then be used to compute the inlet mach number and reynolds number
     atmosphere = Atmosphere(ALTITUDE)
     inlet_mach = (FREESTREAM_VELOCITY / atmosphere.speed_of_sound)
-    print(f"Mach [-]: {inlet_mach}")
+    print(f"Mach [-]: {inlet_mach}") 
     reynolds_inlet = (FREESTREAM_VELOCITY * L_REF / (atmosphere.kinematic_viscosity))
     print(f"Reynolds [-]: {reynolds_inlet}")
 
@@ -476,8 +509,7 @@ if __name__ == "__main__":
         CT_out, CP_out, eta_out = ExecuteParameterSweep(OMEGA=OMEGA,
                                                         inlet_mach=inlet_mach,
                                                         reynolds_inlet=reynolds_inlet,
-                                                        reference_angle=REFERENCE_BLADE_ANGLE[i],
-                                                        perform_param=True)
+                                                        reference_angle=REFERENCE_BLADE_ANGLE[i])
         
         key = f"beta_75 = {REFERENCE_BLADE_ANGLE[i]}"
         CT[key] = CT_out
