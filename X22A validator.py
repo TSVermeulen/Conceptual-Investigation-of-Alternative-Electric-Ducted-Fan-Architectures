@@ -53,7 +53,7 @@ def GenerateMTFLOBlading(Omega: float,
     """
 
     # Start defining the MTFLO blading inputs
-    propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, ".75R_blade_angle": np.deg2rad(20), "blade_count": 3, "radial_stations": np.array([0.15, 
+    propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, ".75R_blade_angle": np.deg2rad(20), "blade_count": 3, "radial_stations": np.array([0.1, 
                                                                                                                                                                                                                       0.2,
                                                                                                                                                                                                                       0.3, 
                                                                                                                                                                                                                       0.4,
@@ -169,7 +169,6 @@ def GenerateMTFLOBlading(Omega: float,
     # Note that we keep this section constant for r=0.1R and r=0.15R and equal to that of r=0.2R
     R01_section = AirfoilParameterization().FindInitialParameterization(reference_file=R02_fpath,
                                                             plot=False)
-    R015_section = R01_section
     R02_section = R01_section
     # print(R02_section)
     # Compute parameterization for the airfoil section at r=0.3R
@@ -215,7 +214,7 @@ def GenerateMTFLOBlading(Omega: float,
     # print(Dstrut_section)
 
     # Construct blading list
-    design_parameters = [[R015_section, R02_section, R03_section, R04_section, R05_section, R06_section, R07_section, R08_section, R09_section, R10_section],
+    design_parameters = [[R01_section, R02_section, R03_section, R04_section, R05_section, R06_section, R07_section, R08_section, R09_section, R10_section],
                          [Hstrut_section, Hstrut_section],
                          [Dstrut_section, Dstrut_section]]
 
@@ -428,7 +427,7 @@ def ExecuteParameterSweep(OMEGA: np.ndarray[float],
 
         # Create the grid
         MTSET_call(analysis_name=ANALYSIS_NAME,
-                   streamwise_points=300
+                   streamwise_points=200
                    ).caller()
         
         # Wait for the grid file to be loaded
@@ -478,7 +477,7 @@ if __name__ == "__main__":
     ALTITUDE = 0  # m
     FAN_DIAMETER = 7 * 0.3048  # m, taken from [3] and converted to meters from feet
 
-    L_REF = FAN_DIAMETER    # m, reference length for use by MTFLOW
+    L_REF = FAN_DIAMETER  # m, reference length for use by MTFLOW
 
     # Advance ratio range to be used for the validation, together with freestream velocity.
     J = np.flip(np.array([0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]))  # -
@@ -489,7 +488,7 @@ if __name__ == "__main__":
     print(f"RPM (Should be between 1200-2590 RPM) [-]: {RPS * 60}")
 
     # Use the calculated rotational speed to obtain the non-dimensional Omega used as input into MTFLOW
-    OMEGA = (RPS) * L_REF / FREESTREAM_VELOCITY
+    OMEGA = -(RPS * 2 * np.pi) * L_REF / FREESTREAM_VELOCITY
     print(f"Omega [-]: {OMEGA}")
 
     # Construct atmosphere object to obtain the atmospheric properties at the cruise altitude
@@ -504,6 +503,7 @@ if __name__ == "__main__":
     CT = {}
     CP = {}
     etaP = {}
+
     for i in range(len(REFERENCE_BLADE_ANGLE)):
         print(f"Analysing beta_{75}={round(np.rad2deg(REFERENCE_BLADE_ANGLE[i]), 2)} deg")
         CT_out, CP_out, eta_out = ExecuteParameterSweep(OMEGA=OMEGA,

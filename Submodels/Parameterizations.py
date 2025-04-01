@@ -552,7 +552,7 @@ class AirfoilParameterization:
     def GenerateBezierUVectors(self,
                                ) -> tuple[np.ndarray[float], np.ndarray[float]]:
         """
-        Create u-vectors for Bezier curve generation. Uses 100 points for the leading and trailing edges.
+        Create u-vectors for Bezier curve generation. Uses 200 points for the leading and trailing edges.
 
         Returns
         -------
@@ -563,8 +563,8 @@ class AirfoilParameterization:
         """
 
         # Create u-vectors for Bezier curve generation
-        # Use 100 points
-        n_points = 100
+        # Use 200 points
+        n_points = 200
         u_leading_edge = np.zeros(n_points)
         u_trailing_edge = np.zeros(n_points)
 

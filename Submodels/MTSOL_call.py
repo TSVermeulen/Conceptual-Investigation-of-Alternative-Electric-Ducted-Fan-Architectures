@@ -55,9 +55,35 @@ import os
 import shutil
 import glob
 import re
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 from enum import Enum
 from pathlib import Path
 import time
+
+class FileCreatedHandling(FileSystemEventHandler):
+    """ 
+    Simple class to handle checking if forces.analysis_name file has been generated. 
+    """
+
+    def __init__(self, 
+                 file_path: str, 
+                 destination: str) -> None:
+        self.file_path = file_path
+        self.destination = destination
+
+    def on_created(self, event):
+        """ Handle copying of the forces.analysis_name output file."""
+        global file_processed
+        if event.src_path == self.file_path:
+            shutil.copy(self.file_path, self.destination)
+            os.remove(self.file_path)
+            print(f"Generated {self.destination}")
+            file_processed = True
+            raise SystemExit
+        
+    def on_modified(self, event):
+        self.on_created(event)
 
 
 class ExitFlag(Enum):
@@ -508,16 +534,27 @@ class MTSOL_call:
         os.makedirs(dump_folder, 
                     exist_ok=True)
 
+        # Delete the forces.analysisname file if it exists already
+        if os.path.exists(f"forces.{self.analysis_name}"):
+            os.remove(f"forces.{self.analysis_name}")
+
         # Initialize iteration counter
         iter_counter = 0
 
+        # Initialize watchdog to check when output file has been created
+        event_handler = FileCreatedHandling('forces.{self.analysis_name}',
+                                            dump_folder / f'forces.{self.analysis_name}.{iter_counter}'
+                                            )
+        file_processed = False
+        observer = Observer()
+        observer.schedule(event_handler,
+                          path=os.getcwd(),
+                          recursive=False,
+                          )   
+        observer.start()
+    
         # Keep looping until iter_count exceeds the target value for number of iterations to average 
         while iter_counter <= self.SAMPLE_SIZE:
-            
-            # Delete the forces.analysisname file if it exists already
-            if os.path.exists(f"forces.{self.analysis_name}"):
-                os.remove(f"forces.{self.analysis_name}")
-
             #Execute iteration
             self.process.stdin.write("x 1 \n")
             self.process.stdin.flush()
@@ -531,13 +568,17 @@ class MTSOL_call:
             # Rename file to indicate the iteration number, and avoid overwriting the same file. 
             # Also move the file to the output folder
             # Waits for the file to exist before copying.
-            while not os.path.exists(f"forces.{self.analysis_name}"):
-                time.sleep(0.1)  # wait for 100ms before checking if the file exists again
+            while not file_processed:
+                time.sleep(0.1)
 
-            os.replace(f"forces.{self.analysis_name}", dump_folder / f'forces.{self.analysis_name}.{iter_counter}')
+            file_processed = False
 
             # Increase iteration counter by step size
             iter_counter += 1
+
+        # Wrap up the watchdog
+        observer.stop()
+        observer.join()
 
         # Average the data from all the iterations to obtain the assumed true values. This effectively assumes that the iterations are oscillating about the true value.
         # This is a simplification, but it is the best we can do in this case.

@@ -179,10 +179,10 @@ class MTSET_call:
         # Set the number of streamwise points 
         self.process.stdin.write(f"n {self.streamwise_points}\n")
 
-        # Increase number of streamlines internal to the ducted fan and increase the number of streamlines focussed towards the centerbody.
-        self.process.stdin.write("w1 0.75\n")
+        # Change the streamline spacing to decrease the spacing at the centerbody
+        self.process.stdin.write("w1 0.7\n")
         self.process.stdin.write('t1 0.05\n')
-        self.process.stdin.write('w2 0.25\n')
+        self.process.stdin.write('w2 0.3\n')
 
         # Toggle quasi-normal lines fixed in x (This is only used when there is no duct, i.e. an open rotor/propeller. 
         # When there is a duct present, this option is disabled, so the input has no effect)
