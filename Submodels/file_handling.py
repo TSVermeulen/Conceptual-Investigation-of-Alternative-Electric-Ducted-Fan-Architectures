@@ -862,7 +862,8 @@ class fileHandling:
             spline = interpolate.make_splrep(m_prime,
                                              theta,
                                              k=3,
-                                             s=1E-7)
+                                             #s=1E-7)
+                                             s=0)  # Do not use smoothing
                                              
             blade_slope = spline(m_prime,
                                  nu=1)

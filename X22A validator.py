@@ -427,7 +427,7 @@ def ExecuteParameterSweep(OMEGA: np.ndarray[float],
 
         # Create the grid
         MTSET_call(analysis_name=ANALYSIS_NAME,
-                   streamwise_points=200
+                   streamwise_points=400,
                    ).caller()
         
         # Wait for the grid file to be loaded
@@ -446,19 +446,25 @@ def ExecuteParameterSweep(OMEGA: np.ndarray[float],
                 }
         
         # Execute MTSOL
-        exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)] = MTSOL_call(operating_conditions=oper,
-                                                                                                           analysis_name=ANALYSIS_NAME,
-                                                                                                           ).caller(run_viscous=True,
-                                                                                                                    generate_output=True,
-                                                                                                                    )
+        try:
+            exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)] = MTSOL_call(operating_conditions=oper,
+                                                                                                            analysis_name=ANALYSIS_NAME,
+                                                                                                            ).caller(run_viscous=True,
+                                                                                                                        generate_output=True,
+                                                                                                                        )
+            
+            # Wait to ensure outpit files have been loaded in
+            time.sleep(1)
+
+            # Collect outputs from the forces.xxx file
+            CT, CP, etaP = output_processing(ANALYSIS_NAME).GetCTCPEtaP()
+            print(f"Omega: {OMEGA[i]}, CT: {CT}, CP: {CP}, etaP: {etaP}")
+        except OSError as e:
+            print("Error occurred, setting values to zero")
+            CT = 0
+            CP = 0 
+            etaP = 1
         
-        # Wait to ensure outpit files have been loaded in
-        time.sleep(1)
-
-        # Collect outputs from the forces.xxx file
-        CT, CP, etaP = output_processing(ANALYSIS_NAME).GetCTCPEtaP()
-        print(f"Omega: {OMEGA[i]}, CT: {CT}, CP: {CP}, etaP: {etaP}")
-
         CT_outputs[i] = CT
         CP_outputs[i] = CP 
         EtaP_outputs[i] = etaP
@@ -481,7 +487,7 @@ if __name__ == "__main__":
 
     # Advance ratio range to be used for the validation, together with freestream velocity.
     J = np.flip(np.array([0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]))  # -
-    FREESTREAM_VELOCITY = np.ones_like(J) * 28  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered. 
+    FREESTREAM_VELOCITY = np.ones_like(J) * 26  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered. 
 
     # Compute the rotational speed of the rotor in rotations per second
     RPS = FREESTREAM_VELOCITY / (J * FAN_DIAMETER)  # Hz
@@ -505,11 +511,11 @@ if __name__ == "__main__":
     etaP = {}
 
     for i in range(len(REFERENCE_BLADE_ANGLE)):
-        print(f"Analysing beta_{75}={round(np.rad2deg(REFERENCE_BLADE_ANGLE[i]), 2)} deg")
+        print(f"Analysing beta_{75}={round(np.rad2deg(np.flip(REFERENCE_BLADE_ANGLE)[i]), 2)} deg")
         CT_out, CP_out, eta_out = ExecuteParameterSweep(OMEGA=OMEGA,
                                                         inlet_mach=inlet_mach,
                                                         reynolds_inlet=reynolds_inlet,
-                                                        reference_angle=REFERENCE_BLADE_ANGLE[i])
+                                                        reference_angle=np.flip(REFERENCE_BLADE_ANGLE)[i])
         
         key = f"beta_75 = {REFERENCE_BLADE_ANGLE[i]}"
         CT[key] = CT_out
