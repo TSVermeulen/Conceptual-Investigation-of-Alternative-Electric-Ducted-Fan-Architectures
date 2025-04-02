@@ -248,9 +248,61 @@ class output_visualisation:
         return shapes
     
 
+    def ReadBlades(self,
+                   ) -> list:
+        """
+        Read the blade geometries from the tflow.analysis_name file.
+
+        Returns
+        -------
+        - 
+        """
+
+        tflow_fpath = self.local_dir / f"tflow.{self.analysis_name}"
+        try:
+            with open(tflow_fpath, 'r') as file:
+                lines = file.readlines()
+        except IOError as e:
+            raise IOError(f"Failed to read the tflow file: {e}") from e
+
+        # Count the number of stages
+        num_stages = sum(1 for line in lines if line.strip() == "STAGE")
+        stages_outlines = []
+
+        current_outline = []
+        in_section = False
+
+        for line in lines:
+            if line.strip() == "STAGE":
+                if current_outline:
+                    stages_outlines.append(np.array(current_outline))
+                current_outline = []
+                in_section = False
+            elif line.strip() == "SECTION":
+                in_section = True
+            elif line.strip() == "END":
+                in_section = False
+                if current_outline:
+                    stages_outlines.append(np.array(current_outline))
+                    current_outline = []
+            elif in_section:
+                points = [float(x) for x in line.split()]
+                # Extract only the leading (first) and trailing (last) points
+                if not current_outline:
+                    current_outline.append(points[:2])  # Leading point
+                current_outline.append(points[:2])  # Trailing point
+
+        # Append the last outline if any
+        if current_outline:
+            stages_outlines.append(np.array(current_outline))
+
+        return stages_outlines
+    
+
     def CreateContours(self,
                        df: pd.DataFrame,
                        shapes: list[np.ndarray[float]],
+                       blades = list,
                        figsize: tuple[float, float] = (6.4, 4.8),
                        cmap: str = 'viridis',
                        ) -> None:
@@ -264,6 +316,8 @@ class output_visualisation:
             The dataframe of the complete flowfield.
         - shapes : list[np.ndarray[float]]
             A nested list with the coordinates of all the axisymmetric bodies.
+        - blades : list
+            A nested list with the coordinates of the outlines of the rotor/stator blades in the domain. 
         - figsize : tuple[float, float], optional
             A tuple with the figure size. Default value corresponds to the internal default of matplotlib.pyplot. 
         - cmap : str, optional
@@ -290,6 +344,9 @@ class output_visualisation:
 
             for shape in shapes:
                 plt.fill(shape[:,0], shape[:,1], 'dimgrey')
+            
+            for blade in blades:
+                plt.plot(blade[:,0], blade[:,1], 'k-.')
 
             plt.xlabel('Axial coordinate $x/L_{ref}$ [-]')
             plt.ylabel('Radial coordinate $r/L_{ref}$ [-]')
@@ -449,8 +506,11 @@ class output_visualisation:
         # Read in the axi-symmetric geometry
         bodies = self.ReadGeometry()
 
+        # Read in the blade outlines
+        blades = self.ReadBlades()
+
         # Create contour plots from the flowfield
-        self.CreateContours(df, bodies)
+        self.CreateContours(df, bodies, blades)
 
         # Create the streamline plots
         self.CreateStreamlinePlots(blocks,
