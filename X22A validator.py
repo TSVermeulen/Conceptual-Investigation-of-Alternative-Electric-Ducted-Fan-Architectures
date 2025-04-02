@@ -152,7 +152,7 @@ def GenerateMTFLOBlading(Omega: float,
     plt.show()
 
     # Obtain the parameterizations for the profile sections. 
-    local_dir_path = Path('Validation')
+    local_dir_path = Path('Validation/Profiles')
     R02_fpath = local_dir_path / 'X22_02R.dat'
     R03_fpath = local_dir_path / 'X22_03R.dat'
     R04_fpath = local_dir_path / 'X22_04R.dat'
