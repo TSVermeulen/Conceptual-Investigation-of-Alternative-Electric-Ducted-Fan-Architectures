@@ -87,6 +87,7 @@ class FileCreatedHandling(FileSystemEventHandler):
             os.remove(self.file_path)
             file_processed = True
         
+        
     def on_modified(self, event):
         self.on_created(event)
 
