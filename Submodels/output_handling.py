@@ -66,14 +66,20 @@ class output_visualisation:
     - ReadGeometry(self) -> list[np.ndarray]
         Reads the geometry data from the walls.analysis_name file and returns it as a list of numpy arrays for each axisymmetric body.
     
-    - CreateContours(self, df: pd.DataFrame, shapes: list) -> None
-        Creates contour plots for each parameter in the flowfield data and overlays the axisymmetric body shapes.
+    - ReadBlades(self) -> list[np.ndarray[float]]
+        Reads the blade geometries from the tflow.analysis_name file and returns them as a list of numpy arrays for each blade row.
+    
+    - CreateContours(self, df: pd.DataFrame, shapes: list[np.ndarray[float]], blades: list[np.ndarray[float]], figsize: tuple[float, float] = (6.4, 4.8), cmap: str = 'viridis') -> None
+        Creates contour plots for each parameter in the flowfield data and overlays the axisymmetric body shapes and blade outlines.
     
     - CreateStreamlinePlots(self, blocks: list[pd.DataFrame], plot_individual_streamlines: bool = False) -> None
         Creates streamline plots for each parameter in the flowfield data, with options to plot individual streamlines.
     
     - CreateBoundaryLayerPlots(self, blocks: list[pd.DataFrame]) -> None
         Creates plots for each boundary layer quantity for the axisymmetric surfaces.
+    
+    - PlotOutputs(self, plot_individual: bool = False) -> None
+        Generates all output plots for the analysis, including flowfield contours, streamline plots, and boundary layer plots (if applicable).
     """
 
     # Define the columns from the flowfield file
@@ -117,9 +123,10 @@ class output_visualisation:
         # Validate if the required files exist
         self.flowfield_path = self.local_dir / f"flowfield.{self.analysis_name}"
         self.walls_path = self.local_dir / f"walls.{self.analysis_name}"
+        self.tflow_path = self.local_dir / f"tflow.{self.analysis_name}"
 
-        if not os.path.exists(self.flowfield_path) or not os.path.exists(self.walls_path):
-            raise FileNotFoundError(f"One of the required files flowfield.{self.analysis_name} or walls.{self.analysis_name} was not found.")
+        if not os.path.exists(self.flowfield_path) or not os.path.exists(self.walls_path) or not os.path.exists(self.tflow_path):
+            raise FileNotFoundError(f"One of the required files flowfield.{self.analysis_name}, walls.{self.analysis_name}, or tflow.{self.analysis_name} was not found.")
 
         # Check if the boundary layer file exists, and if so, set viscous_exists to True
         boundary_layer_path = self.local_dir / f"boundary_layer.{self.analysis_name}"
@@ -151,7 +158,7 @@ class output_visualisation:
             with open(flowfield_path, 'r') as file:
                 data = file.read()
         except IOError as e:
-            raise IOError(f"Failred to read the flowfield data: {e}") from e
+            raise IOError(f"Failed to read the flowfield data: {e}") from e
         
         # Split the data into blocks for each streamline 
         blocks = data.strip().split('\n\n')
@@ -527,6 +534,14 @@ class output_visualisation:
 class output_processing:
     """
     A class responsible for post-processing MTFLOW output data.
+
+    Methods
+    -------
+    - __init__(self, analysis_name: str = None)
+        Initializes the output_processing class with the given analysis name and validates the existence of required files.
+
+    - GetCTCPEtaP(self) -> tuple[float, float, float]
+        Reads the forces.analysis_name file and extracts the thrust coefficient (CT), power coefficient (CP), and propulsive efficiency (EtaP).
     """
 
     def __init__(self,
@@ -556,8 +571,7 @@ class output_processing:
             raise FileNotFoundError(f"The required file forces.{self.analysis_name} was not found.")
         
 
-    def GetCTCPEtaP(self,
-                ) -> tuple[float, float, float]:
+    def GetCTCPEtaP(self) -> tuple[float, float, float]:
         """
         Read the forces.analysis_name file and return the thrust and power coefficients with the propulsive efficiency.
 

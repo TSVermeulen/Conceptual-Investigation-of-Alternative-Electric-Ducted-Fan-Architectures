@@ -522,7 +522,7 @@ class fileHandling:
                 Dictionary containing the blading parameters for the blade. The dictionary should include the following keys:
                     - "rotational_rate": The rotational rate of the blade.
                     - "blade_count": Integer of the number of blades.
-                    - ".75R_blade_angle": The blade angle at 75% of the blade span. This is used as the value on which the other blade angles are computed. 
+                    - "reference_section_blade_angle": The blade angle at the reference section of the blade span. This is used as the value on which the other blade angles are computed. 
                     - "ref_blade_angle": The set angle of the blades. 
                     - "radial_stations": Numpy array of the radial stations along the blade span.
                     - "chord_length": Numpy array of the chord length distribution along the blade span.
@@ -935,7 +935,7 @@ class fileHandling:
                 - "blade_count": The number of blades.
                 - "radial_stations": Numpy array of the radial stations along the blade span.
                 - "ref_blade_angle": The set angle of the blades.
-                - ".75R_blade_angle": The blade angle at 75% of the blade span. This is used as the value on which the other blade angles are computed.
+                - "reference_section_blade_angle": The blade angle at the reference section of the blade span. This is used as the value on which the other blade angles are computed.
                 - "chord_length": Numpy array of the chord length distribution along the blade span.
                 - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
                 - "blade_angle": Numpy array of the twist angle distribution along the blade span.
@@ -1034,7 +1034,7 @@ class fileHandling:
 
                         # Rotate the airfoil profile to the correct angle
                         # The blade pitch is defined with respect to the blade pitch angle at the reference radial station, and thus is corrected accordingly. 
-                        blade_pitch = (blade_geometry["pitch_distribution"](radial_points[i]) + blading_params[stage]["ref_blade_angle"] - blading_params[stage][".75R_blade_angle"])
+                        blade_pitch = (blade_geometry["pitch_distribution"](radial_points[i]) + blading_params[stage]["ref_blade_angle"] - blading_params[stage]["reference_section_blade_angle"])
                         rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y  = self.RotateProfile(blade_pitch,
                                                                                                                  upper_x,
                                                                                                                  lower_x,
@@ -1134,8 +1134,8 @@ if __name__ == "__main__":
 
     # Perform test generation of tflow.xxx file using dummy inputs
     # Creates an input file using 2 stages, a rotor and a stator
-    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 1., "ref_blade_angle": np.deg2rad(19), ".75R_blade_angle": np.deg2rad(34), "blade_count": 18, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "blade_angle": [np.pi / 3, np.pi / 3]},
-                          {"root_LE_coordinate": 1., "rotational_rate": 0., "ref_blade_angle": np.deg2rad(19), ".75R_blade_angle": np.deg2rad(34), "blade_count": 10, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "blade_angle": [np.pi / 3, np.pi/8]}]
+    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 1., "ref_blade_angle": np.deg2rad(19), "reference_section_blade_angle": np.deg2rad(34), "blade_count": 18, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "blade_angle": [np.pi / 3, np.pi / 3]},
+                          {"root_LE_coordinate": 1., "rotational_rate": 0., "ref_blade_angle": np.deg2rad(19), "reference_section_blade_angle": np.deg2rad(34), "blade_count": 10, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "blade_angle": [np.pi / 3, np.pi/8]}]
     design_parameters = [[n2415_coeff, n2415_coeff],
                          [n2415_coeff, n2415_coeff]]
     

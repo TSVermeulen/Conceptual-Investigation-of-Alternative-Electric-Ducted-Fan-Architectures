@@ -34,6 +34,14 @@ from Submodels.MTSET_call import MTSET_call
 from Submodels.MTFLO_call import MTFLO_call
 
 
+# First we define some constants and the operating conditions which will be analysed
+REFERENCE_BLADE_ANGLE = np.array([np.deg2rad(19), np.deg2rad(29)])  # radians, converted from degrees
+ANALYSIS_NAME = "X22A_validation"  # Analysis name for MTFLOW
+ALTITUDE = 0  # m
+FAN_DIAMETER = 7 * 0.3048  # m, taken from [3] and converted to meters from feet
+L_REF = FAN_DIAMETER  # m, reference length for use by MTFLOW
+
+
 def GenerateMTFLOBlading(Omega: float,                        
                          ref_blade_angle: float,
                          plot : bool,
@@ -60,7 +68,7 @@ def GenerateMTFLOBlading(Omega: float,
     """
 
     # Start defining the MTFLO blading inputs
-    propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, ".75R_blade_angle": np.deg2rad(20), "blade_count": 3, "radial_stations": np.array([0.1, 
+    propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, "reference_section_blade_angle": np.deg2rad(20), "blade_count": 3, "radial_stations": np.array([0.1, 
                                                                                                                                                                                                                       0.2,
                                                                                                                                                                                                                       0.3, 
                                                                                                                                                                                                                       0.4,
@@ -91,7 +99,7 @@ def GenerateMTFLOBlading(Omega: float,
                                                                                                                                                                                                              np.deg2rad(16.8),
                                                                                                                                                                                                              np.deg2rad(15.5)])}
     
-    horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, "rotational_rate": 0, "ref_blade_angle": 0, ".75R_blade_angle": 0, "blade_count": 4, "radial_stations": np.array([0.08, 
+    horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 4, "radial_stations": np.array([0.08, 
                                                                                                                                                                                     1]) * 1.1049, 
                                                                                                                                                                                     "chord_length": np.array([0.57658,
                                                                                                                                                                                                               0.14224]), 
@@ -100,7 +108,7 @@ def GenerateMTFLOBlading(Omega: float,
                                                                                                                                                                                     "sweep_angle": np.array([0,
                                                                                                                                                                                                              0])}
     
-    diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, "rotational_rate": 0, "ref_blade_angle": 0, ".75R_blade_angle": 0, "blade_count": 2, "radial_stations": np.array([0.08, 
+    diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 2, "radial_stations": np.array([0.08, 
                                                                                                                                                                                     1]) * 1.1049, 
                                                                                                                                                                                     "chord_length": np.array([0.10287,
                                                                                                                                                                                                               0.10287]), 
@@ -117,13 +125,13 @@ def GenerateMTFLOBlading(Omega: float,
     # Define the sweep angles
     # Note that this is approximate, since the rotation of the chord line is not completely accurate when rotating a complete profile
     sweep_angle = np.zeros_like(blading_parameters[0]["chord_length"])
-    root_blade_angle = (np.deg2rad(53.6) + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0][".75R_blade_angle"])
+    root_blade_angle = (np.deg2rad(53.6) + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0]["reference_section_blade_angle"])
     root_rotation_angle = np.pi / 2 - root_blade_angle
 
     root_LE = blading_parameters[0]["root_LE_coordinate"] # The location of the root LE is arbitrary for computing the sweep angles.
     root_mid_chord = root_LE + (0.3510 / 2) * np.cos(root_rotation_angle)
     for i in range(len(blading_parameters[0]["chord_length"])):
-        blade_angle = (blading_parameters[0]["blade_angle"][i] + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0][".75R_blade_angle"])
+        blade_angle = (blading_parameters[0]["blade_angle"][i] + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0]["reference_section_blade_angle"])
         rotation_angle = np.pi / 2 - blade_angle
 
         # Compute sweep such that the midchord line is constant.
@@ -139,7 +147,7 @@ def GenerateMTFLOBlading(Omega: float,
         x_mid_arr = np.zeros_like(x_LE_arr)
 
         for section in range(len(blading_parameters[0]["radial_stations"])):
-            rotation_angle = np.pi/2 - (blading_parameters[0]["blade_angle"][section] + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0][".75R_blade_angle"])
+            rotation_angle = np.pi/2 - (blading_parameters[0]["blade_angle"][section] + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0]["reference_section_blade_anglee"])
             x_LE = root_LE + blading_parameters[0]["radial_stations"][section] * np.tan(blading_parameters[0]["sweep_angle"][section])
             
             x_TE = x_LE + blading_parameters[0]["chord_length"][section] * np.cos(rotation_angle)
@@ -384,6 +392,7 @@ def ExecuteParameterSweep(omega: np.ndarray[float],
                           reynolds_inlet: np.ndarray[float],
                           reference_angle: float,
                           generate_plots: bool = False,
+                          streamwise_points: int = 400,
                           ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Perform a parameter sweep over a range of OMEGA, inlet Mach numbers, and Reynolds numbers.
@@ -400,6 +409,8 @@ def ExecuteParameterSweep(omega: np.ndarray[float],
         The set angle of the propeller blade
     - generate_plots : bool, optional
         If true, generates plots of the input geometry and rotor input data. Default is False.
+    - streamwise_points : int, optional
+        Number of streamwise points for the grid generation. Default is 400.
 
     Returns
     -------
@@ -441,7 +452,7 @@ def ExecuteParameterSweep(omega: np.ndarray[float],
     for i in range(len(omega)):
         # Create the grid
         MTSET_call(analysis_name=ANALYSIS_NAME,
-                streamwise_points=400,
+                streamwise_points=streamwise_points,
                 ).caller()
         
         # Update the blade parameters to the correct omega 
@@ -478,14 +489,6 @@ def ExecuteParameterSweep(omega: np.ndarray[float],
 
 
 if __name__ == "__main__":
-    # First we define some constants and the operating conditions which will be analysed
-    REFERENCE_BLADE_ANGLE = np.array([np.deg2rad(19), np.deg2rad(29)])  # radians, converted from degrees
-    ANALYSIS_NAME = "X22A_validation"  # Analysis name for MTFLOW
-    ALTITUDE = 0  # m
-    FAN_DIAMETER = 7 * 0.3048  # m, taken from [3] and converted to meters from feet
-
-    L_REF = FAN_DIAMETER  # m, reference length for use by MTFLOW
-
     # Advance ratio range to be used for the validation, together with freestream velocity.
     J = np.array([0.65, 0.6, 0.55, 0.5, 0.45])  # -
     FREESTREAM_VELOCITY = np.ones_like(J) * 35  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered. 
@@ -512,11 +515,11 @@ if __name__ == "__main__":
     print(f"Dynamic pressure (Should be < 106 psf) [psf]: {dyn_press}")
 
     # Initialize output dictionaries and perform parameter sweep. 
-    nrow = len(J)
+    nrows = len(J)
     ncols = len(REFERENCE_BLADE_ANGLE)
-    CT = np.zeros((nrow, ncols))
-    CP = np.zeros((nrow, ncols))
-    etaP = np.zeros((nrow, ncols))
+    CT = np.zeros((ncols, nrows))
+    CP = np.zeros((ncols, nrows))
+    etaP = np.zeros((ncols, nrows))
 
     for i in range(len(REFERENCE_BLADE_ANGLE)):
         print(f"Analysing beta_{75}={round(np.rad2deg(REFERENCE_BLADE_ANGLE[i]), 2)} deg")
@@ -524,7 +527,8 @@ if __name__ == "__main__":
                                                         inlet_mach=inlet_mach,
                                                         reynolds_inlet=reynolds_inlet,
                                                         reference_angle=REFERENCE_BLADE_ANGLE[i],
-                                                        generate_plots=False)
+                                                        generate_plots=False,
+                                                        streamwise_points=200)
         
         # Store the outputs in the arrays
         CT[i] = CT_out
@@ -535,9 +539,9 @@ if __name__ == "__main__":
     plt.figure("Thrust coefficients")
     for i in range(len(REFERENCE_BLADE_ANGLE)):
         plt.figure("Thrust coefficients")
-        plt.plot(J, CT[i], label=F"$\\beta_(75%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
+        plt.plot(J, CT[i], label=f"$\\beta_(75%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
         plt.figure("Power coefficients")
-        plt.plot(J, CP[i], label=F"$\\beta_(75%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
+        plt.plot(J, CP[i], label=f"$\\beta_(75%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
     
     plt.figure("Thrust coefficients")
     plt.grid(which='both')

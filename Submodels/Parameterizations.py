@@ -794,8 +794,7 @@ class AirfoilParameterization:
         Parameters
         ----------
         x : list[float]
-            List of normalised design variables [b_0, b_2, b_8, b_15, b_17, x_t, y_t, x_c, y_c, r_LE, trailing_wedge_angle, trailing_camberline_angle, leading_edge_direction].
-            These are denormalised using the guess design vector given by self.guess_design_vector. 
+            List of normalised design variables, which are denormalised using the guess design vector given by self.guess_design_vector. 
 
         Returns
         -------
@@ -888,7 +887,10 @@ class AirfoilParameterization:
                 A scipy.optimize.bounds instance of the bounds for the optimization problem. 
             """
 
-            return optimize.Bounds(0.95, 1.05)
+            upper_bounds = np.full_like(self.guess_design_vector, 1.05)
+            lower_bounds = np.full_like(self.guess_design_vector, 0.95)
+
+            return optimize.Bounds(lower_bounds, upper_bounds)
 
         # Load in the reference profile shape and obtain the relevant parameters
         self.GetReferenceThicknessCamber(reference_file)
