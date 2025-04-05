@@ -77,12 +77,15 @@ https://web.mit.edu/drela/Public/web/mises/mises.pdf
 The required input data, limitations, and structures are documented within the MTFLOW user manual:
 https://web.mit.edu/drela/Public/web/mtflow/mtflow.pdf
 
+The blade coordinate transformation, and order of calculations, is based on the implementation found in the BladeX module:
+https://github.com/mathLab/BladeX 
+
 Versioning
 ----------
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.2.1
+Version: 1.3
 Date [dd-mm-yyyy]: 20-02-2025
 
 Changelog
@@ -92,12 +95,14 @@ Changelog
 - V1.1.5: Fixed import logic of the Parameterizations module to handle local versus global file execution. 
 - V1.2.0: Updated class initialization logic and function inputs to enable existing geometry inputs for debugging/validation
 - V1.2.1: Fixed duplicate leading edge coordinate in fileHandling.fileHandlingMTSET.GetProfileCoordinates(). Implemented nondimensionalisation of geometric parameters for both MTSET and MTFLO input files. 
+- V1.3: Significant reworks to help solve bugs and issues found in validation against the X22A ducted propeller case. Added the grid size as optional input in fileHandlingMTSET. Code now automatically determines degree of bivariate interpolants based on number of radial stations provided in input data. Factorized the GenerateMTFLOInput function. Fixed transformation from planar to cylindrical coordinate system based on the implementation found in the BladeX module. Fixed implementation of circumferential blade thickness and blade slope. 
 """
 
 import numpy as np
 import os
-from scipy import interpolate, integrate
+from scipy import interpolate
 from pathlib import Path
+from typing import Optional
 import matplotlib.pyplot as plt
 
 
@@ -144,7 +149,7 @@ class fileHandling:
                      case_name: str,
                      ref_length: float,
                      external_input : bool = False,
-                     domain_boundaries : list[float, float, float, float] = [None, None, None, None],
+                     domain_boundaries : Optional[list[float, float, float, float]] = [None, None, None, None],
                      ) -> None:
             """
             Initialize the fileHandlingMTSET class.
@@ -574,6 +579,7 @@ class fileHandling:
                                                          )
                         
             # Construct the thickness and camber bivariate spline interpolations
+            # First determine the appropriate interpolation method based on the number of datapoints provided. 
             if len(blading_params["radial_stations"]) < 4:
                 method = 'slinear'
             else:
@@ -605,7 +611,7 @@ class fileHandling:
         
 
         def RotateProfile(self, 
-                          angle: float,
+                          pitch: float,
                           x_u: np.ndarray[float],
                           x_l: np.ndarray[float],
                           y_u: np.ndarray[float],
@@ -616,7 +622,7 @@ class fileHandling:
 
             Parameters
             ----------
-            - angle : float
+            - pitch : float
                 The blade pitch angle in radians.
             - x_u : np.ndarray[float]
                 The upper surface x-coordinates.
@@ -629,7 +635,7 @@ class fileHandling:
             """
 
             # Construct the rotation matrix
-            rotation_angle = np.pi / 2 - angle
+            rotation_angle = np.pi / 2 - pitch
             rotation_matrix = np.array([[np.cos(rotation_angle), -np.sin(rotation_angle)],
                                         [np.sin(rotation_angle), np.cos(rotation_angle)]])
             
@@ -652,74 +658,6 @@ class fileHandling:
             rotated_lower_y = rotated_lower_points[:,1] + mid_y
             
             return rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y 
-        
-
-        def ShiftCoordinates(self,
-                             rotated_upper_x: np.ndarray[float],
-                             rotated_upper_y: np.ndarray[float],
-                             rotated_lower_x: np.ndarray[float],
-                             rotated_lower_y: np.ndarray[float],
-                             blade_pitch: float,
-                             ) -> tuple[np.ndarray[float], np.ndarray[float], np.ndarray[float], np.ndarray[float]]:
-            """
-            Redistribute the upper and lower surface coordinates based on the rotation angle to correctly be able to calculate the azimuthal thickness distribution
-
-            Parameters
-            ----------
-            - rotated_upper_x : np.ndarray[float]
-                The x-coordinates of the upper surface after rotation.
-            - rotated_upper_y : np.ndarray[float]
-                The y-coordinates of the upper surface after rotation.
-            - rotated_lower_x : np.ndarray[float]
-                The x-coordinates of the lower surface after rotation.
-            - rotated_lower_y : np.ndarray[float]
-                The y-coordinates of the lower surface after rotation.
-            - blade_pitch : float
-                The blade pitch angle in radians.
-            
-            Returns
-            -------
-            - rotated_upper_x_reconstructed : np.ndarray[float]
-                The x-coordinates of the upper surface after reconstruction.
-            - rotated_upper_y_reconstructed : np.ndarray[float]
-                The y-coordinates of the upper surface after reconstruction.
-            - rotated_lower_x_reconstructed : np.ndarray[float]
-                The x-coordinates of the lower surface after reconstruction.
-            - rotated_lower_y_reconstructed : np.ndarray[float]
-                The y-coordinates of the lower surface after reconstruction.
-            """
-
-            if np.pi/2 - blade_pitch > 0:
-                # For a counter-clockwise rotation, the coordinates of the upper surface need to be shifted to the lower surface. 
-                # Shift the coordinates around to construct the correct upper and lower distributions
-                idx_minx = np.where(rotated_upper_x == np.min(rotated_upper_x))[0][0]
-                rotated_upper_x_reconstructed = rotated_upper_x[idx_minx:]
-                rotated_upper_y_reconstructed = rotated_upper_y[idx_minx:]
-                rotated_lower_x_reconstructed = np.concatenate((np.flip(rotated_upper_x[1:idx_minx + 1]), rotated_lower_x))
-                rotated_lower_y_reconstructed = np.concatenate((np.flip(rotated_upper_y[1:idx_minx + 1]), rotated_lower_y))
-                # Compute interpolant of the lower surface to evaluate it at the upper surface coordinates and compute the circumferential thickness
-                # First we must define the profile_x_coordinates, which will be used to construct the profile shapes and parameters. 
-                profile_x_coordinates = rotated_upper_x_reconstructed
-                rotated_lower_y_reconstructed = interpolate.CubicSpline(rotated_lower_x_reconstructed,
-                                                                        rotated_lower_y_reconstructed,
-                                                                        extrapolate=False,
-                                                                        )(profile_x_coordinates)                            
-            else:
-                # For a clockwise rotation, the coordinates of the lower surface need to be shifted to the upper surface
-                # Shift the coordinates around to construct the correct upper and lower distributions
-                idx_minx = np.where(rotated_lower_x == np.min(rotated_lower_x))[0][0]
-                rotated_lower_x_reconstructed = rotated_lower_x[idx_minx:]
-                rotated_lower_y_reconstructed = rotated_lower_y[idx_minx:]
-                rotated_upper_x_reconstructed = np.concatenate((np.flip(rotated_lower_x[1:idx_minx + 1]), rotated_upper_x))
-                rotated_upper_y_reconstructed = np.concatenate((np.flip(rotated_lower_y[1:idx_minx + 1]), rotated_upper_y))
-                # Compute interpolant of the upper surface to evaluate it at the lower surface coordinates and compute the circumferential thickness
-                # First we must define the profile_x_coordinates, which will be used to construct the profile shapes and parameters. 
-                profile_x_coordinates = rotated_lower_x_reconstructed
-                rotated_upper_y_reconstructed = interpolate.CubicSpline(rotated_upper_x_reconstructed,
-                                                                        rotated_upper_y_reconstructed,
-                                                                        extrapolate=False
-                                                                        )(profile_x_coordinates)   
-            return rotated_upper_x_reconstructed, rotated_upper_y_reconstructed, rotated_lower_x_reconstructed, rotated_lower_y_reconstructed 
 
 
         def PlanarToCylindrical(self,
@@ -759,9 +697,15 @@ class fileHandling:
             camber = (y_u + y_l) / 2
                 
             # Compute the theta angles
-            theta_up = y_u / r
-            theta_low = y_l / r
-            theta_camber = camber / r
+            if r == 0:
+                # Ensure proper handling of calculations at the centerline where the radius is zero. 
+                theta_up = y_u
+                theta_low = y_l
+                theta_camber = camber
+            else:
+                theta_up = y_u / r
+                theta_low = y_l / r
+                theta_camber = camber / r
 
             y_section_upper = r * np.sin(theta_up)
             y_section_lower = r * np.sin(theta_low)
@@ -838,7 +782,7 @@ class fileHandling:
             - m_prime : np.ndarray[float]
                 An array containing the m' coordinates at which the blade slope is defined. 
             - theta : np.ndarray[float]
-                An array containing the circumferential angles theta along the x-coordinates of the blade profile. 
+                An array containing the circumferential angles theta of the camber line along the x-coordinates of the blade profile. 
             """               
             
             # Compute the circumferential angle theta
@@ -853,24 +797,22 @@ class fileHandling:
             dx = np.diff(x_camber)
             radius_factor = r[:-1] + r[1:] # Equivalent to r[j] + r[j-1] 
             distance = np.sqrt(np.square(dr) + np.square(dx)) 
-            m_prime[1:] = np.cumsum(2 / radius_factor * distance)
 
-            # Construct a smoothing spline of the theta-m' curve
-            # Using a spline with minimal smoothing, we can remove any noise which would otherwise occur when using
-            # np.gradient() to compute the blade slope. 
+            if np.all(r == 0):
+                # Handle the case where r=0, i.e. the centerline.
+                m_prime = x_camber
+            else:
+                m_prime[1:] = np.cumsum(2 / radius_factor * distance)
+
+            # Construct a cubic spline of the theta-m' curve
             # The blade slope is then found simply by evaluating the gradient of the spline. 
             spline = interpolate.make_splrep(m_prime,
                                              theta,
                                              k=3,
-                                             #s=1E-7)
-                                             s=0)  # Do not use smoothing
+                                             s=0) 
                                              
             blade_slope = spline(m_prime,
                                  nu=1)
-            
-            # Uncomment the below for a quick check of the blade slope against the analytical definition for dtheta/dm'
-            # blade_slope_test = np.zeros_like(y_camber)
-            # blade_slope_test[1:] = (z_camber[1:] * np.diff(y_camber) - y_camber[1:] * np.diff(z_camber)) / (r[1:] * distance)
             
             return blade_slope, m_prime, theta
             
@@ -878,6 +820,7 @@ class fileHandling:
         def GenerateMTFLOInput(self,
                                blading_params: np.ndarray[dict],
                                design_params: np.ndarray[dict],
+                               plot: bool = False,
                                ) -> None:
             """
             Write the MTFLO input file for the given case.
@@ -906,6 +849,8 @@ class fileHandling:
                 - "trailing_camberline_angle": Trailing camberline angle.
                 - "leading_edge_direction": Leading edge direction.
                 - "Chord Length": The chord length of the blade.
+            - plot : bool, optional
+                An optional controlling boolean to decide if plots are to be created of the parameters of interest. Default value is False. 
 
             Returns:
             --------
@@ -944,7 +889,7 @@ class fileHandling:
                     file.write('DATYPE \n')
                     file.write('x    r    T    Sr\n')  # Use the x,r coordinates, together with thickness and blade slope
                     multipliers = [1, 1, 1, 1]  # Add multipliers for each data type
-                    additions = [0., 0., 0., 0.]  # Add additions for each data type
+                    additions = [0, 0, 0, 0]  # Add additions for each data type
                     file.write('*' + '    '.join(map(str, multipliers)) + '\n')
                     file.write('+' + '    '.join(map(str, additions)) + '\n')
                     file.write('END\n \n')
@@ -974,9 +919,6 @@ class fileHandling:
                         # Create a section in the input file
                         file.write('SECTION\n')
 
-                        # Compute circumferential blade thickness distribution at the radial station from the provided interpolant
-                        # To do so, the blade must be reconstructed from the thickness and camber distributions and rotated through the bglade pitch angle. 
-
                         # All parameters are normalised using the local chord length, so we need to obtain the local chord in order to obtain the dimensional parameters
                         local_chord = blade_geometry["chord_distribution"](radial_points[i])
                         axial_coordinates = axial_points * local_chord
@@ -984,7 +926,6 @@ class fileHandling:
                         # Create complete airfoil representation from the camber and thickness distributions
                         camber_distribution = blade_geometry["camber_distribution"]((radial_points[i], axial_points)) * local_chord
                         thickness_distribution = blade_geometry["thickness_distribution"]((radial_points[i], axial_points)) * local_chord
-
                         upper_x, upper_y, lower_x, lower_y = AirfoilParameterization().ConvertBezier2AirfoilCoordinates(axial_coordinates, 
                                                                                                                         thickness_distribution, 
                                                                                                                         axial_coordinates, 
@@ -1004,11 +945,7 @@ class fileHandling:
                         rotated_upper_x += LE_coordinate
                         rotated_lower_x += LE_coordinate
 
-                        # Shift the profile LE to y=0
-                        rotated_upper_y -= rotated_upper_y[0]
-                        rotated_lower_y -= rotated_lower_y[0]
-
-                        # Now we wish to transform the 2D planar airfoils into 3D cylindrical sections
+                        # Transform the 2D planar airfoils into 3D cylindrical sections
                         y_section_upper, y_section_lower, y_camber, z_section_upper, z_section_lower, z_camber = self.PlanarToCylindrical(rotated_upper_y,
                                                                                                                                           rotated_lower_y,
                                                                                                                                           radial_points[i])
@@ -1028,54 +965,71 @@ class fileHandling:
                             # If thickness exceeds limit, raises a ValueError
                             self.ValidateBladeThickness(max(circumferential_thickness), radial_points[i], blading_params[stage]["blade_count"])
 
-                        # Compute the rotated camber distribution of the blade section in the airfoil cartesian plane.  
+                        # Compute the blade slope in the m'-theta plane. 
+                        # Uses the average of the upper and lower x-coordinates to evaluate against. 
                         x_points = (rotated_lower_x + rotated_upper_x) / 2  
                         blade_slope, m_prime, theta = self.GeometricBladeSlope(y_camber,
                                                                                x_points,
                                                                                z_camber)       
 
-                        # Uncomment the below lines to generate a plot of the rotated section profiles
-                        plt.figure(1)
-                        plt.xlabel("Axial coordinate [m]")
-                        plt.ylabel("Y coordinate [m]")
-                        plt.title(f"Rotated profile sections for stage {stage}")
-                        plt.plot(np.concatenate((rotated_upper_x, np.flip(rotated_lower_x)), axis=0), np.concatenate((rotated_upper_y, np.flip(rotated_lower_y)), axis=0), label=f"R={round(radial_points[i], 2)} m")
+                        if plot:
+                            # Only if we are to generate plots do we import matplotlib.pyplot
+                            # This is to reduce overhead in the code. 
+                            plt.figure(1)
+                            plt.xlabel("Axial coordinate [m]")
+                            plt.ylabel("Y coordinate [m]")
+                            plt.title(f"Rotated profile sections for stage {stage}")
+                            plt.plot(np.concatenate((rotated_upper_x, np.flip(rotated_lower_x)), axis=0), np.concatenate((rotated_upper_y, np.flip(rotated_lower_y)), axis=0), label=f"R={round(radial_points[i], 2)} m")
+                            handles, labels = plt.gca().get_legend_handles_labels()
+                            by_label = dict(zip(labels, handles))
+                            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
+                            plt.tight_layout()
 
-                        # Uncomment the below lines to generate a plot of the circumferential blade thickness
-                        plt.figure(2)
-                        plt.xlabel("Axial coordinate [m]")
-                        plt.ylabel("Circumferential Blade Thickness $T_\\theta$ [m]")
-                        plt.title(f"Circumferential thickness distributions for stage {stage}")
-                        plt.plot(x_points, circumferential_thickness, label=f"R={round(radial_points[i], 2)} m")
+                            plt.figure(2)
+                            plt.xlabel("Axial coordinate [m]")
+                            plt.ylabel("Circumferential Blade Thickness $T_\\theta$ [m]")
+                            plt.title(f"Circumferential thickness distributions for stage {stage}")
+                            plt.plot(x_points, circumferential_thickness, label=f"R={round(radial_points[i], 2)} m")
+                            handles, labels = plt.gca().get_legend_handles_labels()
+                            by_label = dict(zip(labels, handles))
+                            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
+                            plt.tight_layout()
 
-                        plt.figure(3)
-                        plt.xlabel("Normalised meridional coordinate $||m'||=\\frac{m'}{max(m')}$ [-]")
-                        plt.ylabel("Blade angle $\\beta$ [deg]")
-                        plt.title(f"Blade angle distributions for stage {stage}")
-                        plt.plot(m_prime / m_prime[-1], np.degrees(np.atan(blade_slope)), label=f"R={round(radial_points[i], 2)} m")
+                            plt.figure(3)
+                            plt.xlabel("Normalised meridional coordinate $||m'||=\\frac{m'}{max(m')}$ [-]")
+                            plt.ylabel("Blade angle $\\beta$ [deg]")
+                            plt.title(f"Blade angle distributions for stage {stage}")
+                            plt.plot(m_prime / m_prime[-1], np.degrees(np.atan(blade_slope)), label=f"R={round(radial_points[i], 2)} m")
+                            handles, labels = plt.gca().get_legend_handles_labels()
+                            by_label = dict(zip(labels, handles))
+                            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
+                            plt.tight_layout()
 
-                        # Uncomment the below lines to generate a plot of the blade slope dtheta/dm' with respect to m'
-                        plt.figure(4)
-                        plt.xlabel("Normalised meridional coordinate $||m'||=\\frac{m'}{max(m')}$ [-]")
-                        plt.ylabel("Circumferential angle $\\theta$ [deg]")
-                        plt.title(f"Circumferential angle distributions for stage {stage}")
-                        plt.plot(m_prime / m_prime[-1], np.degrees(theta), label=f"R={round(radial_points[i], 2)} m")
+                            plt.figure(4)
+                            plt.xlabel("Normalised meridional coordinate $||m'||=\\frac{m'}{max(m')}$ [-]")
+                            plt.ylabel("Circumferential angle $\\theta$ [deg]")
+                            plt.title(f"Circumferential angle distributions for stage {stage}")
+                            plt.plot(m_prime / m_prime[-1], np.degrees(theta), label=f"R={round(radial_points[i], 2)} m")
+                            handles, labels = plt.gca().get_legend_handles_labels()
+                            by_label = dict(zip(labels, handles))
+                            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
+                            plt.tight_layout()
 
-                        # Uncomment the below lines to generate a plot of the blade slope dtheta/dm' with respect to m'
-                        plt.figure('5')
-                        plt.xlabel("Normalised meridional coordinate $||m'||=\\frac{m'}{max(m')}$ [-]")
-                        plt.ylabel("Camberline blade slope $\\frac{d \\theta}{dm'}$ [-]")
-                        plt.title(f"Blade slope distributions for stage {stage}")
-                        plt.plot(m_prime / m_prime[-1], blade_slope, label=f"R={round(radial_points[i], 2)} m")
-                        plt.pause(0.1)
-                        # plt.show()
+                            plt.figure('5')
+                            plt.xlabel("Normalised meridional coordinate $||m'||=\\frac{m'}{max(m')}$ [-]")
+                            plt.ylabel("Camberline blade slope $\\frac{d \\theta}{dm'}$ [-]")
+                            plt.title(f"Blade slope distributions for stage {stage}")
+                            plt.plot(m_prime / m_prime[-1], blade_slope, label=f"R={round(radial_points[i], 2)} m")
+                            handles, labels = plt.gca().get_legend_handles_labels()
+                            by_label = dict(zip(labels, handles))
+                            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
+                            plt.tight_layout()
 
-                        # Compute the sampling indices for the 16 points
+                        # Compute the sampling indices for the axial points
                         sampling_indices = np.linspace(0, len(x_points) - 1, n_points_axial, dtype=int)
                                                   
                         # Loop over the streamwise points and construct the data for each streamwise point
-                        # Each data point consists of the data [x, r, T, sRel]
-                        # Data is non-dimensionalised through the reference length.
+                        # Each data point consists of the data [x / Lref, r / Lref, T / Lref, Srel]
                         for j in range(n_points_axial):  
                             # Write data to row
                             row = np.array([round((x_points[sampling_indices][j]) / self.ref_length, 5),
@@ -1086,13 +1040,14 @@ class fileHandling:
                             
                             # Write the row to the file
                             file.write('    '.join(map(str, row)) + '\n')
+
                         # End the radial section
                         file.write('END\n')
-                        handles, labels = plt.gca().get_legend_handles_labels()
-                        by_label = dict(zip(labels, handles))
-                        plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
-                        plt.tight_layout()
-                    plt.show()  
+                    
+                    if plot:
+                        # Only display plots if the plot boolean is True
+                        plt.show() 
+                     
                     # End the stage 
                     file.write('\nEND\n \n')
                 # End the input file
@@ -1117,8 +1072,8 @@ if __name__ == "__main__":
 
     # Perform test generation of tflow.xxx file using dummy inputs
     # Creates an input file using 2 stages, a rotor and a stator
-    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 1., "ref_blade_angle": np.deg2rad(19), ".75R_blade_angle": np.deg2rad(34), "blade_count": 18, "radial_stations": [0, 1.8], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "blade_angle": [0, np.pi / 3]},
-                          {"root_LE_coordinate": 1., "rotational_rate": 0., "ref_blade_angle": np.deg2rad(19), ".75R_blade_angle": np.deg2rad(34), "blade_count": 10, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "blade_angle": [0, np.pi/8]}]
+    blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 1., "ref_blade_angle": np.deg2rad(19), ".75R_blade_angle": np.deg2rad(34), "blade_count": 18, "radial_stations": [0.1, 1.8], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "blade_angle": [np.pi / 3, np.pi / 3]},
+                          {"root_LE_coordinate": 1., "rotational_rate": 0., "ref_blade_angle": np.deg2rad(19), ".75R_blade_angle": np.deg2rad(34), "blade_count": 10, "radial_stations": [0.1, 1], "chord_length": [0.2, 0.2], "sweep_angle":[np.pi/8, np.pi/8], "blade_angle": [np.pi / 3, np.pi/8]}]
     design_parameters = [[n2415_coeff, n2415_coeff],
                          [n2415_coeff, n2415_coeff]]
     

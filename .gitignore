@@ -1,11 +1,7 @@
 mtset.exe
 mtflo.exe
 mtsol.exe
-caller.log
 forces.*
 flowfield.*
 boundary_layer.*
-tdat.*
-tflow.*
-walls.*
 *.log

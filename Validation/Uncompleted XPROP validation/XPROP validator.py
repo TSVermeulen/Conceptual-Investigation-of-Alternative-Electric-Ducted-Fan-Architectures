@@ -248,8 +248,7 @@ def GenerateMTFLOBlading(Omega: float,
                                                         plot=False)
     
     # Construct blading list
-    design_parameters = [[C_section, C_section, D_section, E_section, F_section, G_section, H_section, I_section, J_section, K_section, L_section, M_section, N_section, O_section, P_section, Q_section, R_section, S_section, T_section, U_section, V_section, W_section, X_section, Y_section]]
-    #design_parameters = [[E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section, E_section]]
+    design_parameters = [[B_section, C_section, D_section, E_section, F_section, G_section, H_section, I_section, J_section, K_section, L_section, M_section, N_section, O_section, P_section, Q_section, R_section, S_section, T_section, U_section, V_section, W_section, X_section, Y_section]]
     
     return blading_parameters, design_parameters
 

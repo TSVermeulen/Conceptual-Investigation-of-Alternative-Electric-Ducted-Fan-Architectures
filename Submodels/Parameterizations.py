@@ -878,6 +878,8 @@ class AirfoilParameterization:
         def GetBounds() -> optimize.Bounds:
             """
             Get the bounds for the optimization problem. Note that the bounds are given in normalised form. 
+            We assume the initial estimates for the design variables are close to the real values, such that bounds of 0.95-1.05 can be used. 
+            This gives a reasonable fit to the reference profile while maintaining acceptable performance. 
 
 
             Returns

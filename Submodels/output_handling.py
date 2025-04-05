@@ -265,8 +265,7 @@ class output_visualisation:
         except IOError as e:
             raise IOError(f"Failed to read the tflow file: {e}") from e
 
-        # Count the number of stages
-        num_stages = sum(1 for line in lines if line.strip() == "STAGE")
+        # Create blade outlines for each blade row (i.e. each stage)
         stages_outlines = []
 
         current_outline = []
@@ -302,7 +301,7 @@ class output_visualisation:
     def CreateContours(self,
                        df: pd.DataFrame,
                        shapes: list[np.ndarray[float]],
-                       blades = list,
+                       blades = list[np.ndarray[float]],
                        figsize: tuple[float, float] = (6.4, 4.8),
                        cmap: str = 'viridis',
                        ) -> None:
@@ -581,7 +580,7 @@ class output_processing:
                 forces_file_contents = file.readlines()
                 forces_file_contents = ''.join(forces_file_contents)
         except OSError as e:
-            raise OSError(f"An error occurred opening the forces.{self.analysis_name} file: {e}")
+            raise OSError(f"An error occurred opening the forces.{self.analysis_name} file: {e}") from e
         
         # Define regex pattern to extract CP, CT, and EtaP
         # pattern accepts both scientific notation and regular float notation. 

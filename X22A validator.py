@@ -2,6 +2,11 @@
 X22A_validation
 ===============
 
+This file is an implementation of all classes and functions to validate the MTFLOW codes and input generation routines against 
+experimental wind tunnel data for the X22A ducted propeller powertrain unit, contained in NASA TN-D-4142.
+
+
+
 References
 ----------
 [1] - https://ntrs.nasa.gov/api/citations/19670025554/downloads/19670025554.pdf 
@@ -32,6 +37,7 @@ from Submodels.MTFLO_call import MTFLO_call
 
 def GenerateMTFLOBlading(Omega: float,                        
                          ref_blade_angle: float,
+                         plot : bool,
                          ) -> tuple[list]:
     """
     Generate MTFLO blading.
@@ -43,6 +49,8 @@ def GenerateMTFLOBlading(Omega: float,
         The non-dimensional rotational speed of the rotor, as defined in the MTFLOW documentation in units of Vinl/Lref
     - ref_blade_angle : float
         The blade set angle, in radians. 
+    - plot : bool
+        A control boolean to determine whether the propeller blade geometry is plotted.
     
     Returns
     -------
@@ -102,6 +110,7 @@ def GenerateMTFLOBlading(Omega: float,
                                                                                                                                                                                     "sweep_angle": np.array([0,
                                                                                                                                                                                                              0])}
     
+    # Construct blading list
     blading_parameters = [propeller_parameters,
                           horizontal_strut_parameters,
                           diagonal_strut_parameters]
@@ -125,31 +134,31 @@ def GenerateMTFLOBlading(Omega: float,
     
     # Create plot of the propeller blade
     # Chord lengths are approximate due to the incomplete rotation implementation. 
-    plt.figure()
-    plt.xlabel("Axial Location [m]")
-    plt.ylabel("Radial location [m]")
-    plt.title("Propeller Blade Input Geometry")
-    plt.grid()
-    x_LE_arr = np.zeros_like(blading_parameters[0]["chord_length"])
-    x_TE_arr = np.zeros_like(x_LE_arr)
-    x_mid_arr = np.zeros_like(x_LE_arr)
+    if plot:
+        x_LE_arr = np.zeros_like(blading_parameters[0]["chord_length"])
+        x_TE_arr = np.zeros_like(x_LE_arr)
+        x_mid_arr = np.zeros_like(x_LE_arr)
 
-    for section in range(len(blading_parameters[0]["radial_stations"])):
-        rotation_angle = np.pi/2 - (blading_parameters[0]["blade_angle"][section] + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0][".75R_blade_angle"])
-        x_LE = root_LE + blading_parameters[0]["radial_stations"][section] * np.tan(blading_parameters[0]["sweep_angle"][section])
-        
-        x_TE = x_LE + blading_parameters[0]["chord_length"][section] * np.cos(rotation_angle)
-        x_mid_arr[section] = (x_LE + x_TE) / 2
-        x_LE_arr[section] = x_LE
-        x_TE_arr[section] = x_TE
-        plt.plot([x_LE, x_TE], [blading_parameters[0]["radial_stations"][section], blading_parameters[0]["radial_stations"][section]], label=f"r={round(blading_parameters[0]["radial_stations"][section], 2)} m")
+        for section in range(len(blading_parameters[0]["radial_stations"])):
+            rotation_angle = np.pi/2 - (blading_parameters[0]["blade_angle"][section] + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0][".75R_blade_angle"])
+            x_LE = root_LE + blading_parameters[0]["radial_stations"][section] * np.tan(blading_parameters[0]["sweep_angle"][section])
+            
+            x_TE = x_LE + blading_parameters[0]["chord_length"][section] * np.cos(rotation_angle)
+            x_mid_arr[section] = (x_LE + x_TE) / 2
+            x_LE_arr[section] = x_LE
+            x_TE_arr[section] = x_TE
+            plt.plot([x_LE, x_TE], [blading_parameters[0]["radial_stations"][section], blading_parameters[0]["radial_stations"][section]], label=f"r={round(blading_parameters[0]["radial_stations"][section], 2)} m")
 
-    plt.plot(x_LE_arr, blading_parameters[0]["radial_stations"], "-.k")
-    plt.plot(x_TE_arr, blading_parameters[0]["radial_stations"], "-.k")
-    plt.plot(x_mid_arr, blading_parameters[0]["radial_stations"], "-.k")
-    plt.legend(loc='upper left', bbox_to_anchor=(1,1))
-    plt.tight_layout()
-    plt.show()
+        plt.xlabel("Axial Location [m]")
+        plt.ylabel("Radial location [m]")
+        plt.title("Propeller Blade Input Geometry")
+        plt.grid()
+        plt.plot(x_LE_arr, blading_parameters[0]["radial_stations"], "-.k")
+        plt.plot(x_TE_arr, blading_parameters[0]["radial_stations"], "-.k")
+        plt.plot(x_mid_arr, blading_parameters[0]["radial_stations"], "-.k")
+        plt.legend(loc='upper left', bbox_to_anchor=(1,1))
+        plt.tight_layout()
+        plt.show()
 
     # Obtain the parameterizations for the profile sections. 
     local_dir_path = Path('Validation/Profiles')
@@ -165,64 +174,59 @@ def GenerateMTFLOBlading(Omega: float,
     Hstrut_fpath = local_dir_path / 'Hstrut.dat'
     Dstrut_fpath = local_dir_path / 'Dstrut.dat'
 
+    filenames = [R02_fpath, R03_fpath, R04_fpath, R05_fpath, R06_fpath, R07_fpath, R08_fpath, R09_fpath, R10_fpath, Hstrut_fpath, Dstrut_fpath]
+
+    # First check if all files are present
+    missing_files = [f for f in filenames if not f.exists()]
+    if missing_files:
+        raise FileNotFoundError(f"Missing files: {', '.join(map(str, missing_files))}")
+
     # Compute parameterization for the airfoil section at r=0.2R
     # Note that we keep this section constant for r=0.1R and r=0.15R and equal to that of r=0.2R
     R01_section = AirfoilParameterization().FindInitialParameterization(reference_file=R02_fpath,
-                                                            plot=False)
-    R02_section = R01_section
-    # print(R02_section)
+                                                                        plot=False)
     # Compute parameterization for the airfoil section at r=0.3R
     R03_section = AirfoilParameterization().FindInitialParameterization(reference_file=R03_fpath,
-                                                            plot=False)
-    # print(R03_section)
+                                                                        plot=False)
     # Compute parameterization for the airfoil section at r=0.4R
     R04_section = AirfoilParameterization().FindInitialParameterization(reference_file=R04_fpath,
-                                                            plot=False)
-    # print(R04_section)
+                                                                        plot=False)
     # Compute parameterization for the mid airfoil section
     R05_section = AirfoilParameterization().FindInitialParameterization(reference_file=R05_fpath,
-                                                            plot=False)
-    # print(R05_section)
+                                                                        plot=False)
     # Compute parameterization for the airfoil section at r=0.6R
     R06_section = AirfoilParameterization().FindInitialParameterization(reference_file=R06_fpath,
-                                                            plot=False)
-    # print(R06_section)
+                                                                        plot=False)
     # Compute parameterization for the airfoil section at r=0.7R
     R07_section = AirfoilParameterization().FindInitialParameterization(reference_file=R07_fpath,
-                                                            plot=False)
-    # print(R07_section)
+                                                                        plot=False)
     # Compute parameterization for the airfoil section at r=0.8R
     R08_section = AirfoilParameterization().FindInitialParameterization(reference_file=R08_fpath,
-                                                            plot=False)
-    # print(R08_section)
+                                                                        plot=False)
     # Compute parameterization for the airfoil section at r=0.9R
     R09_section = AirfoilParameterization().FindInitialParameterization(reference_file=R09_fpath,
-                                                            plot=False)
-    # print(R09_section)
+                                                                        plot=False)
     # Compute parameterization for the tip airfoil section
     R10_section = AirfoilParameterization().FindInitialParameterization(reference_file=R10_fpath,
-                                                            plot=False)
-    # print(R10_section)
-    # Compute parameterization for the horizontal & power struts
-    # Note that the power struts are technically incorrect, but are taken equal to the horizontal struts for simplicyt
+                                                                        plot=False)
+    # Compute parameterization for the horizontal struts
     Hstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Hstrut_fpath,
-                                                            plot=False)
-    # print(Hstrut_section)
+                                                                           plot=False)
     # Compute parameterization for the diagonal struts
     Dstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Dstrut_fpath,
-                                                            plot=False)
-    # print(Dstrut_section)
+                                                                           plot=False)
 
     # Construct blading list
-    design_parameters = [[R01_section, R02_section, R03_section, R04_section, R05_section, R06_section, R07_section, R08_section, R09_section, R10_section],
+    design_parameters = [[R01_section, R01_section, R03_section, R04_section, R05_section, R06_section, R07_section, R08_section, R09_section, R10_section],
                          [Hstrut_section, Hstrut_section],
                          [Dstrut_section, Dstrut_section]]
 
     return blading_parameters, design_parameters
 
 
-def GenerateMTFLOInput(blading_parameters,
-                       design_parameters) -> None:
+def GenerateMTFLOInput(blading_parameters: list,
+                       design_parameters: list,
+                       display_plot: bool) -> None:
     """
     Generate the MTFLO input file tflow.X22A_validation
 
@@ -232,6 +236,8 @@ def GenerateMTFLOInput(blading_parameters,
         A list containing dictionaries with the blading parameters.
     - design_parameters : list
         A list containing dictionaries with the design parameters for each radial station.
+    - display_plot : bool
+        A control boolean to determine whether the blade data input for MTFLO is plotted.
 
     Returns
     -------
@@ -240,7 +246,8 @@ def GenerateMTFLOInput(blading_parameters,
     
     fileHandling.fileHandlingMTFLO(case_name=ANALYSIS_NAME,
                                    ref_length=L_REF).GenerateMTFLOInput(blading_params=blading_parameters,
-                                                                               design_params=design_parameters)
+                                                                        design_params=design_parameters,
+                                                                        plot=display_plot)
 
 
 def GenerateMTSETGeometry() -> None:
@@ -251,6 +258,10 @@ def GenerateMTSETGeometry() -> None:
     -------
     None
     """
+
+    # --------------------
+    # Generate duct geometry
+    # --------------------
 
     # First define the upper surface based on the given coordinates in [1]
     # Note that we must flip the arrays to comply with the formatting expected by MTFLOW (TE-LE-TE)
@@ -328,9 +339,11 @@ def GenerateMTSETGeometry() -> None:
     xy_centerbody = np.vstack((centerbody_x_complete, centerbody_y_complete)).T    
 
     # Generate MTSET input file walls.X22A_validation
+    # To run the GenerateMTSETInput() function, we need to define the params_CB and params_duct dictionaries, so fill them with the minimum required inputs
     params_CB = {"Leading Edge Coordinates": (centerbody_x.min(),0), "Chord Length": (lower_x.max() - lower_x.min())}
     params_duct = {"Leading Edge Coordinates": (x_duct.min(), upper_y[-1]), "Chord Length": (lower_x.max() - lower_x.min())}
 
+    # Generate the walls.x22a_validation
     fileHandling().fileHandlingMTSET(params_CB=params_CB,
                                      params_duct=params_duct,
                                      case_name=ANALYSIS_NAME,
@@ -339,47 +352,55 @@ def GenerateMTSETGeometry() -> None:
                                                                              xy_duct=xy_duct)
 
 
-def ChangeOMEGA(omega) -> None:
+def ChangeOMEGA(omega: float) -> None:
     """
-    Rather than regenerating the tflow.xxx file from scratch, simply change omega in the tflow.xxx file. 
+    Rather than generating the tflow file for each advance ratio from scratch, 
+    simply change omega in the tflow file. 
 
     Parameters
     ----------
     - omega : float
-        The non-dimensional rotational speed to be entered into the tflow.xxx input file. 
+        The non-dimensional rotational speed to be entered into the tflow input file. 
 
     Returns
     -------
     None
     """
 
+    # Open the tflow.analysis_name file
     with open(f"tflow.{ANALYSIS_NAME}", "r") as file:
         lines = file.readlines()
 
-    omega_line = 11
+    omega_line = 11  # Line at which the rotational rate is defined
     updated_omega = f"{omega} \n"
     lines[omega_line] = updated_omega
 
+    # Write the updated tflow data back to the file
     with open(f"tflow.{ANALYSIS_NAME}", "w") as file:
         file.writelines(lines)
 
 
-def ExecuteParameterSweep(OMEGA: np.ndarray[float],
+def ExecuteParameterSweep(omega: np.ndarray[float],
                           inlet_mach: np.ndarray[float],
                           reynolds_inlet: np.ndarray[float],
                           reference_angle: float,
+                          generate_plots: bool = False,
                           ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Perform a parameter sweep over a range of OMEGA, inlet Mach numbers, and Reynolds numbers.
 
     Parameters
     ----------
-    - OMEGA : np.ndarray[float]
+    - omega : np.ndarray[float]
         Array of non-dimensional rotational speeds of the rotor.
     - inlet_mach : np.ndarray[float]
         Array of inlet Mach numbers.
     - reynolds_inlet : np.ndarray[float]
         Array of inlet Reynolds numbers.
+    - reference_angle : float
+        The set angle of the propeller blade
+    - generate_plots : bool, optional
+        If true, generates plots of the input geometry and rotor input data. Default is False.
 
     Returns
     -------
@@ -397,7 +418,8 @@ def ExecuteParameterSweep(OMEGA: np.ndarray[float],
     # Construct the MTFLO blading using omega=0 and reference blade angle. 
     # Perform parameterization can be optionally set to true in case different profiles are used compared to the default inputs
     blading_parameters, design_parameters = GenerateMTFLOBlading(Omega=0,
-                                                                 ref_blade_angle=reference_angle)
+                                                                 ref_blade_angle=reference_angle,
+                                                                 plot=generate_plots)
     
     # Change working directory to the submodels folder
     try:
@@ -409,35 +431,35 @@ def ExecuteParameterSweep(OMEGA: np.ndarray[float],
     
     # Generate the MTFLO input file
     GenerateMTFLOInput(blading_parameters,
-                       design_parameters)
-    
-    # # Create the grid
-    # MTSET_call(analysis_name=ANALYSIS_NAME,
-    #            streamwise_points=250,
-    #            ).caller()
+                       design_parameters,
+                       display_plot=generate_plots)
     
     # Perform analysis for all omega, Mach, and Re combinations defined at the top of the file
-    CT_outputs = np.zeros_like(OMEGA)
-    CP_outputs = np.zeros_like(OMEGA)
-    EtaP_outputs = np.zeros_like(OMEGA)
+    CT_outputs = np.zeros_like(omega)
+    CP_outputs = np.zeros_like(omega)
+    EtaP_outputs = np.zeros_like(omega)
 
-    for i in range(len(OMEGA)):
+    # Create the grid
+    MTSET_call(analysis_name=ANALYSIS_NAME,
+               streamwise_points=400,
+               ).caller()
+    
+    # Wait for the grid file to be loaded
+    time.sleep(0.5)
+
+    for i in range(len(omega)):
         # Update the blade parameters to the correct omega 
-        ChangeOMEGA(OMEGA[i])      
+        ChangeOMEGA(omega[i])      
 
-        # Create the grid
-        MTSET_call(analysis_name=ANALYSIS_NAME,
-                   streamwise_points=400,
-                   ).caller()
+        # Wait for the MTFLO file to be updated
+        time.sleep(0.5)
         
-        # Wait for the grid file to be loaded
-        time.sleep(1)
 
         #Load in the blade row(s) from MTFLO 
         MTFLO_call(ANALYSIS_NAME).caller() 
 
         # Wait to ensure blade rows are loaded in
-        time.sleep(1)
+        time.sleep(0.5)
 
         # Define operating conditions
         oper = {"Inlet_Mach": inlet_mach[i],
@@ -446,24 +468,18 @@ def ExecuteParameterSweep(OMEGA: np.ndarray[float],
                 }
         
         # Execute MTSOL
-        try:
-            exit_flag, [(exit_flag_invisc, iter_count_invisc), (exit_flag_visc, iter_count_visc)] = MTSOL_call(operating_conditions=oper,
-                                                                                                            analysis_name=ANALYSIS_NAME,
-                                                                                                            ).caller(run_viscous=True,
-                                                                                                                        generate_output=True,
-                                                                                                                        )
-            
-            # Wait to ensure outpit files have been loaded in
-            time.sleep(1)
+        exit_flag, iter_count = MTSOL_call(operating_conditions=oper,
+                                           analysis_name=ANALYSIS_NAME,
+                                           ).caller(run_viscous=True,
+                                                    generate_output=True,
+                                                    )
+        
+        # Wait to ensure output files have been loaded in
+        time.sleep(0.5)
 
-            # Collect outputs from the forces.xxx file
-            CT, CP, etaP = output_processing(ANALYSIS_NAME).GetCTCPEtaP()
-            print(f"Omega: {OMEGA[i]}, CT: {CT}, CP: {CP}, etaP: {etaP}")
-        except OSError as e:
-            print("Error occurred, setting values to zero")
-            CT = 0
-            CP = 0 
-            etaP = 1
+        # Collect outputs from the forces.xxx file
+        CT, CP, etaP = output_processing(ANALYSIS_NAME).GetCTCPEtaP()
+        print(f"Omega: {OMEGA[i]}, CT: {CT}, CP: {CP}, etaP: {etaP}")
         
         CT_outputs[i] = CT
         CP_outputs[i] = CP 
@@ -476,9 +492,8 @@ def ExecuteParameterSweep(OMEGA: np.ndarray[float],
 
 
 if __name__ == "__main__":
-
     # First we define some constants and the operating conditions which will be analysed
-    REFERENCE_BLADE_ANGLE = np.array([np.deg2rad(29), np.deg2rad(19)])  # radians, converted from degrees
+    REFERENCE_BLADE_ANGLE = np.array([np.deg2rad(19), np.deg2rad(29)])  # radians, converted from degrees
     ANALYSIS_NAME = "X22A_validation"  # Analysis name for MTFLOW
     ALTITUDE = 0  # m
     FAN_DIAMETER = 7 * 0.3048  # m, taken from [3] and converted to meters from feet
@@ -486,8 +501,8 @@ if __name__ == "__main__":
     L_REF = FAN_DIAMETER  # m, reference length for use by MTFLOW
 
     # Advance ratio range to be used for the validation, together with freestream velocity.
-    J = np.flip(np.array([0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]))  # -
-    FREESTREAM_VELOCITY = np.ones_like(J) * 26  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered. 
+    J = np.array([0.65, 0.6, 0.55, 0.5, 0.45])  # -
+    FREESTREAM_VELOCITY = np.ones_like(J) * 28  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered. 
 
     # Compute the rotational speed of the rotor in rotations per second
     RPS = FREESTREAM_VELOCITY / (J * FAN_DIAMETER)  # Hz
@@ -511,13 +526,45 @@ if __name__ == "__main__":
     etaP = {}
 
     for i in range(len(REFERENCE_BLADE_ANGLE)):
-        print(f"Analysing beta_{75}={round(np.rad2deg(np.flip(REFERENCE_BLADE_ANGLE)[i]), 2)} deg")
-        CT_out, CP_out, eta_out = ExecuteParameterSweep(OMEGA=OMEGA,
+        print(f"Analysing beta_{75}={round(np.rad2deg(REFERENCE_BLADE_ANGLE[i]), 2)} deg")
+        CT_out, CP_out, eta_out = ExecuteParameterSweep(omega=OMEGA,
                                                         inlet_mach=inlet_mach,
                                                         reynolds_inlet=reynolds_inlet,
-                                                        reference_angle=np.flip(REFERENCE_BLADE_ANGLE)[i])
+                                                        reference_angle=REFERENCE_BLADE_ANGLE[i],
+                                                        generate_plots=False)
         
         key = f"beta_75 = {REFERENCE_BLADE_ANGLE[i]}"
         CT[key] = CT_out
         CP[key] = CP_out
         etaP[key] = eta_out
+
+
+    # Generate plot of outputs
+    plt.figure("Thrust coefficients")
+    for i in range(len(REFERENCE_BLADE_ANGLE)):
+        plt.figure("Thrust coefficients")
+        plt.plot(J, CT["beta_75 = {REFERENCE_BLADE_ANGLE[i]}"], label=F"$\\beta_(75%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
+        plt.plot("Power coefficients")
+        plt.plot(J, CP["beta_75 = {REFERENCE_BLADE_ANGLE[i]}"], label=F"$\\beta_(75%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
+    
+    plt.figure("Thrust coefficients")
+    plt.grid(which='both')
+    plt.minorticks_on()
+    plt.xlabel("Advance Ratio J [-]")
+    plt.ylabel("Thrust coefficient $C_T$ [-]")
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
+    plt.tight_layout()
+
+    plt.figure("Power coefficients")
+    plt.grid(which='both')
+    plt.minorticks_on()
+    plt.xlabel("Advance Ratio J [-]")
+    plt.ylabel("Power coefficient $C_P$ [-]")
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
+    plt.tight_layout()
+
+    plt.show()
