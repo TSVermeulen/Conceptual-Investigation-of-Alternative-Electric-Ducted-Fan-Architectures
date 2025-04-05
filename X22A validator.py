@@ -21,7 +21,6 @@ from scipy import interpolate
 from ambiance import Atmosphere
 import matplotlib.pyplot as plt
 import os
-import time
 import sys
 
 # Enable submodel relative imports 
@@ -439,27 +438,17 @@ def ExecuteParameterSweep(omega: np.ndarray[float],
     CP_outputs = np.zeros_like(omega)
     EtaP_outputs = np.zeros_like(omega)
 
-    # Create the grid
-    MTSET_call(analysis_name=ANALYSIS_NAME,
-               streamwise_points=400,
-               ).caller()
-    
-    # Wait for the grid file to be loaded
-    time.sleep(0.5)
-
     for i in range(len(omega)):
+        # Create the grid
+        MTSET_call(analysis_name=ANALYSIS_NAME,
+                streamwise_points=400,
+                ).caller()
+        
         # Update the blade parameters to the correct omega 
         ChangeOMEGA(omega[i])      
 
-        # Wait for the MTFLO file to be updated
-        time.sleep(0.5)
-        
-
         #Load in the blade row(s) from MTFLO 
         MTFLO_call(ANALYSIS_NAME).caller() 
-
-        # Wait to ensure blade rows are loaded in
-        time.sleep(0.5)
 
         # Define operating conditions
         oper = {"Inlet_Mach": inlet_mach[i],
@@ -473,13 +462,10 @@ def ExecuteParameterSweep(omega: np.ndarray[float],
                                            ).caller(run_viscous=True,
                                                     generate_output=True,
                                                     )
-        
-        # Wait to ensure output files have been loaded in
-        time.sleep(0.5)
 
         # Collect outputs from the forces.xxx file
         CT, CP, etaP = output_processing(ANALYSIS_NAME).GetCTCPEtaP()
-        print(f"Omega: {OMEGA[i]}, CT: {CT}, CP: {CP}, etaP: {etaP}")
+        print(f"Omega: {omega[i]}, CT: {CT}, CP: {CP}, etaP: {etaP}")
         
         CT_outputs[i] = CT
         CP_outputs[i] = CP 
@@ -502,7 +488,7 @@ if __name__ == "__main__":
 
     # Advance ratio range to be used for the validation, together with freestream velocity.
     J = np.array([0.65, 0.6, 0.55, 0.5, 0.45])  # -
-    FREESTREAM_VELOCITY = np.ones_like(J) * 28  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered. 
+    FREESTREAM_VELOCITY = np.ones_like(J) * 35  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered. 
 
     # Compute the rotational speed of the rotor in rotations per second
     RPS = FREESTREAM_VELOCITY / (J * FAN_DIAMETER)  # Hz
@@ -520,10 +506,17 @@ if __name__ == "__main__":
     reynolds_inlet = (FREESTREAM_VELOCITY * L_REF / (atmosphere.kinematic_viscosity))
     print(f"Reynolds [-]: {reynolds_inlet}")
 
+    # Check the dynamic pressure range
+    dyn_press = atmosphere.density * FREESTREAM_VELOCITY ** 2 / 2  # Pa
+    dyn_press = dyn_press * 0.0208854  # Convert to psf
+    print(f"Dynamic pressure (Should be < 106 psf) [psf]: {dyn_press}")
+
     # Initialize output dictionaries and perform parameter sweep. 
-    CT = {}
-    CP = {}
-    etaP = {}
+    nrow = len(J)
+    ncols = len(REFERENCE_BLADE_ANGLE)
+    CT = np.zeros((nrow, ncols))
+    CP = np.zeros((nrow, ncols))
+    etaP = np.zeros((nrow, ncols))
 
     for i in range(len(REFERENCE_BLADE_ANGLE)):
         print(f"Analysing beta_{75}={round(np.rad2deg(REFERENCE_BLADE_ANGLE[i]), 2)} deg")
@@ -533,19 +526,18 @@ if __name__ == "__main__":
                                                         reference_angle=REFERENCE_BLADE_ANGLE[i],
                                                         generate_plots=False)
         
-        key = f"beta_75 = {REFERENCE_BLADE_ANGLE[i]}"
-        CT[key] = CT_out
-        CP[key] = CP_out
-        etaP[key] = eta_out
-
+        # Store the outputs in the arrays
+        CT[i] = CT_out
+        CP[i] = CP_out
+        etaP[i] = eta_out
 
     # Generate plot of outputs
     plt.figure("Thrust coefficients")
     for i in range(len(REFERENCE_BLADE_ANGLE)):
         plt.figure("Thrust coefficients")
-        plt.plot(J, CT["beta_75 = {REFERENCE_BLADE_ANGLE[i]}"], label=F"$\\beta_(75%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
-        plt.plot("Power coefficients")
-        plt.plot(J, CP["beta_75 = {REFERENCE_BLADE_ANGLE[i]}"], label=F"$\\beta_(75%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
+        plt.plot(J, CT[i], label=F"$\\beta_(75%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
+        plt.figure("Power coefficients")
+        plt.plot(J, CP[i], label=F"$\\beta_(75%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
     
     plt.figure("Thrust coefficients")
     plt.grid(which='both')

@@ -149,7 +149,7 @@ class fileHandling:
                      case_name: str,
                      ref_length: float,
                      external_input : bool = False,
-                     domain_boundaries : Optional[list[float, float, float, float]] = [None, None, None, None],
+                     domain_boundaries : Optional[list[float, float, float, float]] = None,
                      ) -> None:
             """
             Initialize the fileHandlingMTSET class.
@@ -165,7 +165,7 @@ class fileHandling:
             - case_name : str
                 Name of the case being handled.
             - ref_length : float
-                The refence length used by MTFLOW to non-dimensionalise all the dimensions.
+                The reference length used by MTFLOW to non-dimensionalise all the dimensions.
             - external_input : bool, optional
                 A control boolean to bypass the input of the "proper" centerbody and duct dictionaries. This is 
                 useful when debugging or running cases where pre-existing geometry is to be used, rather than parameterized geometry. 
@@ -188,6 +188,10 @@ class fileHandling:
                              "trailing_camberline_angle",
                              "leading_edge_direction",
                              }
+            
+            if domain_boundaries is None:
+                domain_boundaries = [None, None, None, None]
+            self.domain_boundaries = domain_boundaries
 
             # Only perform complete input validation if the input dictionaries contain data
             if not external_input:
@@ -211,7 +215,6 @@ class fileHandling:
             self.duct_params = params_duct
             self.case_name = case_name
             self.ref_length = ref_length
-            self.domain_boundaries = domain_boundaries
             self.external_input = external_input
 
             # Define the Grid size calculation constants
@@ -232,7 +235,7 @@ class fileHandling:
                 A list containing the grid boundaries in the format [XFRONT, XREAR, YBOT, YTOP]
             """
 
-            # If all boundaries are provided, returm them directly
+            # If all boundaries are provided, return them directly
             if all(entry is not None for entry in self.domain_boundaries):
                 return self.domain_boundaries
             
@@ -399,7 +402,7 @@ class fileHandling:
             - case_name : str
                 Name of the case being handled.
             - ref_length : float
-                The refence length used by MTFLOW to non-dimensionalise all the dimensions.
+                The reference length used by MTFLOW to non-dimensionalise all the dimensions.
             - centerbody_rotor_thickness : float, optional
                 The cutoff radius in meters below which we do not check the circumferential thickness limit to avoid numerical false triggers. 
 
@@ -815,6 +818,104 @@ class fileHandling:
                                  nu=1)
             
             return blade_slope, m_prime, theta
+    
+
+        def plot_blade_data(self,
+                            stage: int,
+                            radial_point: float,
+                            x_points: np.ndarray[float],
+                            rotated_upper_x: np.ndarray[float],
+                            rotated_upper_y: np.ndarray[float],
+                            rotated_lower_x: np.ndarray[float],
+                            rotated_lower_y: np.ndarray[float],
+                            circumferential_thickness: np.ndarray[float],
+                            blade_slope: np.ndarray[float],
+                            m_prime: np.ndarray[float],
+                            theta: np.ndarray[float]) -> None:
+            """
+            Generate plots visualising the blade geometry. 
+
+            Parameters
+            ----------
+            - stage : int
+                The stage number of the blade row.
+            - radial_point : float
+                The radial point along the blade span.
+            - x_points : np.ndarray[float]
+                The x-coordinates of the blade profile.
+            - rotated_upper_x : np.ndarray[float]
+                The x-coordinates of the upper surface of the blade profile.
+            - rotated_upper_y : np.ndarray[float] 
+                The y-coordinates of the upper surface of the blade profile.
+            - rotated_lower_x : np.ndarray[float]
+                The x-coordinates of the lower surface of the blade profile.
+            - rotated_lower_y : np.ndarray[float]
+                The y-coordinates of the lower surface of the blade profile.
+            - circumferential_thickness : np.ndarray[float]
+                The circumferential thickness distribution along the blade profile.
+            - blade_slope : np.ndarray[float]
+                The geometric blade slope distribution along the blade profile.
+            - m_prime : np.ndarray[float]
+                The m' coordinates along the blade profile.
+            - theta : np.ndarray[float]
+                The circumferential angles theta of the camber line along the blade profile.
+
+            Returns
+            -------
+            None
+            """
+
+            import matplotlib.pyplot as plt
+
+            plt.figure(1)
+            plt.xlabel("Axial coordinate [m]")
+            plt.ylabel("Y coordinate [m]")
+            plt.title(f"Rotated profile sections for stage {stage}")
+            plt.plot(np.concatenate((rotated_upper_x, np.flip(rotated_lower_x)), axis=0), np.concatenate((rotated_upper_y, np.flip(rotated_lower_y)), axis=0), label=f"R={round(radial_point, 2)} m")
+            handles, labels = plt.gca().get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
+            plt.tight_layout()
+
+            plt.figure(2)
+            plt.xlabel("Axial coordinate [m]")
+            plt.ylabel("Circumferential Blade Thickness $T_\\theta$ [m]")
+            plt.title(f"Circumferential thickness distributions for stage {stage}")
+            plt.plot(x_points, circumferential_thickness, label=f"R={round(radial_point, 2)} m")
+            handles, labels = plt.gca().get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
+            plt.tight_layout()
+
+            plt.figure(3)
+            plt.xlabel("Normalised meridional coordinate $||m'||=\\frac{m'}{max(m')}$ [-]")
+            plt.ylabel("Blade angle $\\beta$ [deg]")
+            plt.title(f"Blade angle distributions for stage {stage}")
+            plt.plot(m_prime / m_prime[-1], np.degrees(np.atan(blade_slope)), label=f"R={round(radial_point, 2)} m")
+            handles, labels = plt.gca().get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
+            plt.tight_layout()
+
+            plt.figure(4)
+            plt.xlabel("Normalised meridional coordinate $||m'||=\\frac{m'}{max(m')}$ [-]")
+            plt.ylabel("Circumferential angle $\\theta$ [deg]")
+            plt.title(f"Circumferential angle distributions for stage {stage}")
+            plt.plot(m_prime / m_prime[-1], np.degrees(theta), label=f"R={round(radial_point, 2)} m")
+            handles, labels = plt.gca().get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
+            plt.tight_layout()
+
+            plt.figure(5)
+            plt.xlabel("Normalised meridional coordinate $||m'||=\\frac{m'}{max(m')}$ [-]")
+            plt.ylabel("Camberline blade slope $\\frac{d \\theta}{dm'}$ [-]")
+            plt.title(f"Blade slope distributions for stage {stage}")
+            plt.plot(m_prime / m_prime[-1], blade_slope, label=f"R={round(radial_point, 2)} m")
+            handles, labels = plt.gca().get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
+            plt.tight_layout()
             
         
         def GenerateMTFLOInput(self,
@@ -932,6 +1033,7 @@ class fileHandling:
                                                                                                                         camber_distribution)
 
                         # Rotate the airfoil profile to the correct angle
+                        # The blade pitch is defined with respect to the blade pitch angle at the reference radial station, and thus is corrected accordingly. 
                         blade_pitch = (blade_geometry["pitch_distribution"](radial_points[i]) + blading_params[stage]["ref_blade_angle"] - blading_params[stage][".75R_blade_angle"])
                         rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y  = self.RotateProfile(blade_pitch,
                                                                                                                  upper_x,
@@ -973,57 +1075,17 @@ class fileHandling:
                                                                                z_camber)       
 
                         if plot:
-                            # Only if we are to generate plots do we import matplotlib.pyplot
-                            # This is to reduce overhead in the code. 
-                            plt.figure(1)
-                            plt.xlabel("Axial coordinate [m]")
-                            plt.ylabel("Y coordinate [m]")
-                            plt.title(f"Rotated profile sections for stage {stage}")
-                            plt.plot(np.concatenate((rotated_upper_x, np.flip(rotated_lower_x)), axis=0), np.concatenate((rotated_upper_y, np.flip(rotated_lower_y)), axis=0), label=f"R={round(radial_points[i], 2)} m")
-                            handles, labels = plt.gca().get_legend_handles_labels()
-                            by_label = dict(zip(labels, handles))
-                            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
-                            plt.tight_layout()
-
-                            plt.figure(2)
-                            plt.xlabel("Axial coordinate [m]")
-                            plt.ylabel("Circumferential Blade Thickness $T_\\theta$ [m]")
-                            plt.title(f"Circumferential thickness distributions for stage {stage}")
-                            plt.plot(x_points, circumferential_thickness, label=f"R={round(radial_points[i], 2)} m")
-                            handles, labels = plt.gca().get_legend_handles_labels()
-                            by_label = dict(zip(labels, handles))
-                            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
-                            plt.tight_layout()
-
-                            plt.figure(3)
-                            plt.xlabel("Normalised meridional coordinate $||m'||=\\frac{m'}{max(m')}$ [-]")
-                            plt.ylabel("Blade angle $\\beta$ [deg]")
-                            plt.title(f"Blade angle distributions for stage {stage}")
-                            plt.plot(m_prime / m_prime[-1], np.degrees(np.atan(blade_slope)), label=f"R={round(radial_points[i], 2)} m")
-                            handles, labels = plt.gca().get_legend_handles_labels()
-                            by_label = dict(zip(labels, handles))
-                            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
-                            plt.tight_layout()
-
-                            plt.figure(4)
-                            plt.xlabel("Normalised meridional coordinate $||m'||=\\frac{m'}{max(m')}$ [-]")
-                            plt.ylabel("Circumferential angle $\\theta$ [deg]")
-                            plt.title(f"Circumferential angle distributions for stage {stage}")
-                            plt.plot(m_prime / m_prime[-1], np.degrees(theta), label=f"R={round(radial_points[i], 2)} m")
-                            handles, labels = plt.gca().get_legend_handles_labels()
-                            by_label = dict(zip(labels, handles))
-                            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
-                            plt.tight_layout()
-
-                            plt.figure('5')
-                            plt.xlabel("Normalised meridional coordinate $||m'||=\\frac{m'}{max(m')}$ [-]")
-                            plt.ylabel("Camberline blade slope $\\frac{d \\theta}{dm'}$ [-]")
-                            plt.title(f"Blade slope distributions for stage {stage}")
-                            plt.plot(m_prime / m_prime[-1], blade_slope, label=f"R={round(radial_points[i], 2)} m")
-                            handles, labels = plt.gca().get_legend_handles_labels()
-                            by_label = dict(zip(labels, handles))
-                            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
-                            plt.tight_layout()
+                            self.plot_blade_data(stage,
+                                                 radial_points[i],
+                                                 x_points,
+                                                 rotated_upper_x,
+                                                 rotated_upper_y,
+                                                 rotated_lower_x,
+                                                 rotated_lower_y,
+                                                 circumferential_thickness,
+                                                 blade_slope,
+                                                 m_prime,
+                                                 theta)
 
                         # Compute the sampling indices for the axial points
                         sampling_indices = np.linspace(0, len(x_points) - 1, n_points_axial, dtype=int)

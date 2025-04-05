@@ -87,7 +87,7 @@ class FileCreatedHandling(FileSystemEventHandler):
             os.remove(self.file_path)
             file_processed = True
         
-        
+
     def on_modified(self, event):
         self.on_created(event)
 
@@ -232,10 +232,10 @@ class MTSOL_call:
         self.StdinWrite(f"N {self.operating_conditions['N_crit']}")
 
         # Set the Reynolds number to 0 to ensure an inviscid solve is performed initially
-        self.StdinWrite(f"R 0")
+        self.StdinWrite("R 0")
 
         # Set momentum/entropy conservation Smom flag
-        self.StdinWrite(f"S 4")
+        self.StdinWrite("S 4")
 
         # Exit the modify solution parameters menu
         self.StdinWrite("")
@@ -301,6 +301,7 @@ class MTSOL_call:
 
     def WaitForCompletion(self,
                           type: int = 1,
+                          output_file: str = None
                           ) -> int:
         """
         Monitor the console output to verify the completion of a command.
@@ -310,6 +311,9 @@ class MTSOL_call:
         - type : int
             Specifies the type of completion to monitor. Default is 1, which corresponds to an iteration.
             Other options are: 2 for output generation and 3 for changing operating conditions.
+        - output_file : str, optional
+            A string of the output file for which the completion is to be monitored. Either 'forces', 'flowfield', or 'boundary_layer'. 
+            Note that the file extension (i.e.) casename, should not be included!
 
         Returns
         -------
@@ -342,6 +346,11 @@ class MTSOL_call:
             elif ('Solution written to state file' in line 
                   or line.startswith((' File exists.  Overwrite?  Y', 'Enter filename'))) and type == 2:
                 exit_flag = ExitFlag.COMPLETED.value
+
+                if output_file is not None:
+                    # Wait for the file creation to be finished
+                    while not os.path.exists(f'{output_file}.{self.analysis_name}'):
+                        time.sleep(0.01)  
                 break
                         
             # When changing the operating conditions, check for the end of the modify parameters menu           
@@ -389,29 +398,41 @@ class MTSOL_call:
         # Update the solution state file
         self.WriteStateFile()
 
+        # First delete the output files if they exist already
+        forces_file = f"forces.{self.analysis_name}"
+        flowfield_file = f"flowfield.{self.analysis_name}"
+        boundary_layer_file = f"boundary_layer.{self.analysis_name}"
+
+        if os.path.exists(forces_file):
+            os.remove(forces_file)
+        if os.path.exists(flowfield_file):
+            os.remove(flowfield_file)
+        if os.path.exists(boundary_layer_file):
+            os.remove(boundary_layer_file)
+
         # Dump the forces data
         self.StdinWrite("F")
-        self.StdinWrite(f"forces.{self.analysis_name}") 
-        self.StdinWrite("Y")
+        self.StdinWrite(forces_file) 
         
         # Check if the forces file is written successfully
-        self.WaitForCompletion(type=2)
+        self.WaitForCompletion(type=2,
+                               output_file='forces')
 
         # Dump the flowfield data
         self.StdinWrite("D")
-        self.StdinWrite(f"flowfield.{self.analysis_name}")
-        self.StdinWrite("Y")
+        self.StdinWrite(flowfield_file)
 
         # Check if the flowfield file is written successfully
-        self.WaitForCompletion(type=2)  
+        self.WaitForCompletion(type=2,
+                               output_file='flowfield')  
 
         # Dump the boundary layer data
         self.StdinWrite("B")
-        self.StdinWrite(f"boundary_layer.{self.analysis_name}")
-        self.StdinWrite("Y")
+        self.StdinWrite(boundary_layer_file)
 
         # Check if the boundary layer file is written successfully
-        self.WaitForCompletion(type=2)             
+        self.WaitForCompletion(type=2,
+                               output_file='boundary_layer')             
 
 
     def ExecuteSolver(self,
@@ -575,6 +596,13 @@ class MTSOL_call:
             
         # Define the filepath
         file_path = f'forces.{self.analysis_name}'
+
+        # To avoid mis-interpretation of files, delete the flowfield and boundary layer files, if they exist. 
+        # For a crash output, these files are not needed, as we only use the forces.xxx file. 
+        if os.path.exists(f"flowfield.{self.analysis_name}"):
+            os.remove(f"flowfield.{self.analysis_name}")
+        if os.path.exists(f"boundary_layer.{self.analysis_name}"):
+            os.remove(f"boundary_layer.{self.analysis_name}")
             
         # Load in the forces file line-by-line
         with open(file_path, 'r') as f:
@@ -703,14 +731,6 @@ class MTSOL_call:
         # The average is calculated by summing all the values and dividing by the number of iterations.
         self.GetAverageValues()
 
-        # After averaging, the individual generated files are no longer needed and can be deleted.
-        # with os.scandir(dump_folder) as entries:
-        #     for entry in entries:
-        #         if entry.is_file() and entry.name.startswith(f"forces.{self.analysis_name}"):
-        #             os.unlink(entry.path)
-        
-        # shutil.rmtree(dump_folder)
-
 
     def HandleExitFlag(self,
                        exit_flag: int,
@@ -807,7 +827,7 @@ class MTSOL_call:
         try:
             exit_flag_visc_CB, iter_count_visc_CB = self.ExecuteSolver()
 
-        except (OSError, BrokenPipeError) as e:
+        except (OSError, BrokenPipeError):
             # If the centerbody viscous solve crashes, we need to set the exit flag to crash
             exit_flag_visc_CB = ExitFlag.CRASH.value
             iter_count_visc_CB = self.iter_counter
@@ -826,7 +846,7 @@ class MTSOL_call:
             try:
                 exit_flag_visc_outduct, iter_count_visc_outduct = self.ExecuteSolver()
 
-            except (OSError, BrokenPipeError) as e:
+            except (OSError, BrokenPipeError):
                 # If the outer duct viscous solve crashes, we need to set the exit flag to crash
                 exit_flag_visc_outduct = ExitFlag.CRASH.value
                 iter_count_visc_outduct = self.iter_counter
@@ -845,7 +865,7 @@ class MTSOL_call:
                 try:
                     exit_flag_visc_induct, iter_count_visc_induct = self.ExecuteSolver()
 
-                except (OSError, BrokenPipeError) as e:
+                except (OSError, BrokenPipeError):
                     # If the outer duct viscous solve crashes, we need to set the exit flag to crash
                     exit_flag_visc_induct = ExitFlag.CRASH.value
                     iter_count_visc_induct = self.iter_counter
@@ -855,11 +875,6 @@ class MTSOL_call:
                     # as they are contained within the statefile which was saved after the previous 
                     # successfull completion
                     self.GenerateProcess()
-
-        # Handle solver based on exit flag
-        self.HandleExitFlag(exit_flag_visc_induct,
-                            iter_count_visc_induct,
-                            type=3)
         
         # Compute the overall exit flag and total iteration count
         total_exit_flag = max(exit_flag_visc_CB, exit_flag_visc_outduct, exit_flag_visc_induct)
@@ -909,9 +924,8 @@ class MTSOL_call:
         # Execute inviscid solve
         try:  
             exit_flag_invisc, iter_count_invisc = self.ExecuteSolver()
-        except (OSError, BrokenPipeError) as e:
+        except (OSError, BrokenPipeError):
             # If the inviscid solve crashes, we need to set the exit flag to crash
-            print(e)
             exit_flag_invisc = ExitFlag.CRASH.value
             iter_count_invisc = self.iter_counter
 
@@ -939,19 +953,20 @@ class MTSOL_call:
 
                 # Update the statefile
                 self.WriteStateFile()
-
-                # Handle the exit flag
-                self.HandleExitFlag(exit_flag_visc, 
-                                    iter_count_visc, 
-                                    type=3)
                 
                 total_exit_flag = max(exit_flag_visc, exit_flag_invisc)
                 total_iter_count = iter_count_invisc + iter_count_visc
 
-            except (OSError, BrokenPipeError) as e:
+            except (OSError, BrokenPipeError):
                 # If the complete viscous solve crashed, restart MTSOL and try to converge the individual surfaces separately
                 total_exit_flag, individual_iter_count = self.ConvergeIndividualSurfaces()                
                 total_iter_count += individual_iter_count
+            
+            finally:
+                # Handle the exit flag
+                self.HandleExitFlag(exit_flag_visc, 
+                                    iter_count_visc, 
+                                    type=3)
 
         if generate_output:
             # Generate the solver output

@@ -45,6 +45,7 @@ Changelog:
 
 import subprocess
 import os
+import time
 
 class MTFLO_call:
     """
@@ -145,8 +146,18 @@ class MTFLO_call:
             except subprocess.TimeoutExpired:
                 self.process.kill()
                 raise OSError("MTFLO did not close after file generation. Process was killed.") from None
-        else:    
-            return 
+
+    def FileStatus(self,
+                   fpath: str,
+                   ) -> bool:
+        """ 
+        Simple function to check if the file update/write has finished
+        """
+        try:
+            with open(fpath, "a"):
+                return True
+        except IOError:
+            return False
 
 
     def caller(self,
@@ -168,12 +179,14 @@ class MTFLO_call:
         # Load the numerical grid
         self.LoadForcingField()
 
+        # Wait until file has been processed
+        while not self.FileStatus(f"tdat.{self.analysis_name}"):
+            time.sleep(0.01)
+
         return self.process.returncode      
 
 
 if __name__ == "__main__":
-
-    import time
     start_time = time.time()
     analysisName = "test_case"
     test = MTFLO_call(analysisName)

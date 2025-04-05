@@ -32,10 +32,11 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.0
+Version: 1.1
 
 Changelog:
-- V1.0: Initial working version, containing only the plotting capabilities based on the flowfield.analysis_name and boundary_layer.analysis_name files. The output_processing() class is still a placeholder. 
+- V1.0: Initial working version, containing only the plotting capabilities based on the flowfield.analysis_name and boundary_layer.analysis_name files. The output_processing() class is still a placeholder.
+- V1.1: Added the output_processing() class to read the forces.analysis_name file and extract the thrust and power coefficients. 
 """
 
 import os
@@ -249,13 +250,15 @@ class output_visualisation:
     
 
     def ReadBlades(self,
-                   ) -> list:
+                   ) -> list[np.ndarray[float]]:
         """
         Read the blade geometries from the tflow.analysis_name file.
 
         Returns
         -------
-        - 
+        - list[np.ndarray[float]]
+            A collection of blade outlines where each outline is stored as a NumPy array
+            containing the leading and trailing points.
         """
 
         tflow_fpath = self.local_dir / f"tflow.{self.analysis_name}"
@@ -524,23 +527,18 @@ class output_visualisation:
 class output_processing:
     """
     A class responsible for post-processing MTFLOW output data.
-
-    TODO
-    ----
-    - Implement methods for data analysis
-    - Add functionality for:
-        - Statistical analysis
-        - Performance metrics calculations/processing
-        - Data export capabilitites
-    
-    Notes
-    -----
-    - This class is currently a placeholder and will be implemented in future versions.
     """
 
     def __init__(self,
                  analysis_name: str = None):
-        # TODO: Implement initialization
+        """
+        Class Initialisation.
+
+        Parameters
+        ----------
+        - analysis_name : str
+            A string of the analysis name. Must equal the filename extension used for walls.xxx, tflow.xxx, tdat.xxx, boundary_layer.xxx, and flowfield.xxx.
+        """
 
         # Simple input validation
         if analysis_name is None:
@@ -556,12 +554,10 @@ class output_processing:
 
         if not os.path.exists(self.forces_path):
             raise FileNotFoundError(f"The required file forces.{self.analysis_name} was not found.")
-
-        pass
-
+        
 
     def GetCTCPEtaP(self,
-                ) -> tuple[float, float]:
+                ) -> tuple[float, float, float]:
         """
         Read the forces.analysis_name file and return the thrust and power coefficients with the propulsive efficiency.
 
