@@ -65,8 +65,6 @@ from enum import Enum
 from pathlib import Path
 import time
 
-# Define file_processed as a global variable
-file_processed = False
 
 class FileCreatedHandling(FileSystemEventHandler):
     """ 
@@ -78,18 +76,22 @@ class FileCreatedHandling(FileSystemEventHandler):
                  destination: str) -> None:
         self.file_path = file_path
         self.destination = destination
+        self.file_processed = False
 
     def on_created(self, event):
         """ Handle copying of the forces.analysis_name output file."""
-        global file_processed
         if event.src_path == self.file_path:
             shutil.copy(self.file_path, self.destination)
             os.remove(self.file_path)
-            file_processed = True
+            self.file_processed = True
         
 
     def on_modified(self, event):
         self.on_created(event)
+
+    
+    def is_file_processed(self) -> bool:
+        return self.file_processed
 
 
 class ExitFlag(Enum):
@@ -666,7 +668,6 @@ class MTSOL_call:
             - Averages the data from the generated files to estimate the true values.
             - Deletes the individual output files after averaging.
 
-
         Returns
         -------
         None
@@ -686,9 +687,8 @@ class MTSOL_call:
 
         # Initialize watchdog to check when output file has been created
         event_handler = FileCreatedHandling(f'forces.{self.analysis_name}',
-                                            dump_folder / f'forces.{self.analysis_name}.{iter_counter}'
-                                            )
-        file_processed = False
+                                            dump_folder / f'forces.{self.analysis_name}.{iter_counter}')
+
         observer = Observer()
         observer.schedule(event_handler,
                           path=os.getcwd(),
@@ -712,12 +712,12 @@ class MTSOL_call:
             # Waits for the file to exist before copying.
             init_time = time.time()
             timer = 0
-            while not file_processed and timer < 10:
+            while not event_handler.is_file_processed() and timer < 10:
                 current_time = time.time()
                 timer = current_time - init_time
                 time.sleep(0.1)
 
-            file_processed = False
+            event_handler.file_processed = False  # Reset the file processed flag for the next iteration
 
             # Increase iteration counter by step size
             iter_counter += 1
