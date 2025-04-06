@@ -363,7 +363,7 @@ class MTSOL_call:
                     # Wait for the file creation to be finished
                     while not os.path.exists(f'{output_file}.{self.analysis_name}'):
                         time.sleep(0.01) 
-                        if time.time - start_time > max_wait_time:
+                        if time.time() - start_time > max_wait_time:
                             break 
                 break
                         

@@ -103,7 +103,6 @@ import os
 from scipy import interpolate
 from pathlib import Path
 from typing import Optional
-import matplotlib.pyplot as plt
 
 
 # Handle local versus global execution of the file with imports
@@ -633,6 +632,17 @@ class fileHandling:
                 The upper surface y-coordinates.
             - y_l : np.ndarray[float]
                 The lower surface y-coordinates
+
+            Returns
+            -------
+            - rotated_upper_x : np.ndarray[float]
+                The x-coordinates of the rotated upper surface.
+            - rotated_upper_y : np.ndarray[float]
+                The y-coordinates of the rotated upper surface.
+            - rotated_lower_x : np.ndarray[float]
+                The x-coordinates of the rotated lower surface.
+            - rotated_lower_y : np.ndarray[float]
+                The y-coordinates of the rotated lower surface.
             """
 
             # Construct the rotation matrix
@@ -1109,6 +1119,7 @@ class fileHandling:
                     
                     if plot:
                         # Only display plots if the plot boolean is True
+                        import matplotlib.pyplot as plt
                         plt.show() 
                      
                     # End the stage 
