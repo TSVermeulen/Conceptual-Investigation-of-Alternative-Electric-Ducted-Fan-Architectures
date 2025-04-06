@@ -41,10 +41,12 @@ Version: 1.0.5
 Changelog:
 - V1.0: Initial working version
 - V1.0.5: Cleaned up inputs, removing file_path and changing it to a constant. 
+- V1.1: Added file status check to ensure that the file has been written before proceeding. Added stdinwrite function to clean up process interactions.
 """
 
 import subprocess
 import os
+import time
 
 class MTFLO_call:
     """
@@ -69,6 +71,24 @@ class MTFLO_call:
         self.fpath: str = os.getenv('MTFLO_PATH', 'mtflo.exe')
         if not os.path.exists(self.fpath):
             raise FileNotFoundError(f"MTFLO executable not found at {self.fpath}")
+        
+    def StdinWrite(self,
+                   command: str) -> None:
+        """
+        Simple function to write commands to the subprocess stdin in order to pass commands to MTFLO.
+
+        Parameters
+        ----------
+        - command : str
+            The text-based command to pass to MTFLO.
+
+        Returns
+        -------
+        None
+        """
+
+        self.process.stdin.write(f"{command} \n")
+        self.process.stdin.flush()
 
 
     def GenerateProcess(self,
@@ -108,14 +128,13 @@ class MTFLO_call:
         """
 
         # Enter field parameter menu
-        self.process.stdin.write("F \n")
+        self.StdinWrite("F")
 
         # Read parameter text file
-        self.process.stdin.write("R \n")
+        self.StdinWrite("R")
 
         # Accept default filename
-        self.process.stdin.write("\n")
-        self.process.stdin.flush()
+        self.StdinWrite("")
 
         # Check if file is loaded in successfully.
         # If error occured, MTFLO will have crashed, so we can check success by checking 
@@ -124,18 +143,16 @@ class MTFLO_call:
             raise ImportError(f"Issue with input file tflow.{self.analysis_name}, MTFLO crashed") from None
         
         # Exit the field parameter menu
-        self.process.stdin.write("\n")
+        self.StdinWrite("")
 
         # Write to the flowfield file tdat.xxx and check if writing was successful 
-        self.process.stdin.write("W \n")
-        self.process.stdin.flush()     
+        self.StdinWrite("W")
 
         if self.process.poll() is not None:
             raise OSError(f"Issue writing parameters to tdat.{self.analysis_name}, MTFLO crashed") from None
         
         # Close the MTFLO program
-        self.process.stdin.write("Q \n")
-        self.process.stdin.flush()
+        self.StdinWrite("Q")
 
          # Check that MTFLO has closed successfully 
         if self.process.poll() is None:
@@ -145,8 +162,18 @@ class MTFLO_call:
             except subprocess.TimeoutExpired:
                 self.process.kill()
                 raise OSError("MTFLO did not close after file generation. Process was killed.") from None
-        else:    
-            return 
+
+    def FileStatus(self,
+                   fpath: str,
+                   ) -> bool:
+        """ 
+        Simple function to check if the file update/write has finished
+        """
+        try:
+            with open(fpath, "a"):
+                return True
+        except IOError:
+            return False
 
 
     def caller(self,
@@ -168,12 +195,14 @@ class MTFLO_call:
         # Load the numerical grid
         self.LoadForcingField()
 
+        # Wait until file has been processed
+        while not self.FileStatus(f"tdat.{self.analysis_name}"):
+            time.sleep(0.01)
+
         return self.process.returncode      
 
 
 if __name__ == "__main__":
-
-    import time
     start_time = time.time()
     analysisName = "test_case"
     test = MTFLO_call(analysisName)
