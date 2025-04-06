@@ -407,8 +407,6 @@ class MTFLOW_caller:
 
         return exit_flag, iter_count
 
-           
-
 
 if __name__ == "__main__":
     import time
