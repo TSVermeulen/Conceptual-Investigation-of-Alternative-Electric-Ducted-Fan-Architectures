@@ -91,6 +91,14 @@ class FileCreatedHandling(FileSystemEventHandler):
 
     
     def is_file_processed(self) -> bool:
+        """
+        Return whether the file has been processed.
+
+        Returns
+        -------
+        - bool
+            True if the file has been processed, False otherwise.
+        """
         return self.file_processed
 
 
@@ -350,9 +358,13 @@ class MTSOL_call:
                 exit_flag = ExitFlag.COMPLETED.value
 
                 if output_file is not None:
+                    max_wait_time = 5  # Maximum wait time in seconds
+                    start_time = time.time()
                     # Wait for the file creation to be finished
                     while not os.path.exists(f'{output_file}.{self.analysis_name}'):
-                        time.sleep(0.01)  
+                        time.sleep(0.01) 
+                        if time.time - start_time > max_wait_time:
+                            break 
                 break
                         
             # When changing the operating conditions, check for the end of the modify parameters menu           
@@ -716,11 +728,17 @@ class MTSOL_call:
                 current_time = time.time()
                 timer = current_time - init_time
                 time.sleep(0.1)
-
-            event_handler.file_processed = False  # Reset the file processed flag for the next iteration
-
+            
             # Increase iteration counter by step size
             iter_counter += 1
+
+            # Re-intialise the event handler for the next iteration with an updated destination
+            event_handler = FileCreatedHandling(f'forces.{self.analysis_name}',
+                                                dump_folder / f'forces.{self.analysis_name}.{iter_counter}')
+            observer.unschedule_all()
+            observer.schedule(event_handler,
+                              path=os.getcwd(),
+                              recursive=False)            
 
         # Wrap up the watchdog
         observer.stop()
@@ -788,7 +806,44 @@ class MTSOL_call:
         
         else:
             raise OSError(f"Unknown exit flag {exit_flag} encountered!") from None
+
+
+    def TryExecuteViscousSolver(self,
+                         surface_ID: int = None,
+                         ) -> tuple[int, int]:
+        """
+        Try to execute the MTSOL solver for the current analysis on the viscous surface surface_ID.
+
+        Parameters
+        ----------
+        - surface_ID : int, optional
+            ID of the surface which is to be toggled. For a ducted fan, the ID should be either 1, 3, or 4. 
         
+        Returns
+        -------
+        - exit_flag : int
+            Exit flag indicating the status of the solver execution.
+        - iter_counter : int
+            Number of iterations performed up until failure of the solver.
+        """
+        
+        try:
+            # Set viscous if surface_ID is given
+            if surface_ID is not None:
+                self.SetViscous(surface_ID)
+
+            # Execute the solver and get the exit flag and iteration count
+            exit_flag, iter_count = self.ExecuteSolver()
+        except (OSError, BrokenPipeError):
+            # If the solver crashes, set the exit flag to crash
+            exit_flag = ExitFlag.CRASH.value
+            iter_count = self.iter_counter
+
+            # Restart MTSOL
+            self.GenerateProcess()
+
+        return exit_flag, iter_count    
+    
     
     def ConvergeIndividualSurfaces(self,
                                    ) -> tuple[int, int]:
@@ -823,58 +878,18 @@ class MTSOL_call:
         # Toggle viscous on the centerbody
         self.ToggleViscous()
 
-        # Execute initial viscous solve, where we only solve for the boundary layer on the centerbody 
-        try:
-            exit_flag_visc_CB, iter_count_visc_CB = self.ExecuteSolver()
+        # Execute the initial viscous solve, where we only solve for the boundary layer on the centerbody
+        self.TryExecuteViscousSolver()
 
-        except (OSError, BrokenPipeError):
-            # If the centerbody viscous solve crashes, we need to set the exit flag to crash
-            exit_flag_visc_CB = ExitFlag.CRASH.value
-            iter_count_visc_CB = self.iter_counter
-
-            # Since MTSOL has crashed, we also need to restart MTSOL.
-            # We do not need to redefine the operating conditions, 
-            # as they are contained within the statefile which was saved after the previous 
-            # successfull completion
-            self.GenerateProcess()
-        
+        # Check if the viscous solve was successful	        
         if exit_flag_visc_CB in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
-            # Toggle viscous on the outside of the duct
-            self.SetViscous(3)
+            # If the viscous solve was successful, execute the viscous solve for the outside of the duct
+            self.TryExecuteViscousSolver(surface_ID=3)
 
-            # Execute viscous solve for the outer duct
-            try:
-                exit_flag_visc_outduct, iter_count_visc_outduct = self.ExecuteSolver()
-
-            except (OSError, BrokenPipeError):
-                # If the outer duct viscous solve crashes, we need to set the exit flag to crash
-                exit_flag_visc_outduct = ExitFlag.CRASH.value
-                iter_count_visc_outduct = self.iter_counter
-
-                # Since MTSOL has crashed, we also need to restart MTSOL.
-                # We do not need to redefine the operating conditions, 
-                # as they are contained within the statefile which was saved after the previous 
-                # successfull completion
-                self.GenerateProcess()
-            
+            # Check if the viscous solve was successful
             if exit_flag_visc_outduct in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
-                # Toggle viscous on the inside of the duct
-                self.SetViscous(4)
-
-                # Execute viscous solve for the inside of the duct
-                try:
-                    exit_flag_visc_induct, iter_count_visc_induct = self.ExecuteSolver()
-
-                except (OSError, BrokenPipeError):
-                    # If the outer duct viscous solve crashes, we need to set the exit flag to crash
-                    exit_flag_visc_induct = ExitFlag.CRASH.value
-                    iter_count_visc_induct = self.iter_counter
-
-                    # Since MTSOL has crashed, we also need to restart MTSOL.
-                    # We do not need to redefine the operating conditions, 
-                    # as they are contained within the statefile which was saved after the previous 
-                    # successfull completion
-                    self.GenerateProcess()
+                # If the viscous solve was successful, execute the final viscous solve for the inside of the duct
+                self.TryExecuteViscousSolver(surface_ID=4)
         
         # Compute the overall exit flag and total iteration count
         total_exit_flag = max(exit_flag_visc_CB, exit_flag_visc_outduct, exit_flag_visc_induct)

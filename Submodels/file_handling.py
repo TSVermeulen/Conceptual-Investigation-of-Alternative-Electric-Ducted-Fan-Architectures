@@ -86,7 +86,7 @@ Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
 Version: 1.3
-Date [dd-mm-yyyy]: 20-02-2025
+Date [dd-mm-yyyy]: 06-04-2025
 
 Changelog
 ---------
@@ -194,16 +194,14 @@ class fileHandling:
             self.domain_boundaries = domain_boundaries
 
             # Only perform complete input validation if the input dictionaries contain data
+            keys_to_check = {"Leading Edge Coordinates", "Chord Length"}
             if not external_input:
-                for params, name in [(params_CB, "params_CB"), (params_duct, "params_duct")]:
-                    missing_keys = required_keys - set(params.keys())
-                    if missing_keys:
-                        raise ValueError(f"Missing required keys in {name}: {missing_keys}")
-            else:
-                for params, name in [(params_CB, "params_CB"), (params_duct, "params_duct")]:
-                    missing_keys = {"Leading Edge Coordinates", "Chord Length"} - set(params.keys())
-                    if missing_keys:
-                        raise ValueError(f"Missing required keys in {name}: {missing_keys}")
+                keys_to_check = required_keys
+                  
+            for params, name in [(params_CB, "params_CB"), (params_duct, "params_duct")]:
+                missing_keys = keys_to_check - set(params.keys())
+                if missing_keys:
+                    raise ValueError(f"Missing required keys in {name}: {missing_keys}")
 
             if not isinstance(case_name, str):
                 raise TypeError("case_name must be a string")
@@ -1087,8 +1085,11 @@ class fileHandling:
                                                  m_prime,
                                                  theta)
 
-                        # Compute the sampling indices for the axial points
-                        sampling_indices = np.linspace(0, len(x_points) - 1, n_points_axial, dtype=int)
+                        # Compute the sampling indices for the axial points with higher densities near the LE and TE
+                        angle = np.linspace(0, np.pi, n_points_axial)
+                        # Use cosine distribution to concentrate points near ends
+                        normalized_indices = (1 - np.cos(angle)) / 2
+                        sampling_indices = np.floor(normalized_indices * (len(x_points) - 1)).astype(int)
                                                   
                         # Loop over the streamwise points and construct the data for each streamwise point
                         # Each data point consists of the data [x / Lref, r / Lref, T / Lref, Srel]

@@ -147,7 +147,7 @@ def GenerateMTFLOBlading(Omega: float,
         x_mid_arr = np.zeros_like(x_LE_arr)
 
         for section in range(len(blading_parameters[0]["radial_stations"])):
-            rotation_angle = np.pi/2 - (blading_parameters[0]["blade_angle"][section] + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0]["reference_section_blade_anglee"])
+            rotation_angle = np.pi/2 - (blading_parameters[0]["blade_angle"][section] + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0]["reference_section_blade_angle"])
             x_LE = root_LE + blading_parameters[0]["radial_stations"][section] * np.tan(blading_parameters[0]["sweep_angle"][section])
             
             x_TE = x_LE + blading_parameters[0]["chord_length"][section] * np.cos(rotation_angle)
@@ -536,14 +536,19 @@ if __name__ == "__main__":
         etaP[i] = eta_out
 
     # Generate plot of outputs
-    plt.figure("Thrust coefficients")
+    thrust_fig = plt.figure("Thrust coefficients")
+    power_fig = plt.figure("Power coefficients")
+
     for i in range(len(REFERENCE_BLADE_ANGLE)):
-        plt.figure("Thrust coefficients")
-        plt.plot(J, CT[i], label=f"$\\beta_(75%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
-        plt.figure("Power coefficients")
-        plt.plot(J, CP[i], label=f"$\\beta_(75%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
+        # Add plots to each figure
+        plt.figure(thrust_fig.number)
+        plt.plot(J, CT[i], label=f"$\\beta_(75\\%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
+
+        plt.figure(power_fig.number)
+        plt.plot(J, CP[i], label=f"$\\beta_(75\\%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
     
-    plt.figure("Thrust coefficients")
+    # Format the thrust coefficient figure
+    plt.figure(thrust_fig.number)
     plt.grid(which='both')
     plt.minorticks_on()
     plt.xlabel("Advance Ratio J [-]")
@@ -553,7 +558,8 @@ if __name__ == "__main__":
     plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
     plt.tight_layout()
 
-    plt.figure("Power coefficients")
+    # Format the power coefficient figure
+    plt.figure(power_fig.number)
     plt.grid(which='both')
     plt.minorticks_on()
     plt.xlabel("Advance Ratio J [-]")

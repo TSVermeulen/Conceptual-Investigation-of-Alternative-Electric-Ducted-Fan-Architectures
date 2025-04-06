@@ -823,10 +823,6 @@ class AirfoilParameterization:
                           "trailing_camberline_angle": x[13],
                           "leading_edge_direction": x[14]}       
 
-        # Compute the upper and lower surface coordinates from the parameterization
-        # upper_x, upper_y, lower_x, lower_y = self.ComputeProfileCoordinates(b_coeff,
-        #                                                                     airfoil_params)
-        
         # Obtain the Bezier data 
         bezier_thickness, bezier_thickness_x, bezier_camber, bezier_camber_x = self.ComputeBezierCurves(b_coeff,
                                                                                                         airfoil_params,
