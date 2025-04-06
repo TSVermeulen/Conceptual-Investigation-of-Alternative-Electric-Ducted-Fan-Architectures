@@ -45,7 +45,7 @@ L_REF = FAN_DIAMETER  # m, reference length for use by MTFLOW
 def GenerateMTFLOBlading(Omega: float,                        
                          ref_blade_angle: float,
                          plot : bool,
-                         ) -> tuple[list]:
+                         ) -> tuple[list, list]:
     """
     Generate MTFLO blading.
     The blading parameters are based on Figure 3 in [1].
@@ -61,10 +61,12 @@ def GenerateMTFLOBlading(Omega: float,
     
     Returns
     -------
-    - blading_parameters : list
-        A list containing dictionaries with the blading parameters.
-    - design_parameters : list
-        A list containing dictionaries with the design parameters for each radial station.
+    - (list, list):
+        A tuple of two lists:
+        - blading_parameters : list
+            A list containing dictionaries with the blading parameters.
+        - design_parameters : list
+            A list containing dictionaries with the design parameters for each radial station.
     """
 
     # Start defining the MTFLO blading inputs
