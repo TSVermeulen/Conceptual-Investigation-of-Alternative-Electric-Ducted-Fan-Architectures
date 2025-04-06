@@ -53,6 +53,8 @@ Changelog:
 - V1.0: Adapted version of a parameterization using only the bezier coefficients to give an improved fit to the reference data. 
 - V1.1: Updated docstring, and working implementation for symmetric profiles (i.e. zero camber)
 - V1.2: Updated FindInitialParameterization method to use SLSQP optimization rather than least squares to enable correct constraint handling. 
+- V1.2.1: Previously increased the number of points in the u-vectors for the bezier curves to 200. This yields too many in the walls.xxx input file for MTSET to handle, causing a crash. 
+          Number of points has been reduced to 100.
 """
 
 import numpy as np
@@ -563,8 +565,8 @@ class AirfoilParameterization:
         """
 
         # Create u-vectors for Bezier curve generation
-        # Use 200 points
-        n_points = 200
+        # Use 100 points
+        n_points = 100
         u_leading_edge = np.zeros(n_points)
         u_trailing_edge = np.zeros(n_points)
 
