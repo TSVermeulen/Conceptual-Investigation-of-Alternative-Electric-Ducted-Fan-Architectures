@@ -538,14 +538,15 @@ if __name__ == "__main__":
     # Generate plot of outputs
     thrust_fig = plt.figure("Thrust coefficients")
     power_fig = plt.figure("Power coefficients")
+    markers = ['*', 'o', 's', '^', 'D', 'v', 'x', '+', 'P']
 
     for i in range(len(REFERENCE_BLADE_ANGLE)):
         # Add plots to each figure
         plt.figure(thrust_fig.number)
-        plt.plot(J, CT[i], label=f"$\\beta_(75\\%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
+        plt.plot(J, CT[i], label=f"$\\beta_(75\\%)$={round(np.degrees(REFERENCE_BLADE_ANGLE[i]), 2)} deg", marker=markers[i])
 
         plt.figure(power_fig.number)
-        plt.plot(J, CP[i], label=f"$\\beta_(75\\%)$={np.degrees(REFERENCE_BLADE_ANGLE[i])} deg")
+        plt.plot(J, CP[i], label=f"$\\beta_(75\\%)$={round(np.degrees(REFERENCE_BLADE_ANGLE[i]), 2)} deg", marker=markers[i])
     
     # Format the thrust coefficient figure
     plt.figure(thrust_fig.number)
