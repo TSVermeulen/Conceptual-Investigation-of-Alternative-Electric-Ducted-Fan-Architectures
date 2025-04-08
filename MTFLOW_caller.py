@@ -95,34 +95,6 @@ from Submodels.MTSOL_call import MTSOL_call, ExitFlag
 from Submodels.file_handling import fileHandling
 
 
-#  class ExitFlag(Enum):
-#     """
-#     Enum class to define the exit flags for the MTFLOW interface. 
-
-#     The exit flags are used to determine the status of the interface execution. 
-
-#     Attributes
-#     ----------
-#     SUCCESS : int
-#         Successful completion of the interface execution. 
-#     CRASH : int
-#         MTSOL crash - likely related to the grid resolution. 
-#     NOT_PERFORMED : int
-#         Not performed, with no iterations executed or outputs generated. 
-#     COMPLETED: int
-#         Finished iteration/action, but no convergence. 
-#     CHOKING: int
-#         Choking occurs somewhere in solution, needs handling. 
-#     """
-
-#     SUCCESS = -1
-#     CRASH = 0
-#     NON_CONVERGENCE = 1
-#     NOT_PERFORMED = 2
-#     COMPLETED = 3
-#     CHOKING = 4
-
-
 class MTFLOW_caller:
     """
     Wrapper class to execute the complete MTFLOW evaluation cycle.

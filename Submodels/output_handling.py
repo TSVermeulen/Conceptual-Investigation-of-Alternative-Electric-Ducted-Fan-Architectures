@@ -606,6 +606,139 @@ class output_processing:
         total_CT = float(match.group(3))
 
         return total_CT, total_CP, EtaP
+    
+
+    def GetAllVariables(self,
+                        output_type : int = 0,
+                        ) -> dict[dict[float], dict[float], dict[float]]:
+        """
+        Read the forces.analysis_name file and return the variables and their values.
+
+        Parameters
+        ----------
+        - output_type : int
+            An integer indicating the type of output desired from the method:
+            - '0' : All outputs
+            - '1' : General Output data only
+            - '2' : Element output data only
+
+        Returns
+        -------
+        - output : dict[dict[float], dict[float], dict[float]]
+            A nested dictionary containing:
+            - oper : A dictionary containing the operating conditions
+            - data : A dictionary containing the general output data
+            - grouped_data : A dictionary containing the element breakdowns for the duct and centerbody 
+        """
+
+        try:
+            with open(self.forces_path, 'r') as file:
+                # Read the file contents, and replace the newline characters with empty strings.
+                forces_file_contents = file.readlines()
+                forces_file_contents = [s.replace('\n', '') for s in forces_file_contents]	
+        except OSError as e:
+            raise OSError(f"An error occurred opening the forces.{self.analysis_name} file: {e}") from e
+
+        # Define regex patterns.
+        Ma_pattern = r"Ma\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+        Re_Ncrit_pattern = r'Re\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+Ncrit\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
+        total_CP_etaP_pattern = r'CP\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+EtaP\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
+        total_CT_pattern = r"Total force    CT\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+        top_CTV_pattern = r"top CTV\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+        bot_CTV_pattern = r"bot CTv\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+        axis_body_CTV_pattern = r"Axis body      CTv\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+        viscous_inviscid_pattern = r'CTv\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTi\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
+        friction_pressure_pattern = r'CTf\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTp\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
+        element_breakdown_pattern = r'CTf\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTp\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+top Xtr\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+bot Xtr\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
+        axis_body_breakdown_pattern = r'CTf\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTp\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+Xtr\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
+        P_ratio_pattern = r"Pexit/Po\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+
+        # Initialise output dictionaries and index counter.
+        oper = {}
+        data = {}
+        grouped_data = {}
+        idx = -1
+
+        # Use regex to extract values from the line.
+        # Only search for the data if desired based on the output_type integer provided.
+        for line in forces_file_contents: 
+            idx += 1
+
+            if idx == 3 and output_type == 0:
+                oper["Mach"] = re.search(Ma_pattern, line).group(1)
+
+            elif idx == 4 and output_type == 0:
+                match = re.search(Re_Ncrit_pattern, line)
+                oper["Re"] = match.group(1)
+                oper["Ncrit"] = match.group(2)
+
+            elif idx == 6 and output_type in (0,1):
+                match = re.search(total_CP_etaP_pattern, line)
+                data["Total power CP"] = match.group(1)
+                data["EtaP"] = match.group(2)
+
+            elif idx == 7 and output_type in (0,1):
+                data["Total force CT"] = re.search(total_CT_pattern, line).group(1)
+
+            elif idx == 9 and output_type in (0,1):
+                data["Element 2 top CTV"] = re.search(top_CTV_pattern, line).group(1)
+
+            elif idx == 10 and output_type in (0,1):
+                data["Element 2 bot CTV"] = re.search(bot_CTV_pattern, line).group(1)
+
+            elif idx == 11 and output_type in (0,1):
+                data["Axis body CTV"] = re.search(axis_body_CTV_pattern, line).group(1)
+
+            elif idx == 14 and output_type in (0,1):
+                viscous_inviscid_math = re.search(viscous_inviscid_pattern, line)
+                data["Viscous CTv"] = viscous_inviscid_math.group(1)
+                data["Inviscid CTi"] = viscous_inviscid_math.group(2)
+
+            elif idx == 15 and output_type in (0,1):
+                friction_pressure_math = re.search(friction_pressure_pattern, line)
+                data["Friction CTf"] = friction_pressure_math.group(1)
+                data["Pressure CTp"] = friction_pressure_math.group(2)
+
+            elif idx == 17 and output_type in (0,2):
+                match = re.search(element_breakdown_pattern, line)
+                CTf = match.group(1)
+                CTp = match.group(2)
+                top_Xtr = match.group(3)
+                bot_Xtr = match.group(4)
+                grouped_data["Element 2"] = {"CTf": CTf,
+                                             "CTp": CTp,
+                                             "top Xtr": top_Xtr,
+                                             "bot Xtr": bot_Xtr}
+                
+            elif idx == 19 and output_type in (0,2):
+                match = re.search(axis_body_breakdown_pattern, line)
+                CTf = match.group(1)
+                CTp = match.group(2)
+                Xtr = match.group(3)
+                grouped_data["Axis Body"] = {"CTf": CTf,
+                                             "CTp": CTp,
+                                             "Xtr": Xtr}
+                
+            elif idx == 23 and output_type in (0,1):
+                data["Pressure Ratio"] = re.search(P_ratio_pattern, line).group(1)
+
+        # Convert contents of all dictionaries to floats
+        oper = {key: float(value) for key, value in oper.items()}
+        data = {key: float(value) for key, value in data.items()}
+        grouped_data = {key: {k: float(v) for k, v in value.items()} for key, value in grouped_data.items()}
+
+        # Construct output dictionary
+        output = {}
+        if output_type == 0:
+            output["oper"] = oper
+            output["data"] = data
+            output["grouped_data"] = grouped_data
+        elif output_type == 1:
+            output = data
+        elif output_type == 2:
+            output = grouped_data
+
+        return output
        
 
 if __name__ == "__main__":
