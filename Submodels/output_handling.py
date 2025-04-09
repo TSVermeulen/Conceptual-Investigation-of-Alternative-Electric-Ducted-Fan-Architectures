@@ -569,43 +569,6 @@ class output_processing:
 
         if not os.path.exists(self.forces_path):
             raise FileNotFoundError(f"The required file forces.{self.analysis_name} was not found.")
-        
-
-    def GetCTCPEtaP(self) -> tuple[float, float, float]:
-        """
-        Read the forces.analysis_name file and return the thrust and power coefficients with the propulsive efficiency.
-
-        Parameters
-        ----------
-        None
-
-        Returns
-        -------
-        - tuple[float, float, float]
-            A tuple of the form (CT, CP, EtaP) containing the thrust and power coefficients, together with the propulsive efficiency for the analysed case
-        """
-
-        try:
-            with open(self.forces_path, 'r') as file:
-                forces_file_contents = file.readlines()
-                forces_file_contents = ''.join(forces_file_contents)
-        except OSError as e:
-            raise OSError(f"An error occurred opening the forces.{self.analysis_name} file: {e}") from e
-        
-        # Define regex pattern to extract CP, CT, and EtaP
-        # pattern accepts both scientific notation and regular float notation. 
-        pattern = r"Total power\s+CP\s+=\s+([-\d.]+(?:E[-+]?\d+)?)\s+EtaP\s+=\s+([-\d.]+(?:E[-+]?\d+)?)\s+Total force\s+CT\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
-
-        # Search for the pattern and extract the data
-        match = re.search(pattern, forces_file_contents)
-        if match is None:
-            raise ValueError(f"Failed to extract the CP, CT, and EtaP values from the forces.{self.analysis_name} file.")
-        
-        total_CP = float(match.group(1))
-        EtaP = float(match.group(2))
-        total_CT = float(match.group(3))
-
-        return total_CT, total_CP, EtaP
     
 
     def GetAllVariables(self,
@@ -739,6 +702,29 @@ class output_processing:
             output = grouped_data
 
         return output
+    
+
+    def GetCTCPEtaP(self) -> tuple[float, float, float]:
+        """
+        Read the forces.analysis_name file and return the thrust and power coefficients with the propulsive efficiency.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        - tuple[float, float, float]
+            A tuple of the form (CT, CP, EtaP) containing the thrust and power coefficients, together with the propulsive efficiency for the analysed case
+        """
+
+        data = self.GetAllVariables(1)
+        
+        total_CP = data["Total power CP"]
+        EtaP = data["EtaP"]
+        total_CT = data["Total force CT"]
+
+        return total_CT, total_CP, EtaP
        
 
 if __name__ == "__main__":
