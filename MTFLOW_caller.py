@@ -73,10 +73,11 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID 4995309
-Version: 1.0
+Version: 1.1
 
 Changelog:
 - V1.0: Initial version. Lacks proper crash handling and choking handling in the HandleExitFlag() method, but otherwise complete. 
+- V1.1: Cleaned up following successful implementation of validation case. Crash handling is now done within MTSOL_call. 
 """
 
 import sys
