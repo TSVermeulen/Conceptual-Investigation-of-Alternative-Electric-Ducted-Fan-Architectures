@@ -584,6 +584,7 @@ class output_processing:
             - '0' : All outputs
             - '1' : General Output data only
             - '2' : Element output data only
+            - '3' : Optimization output only (equal to 1 and 2 together)
 
         Returns
         -------
@@ -635,34 +636,34 @@ class output_processing:
                 oper["Re"] = match.group(1)
                 oper["Ncrit"] = match.group(2)
 
-            elif idx == 6 and output_type in (0,1):
+            elif idx == 6 and output_type in (0, 1, 3):
                 match = re.search(total_CP_etaP_pattern, line)
                 data["Total power CP"] = match.group(1)
                 data["EtaP"] = match.group(2)
 
-            elif idx == 7 and output_type in (0,1):
+            elif idx == 7 and output_type in (0, 1, 3):
                 data["Total force CT"] = re.search(total_CT_pattern, line).group(1)
 
-            elif idx == 9 and output_type in (0,1):
+            elif idx == 9 and output_type in (0, 1, 3):
                 data["Element 2 top CTV"] = re.search(top_CTV_pattern, line).group(1)
 
-            elif idx == 10 and output_type in (0,1):
+            elif idx == 10 and output_type in (0, 1, 3):
                 data["Element 2 bot CTV"] = re.search(bot_CTV_pattern, line).group(1)
 
-            elif idx == 11 and output_type in (0,1):
+            elif idx == 11 and output_type in (0, 1, 3):
                 data["Axis body CTV"] = re.search(axis_body_CTV_pattern, line).group(1)
 
-            elif idx == 14 and output_type in (0,1):
+            elif idx == 14 and output_type in (0, 1, 3):
                 viscous_inviscid_math = re.search(viscous_inviscid_pattern, line)
                 data["Viscous CTv"] = viscous_inviscid_math.group(1)
                 data["Inviscid CTi"] = viscous_inviscid_math.group(2)
 
-            elif idx == 15 and output_type in (0,1):
+            elif idx == 15 and output_type in (0, 1, 3):
                 friction_pressure_math = re.search(friction_pressure_pattern, line)
                 data["Friction CTf"] = friction_pressure_math.group(1)
                 data["Pressure CTp"] = friction_pressure_math.group(2)
 
-            elif idx == 17 and output_type in (0,2):
+            elif idx == 17 and output_type in (0, 2, 3):
                 match = re.search(element_breakdown_pattern, line)
                 CTf = match.group(1)
                 CTp = match.group(2)
@@ -673,7 +674,7 @@ class output_processing:
                                              "top Xtr": top_Xtr,
                                              "bot Xtr": bot_Xtr}
                 
-            elif idx == 19 and output_type in (0,2):
+            elif idx == 19 and output_type in (0, 2, 3):
                 match = re.search(axis_body_breakdown_pattern, line)
                 CTf = match.group(1)
                 CTp = match.group(2)
@@ -682,7 +683,7 @@ class output_processing:
                                              "CTp": CTp,
                                              "Xtr": Xtr}
                 
-            elif idx == 23 and output_type in (0,1):
+            elif idx == 23 and output_type in (0, 1, 3):
                 data["Pressure Ratio"] = re.search(P_ratio_pattern, line).group(1)
 
         # Convert contents of all dictionaries to floats
@@ -700,6 +701,11 @@ class output_processing:
             output = data
         elif output_type == 2:
             output = grouped_data
+        elif output_type == 3:
+            output["data"] = data
+            output["grouped_data"] = grouped_data
+        else:
+            raise ValueError(f"Invalid output type passed to GetAllVariables: {output_type}. output type should be 0-3.")
 
         return output
     
