@@ -214,6 +214,7 @@ class MTFLOW_caller:
     def caller(self,
                debug: bool = False,
                external_inputs: bool = False,
+               output_type: int = 0,
                ) -> tuple[int, list[tuple[int, int]]]:
         """ 
         Executes a complete MTSET-MTFLO-MTSOL evaluation, while handling grid issues and choking issues. 
@@ -226,6 +227,8 @@ class MTFLOW_caller:
         - external_inputs : bool, optional
             A boolean controlling the generation of the MTFLO and MTSET input files. If true, assumes walls.analysis_name and tflow.analysis_name have been generated outside of MTFLOW_caller. 
             This is useful for debugging or validation against existing, external data. 
+        - output_type : int, optional
+            A control integer to determine which output files to generate. 0 corresponds to only the forces file, while any other integer generates all files. 
 
         Returns
         -------
@@ -364,7 +367,8 @@ class MTFLOW_caller:
                 
             exit_flag, iter_count = MTSOL_call(operating_conditions=self.operating_conditions,
                                                analysis_name=self.analysis_name).caller(run_viscous=True,
-                                                                                        generate_output=True)
+                                                                                        generate_output=True,
+                                                                                        output_type=output_type)
                
             if debug:
                 logger.info(f"MTSOL finished with exit flag {exit_flag}")

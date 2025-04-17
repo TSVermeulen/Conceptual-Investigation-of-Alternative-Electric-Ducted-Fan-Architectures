@@ -102,7 +102,7 @@ def GenerateMTFLOBlading(Omega: float,
                                                                                                                                                                                                              np.deg2rad(15.5)])}
     
     horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 4, "radial_stations": np.array([0.08, 
-                                                                                                                                                                                    1]) * 1.1049, 
+                                                                                                                                                                                    1]) * 1.15, 
                                                                                                                                                                                     "chord_length": np.array([0.57658,
                                                                                                                                                                                                               0.14224]), 
                                                                                                                                                                                     "blade_angle": np.array([np.deg2rad(90),
@@ -111,7 +111,7 @@ def GenerateMTFLOBlading(Omega: float,
                                                                                                                                                                                                              0])}
     
     diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 2, "radial_stations": np.array([0.08, 
-                                                                                                                                                                                    1]) * 1.1049, 
+                                                                                                                                                                                    1]) * 1.15, 
                                                                                                                                                                                     "chord_length": np.array([0.10287,
                                                                                                                                                                                                               0.10287]), 
                                                                                                                                                                                     "blade_angle": np.array([np.deg2rad(90),
@@ -168,6 +168,8 @@ def GenerateMTFLOBlading(Omega: float,
         plt.legend(loc='upper left', bbox_to_anchor=(1,1))
         plt.tight_layout()
         plt.show()
+
+    
 
     # Obtain the parameterizations for the profile sections. 
     local_dir_path = Path('Validation/Profiles')
@@ -323,6 +325,12 @@ def GenerateMTSETGeometry() -> None:
     y_duct = np.concatenate((upper_y, lower_y[1:]), axis=0)
     xy_duct = np.vstack((x_duct, y_duct)).T
 
+    # Write the coordinates to a file
+    with open("duct_coordinates.dat", "w") as file:
+        file.write("Duct coords\n")
+        for x, y in xy_duct:
+            file.write(f"{x}    {y}\n")
+
     # --------------------
     # Generate centre body geometry
     # --------------------
@@ -345,7 +353,13 @@ def GenerateMTSETGeometry() -> None:
     # Ensures leading edge data point only occurs once to make sure a smooth spline is constructed, in accordance with the MTFLOW documentation.    
     centerbody_x_complete = np.concatenate((np.flip(interpolated_centerbody_x), interpolated_centerbody_x[1:]), axis=0)
     centerbody_y_complete = np.concatenate((np.flip(interpolated_centerbody_y), -interpolated_centerbody_y[1:]), axis=0)
-    xy_centerbody = np.vstack((centerbody_x_complete, centerbody_y_complete)).T    
+    xy_centerbody = np.vstack((centerbody_x_complete, centerbody_y_complete)).T  
+
+    # Write the coordinates to a file
+    with open("centerbody_coordinates.dat", "w") as file:
+        file.write("Centerbody coords\n")
+        for x, y in xy_centerbody:
+            file.write(f"{x}    {y}\n")  
 
     # Generate MTSET input file walls.X22A_validation
     # To run the GenerateMTSETInput() function, we need to define the params_CB and params_duct dictionaries, so fill them with the minimum required inputs

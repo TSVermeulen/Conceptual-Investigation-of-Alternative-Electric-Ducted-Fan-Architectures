@@ -167,7 +167,15 @@ class MTSET_call:
             self.StdinWrite("")  # Send return command to MTSET
 
         # Exit grid spacing definition routine
-        self.StdinWrite("")
+        self.StdinWrite("\n")
+
+        # Wait for MTSET to be in the main menu before modifying the grid
+        while True:
+            next_line = self.process.stdout.readline()  # Collect output and add to list                
+            if next_line == "" and self.process.poll() is not None:  #Handle (unexpected) quitting of program
+               break
+            if next_line == '   Q uit\n':  # Stop collecting once end of MTSET menu is reached
+               break
 
         # Enter grid modification menu and set grid parameters
         self.StdinWrite("m")

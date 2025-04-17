@@ -398,11 +398,16 @@ class MTSOL_call:
             
 
     def GenerateSolverOutput(self,
-                             ) -> None:
+                             type: int = 0) -> None:
         """
         Generate all output files for the current analysis. 
         If a viscous analysis was performed, the boundary layer data is also dumped to the corresponding file.
         Requires that MTSOL is in the main menu when starting this function. 
+
+        Parameters
+        ----------
+        - type : int
+            A control integer to determine which output files need to be generated. 0 corresponds to the forces file, while 1 will generate all files.
 
         Returns
         -------
@@ -431,6 +436,9 @@ class MTSOL_call:
         # Check if the forces file is written successfully
         self.WaitForCompletion(type=2,
                                output_file='forces')
+    
+        if type == 0:
+            return
 
         # Dump the flowfield data
         self.StdinWrite("D")
@@ -752,7 +760,6 @@ class MTSOL_call:
 
     def HandleExitFlag(self,
                        exit_flag: int,
-                       iter_count : int,
                        type : int,
                        ) -> None:
         """
@@ -901,6 +908,7 @@ class MTSOL_call:
     def caller(self,
                run_viscous: bool = False,
                generate_output: bool = False,
+               output_type: int = 0,
                ) -> tuple[int, int]:
         """
         Main execution interface of MTSOL.
@@ -913,6 +921,8 @@ class MTSOL_call:
             Flag to indicate whether to run a viscous solve. Default is False.
         - generate_output : bool, optional
             Flag to determine if MTFLOW outputs (forces, flowfield, boundary layer) should be generated. 
+        - output_type : int, optional
+            A control integer to determine which output files to generate. 0 corresponds to only the forces file, while any other integer generates all files. 
 
         Returns
         -------
@@ -947,7 +957,6 @@ class MTSOL_call:
         finally:
             # Handle solver based on exit flag
             self.HandleExitFlag(exit_flag_invisc,
-                                iter_count_invisc,
                                 type=0)
             total_exit_flag = exit_flag_invisc
             total_iter_count = iter_count_invisc
@@ -980,12 +989,11 @@ class MTSOL_call:
             finally:
                 # Handle the exit flag
                 self.HandleExitFlag(exit_flag_visc, 
-                                    iter_count_visc, 
                                     type=3)
 
         if generate_output:
             # Generate the solver output
-            self.GenerateSolverOutput()
+            self.GenerateSolverOutput(output_type)
         
         # Close the MTSOL tool
         # If no output is generated, need to write an additional white line to close MTSOL
