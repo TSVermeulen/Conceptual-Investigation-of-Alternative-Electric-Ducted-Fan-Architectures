@@ -101,7 +101,7 @@ def GenerateMTFLOBlading(Omega: float,
                                                                                                                                                                                                              np.deg2rad(16.8),
                                                                                                                                                                                                              np.deg2rad(15.5)])}
     
-    horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 4, "radial_stations": np.array([0.08, 
+    horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 4, "radial_stations": np.array([0.05, 
                                                                                                                                                                                     1]) * 1.15, 
                                                                                                                                                                                     "chord_length": np.array([0.57658,
                                                                                                                                                                                                               0.14224]), 
@@ -110,7 +110,7 @@ def GenerateMTFLOBlading(Omega: float,
                                                                                                                                                                                     "sweep_angle": np.array([0,
                                                                                                                                                                                                              0])}
     
-    diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 2, "radial_stations": np.array([0.08, 
+    diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 2, "radial_stations": np.array([0.05, 
                                                                                                                                                                                     1]) * 1.15, 
                                                                                                                                                                                     "chord_length": np.array([0.10287,
                                                                                                                                                                                                               0.10287]), 

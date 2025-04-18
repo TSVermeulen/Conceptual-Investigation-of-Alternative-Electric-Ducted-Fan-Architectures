@@ -57,7 +57,7 @@ objective_IDs = [0]
 
 
 # Define the operating conditions dictionary
-oper = {"Inlet_Mach": 0.3,
+oper = {"Inlet_Mach": 0.10285224,
         "N_crit": 9,
         "RPS": 25.237,
         "Omega": -9.666
@@ -65,7 +65,7 @@ oper = {"Inlet_Mach": 0.3,
 
 # Controls for the optimisation vector - CENTERBODY
 OPTIMIZE_CENTERBODY = False  # Control boolean to determine if centerbody should be optimised. If false, code uses the default entry below.
-CENTERBODY_VALUES = {"b_0": 0., "b_2": 0., "b_8": 7.52387039e-02, "b_15": 7.46448823e-01, "b_17": 0, 'x_t': 0.29842005729819904, 'y_t': 0.12533559300869632, 'x_c': 0, 'y_c': 0, 'z_TE': 0, 'dz_TE': 0.00277173368735548, 'r_LE': -0.06946118699675888, 'trailing_wedge_angle': np.float64(0.27689037361278407), 'trailing_camberline_angle': 0.0, 'leading_edge_direction': 0.0, "Chord Length": 1.6, "Leading Edge Coordinates": (-0.093, 0)}
+CENTERBODY_VALUES = {"b_0": 0., "b_2": 0., "b_8": 7.52387039e-02, "b_15": 7.46448823e-01, "b_17": 0, 'x_t': 0.29842005729819904, 'y_t': 0.12533559300869632, 'x_c': 0, 'y_c': 0, 'z_TE': 0, 'dz_TE': 0.00277173368735548, 'r_LE': -0.06946118699675888, 'trailing_wedge_angle': np.float64(0.27689037361278407), 'trailing_camberline_angle': 0.0, 'leading_edge_direction': 0.0, "Chord Length": 1.5, "Leading Edge Coordinates": (-0.093, 0)}
 
 
 # Controls for the optimisation vector - DUCT
@@ -75,10 +75,12 @@ DUCT_VALUES = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64
 
 # Controls for the optimisation vector - BLADES
 OPTIMIZE_STAGE = [False, False, False]
+ROTATING = [True, False, False]
 NUM_RADIALSECTIONS = 2  # Define the number of radial sections at which the blade profiles for each stage will be defined. 
 NUM_STAGES = 3  # Define the number of stages (i.e. total count of rotors + stators)
 REFERENCE_SECTION_ANGLES = [np.deg2rad(19), 0, 0]  # Reference angles at the reference section (typically 75% of blade span)
 BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
+tipGap = 0.01016  # 1.016 cm tip gap
 
 blade_section = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815}
 

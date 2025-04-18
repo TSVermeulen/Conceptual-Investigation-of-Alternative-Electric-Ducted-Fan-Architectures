@@ -13,6 +13,7 @@ import shutil
 from pathlib import Path
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.core.variable import Real, Integer
+from scipy import interpolate
 
 # Add the parent and submodels paths to the system path
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -22,6 +23,7 @@ sys.path.extend([parent_dir, submodels_path])
 # Import MTFLOW interface submodels and other dependencies
 from MTFLOW_caller import MTFLOW_caller
 from Submodels.output_handling import output_processing
+from Submodels.Parameterizations import AirfoilParameterization
 from objectives import Objectives
 import config
 
@@ -53,67 +55,65 @@ class OptimizationProblem(ElementwiseProblem):
         vars = []
         if config.OPTIMIZE_CENTERBODY:
             # If the centerbody is to be optimised, initialise the variable types
-            vars.append(Real(bounds=()))  # b_8
-            vars.append(Real(bounds=()))  # b_15
-            vars.append(Real(bounds=()))  # x_t
-            vars.append(Real(bounds=()))  # y_t
-            vars.append(Real(bounds=()))  # dz_TE
+            vars.append(Real(bounds=(0, 1)))  # mapping variable for b_8
+            vars.append(Real(bounds=(0, 1)))  # b_15
+            vars.append(Real(bounds=(0, 1)))  # x_t
+            vars.append(Real(bounds=(0, 0.25)))  # y_t
+            vars.append(Real(bounds=(0, 0.05)))  # dz_TE
             vars.append(Real(bounds=(-0.1, 0)))  # r_LE
-            vars.append(Real(bounds=()))  # trailing_wedge_angle
-            vars.append(Real(bounds=(0,)))  # Chord Length
+            vars.append(Real(bounds=(0, 0.5)))  # trailing_wedge_angle
+            vars.append(Real(bounds=(0.25, 4)))  # Chord Length
         if config.OPTIMIZE_DUCT:
             # If the duct is to be optimised, intialise the variable types
-            vars.append(Real(bounds=()))  # b_0
-            vars.append(Real(bounds=()))  # b_2
-            vars.append(Real(bounds=()))  # b_8
-            vars.append(Real(bounds=()))  # b_15
-            vars.append(Real(bounds=()))  # b_17
-            vars.append(Real(bounds=()))  # x_t
-            vars.append(Real(bounds=()))  # y_t
-            vars.append(Real(bounds=()))  # x_c
-            vars.append(Real(bounds=()))  # y_c
-            vars.append(Real(bounds=()))  # z_TE
-            vars.append(Real(bounds=()))  # dz_TE
+            vars.append(Real(bounds=(0, 1)))  # b_0
+            vars.append(Real(bounds=(0, 0.5)))  # b_2
+            vars.append(Real(bounds=(0, 1)))  # mapping variable for b_8
+            vars.append(Real(bounds=(0, 1)))  # b_15
+            vars.append(Real(bounds=(0, 1)))  # b_17
+            vars.append(Real(bounds=(0, 1)))  # x_t
+            vars.append(Real(bounds=(0, 0.25)))  # y_t
+            vars.append(Real(bounds=(0, 1)))  # x_c
+            vars.append(Real(bounds=(0, 0.1)))  # y_c
+            vars.append(Real(bounds=(0, 0.2)))  # z_TE
+            vars.append(Real(bounds=(0, 0.05)))  # dz_TE
             vars.append(Real(bounds=(-0.1, 0)))  # r_LE
-            vars.append(Real(bounds=()))  # trailing_wedge_angle
-            vars.append(Real(bounds=()))  # trailing_camberline_angle
-            vars.append(Real(bounds=()))  # leading_edge_direction
-            vars.append(Real(bounds=(0,)))  # Chord Length
-            vars.append(Real(bounds=()))  # Leading Edge X-Coordinate
-            if np.any(self.optimize_stages):
-                # Only optimize the y-coordinate of the duct if the blade diameters are optimised
-                vars.append(Real(bounds=()))  # Leading Edge Y-Coordinate
+            vars.append(Real(bounds=(0, 0.5)))  # trailing_wedge_angle
+            vars.append(Real(bounds=(0, 0.5)))  # trailing_camberline_angle
+            vars.append(Real(bounds=(0, 0.5)))  # leading_edge_direction
+            vars.append(Real(bounds=(0.25, 2.5)))  # Chord Length
+            vars.append(Real(bounds=(-0.5, 0.5)))  # Leading Edge X-Coordinate
+
         for i in range(self.num_stages):
             # If (any of) the rotor/stator stage(s) are to be optimised, initialise the variable types
             if self.optimize_stages[i]:
                 for _ in range(self.num_radial):
-                    vars.append(Real(bounds=()))  # b_0
-                    vars.append(Real(bounds=()))  # b_2
-                    vars.append(Real(bounds=()))  # b_8
-                    vars.append(Real(bounds=()))  # b_15
-                    vars.append(Real(bounds=()))  # b_17
-                    vars.append(Real(bounds=()))  # x_t
-                    vars.append(Real(bounds=()))  # y_t
-                    vars.append(Real(bounds=()))  # x_c
-                    vars.append(Real(bounds=()))  # y_c
-                    vars.append(Real(bounds=()))  # z_TE
-                    vars.append(Real(bounds=()))  # dz_TE
+                    vars.append(Real(bounds=(0, 1)))  # b_0
+                    vars.append(Real(bounds=(0, 0.5)))  # b_2
+                    vars.append(Real(bounds=(0, 1)))  # mapping variable for b_8
+                    vars.append(Real(bounds=(0, 1)))  # b_15
+                    vars.append(Real(bounds=(0, 1)))  # b_17
+                    vars.append(Real(bounds=(0, 1)))  # x_t
+                    vars.append(Real(bounds=(0, 0.25)))  # y_t
+                    vars.append(Real(bounds=(0, 1)))  # x_c
+                    vars.append(Real(bounds=(0, 0.1)))  # y_c
+                    vars.append(Real(bounds=(0, 0.2)))  # z_TE
+                    vars.append(Real(bounds=(0, 0.05)))  # dz_TE
                     vars.append(Real(bounds=(-0.1, 0)))  # r_LE
-                    vars.append(Real(bounds=()))  # trailing_wedge_angle
-                    vars.append(Real(bounds=()))  # trailing_camberline_angle
-                    vars.append(Real(bounds=()))  # leading_edge_direction
+                    vars.append(Real(bounds=(0, 0.5)))  # trailing_wedge_angle
+                    vars.append(Real(bounds=(0, 0.5)))  # trailing_camberline_angle
+                    vars.append(Real(bounds=(0, 0.5)))  # leading_edge_direction
+
         for i in range(self.num_stages):
             if self.optimize_stages[i]:
-                vars.append(Real(bounds=()))  # root_LE_coordinate
-                vars.append(Real(bounds=()))  # rotational_rate
+                vars.append(Real(bounds=(0.1)))  # root_LE_coordinate
                 vars.append(Integer(bounds=(3, 20)))  # blade_count
-                vars.append(Real(bounds=()))  # ref_blade_angle
-                vars.append(Real(bounds=()))  # blade radius
+                vars.append(Real(bounds=(-np.pi/4, np.pi/4)))  # ref_blade_angle
+                vars.append(Real(bounds=(0, 1.5)))  # blade radius
 
                 for _ in range(self.num_radial): 
-                    vars.append(Real(bounds=(0, )))  # chord length
-                    vars.append(Real(bounds=()))  # sweep_angle
-                    vars.append(Real(bounds=()))  # blade_angle
+                    vars.append(Real(bounds=(0.05, 0.5)))  # chord length
+                    vars.append(Real(bounds=(0, np.pi/3)))  # sweep_angle
+                    vars.append(Real(bounds=(-np.pi/4, np.pi/4)))  # blade_angle
 
         # For a mixed-variable problem, PyMoo expects the vars to be a dictionary, so we convert vars to a dictionary.
         # Note that all variables are given a name xi.
@@ -170,6 +170,8 @@ class OptimizationProblem(ElementwiseProblem):
         """
         Decompose the design vector x into dictionaries of all the design variables to match the expected input formats for 
         the MTFLOW code interface. 
+
+        The design vector has the format: [centerbody, duct, blades]
         
         Parameters
         ----------
@@ -183,6 +185,8 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Define a pointer to count the number of variable parameters
         idx = 0
+        centerbody_designvar_count = 8
+        duct_designvar_count = 17
 
         # Deconstruct the centerbody values if it's variable.
         # If the centerbody is constant, read in the centerbody values from config.
@@ -205,38 +209,10 @@ class OptimizationProblem(ElementwiseProblem):
                                          "leading_edge_direction": 0, 
                                          "Chord Length": x[7],
                                          "Leading Edge Coordinates": (0, 0)}
-            idx += 8
+            idx += (centerbody_designvar_count + duct_designvar_count) if config.OPTIMIZE_DUCT else centerbody_designvar_count
         else:
             self.centerbody_variables = config.CENTERBODY_VALUES
-        
-        # Deconstruct the duct values if it's variable.
-        # If the duct is constant, read in the duct values from config.
-        if config.OPTIMIZE_DUCT:
-            if np.any(self.optimize_stages):
-                LE_coords = (x[idx + 16], x[idx + 17])
-            else:
-                LE_coords = (x[idx+16], config.DUCT_VALUES["Leading Edge Coordinates"][-1])
-            self.duct_variables = {"b_0": x[idx],
-                                   "b_2": x[idx + 1], 
-                                   "b_8": x[idx + 2],
-                                   "b_15": x[idx + 3],
-                                   "b_17": x[idx + 4],
-                                   "x_t": x[idx + 5],
-                                   "y_t": x[idx + 6],
-                                   "x_c": x[idx + 7],
-                                   "y_c": x[idx + 8],
-                                   "z_TE": x[idx + 9],
-                                   "dz_TE": x[idx + 10],
-                                   "r_LE": x[idx + 11],
-                                   "trailing_wedge_angle": x[idx + 12],
-                                   "trailing_camberline_angle": x[idx + 13],
-                                   "leading_edge_direction": x[idx + 14], 
-                                   "Chord Length": x[idx + 15],
-                                   "Leading Edge Coordinates": LE_coords}
-            idx += 18
-        else:
-            self.duct_variables = config.DUCT_VALUES
-        
+                
         # Deconstruct the rotorblade parametersPrecompute indices for rotorblade parameters if they are variable.
         # If the rotorblade parameters are constant, read in the parameters from config.
         self.blade_design_parameters = []
@@ -279,19 +255,18 @@ class OptimizationProblem(ElementwiseProblem):
             if self.optimize_stages[i]:
                 # If the stage is to be optimized, read in the design vector for the blading parameters
                 stage_blading_parameters["root_LE_coordinate"] = x[idx]
-                stage_blading_parameters["rotational_rate"] = x[idx + 1]
-                stage_blading_parameters["blade_count"] = x[idx + 2]
-                stage_blading_parameters["ref_blade_angle"] = x[idx + 3]
+                stage_blading_parameters["blade_count"] = x[idx + 1]
+                stage_blading_parameters["ref_blade_angle"] = x[idx + 2]
                 stage_blading_parameters["reference_section_blade_angle"] = config.REFERENCE_SECTION_ANGLES[i]
-                stage_blading_parameters["radial_stations"] = radial_linspace * x[idx + 4]  # Radial stations are defined as fraction of blade radius * local radius
-                self.blade_diameters.append(x[idx + 4] * 2)
+                stage_blading_parameters["radial_stations"] = radial_linspace * x[idx + 3]  # Radial stations are defined as fraction of blade radius * local radius
+                self.blade_diameters.append(x[idx + 3] * 2)
 
                 # Initialize sectional blading parameter lists
                 stage_blading_parameters["chord_length"] = [None] * self.num_radial
                 stage_blading_parameters["sweep_angle"] = [None] * self.num_radial
                 stage_blading_parameters["blade_angle"] = [None] * self.num_radial
 
-                base_idx = idx + 5
+                base_idx = idx + 4
                 for j in range(self.num_radial):
                     # Loop over the number of radial sections and write their data to the corresponding lists
                     stage_blading_parameters["chord_length"][j]= x[base_idx + j]
@@ -308,11 +283,42 @@ class OptimizationProblem(ElementwiseProblem):
         # Write the reference length for MTFLOW
         self.Lref = self.blade_diameters[0]
 
+        # Deconstruct the duct values if it's variable.
+        # If the duct is constant, read in the duct values from config.
+        # The duct parameters must be read in last, because the LE y coordinate of the duct is dependent on the blade rows to maintain a minimum tip gap. 
+        if config.OPTIMIZE_DUCT:
+            idx = centerbody_designvar_count if config.OPTIMIZE_CENTERBODY else 0
 
-    def ComputeReynoldsOmega(self) -> None:
+            if np.any(self.optimize_stages):
+                LE_coords = (x[idx + 16], 0)
+            else:
+                LE_coords = (x[idx+16], 0)
+            self.duct_variables = {"b_0": x[idx],
+                                   "b_2": x[idx + 1], 
+                                   "b_8": x[idx + 2],
+                                   "b_15": x[idx + 3],
+                                   "b_17": x[idx + 4],
+                                   "x_t": x[idx + 5],
+                                   "y_t": x[idx + 6],
+                                   "x_c": x[idx + 7],
+                                   "y_c": x[idx + 8],
+                                   "z_TE": x[idx + 9],
+                                   "dz_TE": x[idx + 10],
+                                   "r_LE": x[idx + 11],
+                                   "trailing_wedge_angle": x[idx + 12],
+                                   "trailing_camberline_angle": x[idx + 13],
+                                   "leading_edge_direction": x[idx + 14], 
+                                   "Chord Length": x[idx + 15],
+                                   "Leading Edge Coordinates": LE_coords}
+            idx += 17
+        else:
+            self.duct_variables = config.DUCT_VALUES
+
+
+    def ComputeReynolds(self) -> None:
         """
-        A simple function to compute the inlet Reynolds number and non-dimensional MTFLOW rotational rate Omega,
-        and write them to the oper dictionary in config.py.
+        A simple function to compute the inlet Reynolds number,
+        and write it to the oper dictionary in config.py.
 
         Returns
         -------
@@ -325,8 +331,38 @@ class OptimizationProblem(ElementwiseProblem):
         # Compute the inlet Reynolds number and write it to config.oper
         config.oper["Inlet_Reynolds"] = round(float((V_inl * self.Lref) / config.atmosphere.kinematic_viscosity[0]), 3)
 
+
+    def ComputeOmega(self) -> None:
+        """
+        A simple function to compute the non-dimensional MTFLOW rotational rate Omega,
+        and write it to the oper dictionary in config.py.
+
+        Returns
+        -------
+        None
+        """
+
+        # Compute the inlet speed
+        V_inl = config.oper["Inlet_Mach"] * config.atmosphere.speed_of_sound[0]
+
         # Compute the non-dimensional rotational rate Omega for MTFLOW and write it to config.oper
         config.oper["Omega"] = round(float((-config.oper["RPS"] * np.pi * 2 * self.Lref) / (V_inl)),3)
+
+
+    def SetOmega(self) -> None:
+        """
+        A simple function to correctly set the rotational rate Omega in the blading list(s).
+
+        Returns
+        -------
+        None
+        """
+
+        for i in range(len(self.blade_blading_parameters)):
+            if config.ROTATING[i]:
+                self.blade_blading_parameters[i]["rotational_rate"] = config.oper["Omega"]
+            else:
+                self.blade_blading_parameters[i]["rotational_rate"] = 0
 
 
     def CleanUpFiles(self) -> None:
@@ -363,6 +399,69 @@ class OptimizationProblem(ElementwiseProblem):
         os.chdir(current_dir)
 
 
+    def ComputeDuctRadialLocation(self) -> None:
+        """
+        Compute the y-coordinate of the LE of the duct based on the design variables. 
+
+        Returns
+        -------
+        None
+        """
+
+        # Initialize empty data arrays
+        x_tip = np.zeros_like(self.blade_blading_parameters)
+        radial_duct_coordinates = np.zeros_like(self.blade_blading_parameters)
+
+        # Compute the duct x,y coordinates. Note that we are only interested in the lower surface.
+        _, _, lower_x, lower_y = AirfoilParameterization().ComputeProfileCoordinates([self.duct_variables["b_0"],
+                                                                                                  self.duct_variables["b_2"],
+                                                                                                  self.duct_variables["b_8"],
+                                                                                                  self.duct_variables["b_15"],
+                                                                                                  self.duct_variables["b_17"]],
+                                                                                                  self.duct_variables)
+        lower_x = lower_x * self.duct_variables["Chord Length"]
+        lower_y = lower_y * self.duct_variables["Chord Length"]
+
+        # Shift the duct x coordinate to the correct location in space
+        lower_x -= self.duct_variables["Leading Edge Coordinates"][0]
+
+        # Construct interpolant of the duct surface
+        duct_interpolant = interpolate.make_splrep(lower_x,
+                                             lower_y,
+                                             k=3)
+
+        # Loop over all stages
+        duct_y = np.zeros_like(self.blade_blading_parameters)
+        for i in range(self.num_stages):
+            blading_params = self.blade_blading_parameters[i]
+
+            # Compute the blade tip coordinate
+            y_tip = self.blade_diameters[i] / 2
+            
+            if blading_params["rotational_rate"] != 0:
+                # Compute the y value of the duct inner surface at the blade rotor
+                x_tip = blading_params["root_LE_coordinate"] + np.tan(blading_params["sweep_angle"][-1]) * self.blade_diameters[i] / 2
+                duct_y = duct_interpolant(x_tip,
+                                          extrapolate=False)
+                
+                if not np.isnan(duct_y):
+                    # Filter out NaN values and compute the y-distance between the LE of the duct and the blade row tip LE. 
+                    # NaN would correspond to there being no duct at the blade station, in which case the offset would be zero.
+                    radial_duct_coordinates[i] = y_tip + config.tipGap + np.abs(duct_y)
+                else:
+                    radial_duct_coordinates[i] = y_tip + config.tipGap
+            else:
+                # For a stator
+                radial_duct_coordinates[i] = y_tip
+    
+        # The radial location of the LE of the duct is equal to the max value in radial_duct_coordinates    
+        radial_duct_coordinate = np.max(radial_duct_coordinates)
+
+        # Update the duct variables in self
+        self.duct_variables["Leading Edge Coordinates"] = (self.duct_variables["Leading Edge Coordinates"][0],
+                                                           radial_duct_coordinate)
+
+
     def _evaluate(self, x, out, *args, **kwargs):
         # Generate a unique analysis name
         pop_idx = kwargs.get("pop_idx", 0)
@@ -374,7 +473,10 @@ class OptimizationProblem(ElementwiseProblem):
         self.DeconstructDesignVector(x)
 
         # Compute the necessary inputs (Reynolds, Omega)
-        self.ComputeReynoldsOmega()  # Compute the inlet Re and MTFLOW non-dimensional rotational rate
+        self.ComputeReynolds()
+        self.ComputeOmega()
+        self.SetOmega()
+        self.ComputeDuctRadialLocation()
 
         # Initialize the MTFLOW caller class
         MTFLOW_interface = MTFLOW_caller(operating_conditions=config.oper,
