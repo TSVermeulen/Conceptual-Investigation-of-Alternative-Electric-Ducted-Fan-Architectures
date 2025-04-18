@@ -14,22 +14,15 @@ from pathlib import Path
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.core.variable import Real, Integer
 
-# Get the parent directory
+# Add the parent and submodels paths to the system path
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 submodels_path = os.path.join(parent_dir, "Submodels")
+sys.path.extend([parent_dir, submodels_path])
 
-# Add the submodels path to the system path
-sys.path.append(submodels_path)
-
-# Add the parent folder path to the system path
-sys.path.append(parent_dir)
-
-# Import MTFLOW interface submodels
+# Import MTFLOW interface submodels and other dependencies
 from MTFLOW_caller import MTFLOW_caller
 from Submodels.output_handling import output_processing
 from objectives import Objectives
-
-# Import configuration file
 import config
 
 
@@ -41,7 +34,6 @@ class OptimizationProblem(ElementwiseProblem):
 
     def __init__(self,
                  obj_count : int,
-                 constraint_count : int,
                  **kwargs) -> None:
         """
         Initialization of the OptimizationProblem class. 
