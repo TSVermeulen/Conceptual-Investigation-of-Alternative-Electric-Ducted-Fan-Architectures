@@ -414,7 +414,6 @@ class OptimizationProblem(ElementwiseProblem):
 
 if __name__ == "__main__":
     test = OptimizationProblem(1,
-                               0
                                )
     
     test._evaluate(0, {})
