@@ -194,7 +194,7 @@ class OptimizationProblem(ElementwiseProblem):
         if config.OPTIMIZE_CENTERBODY:
             self.centerbody_variables = {"b_0": 0,
                                          "b_2": 0, 
-                                         "b_8": x[0],
+                                         "b_8": x[0] * np.min(x[3], np.sqrt(-2 * x[5] * x[2] / 3)),
                                          "b_15": x[1],
                                          "b_17": 0,
                                          "x_t": x[2],
@@ -225,7 +225,7 @@ class OptimizationProblem(ElementwiseProblem):
                     # Loop over the number of radial sections and append each section to stage_design_parameters
                     section_parameters = {"b_0": x[idx],
                                         "b_2": x[idx + 1], 
-                                        "b_8": x[idx + 2],
+                                        "b_8": x[idx + 2] * np.min(x[idx + 6], np.sqrt(-2 * x[idx + 11] * x[idx + 5] / 3)),
                                         "b_15": x[idx + 3],
                                         "b_17": x[idx + 4],
                                         "x_t": x[idx + 5],
@@ -295,7 +295,7 @@ class OptimizationProblem(ElementwiseProblem):
                 LE_coords = (x[idx+16], 0)
             self.duct_variables = {"b_0": x[idx],
                                    "b_2": x[idx + 1], 
-                                   "b_8": x[idx + 2],
+                                   "b_8": x[idx + 2] * np.min(x[idx + 6], np.sqrt(-2 * x[idx + 11] * x[idx + 5] / 3)),
                                    "b_15": x[idx + 3],
                                    "b_17": x[idx + 4],
                                    "x_t": x[idx + 5],
@@ -346,7 +346,7 @@ class OptimizationProblem(ElementwiseProblem):
         V_inl = config.oper["Inlet_Mach"] * config.atmosphere.speed_of_sound[0]
 
         # Compute the non-dimensional rotational rate Omega for MTFLOW and write it to config.oper
-        config.oper["Omega"] = round(float((-config.oper["RPS"] * np.pi * 2 * self.Lref) / (V_inl)),3)
+        config.oper["Omega"] = float((-config.oper["RPS"] * np.pi * 2 * self.Lref) / (V_inl))
 
 
     def SetOmega(self) -> None:
