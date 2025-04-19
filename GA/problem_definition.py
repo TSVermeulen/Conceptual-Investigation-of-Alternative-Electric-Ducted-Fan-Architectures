@@ -157,8 +157,8 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Initialize the parent class
         super().__init__(vars=vars,
-                       n_obj=obj_count,
-                       **kwargs)
+                         n_obj=obj_count,
+                         **kwargs)
         
         # Change working directory to the parent folder
         try:
@@ -172,7 +172,8 @@ class OptimizationProblem(ElementwiseProblem):
                              gen_idx: int) -> str:
         """
         Generate a unique analysis name with a maximum length of 30 characters.
-        This is required to enable multi-threading of the optimization problem, since each evaluation of MTFLOW requires a unique set of files. 
+        This is required to enable multi-threading of the optimization problem, and log each state file,
+        since each evaluation of MTFLOW requires a unique set of files. 
 
         Parameters
         ----------
@@ -205,7 +206,6 @@ class OptimizationProblem(ElementwiseProblem):
         """
         Decompose the design vector x into dictionaries of all the design variables to match the expected input formats for 
         the MTFLOW code interface. 
-
         The design vector has the format: [centerbody, duct, blades]
         
         Parameters
@@ -443,11 +443,11 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Compute the duct x,y coordinates. Note that we are only interested in the lower surface.
         _, _, lower_x, lower_y = AirfoilParameterization().ComputeProfileCoordinates([self.duct_variables["b_0"],
-                                                                                                  self.duct_variables["b_2"],
-                                                                                                  self.duct_variables["b_8"],
-                                                                                                  self.duct_variables["b_15"],
-                                                                                                  self.duct_variables["b_17"]],
-                                                                                                  self.duct_variables)
+                                                                                      self.duct_variables["b_2"],
+                                                                                      self.duct_variables["b_8"],
+                                                                                      self.duct_variables["b_15"],
+                                                                                      self.duct_variables["b_17"]],
+                                                                                     self.duct_variables)
         lower_x = lower_x * self.duct_variables["Chord Length"]
         lower_y = lower_y * self.duct_variables["Chord Length"]
 
