@@ -62,6 +62,7 @@ oper = {"Inlet_Mach": 0.10285224,
         "RPS": 25.237,
         "Omega": -9.666
         }
+oper["Vinl"] = atmosphere.speed_of_sound[0] * oper["Inlet_Mach"]
 
 # Controls for the optimisation vector - CENTERBODY
 OPTIMIZE_CENTERBODY = False  # Control boolean to determine if centerbody should be optimised. If false, code uses the default entry below.
@@ -89,3 +90,24 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = GenerateMTFLOBlading(oper["Om
                                                                         REFERENCE_SECTION_ANGLES[0],
                                                                         plot=False)
 os.chdir(current_dir)
+
+
+# Define the target thrust/power coefficients and reference lengths for use in constraints
+CP_ref_constr = 0.13509
+CT_ref_constr = 0.10314
+L_ref_constr = 2.1336  # meters
+
+# Define the constraint IDs used to construct the constraint functions
+# constraint IDs are structured as a nested list, of the form:
+# [[inequality constraint 1, inequality constraint 2, ...],
+#  [equality constraint 1, equality constraint 2, ...]]
+
+# Options for the inequality IDs are:
+# -
+
+# Options for the equality IDs are:
+# - 0: Constant power
+# - 1: Constant thrust
+
+constraint_IDs = [[],
+                  [0]]

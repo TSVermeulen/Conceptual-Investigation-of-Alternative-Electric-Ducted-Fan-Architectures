@@ -2,7 +2,42 @@
 objectives
 ==========
 
+Description
+-----------
+This module provides an interface to define and compute objectives for optimization problems. 
+It includes methods to calculate various sub-objectives such as efficiency, weight, frontal area, 
+pressure ratio, and multi-point objectives.
 
+Classes
+-------
+Objectives
+    A class to define and compute the objectives for the optimization problem.
+
+Examples
+--------
+>>> objectives_class = Objectives()
+>>> outputs = {"data": {"EtaP": 0.85, "Pressure Ratio": 1.2}}
+>>> objective_IDs = [0, 3]
+>>> computed_objectives = objectives_class.ComputeObjective(outputs, objective_IDs)
+>>> print(computed_objectives)
+
+Notes
+-----
+This module is designed to work with optimization frameworks such as PyMoo. 
+The objectives are structured to be compatible with PyMoo's minimization-based approach.
+
+Versioning
+----------
+Author: T.S. Vermeulen
+Email: T.S.Vermeulen@student.tudelft.nl
+Student ID: 4995309
+Version: 2.0
+
+Changelog:
+- V1.0: Initial implementation with basic sub-objectives and placeholders for unimplemented methods.
+- V1.1: Added ComputeObjective method to handle multiple objectives dynamically.
+- V1.2: Improved documentation and added type hints for better clarity.
+- V2.0: Refactored code for better modularity and maintainability. Updated examples and notes.
 """
 
 import numpy as np
@@ -110,10 +145,28 @@ class Objectives:
 
 
     def ComputeObjective(self,
-                         outputs: dict,
-                         objective_IDs: list[int]) -> list[float]:
+                         analysis_outputs: dict,
+                         objective_IDs: list[int],
+                         out: dict) -> dict:
         """
-        Compute the 
+        Computes the objectives for optimization based on the provided analysis outputs.
+        This method evaluates a list of objective functions, specified by their IDs in the 
+        configuration, and returns their computed values. The objectives are negated to 
+        convert maximization objectives (e.g., maximize efficiency) into minimization 
+        objectives, as required by the PyMoo optimization framework.
+                        
+        Parameters
+        ----------
+        - analysis_outputs : dict
+            A dictionary containing the outputs of the analysis 
+            required for computing the objectives.
+        - out : dict
+            A dictionary to store the computed objectives. 
+
+        Returns
+        -------
+        - dict: 
+            The updated output dictionary with the computed objectives                         
         """
 
         objectives_list = [self.Efficiency, self.FrontalArea, self.Weight, self.PressureRatio, self.MultiPointTOCruise]
@@ -125,9 +178,11 @@ class Objectives:
         for i in range(len(objectives)):
             # We multiply the objectives by -1 to turn the maximisation objectives (i.e. maximise efficiency) 
             # into the PyMoo expected minimisation objectives
-            computed_objectives.append(- objectives[i](outputs))
+            computed_objectives.append(- objectives[i](analysis_outputs))
 
-        return computed_objectives
+        out["F"] = np.column_stack(computed_objectives)
+
+        return out
         
 if __name__ == "__main__":
     # Run a test of the objectives class
@@ -140,10 +195,11 @@ if __name__ == "__main__":
     # Add the parent folder path to the system path
     sys.path.append(parent_dir)
 
-    import config
     from Submodels.output_handling import output_processing
+    import config
 
     objectives_class = Objectives()
     output = objectives_class.ComputeObjective(output_processing('test_case').GetAllVariables(3),
-                                               config.objective_IDs) 
+                                               config.objective_IDs,
+                                               {}) 
     print(output)       

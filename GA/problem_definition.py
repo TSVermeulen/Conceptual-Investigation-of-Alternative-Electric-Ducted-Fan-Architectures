@@ -2,7 +2,41 @@
 problem_definition
 ==================
 
+Description
+-----------
+This module defines an optimization problem for the pymoo framework, based on the ElementwiseProblem parent class. 
 
+Classes
+-------
+OptimizationProblem(ElementwiseProblem)
+    Class defining the optimization problem with mixed-variable support.
+
+Examples
+--------
+>>> problem = OptimizationProblem(obj_count=1)
+>>> out = {}
+>>> problem._evaluate(1, out)
+
+Notes
+-----
+This module integrates with the MTFLOW executable for aerodynamic analysis. Ensure that the executable and required 
+input files are present in the appropriate directories. The module is designed to handle mixed-variable optimization 
+problems, including real and integer variables.
+
+References
+----------
+For more details on the MTFLOW solver and its input/output requirements, refer to the MTFLOW user manual:
+https://web.mit.edu/drela/Public/web/mtflow/mtflow.pdf
+
+Versioning
+----------
+Author: T.S. Vermeulen
+Email: T.S.Vermeulen@student.tudelft.nl
+Student ID: 4995309
+Version: 1.0
+
+Changelog:
+- V1.0: Initial implementation. 
 """
 
 import os
@@ -25,6 +59,7 @@ from MTFLOW_caller import MTFLOW_caller
 from Submodels.output_handling import output_processing
 from Submodels.Parameterizations import AirfoilParameterization
 from objectives import Objectives
+from constraints import Constraints
 import config
 
 
@@ -325,11 +360,8 @@ class OptimizationProblem(ElementwiseProblem):
         None
         """
 
-        # Compute the inlet speed
-        V_inl = config.oper["Inlet_Mach"] * config.atmosphere.speed_of_sound[0]
-
         # Compute the inlet Reynolds number and write it to config.oper
-        config.oper["Inlet_Reynolds"] = round(float((V_inl * self.Lref) / config.atmosphere.kinematic_viscosity[0]), 3)
+        config.oper["Inlet_Reynolds"] = round(float((config.oper["Vinl"] * self.Lref) / config.atmosphere.kinematic_viscosity[0]), 3)
 
 
     def ComputeOmega(self) -> None:
@@ -342,11 +374,8 @@ class OptimizationProblem(ElementwiseProblem):
         None
         """
 
-        # Compute the inlet speed
-        V_inl = config.oper["Inlet_Mach"] * config.atmosphere.speed_of_sound[0]
-
         # Compute the non-dimensional rotational rate Omega for MTFLOW and write it to config.oper
-        config.oper["Omega"] = float((-config.oper["RPS"] * np.pi * 2 * self.Lref) / (V_inl))
+        config.oper["Omega"] = float((-config.oper["RPS"] * np.pi * 2 * self.Lref) / (config.oper["Vinl"]))
 
 
     def SetOmega(self) -> None:
@@ -497,25 +526,26 @@ class OptimizationProblem(ElementwiseProblem):
         MTFLOW_outputs = output_handler.GetAllVariables(3)
 
         # Obtain objective(s)
-        # Note that the length of computed_objectives must equal obj_count
-        computed_objectives = Objectives().ComputeObjective(outputs=MTFLOW_outputs, 
-                                                            objective_IDs=config.objective_IDs)
+        out = Objectives().ComputeObjective(analysis_outputs=MTFLOW_outputs,
+                                            objective_IDs = config.objective_IDs,
+                                            out=out)
 
         # Compute constraints
-
+        out = Constraints().ComputeConstraints(analysis_outputs=MTFLOW_outputs,
+                                               Lref=self.Lref,
+                                               out=out,
+                                               cfg=config)
 
         # Cleanup the generated files
         self.CleanUpFiles()
 
-        # Construct outputs
-        out["F"] = np.column_stack(computed_objectives)
-
         return out
     
-
 
 if __name__ == "__main__":
     test = OptimizationProblem(1,
                                )
     
-    test._evaluate(0, {})
+    output = test._evaluate(0, {})
+
+    print(output)
