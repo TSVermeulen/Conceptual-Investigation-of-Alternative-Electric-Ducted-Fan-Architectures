@@ -60,6 +60,7 @@ from Submodels.output_handling import output_processing
 from Submodels.Parameterizations import AirfoilParameterization
 from objectives import Objectives
 from constraints import Constraints
+from designvectorinit import DesignVector
 import config
 
 
@@ -70,7 +71,6 @@ class OptimizationProblem(ElementwiseProblem):
     """
 
     def __init__(self,
-                 obj_count : int,
                  **kwargs) -> None:
         """
         Initialization of the OptimizationProblem class. 
@@ -86,78 +86,13 @@ class OptimizationProblem(ElementwiseProblem):
         self.optimize_stages = config.OPTIMIZE_STAGE
 
         # Initialize variable list with variable types.
-        # This is required to handle the mixed-variable nature of the optimisation, where the blade count is an integer
-        vars = []
-        if config.OPTIMIZE_CENTERBODY:
-            # If the centerbody is to be optimised, initialise the variable types
-            vars.append(Real(bounds=(0, 1)))  # mapping variable for b_8
-            vars.append(Real(bounds=(0, 1)))  # b_15
-            vars.append(Real(bounds=(0, 1)))  # x_t
-            vars.append(Real(bounds=(0, 0.25)))  # y_t
-            vars.append(Real(bounds=(0, 0.05)))  # dz_TE
-            vars.append(Real(bounds=(-0.1, 0)))  # r_LE
-            vars.append(Real(bounds=(0, 0.5)))  # trailing_wedge_angle
-            vars.append(Real(bounds=(0.25, 4)))  # Chord Length
-        if config.OPTIMIZE_DUCT:
-            # If the duct is to be optimised, intialise the variable types
-            vars.append(Real(bounds=(0, 1)))  # b_0
-            vars.append(Real(bounds=(0, 0.5)))  # b_2
-            vars.append(Real(bounds=(0, 1)))  # mapping variable for b_8
-            vars.append(Real(bounds=(0, 1)))  # b_15
-            vars.append(Real(bounds=(0, 1)))  # b_17
-            vars.append(Real(bounds=(0, 1)))  # x_t
-            vars.append(Real(bounds=(0, 0.25)))  # y_t
-            vars.append(Real(bounds=(0, 1)))  # x_c
-            vars.append(Real(bounds=(0, 0.1)))  # y_c
-            vars.append(Real(bounds=(0, 0.2)))  # z_TE
-            vars.append(Real(bounds=(0, 0.05)))  # dz_TE
-            vars.append(Real(bounds=(-0.1, 0)))  # r_LE
-            vars.append(Real(bounds=(0, 0.5)))  # trailing_wedge_angle
-            vars.append(Real(bounds=(0, 0.5)))  # trailing_camberline_angle
-            vars.append(Real(bounds=(0, 0.5)))  # leading_edge_direction
-            vars.append(Real(bounds=(0.25, 2.5)))  # Chord Length
-            vars.append(Real(bounds=(-0.5, 0.5)))  # Leading Edge X-Coordinate
-
-        for i in range(self.num_stages):
-            # If (any of) the rotor/stator stage(s) are to be optimised, initialise the variable types
-            if self.optimize_stages[i]:
-                for _ in range(self.num_radial):
-                    vars.append(Real(bounds=(0, 1)))  # b_0
-                    vars.append(Real(bounds=(0, 0.5)))  # b_2
-                    vars.append(Real(bounds=(0, 1)))  # mapping variable for b_8
-                    vars.append(Real(bounds=(0, 1)))  # b_15
-                    vars.append(Real(bounds=(0, 1)))  # b_17
-                    vars.append(Real(bounds=(0, 1)))  # x_t
-                    vars.append(Real(bounds=(0, 0.25)))  # y_t
-                    vars.append(Real(bounds=(0, 1)))  # x_c
-                    vars.append(Real(bounds=(0, 0.1)))  # y_c
-                    vars.append(Real(bounds=(0, 0.2)))  # z_TE
-                    vars.append(Real(bounds=(0, 0.05)))  # dz_TE
-                    vars.append(Real(bounds=(-0.1, 0)))  # r_LE
-                    vars.append(Real(bounds=(0, 0.5)))  # trailing_wedge_angle
-                    vars.append(Real(bounds=(0, 0.5)))  # trailing_camberline_angle
-                    vars.append(Real(bounds=(0, 0.5)))  # leading_edge_direction
-
-        for i in range(self.num_stages):
-            if self.optimize_stages[i]:
-                vars.append(Real(bounds=(0.1)))  # root_LE_coordinate
-                vars.append(Integer(bounds=(3, 20)))  # blade_count
-                vars.append(Real(bounds=(-np.pi/4, np.pi/4)))  # ref_blade_angle
-                vars.append(Real(bounds=(0, 1.5)))  # blade radius
-
-                for _ in range(self.num_radial): 
-                    vars.append(Real(bounds=(0.05, 0.5)))  # chord length
-                    vars.append(Real(bounds=(0, np.pi/3)))  # sweep_angle
-                    vars.append(Real(bounds=(-np.pi/4, np.pi/4)))  # blade_angle
-
-        # For a mixed-variable problem, PyMoo expects the vars to be a dictionary, so we convert vars to a dictionary.
-        # Note that all variables are given a name xi.
-        # TODO: update this algoritm to automatically give the appropriate name to each variable. 
-        vars = {f"x{i}": var for i, var in enumerate(vars)}
+        vars = DesignVector()._construct_vector(config)
 
         # Initialize the parent class
         super().__init__(vars=vars,
-                         n_obj=obj_count,
+                         n_obj=len(config.objective_IDs),
+                         n_ieq_constr=len(config.constraint_IDs[0]),
+                         n_eq_constr=len(config.constraint_IDs[1]),
                          **kwargs)
         
         # Change working directory to the parent folder
@@ -229,7 +164,7 @@ class OptimizationProblem(ElementwiseProblem):
         if config.OPTIMIZE_CENTERBODY:
             self.centerbody_variables = {"b_0": 0,
                                          "b_2": 0, 
-                                         "b_8": x[0] * np.min(x[3], np.sqrt(-2 * x[5] * x[2] / 3)),
+                                         "b_8": x[0] * min(x[3], np.sqrt(-2 * x[5] * x[2] / 3)),
                                          "b_15": x[1],
                                          "b_17": 0,
                                          "x_t": x[2],
@@ -260,7 +195,7 @@ class OptimizationProblem(ElementwiseProblem):
                     # Loop over the number of radial sections and append each section to stage_design_parameters
                     section_parameters = {"b_0": x[idx],
                                         "b_2": x[idx + 1], 
-                                        "b_8": x[idx + 2] * np.min(x[idx + 6], np.sqrt(-2 * x[idx + 11] * x[idx + 5] / 3)),
+                                        "b_8": x[idx + 2] * min(x[idx + 6], np.sqrt(-2 * x[idx + 11] * x[idx + 5] / 3)),
                                         "b_15": x[idx + 3],
                                         "b_17": x[idx + 4],
                                         "x_t": x[idx + 5],
@@ -330,7 +265,7 @@ class OptimizationProblem(ElementwiseProblem):
                 LE_coords = (x[idx+16], 0)
             self.duct_variables = {"b_0": x[idx],
                                    "b_2": x[idx + 1], 
-                                   "b_8": x[idx + 2] * np.min(x[idx + 6], np.sqrt(-2 * x[idx + 11] * x[idx + 5] / 3)),
+                                   "b_8": x[idx + 2] * min(x[idx + 6], np.sqrt(-2 * x[idx + 11] * x[idx + 5] / 3)),
                                    "b_15": x[idx + 3],
                                    "b_17": x[idx + 4],
                                    "x_t": x[idx + 5],

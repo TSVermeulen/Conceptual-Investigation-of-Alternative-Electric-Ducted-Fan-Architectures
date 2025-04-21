@@ -70,7 +70,7 @@ CENTERBODY_VALUES = {"b_0": 0., "b_2": 0., "b_8": 7.52387039e-02, "b_15": 7.4644
 
 
 # Controls for the optimisation vector - DUCT
-OPTIMIZE_DUCT = False
+OPTIMIZE_DUCT = True
 DUCT_VALUES = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.004081758291374328), 'b_15': np.float64(0.735), 'b_17': np.float64(0.8), 'x_t': np.float64(0.2691129541223092), 'y_t': np.float64(0.084601317961794), 'x_c': np.float64(0.0), 'y_c': np.float64(0.0), 'z_TE': np.float64(-0.015685), 'dz_TE': np.float64(0.0005638524603968335), 'r_LE': np.float64(-0.06953901280141099), 'trailing_wedge_angle': np.float64(0.16670974950670672), 'trailing_camberline_angle': np.float64(0.003666809042006104), 'leading_edge_direction': np.float64(-0.811232599724247), 'Chord Length': 1.2446, "Leading Edge Coordinates": (0, 1.20968)}
 
 
@@ -82,8 +82,6 @@ NUM_STAGES = 3  # Define the number of stages (i.e. total count of rotors + stat
 REFERENCE_SECTION_ANGLES = [np.deg2rad(19), 0, 0]  # Reference angles at the reference section (typically 75% of blade span)
 BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
 tipGap = 0.01016  # 1.016 cm tip gap
-
-blade_section = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815}
 
 os.chdir(parent_dir)
 STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = GenerateMTFLOBlading(oper["Omega"],
@@ -111,3 +109,10 @@ L_ref_constr = 2.1336  # meters
 
 constraint_IDs = [[],
                   [0]]
+
+# Define the population size
+POPULATION_SIZE = 10
+
+# Define the initial population parameter spreads
+SPREAD_CONTINUOUS = (0.03, 0.03)  # +/- 3% of the reference value
+SPREAD_DISCRETE = (-1, 3)  # +/- of the reference value

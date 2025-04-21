@@ -164,8 +164,6 @@ class Constraints:
                                                                      cfg))
             
             out["G"] = np.column_stack(computed_ineq_constraints)
-        else:
-            out["G"] = np.array([[]])
 
         # Compute the equality constraints and write them to out["H"]
         if eq_constraints:
@@ -176,8 +174,6 @@ class Constraints:
                                                                  cfg))
         
             out["H"] = np.column_stack(computed_eq_constraints)
-        else:
-            out["H"] = np.array([[]])
 
         return out
     
