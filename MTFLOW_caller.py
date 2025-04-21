@@ -181,8 +181,8 @@ class MTFLOW_caller:
         None
         """
 
-        # If exit flag of the iteration indicates successful completion of the solver, simply return 
-        if exit_flag in (ExitFlag.SUCCESS.value, ExitFlag.NON_CONVERGENCE.value):
+        # If exit flag of the iteration indicates successful completion, non-convergence, or crash of the solver, simply return, as this has been handled within the MTSOl_call already 
+        if exit_flag in (ExitFlag.SUCCESS.value, ExitFlag.NON_CONVERGENCE.value, ExitFlag.CRASH.value):
             return
                 
         # If the exit flag indicates choking, reduce the rotor RPM to fix the issue

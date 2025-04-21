@@ -127,7 +127,7 @@ constraint_IDs = [[],
 
 # Define the population size
 POPULATION_SIZE = 10
-INIT_POPULATION_SIZE = 30  # Initial population size for the first generation
+INIT_POPULATION_SIZE = 10  # Initial population size for the first generation
 
 # Define the initial population parameter spreads
 SPREAD_CONTINUOUS = (0.03, 0.03)  # +/- 3% of the reference value
