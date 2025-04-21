@@ -5,3 +5,4 @@ forces.*
 flowfield.*
 boundary_layer.*
 *.log
+tdat.*
