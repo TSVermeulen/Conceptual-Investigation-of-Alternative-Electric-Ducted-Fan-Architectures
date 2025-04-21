@@ -46,7 +46,6 @@ import numpy as np
 import shutil
 from pathlib import Path
 from pymoo.core.problem import ElementwiseProblem
-from pymoo.core.variable import Real, Integer
 from scipy import interpolate
 
 # Add the parent and submodels paths to the system path
@@ -60,7 +59,7 @@ from Submodels.output_handling import output_processing
 from Submodels.Parameterizations import AirfoilParameterization
 from objectives import Objectives
 from constraints import Constraints
-from designvectorinit import DesignVector
+from init_designvector import DesignVector
 import config
 
 
@@ -101,10 +100,11 @@ class OptimizationProblem(ElementwiseProblem):
         except OSError as e:
             raise OSError from e
         
+        # Initialize counter
+        self.eval_counter = 0
+        
 
-    def GenerateAnalysisName(self,
-                             pop_idx: int, 
-                             gen_idx: int) -> str:
+    def GenerateAnalysisName(self) -> str:
         """
         Generate a unique analysis name with a maximum length of 30 characters.
         This is required to enable multi-threading of the optimization problem, and log each state file,
@@ -124,7 +124,7 @@ class OptimizationProblem(ElementwiseProblem):
         """
 
         # Construct the base name based on the population and generation indices
-        base_name = f"p{pop_idx}g{gen_idx}_"
+        base_name = f"eval{self.eval_counter}"
 
         # Construct a hash suffix
         hash_suffix = hashlib.md5(base_name.encode()).hexdigest()
@@ -157,6 +157,12 @@ class OptimizationProblem(ElementwiseProblem):
         idx = 0
         centerbody_designvar_count = 8
         duct_designvar_count = 17
+
+        # Convert the design vector to a list from the original dictionary format
+        if isinstance(x, dict):
+            x= list(x.values()) 
+        else:
+            raise TypeError("Design vector x must be a dictionary.")
 
         # Deconstruct the centerbody values if it's variable.
         # If the centerbody is constant, read in the centerbody values from config.
@@ -430,8 +436,7 @@ class OptimizationProblem(ElementwiseProblem):
         # Generate a unique analysis name
         pop_idx = kwargs.get("pop_idx", 0)
         gen_idx = kwargs.get("gen_idx", 0)
-        self.analysis_name = self.GenerateAnalysisName(pop_idx,
-                                                  gen_idx)
+        self.analysis_name = self.GenerateAnalysisName()
         
         # Deconstruct the design vector
         self.DeconstructDesignVector(x)
@@ -473,6 +478,8 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Cleanup the generated files
         self.CleanUpFiles()
+
+        self.eval_counter += 1
 
         return out
     

@@ -6,10 +6,13 @@ init_population
 """
 
 import numpy as np
+import random
 from types import ModuleType
 from pymoo.core.mixed import MixedVariableSampling
+from pymoo.core.population import Population
+from pymoo.core.individual import Individual
 
-from designvectorinit import DesignVector 
+from init_designvector import DesignVector 
 
 
 class InitPopulation():
@@ -37,17 +40,20 @@ class InitPopulation():
 
         # Create a new design vector object
         self.design_vector = DesignVector()._construct_vector(cfg)
-    
 
-    def DeconstructDictFromReferenceDesign(self)->list:
+        # Set the seed for the random number generator to ensure reproducibility
+        # 42 is the answer to everything!
+        random.seed(4995309)
+
+    def DeconstructDictFromReferenceDesign(self)->dict:
         """
         Deconstruct the reference design vector dictionaries back into a pymoo design vector.
         This is used to create the initial population for the optimisation problem.
 
         Returns
         -------
-        - vars : list
-            A list of design variables for the optimisation problem.
+        - vars : dict
+            A dict of design variables for the optimisation problem.
         """
 
         vars = []
@@ -119,57 +125,65 @@ class InitPopulation():
             vars.append(self.cfg.DUCT_VALUES["Chord Length"])
             vars.append(self.cfg.DUCT_VALUES["Leading Edge Coordinates"][0])
 
+
+        # Change vars from a list to a dictionary to match the expected structure of pymoo
+        keys = list(self.design_vector.keys())
+        vars = {key: value for key, value in zip(keys, vars)}
+
         return vars
                                
 
-    def GenerateBiasedPopulation(self) -> np.ndarray:
+    def GenerateBiasedPopulation(self) -> list[Individual]:
         """
         Generate the initial population for the optimisation problem based on an existing solution.
 
         Returns
         -------
-        - pop
-            The initial population for the optimisation problem as np.ndarray of shape (n, m), 
+        - pop : list[Individual]
+            The initial population for the optimisation problem as a list of shape (n, m), 
             where n is the number of individuals and m is the number of design variables.
         """
 
         # Get the invidivual corresponding to the reference design
-        reference_individual = np.array(self.DeconstructDictFromReferenceDesign())
+        reference_individual = self.DeconstructDictFromReferenceDesign()
 
         # Define helper functions to introduce spread in initial population
         def apply_real_spread(value: float, 
                               bounds: tuple[float, float]) -> float:
             """ Apply perturbation while keeping values within bounds. """
             lower_spread = value * self.cfg.SPREAD_CONTINUOUS[0]
-            upper_spread = value * self.cfg.SPREAD_CONTINUOUS[1]
-            return np.clip(np.random.uniform(value - lower_spread, value + upper_spread), 
-                           bounds[0], bounds[1])
+            upper_spread = value * self.cfg.SPREAD_CONTINUOUS[1]        
+            return max(bounds[0], min(bounds[1], random.uniform(value - lower_spread, value + upper_spread)))
 
         def apply_integer_spread(value: int,
                                  bounds: tuple[int, int]) -> int:
             """ Apply spread for the integer variable while keeping bounds. """
-            return np.clip(value + np.random.choice([self.cfg.SPREAD_DISCRETE[0], self.cfg.SPREAD_DISCRETE[1]]), bounds[0], bounds[1])
+            return max(bounds[0], min(bounds[1], value + random.randint([self.cfg.SPREAD_DISCRETE[0], self.cfg.SPREAD_DISCRETE[1]])))
         
         # Generate the initial population
-        pop = np.zeros((self.cfg.POPULATION_SIZE, len(reference_individual)))
-        for i in range(self.cfg.POPULATION_SIZE):
-            if i == 0:
-                # First individual is the reference individual
-                pop[i] = reference_individual
-                continue
-            else:
-                # Create a perturbed individual based on the reference individual
-                individual = np.copy(reference_individual)
-                for j, value in enumerate(individual):
-                    # Apply spread based on the variable type
-                    if isinstance(value, (float, np.float64)):
-                        individual[j] = apply_real_spread(value, self.design_vector[f"x{j}"].bounds)
-                    elif isinstance(value, (int)):
-                        individual[j] = apply_integer_spread(value, self.design_vector[f"x{j}"].bounds)
-                # Add the perturbed individual to the population
-                pop[i] = individual
+        pop_dict = [None] * self.cfg.INIT_POPULATION_SIZE
 
-        # Return the generated population
+        # Create the first individual as the reference design
+        pop_dict[0] = reference_individual
+
+        for i in range(1, self.cfg.INIT_POPULATION_SIZE):
+            individual = reference_individual.copy()
+            for key, value in reference_individual.items():
+                bounds = self.design_vector[key].bounds
+                # Apply spread based on the variable type
+                if isinstance(value, (float, np.float64)):
+                    individual[key] = apply_real_spread(value, bounds)
+                elif isinstance(value, (int)):
+                    individual[key] = apply_integer_spread(value, bounds)
+            # Add the perturbed individual to the population
+            pop_dict[i] = individual
+
+        # Construct the population object
+        individuals = []
+        for pop in pop_dict:
+            individuals.append(Individual(X=pop))
+        pop = Population.create(*individuals)
+
         return pop
     
 

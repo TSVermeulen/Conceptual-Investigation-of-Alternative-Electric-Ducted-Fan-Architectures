@@ -6,8 +6,6 @@ main
 
 
 """
-
-import numpy as np
 from pymoo.core.mixed import MixedVariableGA
 from pymoo.optimize import minimize
 
@@ -21,7 +19,7 @@ problem = OptimizationProblem()
 
 # Initialize the algorithm
 algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
-                            sampling=InitPopulation(type="single",
+                            sampling=InitPopulation(type="biased",
                                                     cfg=config).GeneratePopulation(),
                             )
 

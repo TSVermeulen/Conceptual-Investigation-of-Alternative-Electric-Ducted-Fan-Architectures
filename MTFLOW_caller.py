@@ -342,6 +342,10 @@ class MTFLOW_caller:
                 
             check_count += 1
 
+            if check_count == 10: 
+                exit_flag_gridtest = ExitFlag.CRASH.value  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
+                return exit_flag_gridtest, iter_count_gridtest
+
         # --------------------
         # Execute MTSOl solver
         # Passes the exit flag to determine if any issues have occurred. 
