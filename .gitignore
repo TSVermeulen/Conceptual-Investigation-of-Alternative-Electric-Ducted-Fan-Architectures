@@ -6,3 +6,5 @@ flowfield.*
 boundary_layer.*
 *.log
 tdat.*
+tflow.*
+walls.*

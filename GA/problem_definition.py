@@ -33,18 +33,19 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.0
+Version: 1.1
 
 Changelog:
 - V1.0: Initial implementation. 
+- V1.1: Improved documentation. Fixed issues with deconstruction of design vector. Fixed analysisname generator and switched to using datetime & evaluation counter for name generation. 
 """
 
 import os
 import sys
-import hashlib
 import numpy as np
 import shutil
 from pathlib import Path
+import datetime
 from pymoo.core.problem import ElementwiseProblem
 from scipy import interpolate
 
@@ -106,32 +107,20 @@ class OptimizationProblem(ElementwiseProblem):
 
     def GenerateAnalysisName(self) -> str:
         """
-        Generate a unique analysis name with a maximum length of 30 characters.
+        Generate a unique analysis name with a maximum length of 32 characters.
         This is required to enable multi-threading of the optimization problem, and log each state file,
         since each evaluation of MTFLOW requires a unique set of files. 
-
-        Parameters
-        ----------
-        - pop_idx : int
-            Population index of the current evaluation
-        - gen_idx : int
-            Generation index of the current evaluation
 
         Returns
         -------
         - analysis_name : str
-            A unique hashed analysis name for the population and generation indices provided. 
+            A unique analysis name based on the current date and time, and the evaluation counter.
         """
 
-        # Construct the base name based on the population and generation indices
-        base_name = f"eval{self.eval_counter}"
-
-        # Construct a hash suffix
-        hash_suffix = hashlib.md5(base_name.encode()).hexdigest()
-
-        # Construct the full analysis name and trim it to be no longer than 32 characters
-        analysis_name = base_name + "_" + hash_suffix
-        analysis_name = analysis_name[:30]
+        # Construct the analysis_name based on the current date and time
+        now = datetime.datetime.now()	
+        analysis_name = now.strftime("%Y%m%d_%H") + "_" + str(self.eval_counter)
+        analysis_name = analysis_name[:32]
 
         return analysis_name
 
@@ -158,32 +147,26 @@ class OptimizationProblem(ElementwiseProblem):
         centerbody_designvar_count = 8
         duct_designvar_count = 17
 
-        # Convert the design vector to a list from the original dictionary format
-        if isinstance(x, dict):
-            x= list(x.values()) 
-        else:
-            raise TypeError("Design vector x must be a dictionary.")
-
         # Deconstruct the centerbody values if it's variable.
         # If the centerbody is constant, read in the centerbody values from config.
         # Note that if the centerbody is variable, we keep the LE coordinate fixed, as the LE coordinate of the duct would already be free to move. 
         if config.OPTIMIZE_CENTERBODY:
             self.centerbody_variables = {"b_0": 0,
                                          "b_2": 0, 
-                                         "b_8": x[0] * min(x[3], np.sqrt(-2 * x[5] * x[2] / 3)),
-                                         "b_15": x[1],
+                                         "b_8": x[f"x{idx}"] * min(x[f"x{3 + idx}"], np.sqrt(-2 * x[f"x{5 + idx}"] * x[f"x{2 + idx}"] / 3)),
+                                         "b_15": x[f"x{1 + idx}"],
                                          "b_17": 0,
-                                         "x_t": x[2],
-                                         "y_t": x[3],
+                                         "x_t": x[f"x{2 + idx}"],
+                                         "y_t": x[f"x{3 + idx}"],
                                          "x_c": 0,
                                          "y_c": 0,
                                          "z_TE": 0,
-                                         "dz_TE": x[4],
-                                         "r_LE": x[5],
-                                         "trailing_wedge_angle": x[6],
+                                         "dz_TE": x[f"x{4 + idx}"],
+                                         "r_LE": x[f"x{5 + idx}"],
+                                         "trailing_wedge_angle": x[f"x{6 + idx}"],
                                          "trailing_camberline_angle": 0,
                                          "leading_edge_direction": 0, 
-                                         "Chord Length": x[7],
+                                         "Chord Length": x[f"x{7 + idx}"],
                                          "Leading Edge Coordinates": (0, 0)}
             idx += (centerbody_designvar_count + duct_designvar_count) if config.OPTIMIZE_DUCT else centerbody_designvar_count
         else:
@@ -199,21 +182,21 @@ class OptimizationProblem(ElementwiseProblem):
                 # If the stage is to be optimized, read in the design vector for the blade profiles
                 for _ in range(self.num_radial):
                     # Loop over the number of radial sections and append each section to stage_design_parameters
-                    section_parameters = {"b_0": x[idx],
-                                        "b_2": x[idx + 1], 
-                                        "b_8": x[idx + 2] * min(x[idx + 6], np.sqrt(-2 * x[idx + 11] * x[idx + 5] / 3)),
-                                        "b_15": x[idx + 3],
-                                        "b_17": x[idx + 4],
-                                        "x_t": x[idx + 5],
-                                        "y_t": x[idx + 6],
-                                        "x_c": x[idx + 7],
-                                        "y_c": x[idx + 8],
-                                        "z_TE": x[idx + 9],
-                                        "dz_TE": x[idx + 10],
-                                        "r_LE": x[idx + 11],
-                                        "trailing_wedge_angle": x[idx + 12],
-                                        "trailing_camberline_angle": x[idx + 13],
-                                        "leading_edge_direction": x[idx + 14]}
+                    section_parameters = {"b_0": x[f"x{idx}"],
+                                        "b_2": x[f"x{1 + idx}"], 
+                                        "b_8": x[f"x{2 + idx}"] * min(x[f"x{6 + idx}"], np.sqrt(-2 * x[f"x{11 + idx}"] * x[f"x{5 + idx}"] / 3)),
+                                        "b_15": x[f"x{3 + idx}"],
+                                        "b_17": x[f"x{4 + idx}"],
+                                        "x_t": x[f"x{5 + idx}"],
+                                        "y_t": x[f"x{6 + idx}"],
+                                        "x_c": x[f"x{7 + idx}"],
+                                        "y_c": x[f"x{8 + idx}"],
+                                        "z_TE": x[f"x{9 + idx}"],
+                                        "dz_TE": x[f"x{10 + idx}"],
+                                        "r_LE": x[f"x{11 + idx}"],
+                                        "trailing_wedge_angle": x[f"x{12 + idx}"],
+                                        "trailing_camberline_angle": x[f"x{13 + idx}"],
+                                        "leading_edge_direction": x[f"x{14 + idx}"]}
                     idx += 15
                     stage_design_parameters.append(section_parameters)
             else:
@@ -230,12 +213,12 @@ class OptimizationProblem(ElementwiseProblem):
             stage_blading_parameters = {}
             if self.optimize_stages[i]:
                 # If the stage is to be optimized, read in the design vector for the blading parameters
-                stage_blading_parameters["root_LE_coordinate"] = x[idx]
-                stage_blading_parameters["blade_count"] = x[idx + 1]
-                stage_blading_parameters["ref_blade_angle"] = x[idx + 2]
+                stage_blading_parameters["root_LE_coordinate"] = x[f"x{idx}"]
+                stage_blading_parameters["blade_count"] = x[f"x{1 + idx}"]
+                stage_blading_parameters["ref_blade_angle"] = x[f"x{2 + idx}"]
                 stage_blading_parameters["reference_section_blade_angle"] = config.REFERENCE_SECTION_ANGLES[i]
-                stage_blading_parameters["radial_stations"] = radial_linspace * x[idx + 3]  # Radial stations are defined as fraction of blade radius * local radius
-                self.blade_diameters.append(x[idx + 3] * 2)
+                stage_blading_parameters["radial_stations"] = radial_linspace * x[f"x{3 + idx}"]  # Radial stations are defined as fraction of blade radius * local radius
+                self.blade_diameters.append(x[f"x{3 + idx}"] * 2)
 
                 # Initialize sectional blading parameter lists
                 stage_blading_parameters["chord_length"] = [None] * self.num_radial
@@ -245,9 +228,9 @@ class OptimizationProblem(ElementwiseProblem):
                 base_idx = idx + 4
                 for j in range(self.num_radial):
                     # Loop over the number of radial sections and write their data to the corresponding lists
-                    stage_blading_parameters["chord_length"][j]= x[base_idx + j]
-                    stage_blading_parameters["sweep_angle"][j] = x[base_idx + self.num_radial + j]
-                    stage_blading_parameters["blade_angle"][j] = x[base_idx + 2 * self.num_radial + j]
+                    stage_blading_parameters["chord_length"][j]= x[f"x{base_idx + j}"]
+                    stage_blading_parameters["sweep_angle"][j] = x[f"x{base_idx + self.num_radial + j}"]
+                    stage_blading_parameters["blade_angle"][j] = x[f"x{base_idx + 2 * self.num_radial + j}"]
                 idx = base_idx + 3 * self.num_radial                
             else:
                 stage_blading_parameters = config.STAGE_BLADING_PARAMETERS[i]
@@ -266,25 +249,25 @@ class OptimizationProblem(ElementwiseProblem):
             idx = centerbody_designvar_count if config.OPTIMIZE_CENTERBODY else 0
 
             if np.any(self.optimize_stages):
-                LE_coords = (x[idx + 16], 0)
+                LE_coords = (x[f"x{16 + idx}"], 0)
             else:
-                LE_coords = (x[idx+16], 0)
-            self.duct_variables = {"b_0": x[idx],
-                                   "b_2": x[idx + 1], 
-                                   "b_8": x[idx + 2] * min(x[idx + 6], np.sqrt(-2 * x[idx + 11] * x[idx + 5] / 3)),
-                                   "b_15": x[idx + 3],
-                                   "b_17": x[idx + 4],
-                                   "x_t": x[idx + 5],
-                                   "y_t": x[idx + 6],
-                                   "x_c": x[idx + 7],
-                                   "y_c": x[idx + 8],
-                                   "z_TE": x[idx + 9],
-                                   "dz_TE": x[idx + 10],
-                                   "r_LE": x[idx + 11],
-                                   "trailing_wedge_angle": x[idx + 12],
-                                   "trailing_camberline_angle": x[idx + 13],
-                                   "leading_edge_direction": x[idx + 14], 
-                                   "Chord Length": x[idx + 15],
+                LE_coords = (x[f"x{16 + idx}"], 0)
+            self.duct_variables = {"b_0": x[f"x{idx}"],
+                                   "b_2": x[f"x{1 + idx}"], 
+                                   "b_8": x[f"x{2 + idx}"] * min(x[f"x{6 + idx}"], np.sqrt(-2 * x[f"x{11 + idx}"] * x[f"x{5 + idx}"] / 3)),
+                                   "b_15": x[f"x{3 + idx}"],
+                                   "b_17": x[f"x{4 + idx}"],
+                                   "x_t": x[f"x{5 + idx}"],
+                                   "y_t": x[f"x{6 + idx}"],
+                                   "x_c": x[f"x{7 + idx}"],
+                                   "y_c": x[f"x{8 + idx}"],
+                                   "z_TE": x[f"x{9 + idx}"],
+                                   "dz_TE": x[f"x{10 + idx}"],
+                                   "r_LE": x[f"x{11 + idx}"],
+                                   "trailing_wedge_angle": x[f"x{12 + idx}"],
+                                   "trailing_camberline_angle": x[f"x{13 + idx}"],
+                                   "leading_edge_direction": x[f"x{14 + idx}"], 
+                                   "Chord Length": x[f"x{15 + idx}"],
                                    "Leading Edge Coordinates": LE_coords}
             idx += 17
         else:
@@ -434,8 +417,6 @@ class OptimizationProblem(ElementwiseProblem):
 
     def _evaluate(self, x, out, *args, **kwargs):
         # Generate a unique analysis name
-        pop_idx = kwargs.get("pop_idx", 0)
-        gen_idx = kwargs.get("gen_idx", 0)
         self.analysis_name = self.GenerateAnalysisName()
         
         # Deconstruct the design vector
@@ -479,6 +460,7 @@ class OptimizationProblem(ElementwiseProblem):
         # Cleanup the generated files
         self.CleanUpFiles()
 
+        # Increase the evaluation counter
         self.eval_counter += 1
 
         return out

@@ -2,19 +2,34 @@
 config
 ======
 
-This file contains the set of constants and external inputs to the GA optimisation. 
+Description
+-----------
+This module defines the configuration settings and parameters for the optimization problem, including aerodynamic 
+analysis, design variables, and constraints. It integrates with the MTFLOW executable for aerodynamic analysis.
 
+Classes
+-------
+None
+
+Notes
+-----
+Ensure that the MTFLOW executable and required input files are present in the appropriate directories. This module 
+provides the necessary settings for optimization and analysis.
 
 References
-==========
-The complete set of inputs needed to define the MTFLOW interface is: 
-    operating_conditions: dict,
-    centrebody_params: dict,
-    duct_params: dict,
-    blading_parameters: list[dict],
-    design_parameters: list[dict],
-    ref_length: float,
-    analysis_name: str
+----------
+For more details on the MTFLOW solver and its input/output requirements, refer to the MTFLOW user manual:
+https://web.mit.edu/drela/Public/web/mtflow/mtflow.pdf
+
+Versioning
+----------
+Author: T.S. Vermeulen
+Email: T.S.Vermeulen@student.tudelft.nl
+Student ID: 4995309
+Version: 1.0
+
+Changelog:
+- V1.0: Initial implementation. 
 """
 
 import numpy as np
@@ -101,7 +116,7 @@ L_ref_constr = 2.1336  # meters
 #  [equality constraint 1, equality constraint 2, ...]]
 
 # Options for the inequality IDs are:
-# -
+# - 0: Keep efficiency >= 0
 
 # Options for the equality IDs are:
 # - 0: Constant power

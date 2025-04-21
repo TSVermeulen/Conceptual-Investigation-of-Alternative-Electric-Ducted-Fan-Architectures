@@ -77,10 +77,10 @@ class MTSET_call:
 
         self.analysis_name = analysis_name
 
-        # Grid definition parameters need to either take the user-defined input or the default MTSET inputs
+        # Grid definition parameters need to either take the user-defined input or the default inputs
         self.grid_e_coeff = grid_e_coeff if grid_e_coeff is not None else 0.8
         self.grid_x_coeff = grid_x_coeff if grid_x_coeff is not None else 0.8
-        self.streamwise_points = streamwise_points if (streamwise_points is not None and streamwise_points > 141) else 141
+        self.streamwise_points = streamwise_points if (streamwise_points is not None and streamwise_points > 141) else 200
 
         # Define constant filepath 
         self.fpath: str = os.getenv('MTSET_PATH', 'mtset.exe')

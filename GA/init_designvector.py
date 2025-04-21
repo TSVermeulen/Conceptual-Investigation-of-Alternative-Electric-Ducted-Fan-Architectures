@@ -2,7 +2,37 @@
 design_vector_init
 ==================
 
+Description
+-----------
+This module defines the DesignVector class, which is used to construct the design vector for the pymoo framework 
+optimization problem. The design vector supports mixed-variable optimization, including real and integer variables.
 
+Classes
+-------
+DesignVector
+    Class for constructing the design vector based on configuration toggles.
+
+Examples
+--------
+>>> from init_designvector import DesignVector
+>>> from config import cfg
+>>> dv = DesignVector()
+>>> design_vector = dv._construct_vector(cfg)
+
+Notes
+-----
+This module integrates with the pymoo framework for optimization. Ensure that the configuration module (cfg) is 
+properly set up with the required toggles and parameters for the design vector construction.
+
+Versioning
+----------
+Author: T.S. Vermeulen
+Email: T.S.Vermeulen@student.tudelft.nl
+Student ID: 4995309
+Version: 1.0
+
+Changelog:
+- V1.0: Initial implementation. Extracted from the problem_definition.py file for better modularity and readability.
 """
 
 import numpy as np
@@ -106,7 +136,6 @@ class DesignVector():
 
         # For a mixed-variable problem, PyMoo expects the vars to be a dictionary, so we convert vars to a dictionary.
         # Note that all variables are given a name xi.
-        # TODO: update this algoritm to automatically give the appropriate name to each variable. 
         vars = {f"x{i}": var for i, var in enumerate(vars)}
 
         return vars

@@ -31,10 +31,11 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.0
+Version: 1.1
 
 Changelog:
 - V1.0: Initial implementation with basic equality and inequality constraints.
+- V1.1: Implemented inequality constraint for efficiency such that eta is always > 0. 
 """
 
 import numpy as np
@@ -110,6 +111,34 @@ class Constraints:
         return analysis_outputs['data']['Total force CT'] * Lref - cfg.CT_ref_constr * cfg.L_ref_constr
     
 
+    def KeepEfficiencyFeasible(self,
+                               analysis_outputs: dict,
+                               Lref: float,
+                               cfg: ModuleType) -> float:
+        """
+        Compute the inequality constraint for the efficiency. Enforces that eta>0. 
+
+        Parameters
+        ----------
+        - analysis_outputs : dict
+            A dictionary containing the outputs from the MTFLOW forces output file. 
+            Must contain all entries corresponding to an execution of 
+            output_handling.output_processing().GetAllVariables(3).
+        - Lref : float
+            The reference length of the analysis. Corresponds to the propeller/fan diameter.
+        - cfg: ModuleType
+            The configuration module containing the reference values for CP, CT, and Lref.
+
+        Returns
+        -------
+        - float
+            The computed efficiency constraint. This is a scalar value representing the efficiency of the system.
+        """
+
+        # Compute the inequality constraint for the efficiency.
+        return -analysis_outputs['data']['EtaP']
+
+
     def ComputeConstraints(self,
                            analysis_outputs: dict,
                            Lref: float,
@@ -150,7 +179,7 @@ class Constraints:
         """
 
         # Define lists of all inequality and equality constraints, and filter them based on the constraint IDs
-        ineq_constraints_list = []
+        ineq_constraints_list = [self.KeepEfficiencyFeasible]
         eq_constraints_list = [self.ConstantPower, self.ConstantThrust]
         ineq_constraints = [ineq_constraints_list[i] for i in cfg.constraint_IDs[0]]
         eq_constraints = [eq_constraints_list[i] for i in cfg.constraint_IDs[1]]

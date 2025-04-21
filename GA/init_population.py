@@ -2,7 +2,48 @@
 init_population
 ===============
 
+Description
+-----------
+This module provides functionality to initialize populations for optimization problems, 
+either by generating a biased population based on a reference design or by sampling 
+randomly within the bounds of the design variables.
 
+Classes
+-------
+InitPopulation
+    A class to initialize populations for optimization problems. It supports generating 
+    biased populations with perturbations around a reference design or random populations 
+    sampled uniformly across the bounds.
+
+Examples
+--------
+>>> import config
+>>> import time
+
+>>> start_time = time.time()
+>>> init_pop = InitPopulation("biased", config)
+>>> population = init_pop.GeneratePopulation()
+>>> print(population)
+>>> print(f"Population generation took: {time.time() - start_time} seconds")
+
+Notes
+-----
+This module is designed to work with the pymoo optimization framework and assumes 
+the design vector configuration is provided in the `config` module.
+
+References
+----------
+pymoo: https://pymoo.org/
+
+Versioning
+----------
+Author: T.S. Vermeulen
+Email: T.S.Vermeulen@student.tudelft.nl
+Student ID: 4995309
+Version: 1.0
+
+Changelog:
+- V1.0: Initial version with tested biased population generation and basic random population generation functionality.
 """
 
 import numpy as np
@@ -17,7 +58,7 @@ from init_designvector import DesignVector
 
 class InitPopulation():
     """
-    
+    Population generation class to handle generation of the starting point for the genetic algorithm optimisation. 
     """
 
 
@@ -42,8 +83,8 @@ class InitPopulation():
         self.design_vector = DesignVector()._construct_vector(cfg)
 
         # Set the seed for the random number generator to ensure reproducibility
-        # 42 is the answer to everything!
-        random.seed(4995309)
+        random.seed(42)  # 42 is the answer to everything
+
 
     def DeconstructDictFromReferenceDesign(self)->dict:
         """

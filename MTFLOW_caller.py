@@ -73,11 +73,12 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID 4995309
-Version: 1.1
+Version: 1.2
 
 Changelog:
 - V1.0: Initial version. Lacks proper crash handling and choking handling in the HandleExitFlag() method, but otherwise complete. 
 - V1.1: Cleaned up following successful implementation of validation case. Crash handling is now done within MTSOL_call. 
+- V1.2: Cleaned up import statements, resolved infite loop issue in gridtest, and added MTSOL loop exit for non-convergence. 
 """
 
 import sys
@@ -85,7 +86,6 @@ import os
 import logging
 import random
 import numpy as np
-from enum import Enum
 
 # Enable submodel relative imports 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -184,13 +184,7 @@ class MTFLOW_caller:
         # If exit flag of the iteration indicates successful completion of the solver, simply return 
         if exit_flag in (ExitFlag.SUCCESS.value, ExitFlag.NON_CONVERGENCE.value):
             return
-        
-        # If the exit flag indicates an MTSOL crash, fix the issue causing the crash 
-        elif exit_flag == ExitFlag.CRASH.value:
-            # TODO: handling of crash
-            print("Solver crashed, but no crash handling has been implemented!")
-            return
-        
+                
         # If the exit flag indicates choking, reduce the rotor RPM to fix the issue
         elif exit_flag == ExitFlag.CHOKING.value:
             print("Choking occurs. Using a rudimentary fix....")
@@ -203,12 +197,8 @@ class MTFLOW_caller:
             return
         
         # Handle invalid exit flag returns
-        elif exit_flag in (ExitFlag.COMPLETED.value, ExitFlag.NOT_PERFORMED.value):
-            raise ValueError(f"Invalid exit flag {exit_flag} encountered following execution of MTSOL_call!") from None
-        
-        # Handle unknown exit flag returns
         else:
-            raise ValueError(f"Unknown exit flag {exit_flag} encountered!") from None 
+            raise ValueError(f"Invalid exit flag {exit_flag} encountered!") from None 
 
 
     def caller(self,
@@ -355,7 +345,7 @@ class MTFLOW_caller:
             logger.info("Starting MTSOL execution loop")
 
         exit_flag = ExitFlag.NOT_PERFORMED.value  # Initialize exit flag
-        while exit_flag != ExitFlag.SUCCESS.value:
+        while exit_flag not in (ExitFlag.SUCCESS.value, ExitFlag.NON_CONVERGENCE.value):
             if debug:
                 logger.info("Loading blade row(s) from MTFLO")
 
