@@ -83,6 +83,7 @@ class Constraints:
 
         # Compute the equality constraint for the power coefficient. Assuming constant flight condition (i.e. density and speed), 
         power = analysis_outputs['data']['Total power CP'] * (0.5 * cfg.atmosphere.density[0] * cfg.oper["Vinl"] ** 3 * Lref ** 2)  # Power in Watts
+        
         return power - cfg.P_ref_constr 
 
     
@@ -145,7 +146,7 @@ class Constraints:
                            analysis_outputs: dict,
                            Lref: float,
                            out: dict,
-                           cfg: ModuleType) -> dict:              
+                           cfg: ModuleType) -> None:              
         """
         Compute the inequality and equality constraints based on the provided analysis outputs
         and configuration, and store the results in the output dictionary.
@@ -166,10 +167,7 @@ class Constraints:
         
         Returns
         -------
-        - dict: 
-            The updated output dictionary with the computed constraints:
-                - "G": A 2D numpy array containing the computed inequality constraints.
-                - "H": A 2D numpy array containing the computed equality constraints.
+        None, the out dictionary is updated in place with the computed constraints.
 
         Notes
         -----
@@ -210,7 +208,6 @@ class Constraints:
         else: 
             out["H"] = [[]]
 
-        return out
     
 
 if __name__ == "__main__":

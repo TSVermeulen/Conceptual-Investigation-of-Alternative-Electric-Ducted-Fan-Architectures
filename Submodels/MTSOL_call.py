@@ -467,34 +467,34 @@ class MTSOL_call:
         - tuple :
             exit_flag : int
                 Exit flag indicating the status of the solver execution.
-            iter_counter : int
+            iter_count : int
                 Number of iterations performed up until failure of the solver.
         """
 
-        # Initialize iteration counter - set to -1 to ensure correct total count at end of convergence
-        iter_counter = -1        
+        # Initialize iteration count 
+        iter_count = 0        
 
         # Keep converging until the iteration count exceeds the limit
-        while iter_counter < self.ITER_LIMIT:
-            # Check the exit flag to see if the solution has converged
-            # If the solution has converged, break out of the iteration loop
-            exit_flag = self.WaitForCompletion(type=1)
-            if exit_flag in (ExitFlag.SUCCESS.value, ExitFlag.CHOKING.value):
-                break
-
+        while iter_count < self.ITER_LIMIT:
             #Execute next iteration(s)
             self.StdinWrite(f"x {self.ITER_STEP_SIZE}")
 
             # Increase iteration counter by step size
-            iter_counter += self.ITER_STEP_SIZE  
-            self.iter_counter = iter_counter         
+            iter_count += self.ITER_STEP_SIZE  
+            self.iter_counter = iter_count     
+
+            # Check the exit flag to see if the solution has converged
+            # If the solution has converged, break out of the iteration loop
+            exit_flag = self.WaitForCompletion(type=1)
+            if exit_flag in (ExitFlag.SUCCESS.value, ExitFlag.CHOKING.value):
+                break    
 
         # If the solver has not converged within self.ITER_LIMIT iterations, set the exit flag to non-convergence
         if exit_flag not in (ExitFlag.SUCCESS.value, ExitFlag.CHOKING.value):
             exit_flag = ExitFlag.NON_CONVERGENCE.value
 
         # Return the exit flag and iteration counter
-        return exit_flag, iter_counter
+        return exit_flag, iter_count
 
 
     def GetAverageValues(self,
@@ -872,21 +872,18 @@ class MTSOL_call:
        # Define initial exit flags and iteration counters
         # Note that a negative iteration count indicates that the solver did not run
         exit_flag_visc_CB = ExitFlag.NOT_PERFORMED.value
-        iter_count_visc_CB = -1
+        iter_count_visc_CB = 0
         exit_flag_visc_induct = ExitFlag.NOT_PERFORMED.value
-        iter_count_visc_induct = -1
+        iter_count_visc_induct = 0
         exit_flag_visc_outduct = ExitFlag.NOT_PERFORMED.value
-        iter_count_visc_outduct = -1
+        iter_count_visc_outduct = 0
         total_exit_flag = ExitFlag.NOT_PERFORMED.value
 
         # Restart MTSOL
         self.GenerateProcess()
 
-        # Toggle viscous on the centerbody
-        self.ToggleViscous()
-
         # Execute the initial viscous solve, where we only solve for the boundary layer on the centerbody
-        exit_flag_visc_CB, iter_count_visc_CB = self.TryExecuteViscousSolver()
+        exit_flag_visc_CB, iter_count_visc_CB = self.TryExecuteViscousSolver(surface_ID=1)
 
         # Check if the viscous solve was successful	        
         if exit_flag_visc_CB in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
@@ -936,9 +933,9 @@ class MTSOL_call:
         # Define initial exit flags and iteration counters
         # Note that a negative iteration count indicates that the solver did not run
         exit_flag_invisc = ExitFlag.NOT_PERFORMED.value
-        iter_count_invisc = -1
+        iter_count_invisc = 0
         exit_flag_visc = ExitFlag.NOT_PERFORMED.value
-        iter_count_visc = -1
+        iter_count_visc = 0
 
         # Generate MTSOL subprocess
         self.GenerateProcess()

@@ -117,7 +117,7 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Construct the analysis_name based on the current date and time
         now = datetime.datetime.now()	
-        analysis_name = now.strftime("%Y%m%d_%H%M%S")
+        analysis_name = now.strftime("%Y%m%d_%H%M%S_%f")
         analysis_name = analysis_name[:32]
 
         return analysis_name
@@ -361,8 +361,7 @@ class OptimizationProblem(ElementwiseProblem):
         None
         """
 
-        # Initialize empty data arrays
-        x_tip = np.zeros(self.num_stages)
+        # Initialize empty data array for the radial duct coordinates
         radial_duct_coordinates = np.zeros(self.num_stages)
 
         # Compute the duct x,y coordinates. Note that we are only interested in the lower surface.
@@ -384,7 +383,6 @@ class OptimizationProblem(ElementwiseProblem):
                                                    extrapolate=False)
 
         # Loop over all stages
-        duct_y = np.zeros_like(self.blade_blading_parameters)
         for i in range(self.num_stages):
             blading_params = self.blade_blading_parameters[i]
 
@@ -447,15 +445,15 @@ class OptimizationProblem(ElementwiseProblem):
         MTFLOW_outputs = output_handler.GetAllVariables(3)
 
         # Obtain objective(s)
-        out = Objectives().ComputeObjective(analysis_outputs=MTFLOW_outputs,
-                                            objective_IDs = config.objective_IDs,
-                                            out=out)
+        Objectives().ComputeObjective(analysis_outputs=MTFLOW_outputs,
+                                      objective_IDs = config.objective_IDs,
+                                      out=out)
 
         # Compute constraints
-        out = Constraints().ComputeConstraints(analysis_outputs=MTFLOW_outputs,
-                                               Lref=self.Lref,
-                                               out=out,
-                                               cfg=config)
+        Constraints().ComputeConstraints(analysis_outputs=MTFLOW_outputs,
+                                         Lref=self.Lref,
+                                         out=out,
+                                         cfg=config)
 
         # Cleanup the generated files
         self.CleanUpFiles()
@@ -465,6 +463,7 @@ if __name__ == "__main__":
     test = OptimizationProblem(1,
                                )
     
-    output = test._evaluate(0, {})
+    out = {}
+    output = test._evaluate(0, out)
 
-    print(output)
+    print(out)

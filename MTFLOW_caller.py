@@ -306,6 +306,10 @@ class MTFLOW_caller:
             if check_count == 1:
                 # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid   
                 streamwise_points = 141  
+                grid_e_coeff = 0.8
+                grid_x_coeff = 0.8
+                if debug:
+                    logger.info(f"Trying streamwise_points={streamwise_points}")
             elif check_count == 2:
                 # Adjust grid parameters to try and fix the grid, while also keeping the reduced number of streamwise_points
                 grid_e_coeff = 0.7  
@@ -330,6 +334,9 @@ class MTFLOW_caller:
 
             if check_count == 10: 
                 exit_flag_gridtest = ExitFlag.CRASH.value  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
+                os.chdir(current_dir)  # Return working directory to the main folder
+                if debug:
+                    logger.error("Grid test failed after 10 tries. Exiting...")
                 return exit_flag_gridtest, iter_count_gridtest
 
         # --------------------

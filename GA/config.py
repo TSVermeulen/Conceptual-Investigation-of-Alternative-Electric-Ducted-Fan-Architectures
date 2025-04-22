@@ -46,8 +46,6 @@ sys.path.extend([parent_dir, submodels_path])
 # Import the GenerateMTFLOBlading function from the X22A_validator to generate dummy X22A blade data. 
 # Also define a context manager for GenerateMTFLOBlading to ensure the working directory is set correctly
 from X22A_validator import GenerateMTFLOBlading
-from MTFLOW_caller import MTFLOW_caller
-from output_handling import output_processing
 
 @contextmanager
 def pushd(path):

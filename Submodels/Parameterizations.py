@@ -93,7 +93,7 @@ class AirfoilParameterization:
     """
 
     def __init__(self,
-                 symmetric_limit: float = 1E-3) -> None:
+                 symmetric_limit: float = 1E-4) -> None:
         """
         Initialize the AirfoilParameterization class.
         

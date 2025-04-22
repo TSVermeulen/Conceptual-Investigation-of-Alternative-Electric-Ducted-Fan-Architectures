@@ -147,7 +147,7 @@ class Objectives:
     def ComputeObjective(self,
                          analysis_outputs: dict,
                          objective_IDs: list[int],
-                         out: dict) -> dict:
+                         out: dict) -> None:
         """
         Computes the objectives for optimization based on the provided analysis outputs.
         This method evaluates a list of objective functions, specified by their IDs in the 
@@ -165,8 +165,7 @@ class Objectives:
 
         Returns
         -------
-        - dict: 
-            The updated output dictionary with the computed objectives                         
+        None, the out dictionary is updated in place with the computed objectives.                
         """
 
         objectives_list = [self.Efficiency, self.FrontalArea, self.Weight, self.PressureRatio, self.MultiPointTOCruise]
@@ -181,8 +180,7 @@ class Objectives:
             computed_objectives.append(- objectives[i](analysis_outputs))
 
         out["F"] = np.column_stack(computed_objectives)
-
-        return out
+        
         
 if __name__ == "__main__":
     # Run a test of the objectives class
