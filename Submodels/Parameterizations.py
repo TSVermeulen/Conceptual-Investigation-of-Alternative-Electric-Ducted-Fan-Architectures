@@ -93,7 +93,7 @@ class AirfoilParameterization:
     """
 
     def __init__(self,
-                 symmetric_limit: float = 1E-4) -> None:
+                 symmetric_limit: float = 5E-3) -> None:
         """
         Initialize the AirfoilParameterization class.
         
@@ -102,7 +102,7 @@ class AirfoilParameterization:
         Parameters
         ----------
         - symmetric_limit : float, optional
-            The triggering value of camber below which an airfoil is treated as being symmetric. Default is 1E-3. This is needed to avoid issues with cotangent calculations. 
+            The triggering value of camber below which an airfoil is treated as being symmetric. Default is 5E-3. This is needed to avoid issues with cotangent calculations. 
 
         Returns
         -------

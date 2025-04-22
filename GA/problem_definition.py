@@ -151,7 +151,7 @@ class OptimizationProblem(ElementwiseProblem):
         if config.OPTIMIZE_CENTERBODY:
             self.centerbody_variables = {"b_0": 0,
                                          "b_2": 0, 
-                                         "b_8": x[f"x{idx}"] * min(x[f"x{3 + idx}"], np.sqrt(-2 * x[f"x{5 + idx}"] * x[f"x{2 + idx}"] / 3)),
+                                         "b_8": x[f"x{idx}"] * min(x[f"x{3 + idx}"], np.sqrt(max(0, -2 * x[f"x{5 + idx}"] * x[f"x{2 + idx}"] / 3))),
                                          "b_15": x[f"x{1 + idx}"],
                                          "b_17": 0,
                                          "x_t": x[f"x{2 + idx}"],
@@ -184,7 +184,7 @@ class OptimizationProblem(ElementwiseProblem):
                     # Loop over the number of radial sections and append each section to stage_design_parameters
                     section_parameters = {"b_0": x[f"x{idx}"],
                                         "b_2": x[f"x{1 + idx}"], 
-                                        "b_8": x[f"x{2 + idx}"] * min(x[f"x{6 + idx}"], np.sqrt(-2 * x[f"x{11 + idx}"] * x[f"x{5 + idx}"] / 3)),
+                                        "b_8": x[f"x{2 + idx}"] * min(x[f"x{6 + idx}"], np.sqrt(max(0, -2 * x[f"x{11 + idx}"] * x[f"x{5 + idx}"] / 3))),
                                         "b_15": x[f"x{3 + idx}"],
                                         "b_17": x[f"x{4 + idx}"],
                                         "x_t": x[f"x{5 + idx}"],
@@ -254,7 +254,7 @@ class OptimizationProblem(ElementwiseProblem):
                 LE_coords = (x[f"x{16 + idx}"], 0)
             self.duct_variables = {"b_0": x[f"x{idx}"],
                                    "b_2": x[f"x{1 + idx}"], 
-                                   "b_8": x[f"x{2 + idx}"] * min(x[f"x{6 + idx}"], np.sqrt(-2 * x[f"x{11 + idx}"] * x[f"x{5 + idx}"] / 3)),
+                                   "b_8": x[f"x{2 + idx}"] * min(x[f"x{6 + idx}"], np.sqrt(max(0, -2 * x[f"x{11 + idx}"] * x[f"x{5 + idx}"] / 3))),
                                    "b_15": x[f"x{3 + idx}"],
                                    "b_17": x[f"x{4 + idx}"],
                                    "x_t": x[f"x{5 + idx}"],

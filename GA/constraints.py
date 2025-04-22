@@ -178,6 +178,12 @@ class Constraints:
               will be empty 2D numpy arrays.                 
         """
 
+        # Validate inputs
+        if 'data' not in analysis_outputs or 'Total power CP' not in analysis_outputs['data'] or 'Total force CT' not in analysis_outputs['data']:
+            raise ValueError("missing required output data total CP and CT in analysis_outputs]")
+        if not hasattr(cfg, 'atmosphere') or not hasattr(cfg, 'oper') or not hasattr(cfg, 'P_ref_constr') or not hasattr(cfg, 'T_ref_constr'):
+            raise ValueError("cfg must contain atmosphere, oper, P_ref_constr, and T_ref_constr attributes")
+
         # Define lists of all inequality and equality constraints, and filter them based on the constraint IDs
         ineq_constraints_list = [self.KeepEfficiencyFeasible]
         eq_constraints_list = [self.ConstantPower, self.ConstantThrust]

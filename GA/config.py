@@ -134,7 +134,7 @@ class EqConstraintID(IntEnum):
     CONSTANT_THRUST = auto()
 
 constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO],
-                  [EqConstraintID.CONSTANT_POWER]]
+                  [EqConstraintID.CONSTANT_THRUST]]
 
 # Define the population size
 POPULATION_SIZE = 10

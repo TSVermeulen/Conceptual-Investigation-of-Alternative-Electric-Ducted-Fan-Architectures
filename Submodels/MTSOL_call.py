@@ -835,6 +835,9 @@ class MTSOL_call:
         """
         
         try:
+            # Restart MTSOL
+            self.GenerateProcess()
+
             # Set viscous if surface_ID is given
             if surface_ID is not None:
                 self.SetViscous(surface_ID)
@@ -845,9 +848,6 @@ class MTSOL_call:
             # If the solver crashes, set the exit flag to crash
             exit_flag = ExitFlag.CRASH.value
             iter_count = self.iter_counter
-
-            # Restart MTSOL
-            self.GenerateProcess()
 
         return exit_flag, iter_count    
     
@@ -879,25 +879,62 @@ class MTSOL_call:
         iter_count_visc_outduct = 0
         total_exit_flag = ExitFlag.NOT_PERFORMED.value
 
-        # Restart MTSOL
-        self.GenerateProcess()
+        # Initialize a list to keep track of any surfaces which may fail convergence
+        failed_surfaces = []
 
         # Execute the initial viscous solve, where we only solve for the boundary layer on the centerbody
         exit_flag_visc_CB, iter_count_visc_CB = self.TryExecuteViscousSolver(surface_ID=1)
-
-        # Check if the viscous solve was successful	        
         if exit_flag_visc_CB in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
-            # If the viscous solve was successful, execute the viscous solve for the outside of the duct
-            exit_flag_visc_outduct, iter_count_visc_outduct = self.TryExecuteViscousSolver(surface_ID=3)
+            # If the viscous CB solve was successful, update the statefile. 
+            self.WriteStateFile()
+        elif exit_flag_visc_CB in (ExitFlag.CRASH.value, ExitFlag.NON_CONVERGENCE.value):
+            # if the viscous CB solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
+            failed_surfaces.append(1)
+
+        # Execute the viscous solve for the outside of the duct
+        exit_flag_visc_outduct, iter_count_visc_outduct = self.TryExecuteViscousSolver(surface_ID=3)
+        if exit_flag_visc_outduct in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
+            # If the viscous solve was successful, update the statefile.
+            self.WriteStateFile()
+        elif exit_flag_visc_outduct in (ExitFlag.CRASH.value, ExitFlag.NON_CONVERGENCE.value):
+            # if the viscous solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
+            failed_surfaces.append(3)
+        
+        # Execute the final viscous solve for the inside of the duct
+        exit_flag_visc_induct, iter_count_visc_induct = self.TryExecuteViscousSolver(surface_ID=4)
+        if exit_flag_visc_induct in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
+            # If the viscous solve was successful, update the statefile.
+            self.WriteStateFile()
+        elif exit_flag_visc_induct in (ExitFlag.CRASH.value, ExitFlag.NON_CONVERGENCE.value):
+            # if the viscous solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
+            failed_surfaces.append(4)
+        
+        retry_flags = []
+        retry_counts = []
+        for surface in failed_surfaces:
+            # If the surface failed to converge, we need to toggle it and try again
+            # Execute the viscous solve for the failed surface
+            exit_flag_visc_retry, iter_count_visc_retry = self.TryExecuteViscousSolver(surface_ID=surface)
 
             # Check if the viscous solve was successful
-            if exit_flag_visc_outduct in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
-                # If the viscous solve was successful, execute the final viscous solve for the inside of the duct
-                exit_flag_visc_induct, iter_count_visc_induct = self.TryExecuteViscousSolver(surface_ID=4)
+            if exit_flag_visc_retry in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
+                # If the viscous solve was successful, update the statefile.
+                self.WriteStateFile()
+            retry_flags.append(exit_flag_visc_retry)
+            retry_counts.append(iter_count_visc_retry)
         
+        # Compute total iteration count of the retry attempt
+        retry_count = sum(retry_counts)
+    
         # Compute the overall exit flag and total iteration count
+        if 1 in failed_surfaces:
+            exit_flag_visc_CB = retry_flags[0]
+        if 3 in failed_surfaces:
+            exit_flag_visc_outduct = retry_flags[1]
+        if 4 in failed_surfaces:
+            exit_flag_visc_induct = retry_flags[2]
         total_exit_flag = max(exit_flag_visc_CB, exit_flag_visc_outduct, exit_flag_visc_induct)
-        total_iter_count = iter_count_visc_CB + iter_count_visc_outduct + iter_count_visc_induct
+        total_iter_count = iter_count_visc_CB + iter_count_visc_outduct + iter_count_visc_induct + retry_count
 
         return total_exit_flag, total_iter_count
     
