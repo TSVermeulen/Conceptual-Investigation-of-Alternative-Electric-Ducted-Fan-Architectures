@@ -47,6 +47,7 @@ Changelog:
 """
 
 import numpy as np
+import numbers
 import random
 from types import ModuleType
 from pymoo.core.mixed import MixedVariableSampling
@@ -63,20 +64,21 @@ class InitPopulation():
 
 
     def __init__(self,
-                 type: str,
+                 population_type: str,
                  cfg: ModuleType) -> None:
         """
         Initialisation for the InitPopulation class.
 
         Parameters
         ----------
-        - type : str
-            A string
+        - population_type : str
+            A string indicating the type of population to generate. Either 'biased' or 'random'.
+            "biased" will generate a population with perturbed individuals based on a reference design, while "random" will generate a random population.
         - cfg : ModuleType
             The config module containing the design vector configuration.
         """
 
-        self.type = type
+        self.type = population_type
         self.cfg = cfg
 
         # Create a new design vector object
@@ -175,15 +177,14 @@ class InitPopulation():
         return vars
                                
 
-    def GenerateBiasedPopulation(self) -> list[Individual]:
+    def GenerateBiasedPopulation(self) -> Population:
         """
         Generate the initial population for the optimisation problem based on an existing solution.
 
         Returns
         -------
-        - pop : list[Individual]
-            The initial population for the optimisation problem as a list of shape (n, m), 
-            where n is the number of individuals and m is the number of design variables.
+        - pop : Population
+            The initial population for the optimisation problem as a pymoo Population object.
         """
 
         # Get the invidivual corresponding to the reference design
@@ -213,9 +214,9 @@ class InitPopulation():
             for key, value in reference_individual.items():
                 bounds = self.design_vector[key].bounds
                 # Apply spread based on the variable type
-                if isinstance(value, (float, np.float64)):
+                if isinstance(value, (float, np.floating)):
                     individual[key] = apply_real_spread(value, bounds)
-                elif isinstance(value, (int)):
+                elif isinstance(value, numbers.Integral):
                     individual[key] = apply_integer_spread(value, bounds)
             # Add the perturbed individual to the population
             pop_dict[i] = individual
@@ -229,13 +230,19 @@ class InitPopulation():
         return pop
     
 
-    def GeneratePopulation(self):
+    def GeneratePopulation(self) -> Population|MixedVariableSampling:
         """
         Generate the initial population for the optimisation problem.
 
         Use either: 
         - A biased population where we introduce some perturbations around a known initial design vector
         - A random population where we sample the design vector uniformly across the bounds
+
+        Returns
+        -------
+        - pop : Population|MixedVariableSampling
+            The initial population for the optimisation problem as a pymoo Population object or a MixedVariableSampling object.
+            The type of population is determined by the `type` parameter.
         """
 
         # Use either: 

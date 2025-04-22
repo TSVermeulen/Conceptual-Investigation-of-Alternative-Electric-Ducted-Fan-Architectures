@@ -47,7 +47,7 @@ class Objectives:
     A class to define the objectives for the optimization problem.
     """
 
-    def _init__(self,
+    def __init__(self,
                 x: np.ndarray = None) -> None:
         """
         Initialisation of the Objectives class.

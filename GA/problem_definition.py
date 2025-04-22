@@ -166,6 +166,8 @@ class OptimizationProblem(ElementwiseProblem):
                                          "leading_edge_direction": 0, 
                                          "Chord Length": x[f"x{7 + idx}"],
                                          "Leading Edge Coordinates": (0, 0)}
+            
+            # Update the index to point to the blade design variables, since we need the blade variables deconstructed first in order to correctly set the duct variables. 
             idx += (centerbody_designvar_count + duct_designvar_count) if config.OPTIMIZE_DUCT else centerbody_designvar_count
         else:
             self.centerbody_variables = config.CENTERBODY_VALUES
@@ -376,10 +378,10 @@ class OptimizationProblem(ElementwiseProblem):
         # Shift the duct x coordinate to the correct location in space
         lower_x -= self.duct_variables["Leading Edge Coordinates"][0]
 
-        # Construct interpolant of the duct surface
-        duct_interpolant = interpolate.make_splrep(lower_x,
-                                             lower_y,
-                                             k=3)
+        # Construct cubic spline interpolant of the duct surface
+        duct_interpolant = interpolate.CubicSpline(lower_x,
+                                                   lower_y,
+                                                   extrapolate=False)
 
         # Loop over all stages
         duct_y = np.zeros_like(self.blade_blading_parameters)

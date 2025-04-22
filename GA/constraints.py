@@ -77,13 +77,13 @@ class Constraints:
         - Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter. 
         - cfg: ModuleType
-            The configuration module containing the reference values for CP and Lref.
-            This module should contain the attributes `CP_ref_constr` and `L_ref_constr`.
+            The configuration module containing the reference values for Power.
+            This module should contain the attributes `P_ref_constr`.
         """
 
         # Compute the equality constraint for the power coefficient. Assuming constant flight condition (i.e. density and speed), 
-        # this equates to keeping the product of CP and Lref constant.
-        return analysis_outputs['data']['Total power CP'] * Lref - cfg.CP_ref_constr * cfg.L_ref_constr
+        power = analysis_outputs['data']['Total power CP'] * (0.5 * cfg.atmosphere.density[0] * cfg.oper["Vinl"] ** 3 * Lref ** 2)  # Power in Watts
+        return power - cfg.P_ref_constr 
 
     
     def ConstantThrust(self,
@@ -102,13 +102,13 @@ class Constraints:
         - Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter. 
         - cfg: ModuleType
-            The configuration module containing the reference values for CT, and Lref.
-            This module should contain the attributes `CT_ref_constr` and `L_ref_constr`.
+            The configuration module containing the reference values for Thrust.
+            This module should contain the attributes `T_ref_constr`.
         """
 
         # Compute the equality constraint for the thrust coefficient. Assuming constant flight condition (i.e. density and speed), 
-        # this equates to keeping the product of CT and Lref constant.
-        return analysis_outputs['data']['Total force CT'] * Lref - cfg.CT_ref_constr * cfg.L_ref_constr
+        thrust = analysis_outputs['data']['Total force CT'] * (0.5 * cfg.atmosphere.density[0] * cfg.oper["Vinl"] ** 2 * Lref ** 2)  # Thrust in Newtons
+        return thrust - cfg.T_ref_constr
     
 
     def KeepEfficiencyFeasible(self,
@@ -195,6 +195,8 @@ class Constraints:
                                                                      cfg))
             
             out["G"] = np.column_stack(computed_ineq_constraints)
+        else:
+            out["G"] = [[]]
 
         # Compute the equality constraints and write them to out["H"]
         if eq_constraints:
@@ -205,6 +207,8 @@ class Constraints:
                                                                  cfg))
         
             out["H"] = np.column_stack(computed_eq_constraints)
+        else: 
+            out["H"] = [[]]
 
         return out
     

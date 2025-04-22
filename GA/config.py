@@ -31,10 +31,12 @@ Changelog:
 import numpy as np
 from ambiance import Atmosphere
 from contextlib import contextmanager
+from enum import IntEnum, auto
 import os
 import sys
 
-current_dir = os.getcwd()
+# Define paths relative to this file for better reliability
+current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 submodels_path = os.path.join(parent_dir, "Submodels")
 
@@ -44,6 +46,8 @@ sys.path.extend([parent_dir, submodels_path])
 # Import the GenerateMTFLOBlading function from the X22A_validator to generate dummy X22A blade data. 
 # Also define a context manager for GenerateMTFLOBlading to ensure the working directory is set correctly
 from X22A_validator import GenerateMTFLOBlading
+from MTFLOW_caller import MTFLOW_caller
+from output_handling import output_processing
 
 @contextmanager
 def pushd(path):
@@ -59,18 +63,22 @@ ALTITUDE = 0  # meters
 atmosphere = Atmosphere(ALTITUDE)
 
 # Define the objective IDs used to construct the objective functions
-# Options for the IDs are:
-# - 0: Efficiency
-# - 1: Weight
-# - 2: Frontal Area
-# - 3: Pressure Ratio
-# - 4: MultiPointTOCruise
-# - 5: Centerbody transition location
-# - 6: Duct inner transition location
-# - 7: Duct outer transition location
-# - 8: Duct thrust contribution
-# - 9: Centerbody thrust contribution (i.e. minimize drag)
-objective_IDs = [0]
+class ObjectiveID(IntEnum):
+    def _generate_next_value_(name, start, count, last_values):
+        return count  # This makes the first member 0 rather than the default 1.
+
+    EFFICIENCY = auto()
+    WEIGHT = auto()
+    FRONTAL_AREA = auto()
+    PRESSURE_RATIO = auto()
+    MULTIPOINT_TO_CRUISE = auto()
+    CENTERBODY_TRANSITION_LOCATION = auto()
+    DUCT_INNER_TRANSITION_LOCATION = auto()
+    DUCT_OUTER_TRANSITION_LOCATION = auto()
+    DUCT_THRUST_CONTRIBUTION = auto()
+    CENTERBODY_THRUST_CONTRIBUTION = auto()
+     
+objective_IDs = [ObjectiveID.EFFICIENCY]
 
 
 # Define the operating conditions dictionary
@@ -105,26 +113,30 @@ with pushd(parent_dir):
                                                                                 REFERENCE_SECTION_ANGLES[0],
                                                                                 plot=False)
 
-
-# Define the target thrust/power coefficients and reference lengths for use in constraints
-CP_ref_constr = 0.13509
-CT_ref_constr = 0.10314
-L_ref_constr = 2.1336  # meters
+# Define the target thrust/power and efficiency for use in constraints
+P_ref_constr = 0.18673 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2)  # Power in Watts
+T_ref_constr = 0.15061 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2) # Thrust in Newtons
+Eta_ref_constr = 0.80658  # Propulsive efficiency
 
 # Define the constraint IDs used to construct the constraint functions
 # constraint IDs are structured as a nested list, of the form:
 # [[inequality constraint 1, inequality constraint 2, ...],
 #  [equality constraint 1, equality constraint 2, ...]]
+class InEqConstraintID(IntEnum):
+    def _generate_next_value_(name, start, count, last_values):
+        return count  # This makes the first member 0 rather than the default 1.
+    
+    EFFICIENCY_GTE_ZERO = auto()
+    
+class EqConstraintID(IntEnum):
+    def _generate_next_value_(name, start, count, last_values):
+        return count  # This makes the first member 0 rather than the default 1.
+    
+    CONSTANT_POWER = auto()
+    CONSTANT_THRUST = auto()
 
-# Options for the inequality IDs are:
-# - 0: Keep efficiency >= 0
-
-# Options for the equality IDs are:
-# - 0: Constant power
-# - 1: Constant thrust
-
-constraint_IDs = [[0],
-                  [0]]
+constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO],
+                  [EqConstraintID.CONSTANT_POWER]]
 
 # Define the population size
 POPULATION_SIZE = 10
@@ -132,6 +144,6 @@ INIT_POPULATION_SIZE = 10  # Initial population size for the first generation
 MAX_GENERATIONS = 10
 
 
-# Define the initial population parameter spreads
+# Define the initial population parameter spreads, used to construct a biased initial population 
 SPREAD_CONTINUOUS = (0.03, 0.03)  # +/- 3% of the reference value
 SPREAD_DISCRETE = (-1, 3)  # +/- of the reference value

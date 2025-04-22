@@ -52,7 +52,7 @@ problem = OptimizationProblem()
 
 # Initialize the algorithm
 algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
-                            sampling=InitPopulation(type="biased",
+                            sampling=InitPopulation(population_type="biased",
                                                     cfg=config).GeneratePopulation(),
                             )
 
@@ -75,5 +75,3 @@ with shelve.open('results.db', 'c') as myshelf:
             myshelf[key] = globals()[key]
         except Exception as e:
             print(f"Error saving {key}: {e}")
-
-

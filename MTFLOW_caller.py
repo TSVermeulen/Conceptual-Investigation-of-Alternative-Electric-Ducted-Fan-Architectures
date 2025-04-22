@@ -13,8 +13,6 @@ use of an optional control boolean.
 
 Classes
 -------
-ExitFlag
-    A class with exit flags of the MTSOL interface to help with debugging. Effectively a copy of the MTSOL_call.ExitFlag() class
 MTFLOW_caller
     A class to execute the complete MTFLOW interface. Effectively a detailed "wrapper" class of the MTSET_call, MTFLO_call, 
     and MTSOL_call classes. 
@@ -306,27 +304,27 @@ class MTFLOW_caller:
             # The updated e and x coefficients reduce the number of streamwise points on the airfoil elements (by 0.1 * Npoints), 
             # while yielding a more "rounded/elliptic" grid due to the reduced x-coefficient.
             if check_count == 1:
-                streamwise_points = 141  # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid
-                
+                # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid   
+                streamwise_points = 141  
             elif check_count == 2:
-                grid_e_coeff = 0.7  # Adjust grid parameters to try and fix the grid, while also keeping the reduced number of streamwise_points
+                # Adjust grid parameters to try and fix the grid, while also keeping the reduced number of streamwise_points
+                grid_e_coeff = 0.7  
                 grid_x_coeff = 0.5
                 streamwise_points = 141
                 if debug:
                     logger.info(f"Trying suggested coefficients e={grid_e_coeff} and x={grid_x_coeff}")
-
-            # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
             else:
+                # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
                 grid_e_coeff = random.uniform(0.6, 1.0)
                 grid_x_coeff = random.uniform(0.2, 0.95)
                 streamwise_points= 141  # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid
                 if debug:
                     logger.info(f"Suggested Coefficients failed to yield a satisfactory grid. Trying bruteforce randomization method with e={grid_e_coeff} and x={grid_x_coeff}")
                     
-                MTSET_call(analysis_name=self.analysis_name,
-                           grid_e_coeff=grid_e_coeff,
-                           grid_x_coeff=grid_x_coeff,
-                           streamwise_points=streamwise_points).caller()
+            MTSET_call(analysis_name=self.analysis_name,
+                       grid_e_coeff=grid_e_coeff,
+                       grid_x_coeff=grid_x_coeff,
+                       streamwise_points=streamwise_points).caller()
                 
             check_count += 1
 
@@ -343,7 +341,8 @@ class MTFLOW_caller:
             logger.info("Starting MTSOL execution loop")
 
         exit_flag = ExitFlag.NOT_PERFORMED.value  # Initialize exit flag
-        while exit_flag not in (ExitFlag.SUCCESS.value, ExitFlag.NON_CONVERGENCE.value):
+        
+        while exit_flag not in (ExitFlag.SUCCESS.value, ExitFlag.NON_CONVERGENCE.value) and exit_flag_gridtest != ExitFlag.CRASH.value:
             if debug:
                 logger.info("Loading blade row(s) from MTFLO")
 

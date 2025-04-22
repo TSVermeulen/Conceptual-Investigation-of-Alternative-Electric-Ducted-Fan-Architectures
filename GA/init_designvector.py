@@ -74,7 +74,7 @@ class DesignVector():
             # If the centerbody is to be optimised, initialise the variable types
             vars.append(Real(bounds=(0, 1)))  # mapping variable for b_8
             vars.append(Real(bounds=(0, 1)))  # b_15
-            vars.append(Real(bounds=(0, 1)))  # x_t
+            vars.append(Real(bounds=(0.1, 1)))  # x_t
             vars.append(Real(bounds=(0, 0.25)))  # y_t
             vars.append(Real(bounds=(0, 0.05)))  # dz_TE
             vars.append(Real(bounds=(-0.1, 0)))  # r_LE
@@ -87,9 +87,9 @@ class DesignVector():
             vars.append(Real(bounds=(0, 1)))  # mapping variable for b_8
             vars.append(Real(bounds=(0, 1)))  # b_15
             vars.append(Real(bounds=(0, 1)))  # b_17
-            vars.append(Real(bounds=(0, 1)))  # x_t
+            vars.append(Real(bounds=(0.1, 1)))  # x_t
             vars.append(Real(bounds=(0, 0.25)))  # y_t
-            vars.append(Real(bounds=(0, 1)))  # x_c
+            vars.append(Real(bounds=(0.05, 1)))  # x_c
             vars.append(Real(bounds=(0, 0.1)))  # y_c
             vars.append(Real(bounds=(0, 0.2)))  # z_TE
             vars.append(Real(bounds=(0, 0.05)))  # dz_TE
@@ -109,9 +109,9 @@ class DesignVector():
                     vars.append(Real(bounds=(0, 1)))  # mapping variable for b_8
                     vars.append(Real(bounds=(0, 1)))  # b_15
                     vars.append(Real(bounds=(0, 1)))  # b_17
-                    vars.append(Real(bounds=(0, 1)))  # x_t
+                    vars.append(Real(bounds=(0.1, 1)))  # x_t
                     vars.append(Real(bounds=(0, 0.25)))  # y_t
-                    vars.append(Real(bounds=(0, 1)))  # x_c
+                    vars.append(Real(bounds=(0.05, 1)))  # x_c
                     vars.append(Real(bounds=(0, 0.1)))  # y_c
                     vars.append(Real(bounds=(0, 0.2)))  # z_TE
                     vars.append(Real(bounds=(0, 0.05)))  # dz_TE
@@ -122,7 +122,7 @@ class DesignVector():
 
         for i in range(cfg.NUM_STAGES):
             if cfg.OPTIMIZE_STAGE[i]:
-                vars.append(Real(bounds=(0.1)))  # root_LE_coordinate
+                vars.append(Real(bounds=(0.1, 0.4)))  # root_LE_coordinate
                 vars.append(Integer(bounds=(3, 20)))  # blade_count
                 vars.append(Real(bounds=(-np.pi/4, np.pi/4)))  # ref_blade_angle
                 vars.append(Real(bounds=(0, 1.5)))  # blade radius
