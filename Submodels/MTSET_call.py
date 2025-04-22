@@ -82,10 +82,13 @@ class MTSET_call:
         self.grid_x_coeff = grid_x_coeff if grid_x_coeff is not None else 0.8
         self.streamwise_points = streamwise_points if (streamwise_points is not None and streamwise_points > 141) else 200
 
-        # Define constant filepath 
-        self.fpath: str = os.getenv('MTSET_PATH', 'mtset.exe')
-        if not os.path.exists(self.fpath):
-            raise FileNotFoundError(f"MTSET executable not found at {self.fpath}")
+        # Define constant filepath for the MTSET executable 
+        self.process_path: str = os.getenv('MTSET_PATH', 'mtset.exe')
+        if not os.path.exists(self.process_path):
+            raise FileNotFoundError(f"MTSET executable not found at {self.process_path}")
+        
+        # Define filepath for the statefile
+        self.fpath = 'tdat.{}'.format(self.analysis_name)
     
 
     def StdinWrite(self,
@@ -125,7 +128,7 @@ class MTSET_call:
         os.chdir(current_file_directory)
 
         # Generate subprocess
-        self.process = subprocess.Popen([self.fpath, self.analysis_name], 
+        self.process = subprocess.Popen([self.process_path, self.analysis_name], 
                                  stdin=subprocess.PIPE, 
                                  stdout=subprocess.PIPE, 
                                  stderr=subprocess.PIPE,
@@ -136,7 +139,7 @@ class MTSET_call:
         
         # Check if subprocess is started successfully
         if self.process.poll() is not None:
-            raise ImportError(f"MTSET or walls.{self.analysis_name} not found in {self.fpath}") from None
+            raise ImportError(f"MTSET or walls.{self.analysis_name} not found in {self.process_path}") from None
     
 
     def WaitForMainMenu(self) -> list[str]:
@@ -298,7 +301,7 @@ class MTSET_call:
         """
 
         # Delete the tdat file, if it already existed. 
-        os.remove(f"tdat.{self.analysis_name}") if os.path.exists(f"tdat.{self.analysis_name}") else None 
+        os.unlink(self.fpath) if os.path.exists(self.fpath) else None 
         
         # Create subprocess for the MTSET tool
         self.GenerateProcess()  
@@ -313,7 +316,7 @@ class MTSET_call:
         self.FileGenerator()   
 
         # Check that the tdat file writing was successful
-        while not os.path.exists(f'tdat.{self.analysis_name}'):
+        while not os.path.exists(self.fpath):
             time.sleep(0.01)  # Wait for the file to be created
 
         

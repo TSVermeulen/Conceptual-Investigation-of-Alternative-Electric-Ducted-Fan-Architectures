@@ -82,7 +82,7 @@ class FileCreatedHandling(FileSystemEventHandler):
         """ Handle copying of the forces.analysis_name output file."""
         if event.src_path == self.file_path:
             shutil.copy(self.file_path, self.destination)
-            os.remove(self.file_path)
+            os.unlink(self.file_path)
             self.file_processed = True
         
 
@@ -519,8 +519,8 @@ class MTSOL_call:
                 with open(file, "r") as f:
                     yield f.readlines()
 
-        # Construct file pattern
-        file_pattern = 'MTSOL_output_files' / self.filepaths['forces'] + '*'
+        # Construct file pattern to match all output files in the MTSOL_output_files directory
+        file_pattern = 'MTSOL_output_files/' + self.filepaths['forces'] + '*'
 
         # Read in all files (collect into a list so we can transpose later)
         content = list(read_file_lines(file_pattern))
@@ -705,8 +705,9 @@ class MTSOL_call:
         iter_counter = 0
 
         # Initialize watchdog to check when output file has been created
+        copied_file = self.filepaths['forces'] + f'{iter_counter}'
         event_handler = FileCreatedHandling(self.filepaths['forces'],
-                                            self.dump_folder / self.filepaths['forces'] + f'{iter_counter}')
+                                            self.dump_folder / copied_file)
 
         observer = Observer()
         observer.schedule(event_handler,
@@ -738,10 +739,11 @@ class MTSOL_call:
             
             # Increase iteration counter by step size
             iter_counter += 1
+            copied_file = self.filepaths['forces'] + f'{iter_counter}'
 
             # Re-intialise the event handler for the next iteration with an updated destination
             event_handler = FileCreatedHandling(self.filepaths['forces'],
-                                                self.dump_folder / self.filepaths['forces'] + f'{iter_counter}')
+                                                self.dump_folder / copied_file)
             observer.unschedule_all()
             observer.schedule(event_handler,
                               path=os.getcwd(),

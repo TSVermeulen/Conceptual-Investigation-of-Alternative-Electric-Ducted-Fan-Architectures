@@ -68,9 +68,10 @@ class MTFLO_call:
         self.analysis_name = analysis_name
 
         # Define filepath of MTFLO as being in the same folder as this Python file
-        self.fpath: str = os.getenv('MTFLO_PATH', 'mtflo.exe')
-        if not os.path.exists(self.fpath):
-            raise FileNotFoundError(f"MTFLO executable not found at {self.fpath}")
+        self.process_path: str = os.getenv('MTFLO_PATH', 'mtflo.exe')
+        if not os.path.exists(self.process_path):
+            raise FileNotFoundError(f"MTFLO executable not found at {self.process_path}")
+        
         
     def StdinWrite(self,
                    command: str) -> None:
@@ -107,7 +108,7 @@ class MTFLO_call:
         os.chdir(current_file_directory)
 
         # Generate the subprocess and write it to self
-        self.process = subprocess.Popen([self.fpath, self.analysis_name], 
+        self.process = subprocess.Popen([self.process_path, self.analysis_name], 
                                         stdin=subprocess.PIPE, 
                                         stdout=subprocess.PIPE, 
                                         stderr=subprocess.PIPE,
@@ -196,7 +197,8 @@ class MTFLO_call:
         self.LoadForcingField()
 
         # Wait until file has been processed
-        while not self.FileStatus(f"tdat.{self.analysis_name}"):
+        fpath = f"tdat.{self.analysis_name}"
+        while not self.FileStatus(fpath):
             time.sleep(0.01)
 
         return self.process.returncode      

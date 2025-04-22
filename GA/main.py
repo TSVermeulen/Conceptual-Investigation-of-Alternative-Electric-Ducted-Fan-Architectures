@@ -40,8 +40,6 @@ Changelog:
 
 from pymoo.core.mixed import MixedVariableGA
 from pymoo.optimize import minimize
-from pymoo.algorithms.moo.unsga3 import TournamentSelection
-from pymoo.algorithms.moo.nsga3 import ReferenceDirectionSurvival
 import shelve
 
 import config

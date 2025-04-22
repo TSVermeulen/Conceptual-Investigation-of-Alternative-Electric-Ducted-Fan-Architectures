@@ -137,8 +137,8 @@ class OptimizationProblem(ElementwiseProblem):
         unique_id = uuid.uuid4().hex[:32]
 
         # Format the analysis name to include the date, time, and unique identifier.
-        # The analysis name is formatted as: YYYYMMDD_HHMM_<unique_id>.
-        analysis_name = "{:04d}{:02d}{:02d}_{:02d}{:02d}_{:32s}".format(now.year, now.month, now.day, now.hour, now.minute, unique_id)
+        # The analysis name is formatted as: YYYYMMDD_HHMM__<unique_id>.
+        analysis_name = "{:04d}{:02d}{:02d}_{:02d}{:02d}__{:32s}".format(now.year, now.month, now.day, now.hour, now.minute, unique_id)
         analysis_name = analysis_name[:32]
 
         return analysis_name
@@ -244,7 +244,7 @@ class OptimizationProblem(ElementwiseProblem):
                 stage_blading_parameters["root_LE_coordinate"] = GetX(x, idx)
                 stage_blading_parameters["blade_count"] = GetX(x, idx, 1)
                 stage_blading_parameters["ref_blade_angle"] = GetX(x, idx, 2)
-                stage_blading_parameters["reference_section_blade_angle"] = cfg.REFERENCE_SECTION_ANGLES[i]
+                stage_blading_parameters["reference_section_blade_angle"] = self.cfg.REFERENCE_SECTION_ANGLES[i]
                 stage_blading_parameters["radial_stations"] = radial_linspace * GetX(x, idx, 3)  # Radial stations are defined as fraction of blade radius * local radius
                 self.blade_diameters.append(GetX(x, idx, 3) * 2)
 
@@ -479,3 +479,12 @@ class OptimizationProblem(ElementwiseProblem):
         # Cleanup the generated files
         self.CleanUpFiles()
     
+if __name__ == "__main__":
+    import config
+
+    test = OptimizationProblem(config)
+
+    output = {}
+    test._evaluate({}, output)
+
+    print(output)
