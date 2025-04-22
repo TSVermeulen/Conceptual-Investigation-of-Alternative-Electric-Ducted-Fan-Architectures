@@ -139,6 +139,27 @@ class MTSET_call:
             raise ImportError(f"MTSET or walls.{self.analysis_name} not found in {self.fpath}") from None
     
 
+    def WaitForMainMenu(self) -> list[str]:
+        """
+        Wait for MTSET to return to the main menu.
+
+        Returns
+        -------
+        None
+        """
+
+        interface_output = []
+        while True:
+            next_line = self.process.stdout.readline()  # Collect output and add to list
+            interface_output.append(next_line)                
+            if next_line == "" and self.process.poll() is not None:  #Handle (unexpected) quitting of program
+               break
+            if next_line == '   Q uit\n':  # Stop collecting once end of MTSET menu is reached
+               break
+        
+        return interface_output
+        
+
     def GridGenerator(self, 
                       ) -> None:
         """
@@ -170,12 +191,7 @@ class MTSET_call:
         self.StdinWrite("\n")
 
         # Wait for MTSET to be in the main menu before modifying the grid
-        while True:
-            next_line = self.process.stdout.readline()  # Collect output and add to list                
-            if next_line == "" and self.process.poll() is not None:  #Handle (unexpected) quitting of program
-               break
-            if next_line == '   Q uit\n':  # Stop collecting once end of MTSET menu is reached
-               break
+        self.WaitForMainMenu()
 
         # Enter grid modification menu and set grid parameters
         self.StdinWrite("m")
@@ -232,15 +248,7 @@ class MTSET_call:
             self.StdinWrite("e")  # Execute elliptic smoothing continue command
             
             # Collect console output from MTSET, stopping when the end of the menu is reached
-            interface_output = []
-            while True:
-                next_line = self.process.stdout.readline()  # Collect output and add to list
-                interface_output.append(next_line)
-                
-                if next_line == "" and self.process.poll() is not None:  #Handle (unexpected) quitting of program
-                    break
-                if next_line == '   Q uit\n':  # Stop collecting once end of MTSET menu is reached
-                    break
+            interface_output = self.WaitForMainMenu()
             
             # Find the index of 'Pass 10' (i.e. the final pass of the smoothing process). Checks from the back of the list
             pass_10_index = next((i for i, s in reversed(list(enumerate(interface_output))) if 'Pass          10' in s), -1)

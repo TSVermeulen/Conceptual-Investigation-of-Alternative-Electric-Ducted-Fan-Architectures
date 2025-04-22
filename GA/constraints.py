@@ -102,8 +102,8 @@ class Constraints:
         - Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter. 
         - cfg: ModuleType
-            The configuration module containing the reference values for CP and Lref.
-            This module should contain the attributes `CP_ref_constr` and `L_ref_constr`.
+            The configuration module containing the reference values for CT, and Lref.
+            This module should contain the attributes `CT_ref_constr` and `L_ref_constr`.
         """
 
         # Compute the equality constraint for the thrust coefficient. Assuming constant flight condition (i.e. density and speed), 
@@ -126,8 +126,10 @@ class Constraints:
             output_handling.output_processing().GetAllVariables(3).
         - Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter.
+            Not used in this method, but required for a uniform constraint function signature.
         - cfg: ModuleType
             The configuration module containing the reference values for CP, CT, and Lref.
+            Not used in this method, but required for a uniform constraint function signature.
 
         Returns
         -------

@@ -33,11 +33,12 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.1
+Version: 1.1.5
 
 Changelog:
 - V1.0: Initial implementation. 
 - V1.1: Improved documentation. Fixed issues with deconstruction of design vector. Fixed analysisname generator and switched to using datetime & evaluation counter for name generation. 
+- V1.1.5: Changed analysis name generation to only use datetime to simplify naming generation. 
 """
 
 import os
@@ -101,9 +102,6 @@ class OptimizationProblem(ElementwiseProblem):
         except OSError as e:
             raise OSError from e
         
-        # Initialize counter
-        self.eval_counter = 0
-        
 
     def GenerateAnalysisName(self) -> str:
         """
@@ -114,12 +112,12 @@ class OptimizationProblem(ElementwiseProblem):
         Returns
         -------
         - analysis_name : str
-            A unique analysis name based on the current date and time, and the evaluation counter.
+            A unique analysis name based on the current date and time.
         """
 
         # Construct the analysis_name based on the current date and time
         now = datetime.datetime.now()	
-        analysis_name = now.strftime("%Y%m%d_%H") + "_" + str(self.eval_counter)
+        analysis_name = now.strftime("%Y%m%d_%H%M%S")
         analysis_name = analysis_name[:32]
 
         return analysis_name
@@ -362,8 +360,8 @@ class OptimizationProblem(ElementwiseProblem):
         """
 
         # Initialize empty data arrays
-        x_tip = np.zeros_like(self.blade_blading_parameters)
-        radial_duct_coordinates = np.zeros_like(self.blade_blading_parameters)
+        x_tip = np.zeros(self.num_stages)
+        radial_duct_coordinates = np.zeros(self.num_stages)
 
         # Compute the duct x,y coordinates. Note that we are only interested in the lower surface.
         _, _, lower_x, lower_y = AirfoilParameterization().ComputeProfileCoordinates([self.duct_variables["b_0"],
@@ -415,7 +413,7 @@ class OptimizationProblem(ElementwiseProblem):
                                                            radial_duct_coordinate)
 
 
-    def _evaluate(self, x, out, *args, **kwargs):
+    def _evaluate(self, x, out, *args, **kwargs) -> None:
         # Generate a unique analysis name
         self.analysis_name = self.GenerateAnalysisName()
         
@@ -459,11 +457,6 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Cleanup the generated files
         self.CleanUpFiles()
-
-        # Increase the evaluation counter
-        self.eval_counter += 1
-
-        return out
     
 
 if __name__ == "__main__":

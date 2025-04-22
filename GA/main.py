@@ -60,7 +60,7 @@ algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
 # Run the optimization
 res = minimize(problem,
                algorithm,
-               termination=('n_evals', 100),
+               termination=('n_gen', config.MAX_GENERATIONS),
                seed=1,
                verbose=True,
                save_history=True)
@@ -69,13 +69,11 @@ print(res)
 
 # Save the results to a shelve file to enble easy access to the results
 # and to avoid the need to re-run the optimization in the future.
-myshelf = shelve.open('results.db', 'n')
+with shelve.open('results.db', 'c') as myshelf:
+    for key in dir():
+        try:
+            myshelf[key] = globals()[key]
+        except Exception as e:
+            print(f"Error saving {key}: {e}")
 
-for key in dir():
-    try:
-        myshelf[key] = globals()[key]
-    except Exception as e:
-        print(f"Error saving {key}: {e}")
 
-    finally:
-        myshelf.close()

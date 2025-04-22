@@ -73,12 +73,13 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID 4995309
-Version: 1.2
+Version: 1.3
 
 Changelog:
 - V1.0: Initial version. Lacks proper crash handling and choking handling in the HandleExitFlag() method, but otherwise complete. 
 - V1.1: Cleaned up following successful implementation of validation case. Crash handling is now done within MTSOL_call. 
 - V1.2: Cleaned up import statements, resolved infite loop issue in gridtest, and added MTSOL loop exit for non-convergence. 
+- V1.3: Removed HandleExitFlag() method as it is not needed. Extracted choking handling to a separate method.
 """
 
 import sys
@@ -164,12 +165,16 @@ class MTFLOW_caller:
         self.duct_params = duct_params
         self.ref_length = ref_length
 
+        # Set the seed for the optional randum number generator to ensure repeatability. 
+        # 42 is the answer to life, the universe, and everything!
+        random.seed(42)
 
-    def HandleExitFlag(self,
-                       exit_flag: int,
-                       ) -> None:
+
+    def HandleChoking(self,
+                      exit_flag: int,
+                      ) -> None:
         """
-        Handle the exit flag of the MTSOL caller.
+        Handle choking based on the exitflag of the MTSOL caller.
 
         Parameters
         ----------
@@ -180,13 +185,9 @@ class MTFLOW_caller:
         -------
         None
         """
-
-        # If exit flag of the iteration indicates successful completion, non-convergence, or crash of the solver, simply return, as this has been handled within the MTSOl_call already 
-        if exit_flag in (ExitFlag.SUCCESS.value, ExitFlag.NON_CONVERGENCE.value, ExitFlag.CRASH.value):
-            return
                 
         # If the exit flag indicates choking, reduce the rotor RPM to fix the issue
-        elif exit_flag == ExitFlag.CHOKING.value:
+        if exit_flag == ExitFlag.CHOKING.value:
             print("Choking occurs. Using a rudimentary fix....")
             
             #Use a 5% reduction in RPM as guess
@@ -196,16 +197,12 @@ class MTFLOW_caller:
             
             return
         
-        # Handle invalid exit flag returns
-        else:
-            raise ValueError(f"Invalid exit flag {exit_flag} encountered!") from None 
-
 
     def caller(self,
                debug: bool = False,
                external_inputs: bool = False,
                output_type: int = 0,
-               ) -> tuple[int, list[tuple[int, int]]]:
+               ) -> tuple[int, int]:
         """ 
         Executes a complete MTSET-MTFLO-MTSOL evaluation, while handling grid issues and choking issues. 
 
@@ -222,7 +219,7 @@ class MTFLOW_caller:
 
         Returns
         -------
-        Tuple[int, int]
+        - tuple[int, int]
             A tuple containing the exit flag and iteration count
         """
 
@@ -250,7 +247,10 @@ class MTFLOW_caller:
             subfolder_path = os.path.join(current_dir, 'Submodels')
             os.chdir(subfolder_path)
         except OSError as e:
-            logger.error(f"Failed to change directory to {subfolder_path}: {e}")
+            if debug:
+                logger.error(f"Failed to change directory to {subfolder_path}: {e}")
+            else:
+                print(f"Failed to change directory to {subfolder_path}: {e}")
             raise OSError from e
             
         # --------------------
@@ -266,7 +266,6 @@ class MTFLOW_caller:
                                            params_duct=self.duct_params,
                                            case_name=self.analysis_name,
                                            ref_length=self.ref_length).GenerateMTSETInput()
-
             
         # --------------------
         # Construct the initial grid in MTSET
@@ -318,7 +317,6 @@ class MTFLOW_caller:
 
             # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
             else:
-                random.seed(check_count)  # Set the seed to the check count to ensure reproducibility
                 grid_e_coeff = random.uniform(0.6, 1.0)
                 grid_x_coeff = random.uniform(0.2, 0.95)
                 streamwise_points= 141  # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid
@@ -368,7 +366,7 @@ class MTFLOW_caller:
                 logger.info(f"MTSOL finished with exit flag {exit_flag}")
                 logger.info("Processing exit flag....")
 
-            self.HandleExitFlag(exit_flag=exit_flag)  # Check completion status of MTSOL
+            self.HandleChoking(exit_flag=exit_flag)  # Check completion status of MTSOL
 
             if debug:
                 logger.info(f"MTSOL execution loop finished with final exit flag {exit_flag}")
@@ -428,7 +426,7 @@ if __name__ == "__main__":
                                design_parameters=design_parameters,
                                ref_length=fan_diameter,
                                analysis_name=analysisName,
-                               ).caller(debug=False,
+                               ).caller(debug=False,  # Set to True for detailed logging during troubleshooting
                                         external_inputs=False)
     end_time = time.time()
 

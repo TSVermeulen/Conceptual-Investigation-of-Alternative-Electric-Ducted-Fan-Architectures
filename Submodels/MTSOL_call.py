@@ -398,7 +398,7 @@ class MTSOL_call:
             
 
     def GenerateSolverOutput(self,
-                             type: int = 0) -> None:
+                             output_type: int = 0) -> None:
         """
         Generate all output files for the current analysis. 
         If a viscous analysis was performed, the boundary layer data is also dumped to the corresponding file.
@@ -406,7 +406,7 @@ class MTSOL_call:
 
         Parameters
         ----------
-        - type : int
+        - output_type : int
             A control integer to determine which output files need to be generated. 0 corresponds to the forces file, while 1 will generate all files.
 
         Returns
@@ -437,7 +437,7 @@ class MTSOL_call:
         self.WaitForCompletion(type=2,
                                output_file='forces')
     
-        if type == 0:
+        if output_type == 0:
             return
 
         # Dump the flowfield data
@@ -886,17 +886,17 @@ class MTSOL_call:
         self.ToggleViscous()
 
         # Execute the initial viscous solve, where we only solve for the boundary layer on the centerbody
-        self.TryExecuteViscousSolver()
+        exit_flag_visc_CB, iter_count_visc_CB = self.TryExecuteViscousSolver()
 
         # Check if the viscous solve was successful	        
         if exit_flag_visc_CB in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
             # If the viscous solve was successful, execute the viscous solve for the outside of the duct
-            self.TryExecuteViscousSolver(surface_ID=3)
+            exit_flag_visc_outduct, iter_count_visc_outduct = self.TryExecuteViscousSolver(surface_ID=3)
 
             # Check if the viscous solve was successful
             if exit_flag_visc_outduct in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
                 # If the viscous solve was successful, execute the final viscous solve for the inside of the duct
-                self.TryExecuteViscousSolver(surface_ID=4)
+                exit_flag_visc_induct, iter_count_visc_induct = self.TryExecuteViscousSolver(surface_ID=4)
         
         # Compute the overall exit flag and total iteration count
         total_exit_flag = max(exit_flag_visc_CB, exit_flag_visc_outduct, exit_flag_visc_induct)

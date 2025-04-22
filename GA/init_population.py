@@ -84,6 +84,7 @@ class InitPopulation():
 
         # Set the seed for the random number generator to ensure reproducibility
         random.seed(42)  # 42 is the answer to everything
+        np.random.seed(42)
 
 
     def DeconstructDictFromReferenceDesign(self)->dict:
@@ -199,7 +200,7 @@ class InitPopulation():
         def apply_integer_spread(value: int,
                                  bounds: tuple[int, int]) -> int:
             """ Apply spread for the integer variable while keeping bounds. """
-            return max(bounds[0], min(bounds[1], value + random.randint([self.cfg.SPREAD_DISCRETE[0], self.cfg.SPREAD_DISCRETE[1]])))
+            return max(bounds[0], min(bounds[1], value + random.randint(self.cfg.SPREAD_DISCRETE[0], self.cfg.SPREAD_DISCRETE[1])))
         
         # Generate the initial population
         pop_dict = [None] * self.cfg.INIT_POPULATION_SIZE

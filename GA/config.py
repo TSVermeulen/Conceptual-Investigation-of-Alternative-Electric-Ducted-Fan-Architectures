@@ -7,10 +7,6 @@ Description
 This module defines the configuration settings and parameters for the optimization problem, including aerodynamic 
 analysis, design variables, and constraints. It integrates with the MTFLOW executable for aerodynamic analysis.
 
-Classes
--------
-None
-
 Notes
 -----
 Ensure that the MTFLOW executable and required input files are present in the appropriate directories. This module 
@@ -34,23 +30,29 @@ Changelog:
 
 import numpy as np
 from ambiance import Atmosphere
+from contextlib import contextmanager
 import os
 import sys
 
-# Get the parent directory
 current_dir = os.getcwd()
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 submodels_path = os.path.join(parent_dir, "Submodels")
 
-# Add the submodels path to the system path
-sys.path.append(submodels_path)
+# Add the parent and submodels paths to the system path
+sys.path.extend([parent_dir, submodels_path])
 
-
-# Add the parent folder path to the system path
-sys.path.append(parent_dir)
-
+# Import the GenerateMTFLOBlading function from the X22A_validator to generate dummy X22A blade data. 
+# Also define a context manager for GenerateMTFLOBlading to ensure the working directory is set correctly
 from X22A_validator import GenerateMTFLOBlading
 
+@contextmanager
+def pushd(path):
+    prev = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(prev)
 
 # Define the altitude for the analysis and construct an atmosphere object from which atmospheric properties can be extracted. 
 ALTITUDE = 0  # meters
@@ -98,11 +100,10 @@ REFERENCE_SECTION_ANGLES = [np.deg2rad(19), 0, 0]  # Reference angles at the ref
 BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
 tipGap = 0.01016  # 1.016 cm tip gap
 
-os.chdir(parent_dir)
-STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = GenerateMTFLOBlading(oper["Omega"],
-                                                                        REFERENCE_SECTION_ANGLES[0],
-                                                                        plot=False)
-os.chdir(current_dir)
+with pushd(parent_dir):
+        STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = GenerateMTFLOBlading(oper["Omega"],
+                                                                                REFERENCE_SECTION_ANGLES[0],
+                                                                                plot=False)
 
 
 # Define the target thrust/power coefficients and reference lengths for use in constraints
@@ -122,12 +123,14 @@ L_ref_constr = 2.1336  # meters
 # - 0: Constant power
 # - 1: Constant thrust
 
-constraint_IDs = [[],
+constraint_IDs = [[0],
                   [0]]
 
 # Define the population size
 POPULATION_SIZE = 10
 INIT_POPULATION_SIZE = 10  # Initial population size for the first generation
+MAX_GENERATIONS = 10
+
 
 # Define the initial population parameter spreads
 SPREAD_CONTINUOUS = (0.03, 0.03)  # +/- 3% of the reference value
