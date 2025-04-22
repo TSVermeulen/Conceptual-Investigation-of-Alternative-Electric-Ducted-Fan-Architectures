@@ -135,6 +135,11 @@ class MTSOL_call:
     Class to handle the interface between MTSOL and Python
     """
 
+    # Define file templates as constants
+    FILE_TEMPLATES = {'forces': "forces.{}",
+                      'flowfield': "flowfield.{}",
+                      'boundary_layer': "boundary_layer.{}"}
+
     def __init__(self,
                  operating_conditions: dict,
                  analysis_name: str,
@@ -171,7 +176,14 @@ class MTSOL_call:
         self.fpath: str = os.getenv('MTSOL_PATH', 'mtsol.exe')
         if not os.path.exists(self.fpath):
             raise FileNotFoundError(f"MTSOL executable not found at {self.fpath}")
+        
+        # Define filepaths
+        self.filepaths = {'forces': self.FILE_TEMPLATES['forces'].format(self.analysis_name),
+                          'flowfield': self.FILE_TEMPLATES['flowfield'].format(self.analysis_name),
+                          'boundary_layer': self.FILE_TEMPLATES['boundary_layer'].format(self.analysis_name)} 
 
+        # Define the dump folder to write non-converged forces output files to
+        self.dump_folder = Path("MTSOL_output_files")
 
     def StdinWrite(self,
                    command: str) -> None:
@@ -418,20 +430,13 @@ class MTSOL_call:
         self.WriteStateFile()
 
         # First delete the output files if they exist already
-        forces_file = f"forces.{self.analysis_name}"
-        flowfield_file = f"flowfield.{self.analysis_name}"
-        boundary_layer_file = f"boundary_layer.{self.analysis_name}"
-
-        if os.path.exists(forces_file):
-            os.remove(forces_file)
-        if os.path.exists(flowfield_file):
-            os.remove(flowfield_file)
-        if os.path.exists(boundary_layer_file):
-            os.remove(boundary_layer_file)
+        for file in self.filepaths.values():
+            if os.path.exists(file):
+                os.unlink(file)
 
         # Dump the forces data
         self.StdinWrite("F")
-        self.StdinWrite(forces_file) 
+        self.StdinWrite(self.filepaths['forces']) 
         
         # Check if the forces file is written successfully
         self.WaitForCompletion(type=2,
@@ -442,7 +447,7 @@ class MTSOL_call:
 
         # Dump the flowfield data
         self.StdinWrite("D")
-        self.StdinWrite(flowfield_file)
+        self.StdinWrite(self.filepaths['flowfield'])
 
         # Check if the flowfield file is written successfully
         self.WaitForCompletion(type=2,
@@ -450,7 +455,7 @@ class MTSOL_call:
 
         # Dump the boundary layer data
         self.StdinWrite("B")
-        self.StdinWrite(boundary_layer_file)
+        self.StdinWrite(self.filepaths['boundary_layer'])
 
         # Check if the boundary layer file is written successfully
         self.WaitForCompletion(type=2,
@@ -514,9 +519,8 @@ class MTSOL_call:
                 with open(file, "r") as f:
                     yield f.readlines()
 
-        # Construct output file name and file pattern
-        output_file = f'forces.{self.analysis_name}'
-        file_pattern = f'MTSOL_output_files/forces.{self.analysis_name}*'
+        # Construct file pattern
+        file_pattern = 'MTSOL_output_files' / self.filepaths['forces'] + '*'
 
         # Read in all files (collect into a list so we can transpose later)
         content = list(read_file_lines(file_pattern))
@@ -591,7 +595,7 @@ class MTSOL_call:
             average_content.append(line_text)
 
         # Write the averaged content to the output file
-        with open(output_file, 'w') as file:
+        with open(self.filepaths['forces'], 'w') as file:
             file.writelines(average_content)
 
 
@@ -615,19 +619,15 @@ class MTSOL_call:
         -------
         None
         """
-            
-        # Define the filepath
-        file_path = f'forces.{self.analysis_name}'
 
         # To avoid mis-interpretation of files, delete the flowfield and boundary layer files, if they exist. 
         # For a crash output, these files are not needed, as we only use the forces.xxx file. 
-        if os.path.exists(f"flowfield.{self.analysis_name}"):
-            os.remove(f"flowfield.{self.analysis_name}")
-        if os.path.exists(f"boundary_layer.{self.analysis_name}"):
-            os.remove(f"boundary_layer.{self.analysis_name}")
+        for file in self.filepaths and file != self.filepaths['forces']:
+            if os.path.exists(file):
+                os.unlink(file)
             
         # Load in the forces file line-by-line
-        with open(file_path, 'r') as f:
+        with open(self.filepaths['forces'], 'r') as f:
             lines = f.readlines()
             
         # Define the header (or skip) line indices which should remain unchanged.
@@ -673,7 +673,7 @@ class MTSOL_call:
             new_content.append(new_line)
             
         # Write the modified content to a new output file.
-        with open(file_path, 'w') as f:
+        with open(self.filepaths['forces'], 'w') as f:
             f.writelines(new_content)
 
 
@@ -694,20 +694,19 @@ class MTSOL_call:
         """
 
         # Create subfolder to put all output files into if the folder doesn't already exist
-        dump_folder = Path("MTSOL_output_files")
-        os.makedirs(dump_folder, 
+        os.makedirs(self.dump_folder, 
                     exist_ok=True)
 
         # Delete the forces.analysisname file if it exists already
-        if os.path.exists(f"forces.{self.analysis_name}"):
-            os.remove(f"forces.{self.analysis_name}")
+        if os.path.exists(self.filepaths['forces']):
+            os.unlink(self.filepaths['forces'])
 
         # Initialize iteration counter
         iter_counter = 0
 
         # Initialize watchdog to check when output file has been created
-        event_handler = FileCreatedHandling(f'forces.{self.analysis_name}',
-                                            dump_folder / f'forces.{self.analysis_name}.{iter_counter}')
+        event_handler = FileCreatedHandling(self.filepaths['forces'],
+                                            self.dump_folder / self.filepaths['forces'] + f'{iter_counter}')
 
         observer = Observer()
         observer.schedule(event_handler,
@@ -741,8 +740,8 @@ class MTSOL_call:
             iter_counter += 1
 
             # Re-intialise the event handler for the next iteration with an updated destination
-            event_handler = FileCreatedHandling(f'forces.{self.analysis_name}',
-                                                dump_folder / f'forces.{self.analysis_name}.{iter_counter}')
+            event_handler = FileCreatedHandling(self.filepaths['forces'],
+                                                self.dump_folder / self.filepaths['forces'] + f'{iter_counter}')
             observer.unschedule_all()
             observer.schedule(event_handler,
                               path=os.getcwd(),

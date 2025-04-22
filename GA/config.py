@@ -143,5 +143,5 @@ MAX_GENERATIONS = 10
 
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
-SPREAD_CONTINUOUS = (0.03, 0.03)  # +/- 3% of the reference value
-SPREAD_DISCRETE = (-1, 3)  # +/- of the reference value
+SPREAD_CONTINUOUS = (0.05, 0.05)  # +/- x% of the reference value
+SPREAD_DISCRETE = (-1, 4)  # +/- of the reference value

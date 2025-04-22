@@ -40,6 +40,8 @@ Changelog:
 
 from pymoo.core.mixed import MixedVariableGA
 from pymoo.optimize import minimize
+from pymoo.algorithms.moo.unsga3 import TournamentSelection
+from pymoo.algorithms.moo.nsga3 import ReferenceDirectionSurvival
 import shelve
 
 import config
@@ -48,14 +50,12 @@ from problem_definition import OptimizationProblem
 from init_population import InitPopulation
 
 # Initialize the optimization problem
-problem = OptimizationProblem()
+problem = OptimizationProblem(cfg=config)
 
 # Initialize the algorithm
 algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
                             sampling=InitPopulation(population_type="biased",
-                                                    cfg=config).GeneratePopulation(),
-                            )
-
+                                                    cfg=config).GeneratePopulation())
 
 # Run the optimization
 res = minimize(problem,

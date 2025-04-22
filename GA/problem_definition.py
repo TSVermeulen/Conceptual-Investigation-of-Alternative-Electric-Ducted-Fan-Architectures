@@ -47,6 +47,7 @@ import numpy as np
 import shutil
 import uuid
 from pathlib import Path
+from types import ModuleType
 import datetime
 from pymoo.core.problem import ElementwiseProblem
 from scipy import interpolate
@@ -63,7 +64,6 @@ from Submodels.Parameterizations import AirfoilParameterization
 from objectives import Objectives
 from constraints import Constraints
 from init_designvector import DesignVector
-import config
 
 
 class OptimizationProblem(ElementwiseProblem):
@@ -82,28 +82,35 @@ class OptimizationProblem(ElementwiseProblem):
     
 
     def __init__(self,
+                 cfg = ModuleType,
                  **kwargs) -> None:
         """
         Initialization of the OptimizationProblem class. 
+
+        Parameters
+        ----------
+        - cfg : ModuleType
+            A configuration module containing the settings for the genetic optimisation.
 
         Returns
         -------
         None
         """
 
-        # Import control variables  
-        self.num_radial = config.NUM_RADIALSECTIONS
-        self.num_stages = config.NUM_STAGES
-        self.optimize_stages = config.OPTIMIZE_STAGE
+        # Import control variables
+        self.cfg = cfg  
+        self.num_radial = self.cfg.NUM_RADIALSECTIONS
+        self.num_stages = self.cfg.NUM_STAGES
+        self.optimize_stages = self.cfg.OPTIMIZE_STAGE
 
         # Initialize variable list with variable types.
-        vars = DesignVector()._construct_vector(config)
+        vars = DesignVector()._construct_vector(self.cfg)
 
         # Initialize the parent class
         super().__init__(vars=vars,
-                         n_obj=len(config.objective_IDs),
-                         n_ieq_constr=len(config.constraint_IDs[0]),
-                         n_eq_constr=len(config.constraint_IDs[1]),
+                         n_obj=len(self.cfg.objective_IDs),
+                         n_ieq_constr=len(self.cfg.constraint_IDs[0]),
+                         n_eq_constr=len(self.cfg.constraint_IDs[1]),
                          **kwargs)
         
         # Change working directory to the parent folder
@@ -169,7 +176,7 @@ class OptimizationProblem(ElementwiseProblem):
         # Deconstruct the centerbody values if it's variable.
         # If the centerbody is constant, read in the centerbody values from config.
         # Note that if the centerbody is variable, we keep the LE coordinate fixed, as the LE coordinate of the duct would already be free to move. 
-        if config.OPTIMIZE_CENTERBODY:
+        if self.cfg.OPTIMIZE_CENTERBODY:
             self.centerbody_variables = {"b_0": 0,
                                          "b_2": 0, 
                                          "b_8": GetX(x, idx) * min(GetX(x, idx, 3), np.sqrt(max(0, -2 * GetX(x, idx, 5) * GetX(x, idx, 2) / 3))),
@@ -189,9 +196,9 @@ class OptimizationProblem(ElementwiseProblem):
                                          "Leading Edge Coordinates": (0, 0)}
             
             # Update the index to point to the blade design variables, since we need the blade variables deconstructed first in order to correctly set the duct variables. 
-            idx += (centerbody_designvar_count + duct_designvar_count) if config.OPTIMIZE_DUCT else centerbody_designvar_count
+            idx += (centerbody_designvar_count + duct_designvar_count) if self.cfg.OPTIMIZE_DUCT else centerbody_designvar_count
         else:
-            self.centerbody_variables = config.CENTERBODY_VALUES
+            self.centerbody_variables = self.cfg.CENTERBODY_VALUES
                 
         # Deconstruct the rotorblade parametersPrecompute indices for rotorblade parameters if they are variable.
         # If the rotorblade parameters are constant, read in the parameters from config.
@@ -222,7 +229,7 @@ class OptimizationProblem(ElementwiseProblem):
                     stage_design_parameters.append(section_parameters)
             else:
                 # If the stage is meant to be constant, read it in from config. 
-                stage_design_parameters = config.STAGE_DESIGN_VARIABLES[i]
+                stage_design_parameters = self.cfg.STAGE_DESIGN_VARIABLES[i]
             # Write the stage nested list to blade_design_parameters
             self.blade_design_parameters.append(stage_design_parameters)
 
@@ -237,7 +244,7 @@ class OptimizationProblem(ElementwiseProblem):
                 stage_blading_parameters["root_LE_coordinate"] = GetX(x, idx)
                 stage_blading_parameters["blade_count"] = GetX(x, idx, 1)
                 stage_blading_parameters["ref_blade_angle"] = GetX(x, idx, 2)
-                stage_blading_parameters["reference_section_blade_angle"] = config.REFERENCE_SECTION_ANGLES[i]
+                stage_blading_parameters["reference_section_blade_angle"] = cfg.REFERENCE_SECTION_ANGLES[i]
                 stage_blading_parameters["radial_stations"] = radial_linspace * GetX(x, idx, 3)  # Radial stations are defined as fraction of blade radius * local radius
                 self.blade_diameters.append(GetX(x, idx, 3) * 2)
 
@@ -254,8 +261,8 @@ class OptimizationProblem(ElementwiseProblem):
                     stage_blading_parameters["blade_angle"][j] = GetX(x, base_idx, self.num_radial * 2 + j)
                 idx = base_idx + 3 * self.num_radial                
             else:
-                stage_blading_parameters = config.STAGE_BLADING_PARAMETERS[i]
-                self.blade_diameters.append(config.BLADE_DIAMETERS[i])
+                stage_blading_parameters = self.cfg.STAGE_BLADING_PARAMETERS[i]
+                self.blade_diameters.append(self.cfg.BLADE_DIAMETERS[i])
             
             # Append the stage blading parameters to the main list
             self.blade_blading_parameters.append(stage_blading_parameters)
@@ -266,8 +273,8 @@ class OptimizationProblem(ElementwiseProblem):
         # Deconstruct the duct values if it's variable.
         # If the duct is constant, read in the duct values from config.
         # The duct parameters must be read in last, because the LE y coordinate of the duct is dependent on the blade rows to maintain a minimum tip gap. 
-        if config.OPTIMIZE_DUCT:
-            idx = centerbody_designvar_count if config.OPTIMIZE_CENTERBODY else 0
+        if self.cfg.OPTIMIZE_DUCT:
+            idx = centerbody_designvar_count if self.cfg.OPTIMIZE_CENTERBODY else 0
 
             self.duct_variables = {"b_0": GetX(x, idx),
                                    "b_2": GetX(x, idx, 1), 
@@ -288,7 +295,7 @@ class OptimizationProblem(ElementwiseProblem):
                                    "Leading Edge Coordinates": (GetX(x, idx, 16), 0)}
             idx += 17
         else:
-            self.duct_variables = config.DUCT_VALUES
+            self.duct_variables = self.cfg.DUCT_VALUES
 
 
     def ComputeReynolds(self) -> None:
@@ -302,7 +309,7 @@ class OptimizationProblem(ElementwiseProblem):
         """
 
         # Compute the inlet Reynolds number and write it to self.oper
-        self.oper["Inlet_Reynolds"] = round(float((self.oper["Vinl"] * self.Lref) / config.atmosphere.kinematic_viscosity[0]), 3)
+        self.oper["Inlet_Reynolds"] = round(float((self.oper["Vinl"] * self.Lref) / self.cfg.atmosphere.kinematic_viscosity[0]), 3)
 
 
     def ComputeOmega(self) -> None:
@@ -329,7 +336,7 @@ class OptimizationProblem(ElementwiseProblem):
         """
 
         for i in range(len(self.blade_blading_parameters)):
-            if config.ROTATING[i]:
+            if self.cfg.ROTATING[i]:
                 self.blade_blading_parameters[i]["rotational_rate"] = self.oper["Omega"]
             else:
                 self.blade_blading_parameters[i]["rotational_rate"] = 0
@@ -409,9 +416,9 @@ class OptimizationProblem(ElementwiseProblem):
                 if not np.isnan(duct_y):
                     # Filter out NaN values and compute the y-distance between the LE of the duct and the blade row tip LE. 
                     # NaN would correspond to there being no duct at the blade station, in which case the offset would be zero.
-                    radial_duct_coordinates[i] = y_tip + config.tipGap + np.abs(duct_y)
+                    radial_duct_coordinates[i] = y_tip + self.cfg.tipGap + np.abs(duct_y)
                 else:
-                    radial_duct_coordinates[i] = y_tip + config.tipGap
+                    radial_duct_coordinates[i] = y_tip + self.cfg.tipGap
             else:
                 # For a stator
                 radial_duct_coordinates[i] = y_tip
@@ -432,7 +439,7 @@ class OptimizationProblem(ElementwiseProblem):
         self.DeconstructDesignVector(x)
 
         # Compute the necessary inputs (Reynolds, Omega)
-        self.oper = config.oper.copy()
+        self.oper = self.cfg.oper.copy()
         self.ComputeReynolds()
         self.ComputeOmega()
         self.SetOmega()
@@ -459,7 +466,7 @@ class OptimizationProblem(ElementwiseProblem):
         # Obtain objective(s)
         # The out dictionary is updated in-place
         Objectives().ComputeObjective(analysis_outputs=MTFLOW_outputs,
-                                      objective_IDs = config.objective_IDs,
+                                      objective_IDs = self.cfg.objective_IDs,
                                       out=out)
 
         # Compute constraints
@@ -467,17 +474,8 @@ class OptimizationProblem(ElementwiseProblem):
         Constraints().ComputeConstraints(analysis_outputs=MTFLOW_outputs,
                                          Lref=self.Lref,
                                          out=out,
-                                         cfg=config)
+                                         cfg=self.cfg)
 
         # Cleanup the generated files
         self.CleanUpFiles()
     
-
-if __name__ == "__main__":
-    test = OptimizationProblem(1,
-                               )
-    
-    out = {}
-    test._evaluate(np.zeros(test.n_var), out)
-
-    print(out)
