@@ -277,29 +277,29 @@ class OptimizationProblem(ElementwiseProblem):
     def ComputeReynolds(self) -> None:
         """
         A simple function to compute the inlet Reynolds number,
-        and write it to the oper dictionary in config.py.
+        and write it to the oper dictionary.
 
         Returns
         -------
         None
         """
 
-        # Compute the inlet Reynolds number and write it to config.oper
-        config.oper["Inlet_Reynolds"] = round(float((config.oper["Vinl"] * self.Lref) / config.atmosphere.kinematic_viscosity[0]), 3)
+        # Compute the inlet Reynolds number and write it to self.oper
+        self.oper["Inlet_Reynolds"] = round(float((self.oper["Vinl"] * self.Lref) / config.atmosphere.kinematic_viscosity[0]), 3)
 
 
     def ComputeOmega(self) -> None:
         """
         A simple function to compute the non-dimensional MTFLOW rotational rate Omega,
-        and write it to the oper dictionary in config.py.
+        and write it to the oper dictionary.
 
         Returns
         -------
         None
         """
 
-        # Compute the non-dimensional rotational rate Omega for MTFLOW and write it to config.oper
-        config.oper["Omega"] = float((-config.oper["RPS"] * np.pi * 2 * self.Lref) / (config.oper["Vinl"]))
+        # Compute the non-dimensional rotational rate Omega for MTFLOW and write it to self.oper
+        self.oper["Omega"] = float((-self.oper["RPS"] * np.pi * 2 * self.Lref) / (self.oper["Vinl"]))
 
 
     def SetOmega(self) -> None:
@@ -313,7 +313,7 @@ class OptimizationProblem(ElementwiseProblem):
 
         for i in range(len(self.blade_blading_parameters)):
             if config.ROTATING[i]:
-                self.blade_blading_parameters[i]["rotational_rate"] = config.oper["Omega"]
+                self.blade_blading_parameters[i]["rotational_rate"] = self.oper["Omega"]
             else:
                 self.blade_blading_parameters[i]["rotational_rate"] = 0
 
@@ -375,7 +375,7 @@ class OptimizationProblem(ElementwiseProblem):
         lower_y = lower_y * self.duct_variables["Chord Length"]
 
         # Shift the duct x coordinate to the correct location in space
-        lower_x -= self.duct_variables["Leading Edge Coordinates"][0]
+        lower_x += self.duct_variables["Leading Edge Coordinates"][0]
 
         # Construct cubic spline interpolant of the duct surface
         duct_interpolant = interpolate.CubicSpline(lower_x,
@@ -421,13 +421,14 @@ class OptimizationProblem(ElementwiseProblem):
         self.DeconstructDesignVector(x)
 
         # Compute the necessary inputs (Reynolds, Omega)
+        self.oper = config.oper.copy()
         self.ComputeReynolds()
         self.ComputeOmega()
         self.SetOmega()
         self.ComputeDuctRadialLocation()
 
         # Initialize the MTFLOW caller class
-        MTFLOW_interface = MTFLOW_caller(operating_conditions=config.oper,
+        MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
                                          centrebody_params=self.centerbody_variables,
                                          duct_params=self.duct_variables,
                                          blading_parameters=self.blade_blading_parameters,
@@ -464,6 +465,6 @@ if __name__ == "__main__":
                                )
     
     out = {}
-    output = test._evaluate(0, out)
+    test._evaluate(np.zeros(test.n_var), out)
 
     print(out)

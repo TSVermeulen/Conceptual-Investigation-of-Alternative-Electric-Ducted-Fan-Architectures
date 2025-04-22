@@ -180,7 +180,7 @@ class Constraints:
 
         # Validate inputs
         if 'data' not in analysis_outputs or 'Total power CP' not in analysis_outputs['data'] or 'Total force CT' not in analysis_outputs['data']:
-            raise ValueError("missing required output data total CP and CT in analysis_outputs]")
+            raise ValueError("Missing required output data 'Total power CP' and/or 'Total force CT' in analysis_outputs")
         if not hasattr(cfg, 'atmosphere') or not hasattr(cfg, 'oper') or not hasattr(cfg, 'P_ref_constr') or not hasattr(cfg, 'T_ref_constr'):
             raise ValueError("cfg must contain atmosphere, oper, P_ref_constr, and T_ref_constr attributes")
 

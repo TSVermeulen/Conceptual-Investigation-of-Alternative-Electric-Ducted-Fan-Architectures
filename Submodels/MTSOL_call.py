@@ -472,7 +472,8 @@ class MTSOL_call:
         """
 
         # Initialize iteration count 
-        iter_count = 0        
+        iter_count = 0    
+        self.iter_counter = iter_count    
 
         # Keep converging until the iteration count exceeds the limit
         while iter_count < self.ITER_LIMIT:
@@ -480,8 +481,7 @@ class MTSOL_call:
             self.StdinWrite(f"x {self.ITER_STEP_SIZE}")
 
             # Increase iteration counter by step size
-            iter_count += self.ITER_STEP_SIZE  
-            self.iter_counter = iter_count     
+            iter_count += self.ITER_STEP_SIZE     
 
             # Check the exit flag to see if the solution has converged
             # If the solution has converged, break out of the iteration loop
@@ -909,8 +909,8 @@ class MTSOL_call:
             # if the viscous solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
             failed_surfaces.append(4)
         
-        retry_flags = []
-        retry_counts = []
+        retry_flags = {}
+        retry_counts = {}
         for surface in failed_surfaces:
             # If the surface failed to converge, we need to toggle it and try again
             # Execute the viscous solve for the failed surface
@@ -920,19 +920,17 @@ class MTSOL_call:
             if exit_flag_visc_retry in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
                 # If the viscous solve was successful, update the statefile.
                 self.WriteStateFile()
-            retry_flags.append(exit_flag_visc_retry)
-            retry_counts.append(iter_count_visc_retry)
+            retry_flags[surface](exit_flag_visc_retry)
+            retry_counts[surface](iter_count_visc_retry)
         
         # Compute total iteration count of the retry attempt
-        retry_count = sum(retry_counts)
+        retry_count = sum(retry_counts.values())
     
         # Compute the overall exit flag and total iteration count
-        if 1 in failed_surfaces:
-            exit_flag_visc_CB = retry_flags[0]
-        if 3 in failed_surfaces:
-            exit_flag_visc_outduct = retry_flags[1]
-        if 4 in failed_surfaces:
-            exit_flag_visc_induct = retry_flags[2]
+        exit_flag_visc_CB = retry_flags.get(1, exit_flag_visc_CB)
+        exit_flag_visc_outduct = retry_flags.get(3, exit_flag_visc_outduct)
+        exit_flag_visc_induct = retry_flags.get(4, exit_flag_visc_induct)
+
         total_exit_flag = max(exit_flag_visc_CB, exit_flag_visc_outduct, exit_flag_visc_induct)
         total_iter_count = iter_count_visc_CB + iter_count_visc_outduct + iter_count_visc_induct + retry_count
 
