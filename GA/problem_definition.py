@@ -45,6 +45,7 @@ import os
 import sys
 import numpy as np
 import shutil
+import uuid
 from pathlib import Path
 import datetime
 from pymoo.core.problem import ElementwiseProblem
@@ -70,6 +71,15 @@ class OptimizationProblem(ElementwiseProblem):
     Class definition of the optimization problem to be solved using the genetic algorithm. 
     Inherits from the ElementwiseProblem class from pymoo.core.problem.
     """
+
+    # Define the file names relevant for MTFLOW
+    FILE_TEMPLATES = {"walls": "walls.{}",
+                      "tflow": "tflow.{}",
+                      "forces": "forces.{}",
+                      "flowfield": "flowfield.{}",
+                      "boundary_layer": "boundary_layer.{}",
+                      "tdat": "tdat.{}"}
+    
 
     def __init__(self,
                  **kwargs) -> None:
@@ -112,12 +122,16 @@ class OptimizationProblem(ElementwiseProblem):
         Returns
         -------
         - analysis_name : str
-            A unique analysis name based on the current date and time.
+            A unique analysis name based on the current date and time and a unique identifier.
         """
 
-        # Construct the analysis_name based on the current date and time
+        # Construct the analysis_name based on the current date, time, and a unique identifier.
         now = datetime.datetime.now()	
-        analysis_name = now.strftime("%Y%m%d_%H%M%S_%f")
+        unique_id = uuid.uuid4().hex[:32]
+
+        # Format the analysis name to include the date, time, and unique identifier.
+        # The analysis name is formatted as: YYYYMMDD_HHMM_<unique_id>.
+        analysis_name = "{:04d}{:02d}{:02d}_{:02d}{:02d}_{:32s}".format(now.year, now.month, now.day, now.hour, now.minute, unique_id)
         analysis_name = analysis_name[:32]
 
         return analysis_name
@@ -140,6 +154,13 @@ class OptimizationProblem(ElementwiseProblem):
         None
         """
 
+        # Define a helper function to access the design vector values
+        def GetX(x_dict: dict,
+                 base_idx: int,
+                 offset: int = 0) -> float|int:
+            """ Helper function to access the design vector without repeated f-string formatting."""
+            return x_dict[f"x{base_idx + offset}"]
+
         # Define a pointer to count the number of variable parameters
         idx = 0
         centerbody_designvar_count = 8
@@ -151,20 +172,20 @@ class OptimizationProblem(ElementwiseProblem):
         if config.OPTIMIZE_CENTERBODY:
             self.centerbody_variables = {"b_0": 0,
                                          "b_2": 0, 
-                                         "b_8": x[f"x{idx}"] * min(x[f"x{3 + idx}"], np.sqrt(max(0, -2 * x[f"x{5 + idx}"] * x[f"x{2 + idx}"] / 3))),
-                                         "b_15": x[f"x{1 + idx}"],
+                                         "b_8": GetX(x, idx) * min(GetX(x, idx, 3), np.sqrt(max(0, -2 * GetX(x, idx, 5) * GetX(x, idx, 2) / 3))),
+                                         "b_15": GetX(x, idx, 1),
                                          "b_17": 0,
-                                         "x_t": x[f"x{2 + idx}"],
-                                         "y_t": x[f"x{3 + idx}"],
+                                         "x_t": GetX(x, idx, 2),
+                                         "y_t": GetX(x, idx, 3),
                                          "x_c": 0,
                                          "y_c": 0,
                                          "z_TE": 0,
-                                         "dz_TE": x[f"x{4 + idx}"],
-                                         "r_LE": x[f"x{5 + idx}"],
-                                         "trailing_wedge_angle": x[f"x{6 + idx}"],
+                                         "dz_TE": GetX(x, idx, 4),
+                                         "r_LE": GetX(x, idx, 5),
+                                         "trailing_wedge_angle": GetX(x, idx, 6),
                                          "trailing_camberline_angle": 0,
                                          "leading_edge_direction": 0, 
-                                         "Chord Length": x[f"x{7 + idx}"],
+                                         "Chord Length": GetX(x, idx, 7),
                                          "Leading Edge Coordinates": (0, 0)}
             
             # Update the index to point to the blade design variables, since we need the blade variables deconstructed first in order to correctly set the duct variables. 
@@ -182,21 +203,21 @@ class OptimizationProblem(ElementwiseProblem):
                 # If the stage is to be optimized, read in the design vector for the blade profiles
                 for _ in range(self.num_radial):
                     # Loop over the number of radial sections and append each section to stage_design_parameters
-                    section_parameters = {"b_0": x[f"x{idx}"],
-                                        "b_2": x[f"x{1 + idx}"], 
-                                        "b_8": x[f"x{2 + idx}"] * min(x[f"x{6 + idx}"], np.sqrt(max(0, -2 * x[f"x{11 + idx}"] * x[f"x{5 + idx}"] / 3))),
-                                        "b_15": x[f"x{3 + idx}"],
-                                        "b_17": x[f"x{4 + idx}"],
-                                        "x_t": x[f"x{5 + idx}"],
-                                        "y_t": x[f"x{6 + idx}"],
-                                        "x_c": x[f"x{7 + idx}"],
-                                        "y_c": x[f"x{8 + idx}"],
-                                        "z_TE": x[f"x{9 + idx}"],
-                                        "dz_TE": x[f"x{10 + idx}"],
-                                        "r_LE": x[f"x{11 + idx}"],
-                                        "trailing_wedge_angle": x[f"x{12 + idx}"],
-                                        "trailing_camberline_angle": x[f"x{13 + idx}"],
-                                        "leading_edge_direction": x[f"x{14 + idx}"]}
+                    section_parameters = {"b_0": GetX(x, idx),
+                                        "b_2": GetX(x, idx, 1), 
+                                        "b_8": GetX(x, idx, 2) * min(GetX(x, idx, 6), np.sqrt(max(0, -2 * GetX(x, idx, 11) * GetX(x, idx, 5) / 3))),
+                                        "b_15": GetX(x, idx, 3),
+                                        "b_17": GetX(x, idx, 4),
+                                        "x_t": GetX(x, idx, 5),
+                                        "y_t": GetX(x, idx, 6),
+                                        "x_c": GetX(x, idx, 7),
+                                        "y_c": GetX(x, idx, 8),
+                                        "z_TE": GetX(x, idx, 9),
+                                        "dz_TE": GetX(x, idx, 10),
+                                        "r_LE": GetX(x, idx, 11),
+                                        "trailing_wedge_angle": GetX(x, idx, 12),
+                                        "trailing_camberline_angle": GetX(x, idx, 13),
+                                        "leading_edge_direction": GetX(x, idx, 14)}
                     idx += 15
                     stage_design_parameters.append(section_parameters)
             else:
@@ -213,12 +234,12 @@ class OptimizationProblem(ElementwiseProblem):
             stage_blading_parameters = {}
             if self.optimize_stages[i]:
                 # If the stage is to be optimized, read in the design vector for the blading parameters
-                stage_blading_parameters["root_LE_coordinate"] = x[f"x{idx}"]
-                stage_blading_parameters["blade_count"] = x[f"x{1 + idx}"]
-                stage_blading_parameters["ref_blade_angle"] = x[f"x{2 + idx}"]
+                stage_blading_parameters["root_LE_coordinate"] = GetX(x, idx)
+                stage_blading_parameters["blade_count"] = GetX(x, idx, 1)
+                stage_blading_parameters["ref_blade_angle"] = GetX(x, idx, 2)
                 stage_blading_parameters["reference_section_blade_angle"] = config.REFERENCE_SECTION_ANGLES[i]
-                stage_blading_parameters["radial_stations"] = radial_linspace * x[f"x{3 + idx}"]  # Radial stations are defined as fraction of blade radius * local radius
-                self.blade_diameters.append(x[f"x{3 + idx}"] * 2)
+                stage_blading_parameters["radial_stations"] = radial_linspace * GetX(x, idx, 3)  # Radial stations are defined as fraction of blade radius * local radius
+                self.blade_diameters.append(GetX(x, idx, 3) * 2)
 
                 # Initialize sectional blading parameter lists
                 stage_blading_parameters["chord_length"] = [None] * self.num_radial
@@ -228,9 +249,9 @@ class OptimizationProblem(ElementwiseProblem):
                 base_idx = idx + 4
                 for j in range(self.num_radial):
                     # Loop over the number of radial sections and write their data to the corresponding lists
-                    stage_blading_parameters["chord_length"][j]= x[f"x{base_idx + j}"]
-                    stage_blading_parameters["sweep_angle"][j] = x[f"x{base_idx + self.num_radial + j}"]
-                    stage_blading_parameters["blade_angle"][j] = x[f"x{base_idx + 2 * self.num_radial + j}"]
+                    stage_blading_parameters["chord_length"][j]= GetX(x, base_idx, j)
+                    stage_blading_parameters["sweep_angle"][j] = GetX(x, base_idx, self.num_radial + j)
+                    stage_blading_parameters["blade_angle"][j] = GetX(x, base_idx, self.num_radial * 2 + j)
                 idx = base_idx + 3 * self.num_radial                
             else:
                 stage_blading_parameters = config.STAGE_BLADING_PARAMETERS[i]
@@ -248,23 +269,23 @@ class OptimizationProblem(ElementwiseProblem):
         if config.OPTIMIZE_DUCT:
             idx = centerbody_designvar_count if config.OPTIMIZE_CENTERBODY else 0
 
-            self.duct_variables = {"b_0": x[f"x{idx}"],
-                                   "b_2": x[f"x{1 + idx}"], 
-                                   "b_8": x[f"x{2 + idx}"] * min(x[f"x{6 + idx}"], np.sqrt(max(0, -2 * x[f"x{11 + idx}"] * x[f"x{5 + idx}"] / 3))),
-                                   "b_15": x[f"x{3 + idx}"],
-                                   "b_17": x[f"x{4 + idx}"],
-                                   "x_t": x[f"x{5 + idx}"],
-                                   "y_t": x[f"x{6 + idx}"],
-                                   "x_c": x[f"x{7 + idx}"],
-                                   "y_c": x[f"x{8 + idx}"],
-                                   "z_TE": x[f"x{9 + idx}"],
-                                   "dz_TE": x[f"x{10 + idx}"],
-                                   "r_LE": x[f"x{11 + idx}"],
-                                   "trailing_wedge_angle": x[f"x{12 + idx}"],
-                                   "trailing_camberline_angle": x[f"x{13 + idx}"],
-                                   "leading_edge_direction": x[f"x{14 + idx}"], 
-                                   "Chord Length": x[f"x{15 + idx}"],
-                                   "Leading Edge Coordinates": (x[f"x{16 + idx}"], 0)}
+            self.duct_variables = {"b_0": GetX(x, idx),
+                                   "b_2": GetX(x, idx, 1), 
+                                   "b_8": GetX(x, idx, 2) * min(GetX(x, idx, 6), np.sqrt(max(0, -2 * GetX(x, idx, 11) * GetX(x, idx, 5) / 3))),
+                                   "b_15": GetX(x, idx, 3),
+                                   "b_17": GetX(x, idx, 4),
+                                   "x_t": GetX(x, idx, 5),
+                                   "y_t": GetX(x, idx, 6),
+                                   "x_c": GetX(x, idx, 7),
+                                   "y_c": GetX(x, idx, 8),
+                                   "z_TE": GetX(x, idx, 9),
+                                   "dz_TE": GetX(x, idx, 10),
+                                   "r_LE": GetX(x, idx, 11),
+                                   "trailing_wedge_angle": GetX(x, idx, 12),
+                                   "trailing_camberline_angle": GetX(x, idx, 13),
+                                   "leading_edge_direction": GetX(x, idx, 14), 
+                                   "Chord Length": GetX(x, idx, 15),
+                                   "Leading Edge Coordinates": (GetX(x, idx, 16), 0)}
             idx += 17
         else:
             self.duct_variables = config.DUCT_VALUES
@@ -324,28 +345,22 @@ class OptimizationProblem(ElementwiseProblem):
         None
         """
 
-        # Change working directory to the submodels folder
-        current_dir = os.getcwd()
-        os.chdir(submodels_path)
 
         # Delete the walls, tflow, forces, flowfield, and boundary layer files if they exist
-        os.remove(f"walls.{self.analysis_name}") if os.path.exists(f"walls.{self.analysis_name}") else None 
-        os.remove(f"tflow.{self.analysis_name}") if os.path.exists(f"tflow.{self.analysis_name}") else None 
-        os.remove(f"forces.{self.analysis_name}") if os.path.exists(f"forces.{self.analysis_name}") else None 
-        os.remove(f"flowfield.{self.analysis_name}") if os.path.exists(f"flowfield.{self.analysis_name}") else None 
-        os.remove(f"boundary_layer.{self.analysis_name}") if os.path.exists(f"boundary_layer.{self.analysis_name}") else None 
+        for file_type in ["walls", "tflow", "forces", "flowfield", "boundary_layer"]:
+            file_path = submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
+            if os.path.exists(file_path):
+                os.unlink(file_path)
 
         # Create folder to store statefiles if it does not exist yet. 
+        tdat_file = submodels_path / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
         dump_folder = Path("Evaluated_tdat_state_files")
         os.makedirs(dump_folder, 
                     exist_ok=True)
         
         # Move the state file into the dump_folder
-        shutil.copy(f"tdat.{self.analysis_name}", dump_folder / f"tdat.{self.analysis_name}")
-        os.remove(f"tdat.{self.analysis_name}")
-
-        # Revert back to the original working directory
-        os.chdir(current_dir)
+        shutil.copy(tdat_file, dump_folder / tdat_file)
+        os.unlink(tdat_file)
 
 
     def ComputeDuctRadialLocation(self) -> None:
@@ -442,11 +457,13 @@ class OptimizationProblem(ElementwiseProblem):
         MTFLOW_outputs = output_handler.GetAllVariables(3)
 
         # Obtain objective(s)
+        # The out dictionary is updated in-place
         Objectives().ComputeObjective(analysis_outputs=MTFLOW_outputs,
                                       objective_IDs = config.objective_IDs,
                                       out=out)
 
         # Compute constraints
+        # The out dictionary is updated in-place
         Constraints().ComputeConstraints(analysis_outputs=MTFLOW_outputs,
                                          Lref=self.Lref,
                                          out=out,

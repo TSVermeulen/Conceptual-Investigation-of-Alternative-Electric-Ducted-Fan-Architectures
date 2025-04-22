@@ -804,8 +804,7 @@ class MTSOL_call:
         elif exit_flag in (ExitFlag.COMPLETED.value, ExitFlag.SUCCESS.value, ExitFlag.NOT_PERFORMED.value, ExitFlag.CHOKING.value):
             self.WriteStateFile()
             return
-        
-        
+          
         else:
             raise OSError(f"Unknown exit flag {exit_flag} encountered!") from None
 
