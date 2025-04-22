@@ -248,10 +248,6 @@ class OptimizationProblem(ElementwiseProblem):
         if config.OPTIMIZE_DUCT:
             idx = centerbody_designvar_count if config.OPTIMIZE_CENTERBODY else 0
 
-            if np.any(self.optimize_stages):
-                LE_coords = (x[f"x{16 + idx}"], 0)
-            else:
-                LE_coords = (x[f"x{16 + idx}"], 0)
             self.duct_variables = {"b_0": x[f"x{idx}"],
                                    "b_2": x[f"x{1 + idx}"], 
                                    "b_8": x[f"x{2 + idx}"] * min(x[f"x{6 + idx}"], np.sqrt(max(0, -2 * x[f"x{11 + idx}"] * x[f"x{5 + idx}"] / 3))),
@@ -268,7 +264,7 @@ class OptimizationProblem(ElementwiseProblem):
                                    "trailing_camberline_angle": x[f"x{13 + idx}"],
                                    "leading_edge_direction": x[f"x{14 + idx}"], 
                                    "Chord Length": x[f"x{15 + idx}"],
-                                   "Leading Edge Coordinates": LE_coords}
+                                   "Leading Edge Coordinates": (x[f"x{16 + idx}"], 0)}
             idx += 17
         else:
             self.duct_variables = config.DUCT_VALUES

@@ -769,8 +769,6 @@ class MTSOL_call:
         ----------
         - exit_flag : int
             Exit flag indicating the status of the solver execution.
-         - iter_count : int
-            Iteration counter for the solver
         - type : int
             A status integer indicating the type of solve being run:
                 0: Inviscid
@@ -802,14 +800,11 @@ class MTSOL_call:
         elif exit_flag == ExitFlag.CRASH.value and type != 0:
             return
 
-        # Else if the solver has finished successfully, update the statefile.   
-        elif exit_flag in (ExitFlag.COMPLETED.value, ExitFlag.SUCCESS.value, ExitFlag.NOT_PERFORMED.value):
+        # Else if the solver has finished, update the statefile.   
+        elif exit_flag in (ExitFlag.COMPLETED.value, ExitFlag.SUCCESS.value, ExitFlag.NOT_PERFORMED.value, ExitFlag.CHOKING.value):
             self.WriteStateFile()
             return
         
-        # TODO: If choking occurs, handle appropriately
-        elif exit_flag == ExitFlag.CHOKING.value:
-            return
         
         else:
             raise OSError(f"Unknown exit flag {exit_flag} encountered!") from None
@@ -835,7 +830,7 @@ class MTSOL_call:
         """
         
         try:
-            # Restart MTSOL
+            # Restart MTSOL - this is required since MTSOL quits upon a solver crash, so we need to restart the subprocress. 
             self.GenerateProcess()
 
             # Set viscous if surface_ID is given
@@ -920,8 +915,8 @@ class MTSOL_call:
             if exit_flag_visc_retry in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
                 # If the viscous solve was successful, update the statefile.
                 self.WriteStateFile()
-            retry_flags[surface](exit_flag_visc_retry)
-            retry_counts[surface](iter_count_visc_retry)
+            retry_flags[surface] = exit_flag_visc_retry
+            retry_counts[surface] = iter_count_visc_retry
         
         # Compute total iteration count of the retry attempt
         retry_count = sum(retry_counts.values())
