@@ -55,13 +55,11 @@ if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
 
     """Initialize the thread pool and create the runner"""
-    RESERVED_THREADS = 2 # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
+    RESERVED_THREADS = 1 # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
     total_threads = multiprocessing.cpu_count()
     total_threads_avail = total_threads - RESERVED_THREADS
 
-    # MTFLOW uses, at most, 2 threads simultaneously based on inspection of task manager, so we reserve 2 threads for each MTFLOW instance.
-    # Note however, that taskmanager is horriffically accurate when inspecting thread usage. 
-    n_processes = total_threads_avail // 1
+    n_processes = total_threads_avail
     pool = multiprocessing.Pool(n_processes)
 
     # Create runner
@@ -77,12 +75,12 @@ if __name__ == "__main__":
 
     # Run the optimization
     res = minimize(problem,
-                algorithm,
-                termination=('n_gen', config.MAX_GENERATIONS),
-                seed=1,
-                verbose=True,
-                save_history=False,
-                return_least_infeasible=True,)
+                   algorithm,
+                   termination=('n_gen', config.MAX_GENERATIONS),
+                   seed=42,
+                   verbose=True,
+                   save_history=True,
+                   return_least_infeasible=True,)
 
     # Close the thread pool to free up resources
     pool.close()

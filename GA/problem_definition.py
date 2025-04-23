@@ -403,22 +403,16 @@ class OptimizationProblem(ElementwiseProblem):
             if config.ROTATING[i]:
                 # Compute the y value of the duct inner surface at the blade rotor
                 sweep = np.tan(blading_params["sweep_angle"][-1])
-                x_tip = blading_params["root_LE_coordinate"] + sweep * self.blade_diameters[i] / 2     
+                x_tip = blading_params["root_LE_coordinate"] + sweep * y_tip    
 
                 if (x_tip <= lower_x[-1] and x_tip >= lower_x[0]):
-                    radial_duct_coordinates[i] = y_tip + config.tipGap + float(duct_interpolant(x_tip))
+                    radial_duct_coordinates[i] = y_tip + config.tipGap + float(duct_interpolant(x_tip)) * 2  # Multiplied by 2 due to convention of the thickness distribution being the half-thickness of the airfoil
                 else:
                     radial_duct_coordinates[i] = y_tip + config.tipGap
-            else:
-                # For a stator
-                radial_duct_coordinates[i] = y_tip
     
-        # The radial location of the LE of the duct is equal to the max value in radial_duct_coordinates    
-        radial_duct_coordinate = np.max(radial_duct_coordinates)
-
         # Update the duct variables in self
         self.duct_variables["Leading Edge Coordinates"] = (self.duct_variables["Leading Edge Coordinates"][0],
-                                                           radial_duct_coordinate)
+                                                           np.max(radial_duct_coordinates))
 
 
     def _evaluate(self, x, out, *args, **kwargs) -> None:
