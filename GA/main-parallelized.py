@@ -1,0 +1,100 @@
+"""
+main
+====
+
+Description
+-----------
+This module defines the main entry point for running a mutli-threaded optimization problem using the pymoo framework.
+Uses the starmap parallelization method for flexible parallelization opportunities.
+
+Functionality
+-------------
+- Initializes an optimization problem with mixed-variable support.
+- Configures and runs a genetic algorithm (GA) for optimization.
+- Saves the results to a shelve database for future reference.
+
+Examples
+--------
+>>> python main.py
+
+Notes
+-----
+This module integrates with the pymoo framework and requires the problem definition and population initialization modules. 
+Ensure that all dependencies are installed and properly configured.
+
+References
+----------
+For more details on pymoo and its capabilities, refer to the official documentation:
+https://pymoo.org/
+
+Versioning
+----------
+Author: T.S. Vermeulen
+Email: T.S.Vermeulen@student.tudelft.nl
+Student ID: 4995309
+Version: 1.1
+
+Changelog:
+- V1.0: Initial implementation. 
+- V1.1: Updated documentation to reflect changes in the main module structure and added examples for usage.
+"""
+
+from pymoo.core.mixed import MixedVariableGA
+import multiprocessing
+from pymoo.core.problem import StarmapParallelization
+from pymoo.optimize import minimize
+import dill
+import config
+import datetime
+import os
+
+from problem_definition import OptimizationProblem
+from init_population import InitPopulation
+
+if __name__ == "__main__":
+    multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
+
+    """Initialize the thread pool and create the runner"""
+    RESERVED_THREADS = 2 # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
+    total_threads = multiprocessing.cpu_count()
+    total_threads_avail = total_threads - RESERVED_THREADS
+
+    # MTFLOW uses, at most, 2 threads simultaneously based on inspection of task manager, so we reserve 2 threads for each MTFLOW instance.
+    # Note however, that taskmanager is horriffically accurate when inspecting thread usage. 
+    n_processes = total_threads_avail // 1
+    pool = multiprocessing.Pool(n_processes)
+
+    # Create runner
+    runner = StarmapParallelization(pool.starmap)
+
+    """Initialize the optimization problem and algorithm"""
+    # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
+    problem = OptimizationProblem(elementwise_runner=runner)
+
+    # Initialize the algorithm
+    algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
+                                sampling=InitPopulation(population_type="biased").GeneratePopulation())
+
+    # Run the optimization
+    res = minimize(problem,
+                algorithm,
+                termination=('n_gen', config.MAX_GENERATIONS),
+                seed=1,
+                verbose=True,
+                save_history=False,
+                return_least_infeasible=True,)
+
+    # Close the thread pool to free up resources
+    pool.close()
+
+    """ Save the results to a dill file for future reference"""
+    # This avoids needing to re-run the optimization if the results are needed later.
+    # The filename is generated using the process ID and current timestamp to ensure uniqueness.
+
+    process_ID = f"{os.getpid() % 10000:04d}" 
+    now = datetime.datetime.now()
+    timestamp = f"{now:%y%m%d%H%M%S%f}"	
+    output_name = f"res_{process_ID}_{timestamp}.dill"
+
+    with open(output_name, 'wb') as f:
+        dill.dump(res, f)

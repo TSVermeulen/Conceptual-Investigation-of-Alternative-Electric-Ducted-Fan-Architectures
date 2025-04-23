@@ -85,6 +85,7 @@ import os
 import logging
 import random
 import numpy as np
+from pathlib import Path
 
 # Enable submodel relative imports 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -93,6 +94,10 @@ from Submodels.MTSET_call import MTSET_call
 from Submodels.MTFLO_call import MTFLO_call
 from Submodels.MTSOL_call import MTSOL_call, ExitFlag
 from Submodels.file_handling import fileHandling
+
+# Define key paths/directories
+parent_dir = os.path.dirname(os.path.realpath(__file__))
+submodels_path = Path(os.path.join(parent_dir, "Submodels"))
 
 
 class MTFLOW_caller:
@@ -229,7 +234,7 @@ class MTFLOW_caller:
         if debug:
             logging.basicConfig(level=logging.DEBUG,
                                 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                                handlers=[logging.FileHandler("caller.log", 
+                                handlers=[logging.FileHandler(parent_dir / "caller.log", 
                                                               mode='w'),
                                           logging.StreamHandler(),
                                           ],
@@ -242,13 +247,12 @@ class MTFLOW_caller:
 
         try:
             current_dir = os.getcwd()
-            subfolder_path = os.path.join(current_dir, 'Submodels')
-            os.chdir(subfolder_path)
+            os.chdir(submodels_path)
         except OSError as e:
             if debug:
-                logger.error(f"Failed to change directory to {subfolder_path}: {e}")
+                logger.error(f"Failed to change directory to {submodels_path}: {e}")
             else:
-                print(f"Failed to change directory to {subfolder_path}: {e}")
+                print(f"Failed to change directory to {submodels_path}: {e}")
             raise OSError from e
             
         # --------------------

@@ -39,7 +39,7 @@ Changelog:
 """
 
 import numpy as np
-from types import ModuleType
+import config
 
 class Constraints:
     """
@@ -63,8 +63,7 @@ class Constraints:
     
     def ConstantPower(self, 
                       analysis_outputs: dict, 
-                      Lref: float,
-                      cfg: ModuleType) -> float:
+                      Lref: float) -> float:
         """
         Compute the equality constraint for the power coefficient.
 
@@ -76,21 +75,17 @@ class Constraints:
             output_handling.output_processing().GetAllVariables(3)
         - Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter. 
-        - cfg: ModuleType
-            The configuration module containing the reference values for Power.
-            This module should contain the attributes `P_ref_constr`.
         """
 
         # Compute the equality constraint for the power coefficient. Assuming constant flight condition (i.e. density and speed), 
-        power = analysis_outputs['data']['Total power CP'] * (0.5 * cfg.atmosphere.density[0] * cfg.oper["Vinl"] ** 3 * Lref ** 2)  # Power in Watts
+        power = analysis_outputs['data']['Total power CP'] * (0.5 * config.atmosphere.density[0] * config.oper["Vinl"] ** 3 * Lref ** 2)  # Power in Watts
         
-        return (power - cfg.P_ref_constr) / cfg.P_ref_constr  # Normalized power constraint 
+        return (power - config.P_ref_constr) / config.P_ref_constr  # Normalized power constraint 
 
     
     def ConstantThrust(self,
                        analysis_outputs: dict,
-                       Lref: float,
-                       cfg: ModuleType) -> float:
+                       Lref: float) -> float:
         """
         Compute the equality constraint for the thrust coefficient.
 
@@ -102,20 +97,16 @@ class Constraints:
             output_handling.output_processing().GetAllVariables(3)
         - Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter. 
-        - cfg: ModuleType
-            The configuration module containing the reference values for Thrust.
-            This module should contain the attributes `T_ref_constr`.
         """
 
         # Compute the equality constraint for the thrust coefficient. Assuming constant flight condition (i.e. density and speed), 
-        thrust = analysis_outputs['data']['Total force CT'] * (0.5 * cfg.atmosphere.density[0] * cfg.oper["Vinl"] ** 2 * Lref ** 2)  # Thrust in Newtons
-        return (thrust - cfg.T_ref_constr) / cfg.T_ref_constr  # Normalized thrust constraint
+        thrust = analysis_outputs['data']['Total force CT'] * (0.5 * config.atmosphere.density[0] * config.oper["Vinl"] ** 2 * Lref ** 2)  # Thrust in Newtons
+        return (thrust - config.T_ref_constr) / config.T_ref_constr  # Normalized thrust constraint
     
 
     def KeepEfficiencyFeasible(self,
                                analysis_outputs: dict,
-                               Lref: float,
-                               cfg: ModuleType) -> float:
+                               Lref: float) -> float:
         """
         Compute the inequality constraint for the efficiency. Enforces that eta>0. 
 
@@ -127,9 +118,6 @@ class Constraints:
             output_handling.output_processing().GetAllVariables(3).
         - Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter.
-            Not used in this method, but required for a uniform constraint function signature.
-        - cfg: ModuleType
-            The configuration module containing the reference values for CP, CT, and Lref.
             Not used in this method, but required for a uniform constraint function signature.
 
         Returns
@@ -144,32 +132,30 @@ class Constraints:
 
     def MinimumThrust(self,
                       analysis_outputs: dict,
-                      Lref: float,
-                      cfg: ModuleType) -> float:
+                      Lref: float) -> float:
         """
         Compute the inequality constraint for the thrust. Enforces that T > T_ref.
         """
 
-        thrust = analysis_outputs['data']['Total force CT'] * (0.5 * cfg.atmosphere.density[0] * cfg.oper["Vinl"] ** 2 * Lref ** 2)  # Thrust in Newtons
-        return (thrust - cfg.T_ref_constr) / cfg.T_ref_constr  # Normalized thrust constraint
+        thrust = analysis_outputs['data']['Total force CT'] * (0.5 * config.atmosphere.density[0] * config.oper["Vinl"] ** 2 * Lref ** 2)  # Thrust in Newtons
+        return (thrust - config.T_ref_constr) / config.T_ref_constr  # Normalized thrust constraint
     
+
     def MaximumThrust(self,
                       analysis_outputs: dict,
-                      Lref: float,
-                      cfg: ModuleType) -> float:
+                      Lref: float) -> float:
         """
         Compute the upper bound for the thrust. Enforces that T < T_ref + delta.
         """
 
-        thrust = analysis_outputs['data']['Total force CT'] * (0.5 * cfg.atmosphere.density[0] * cfg.oper["Vinl"] ** 2 * Lref ** 2)  # Thrust in Newtons
-        return (cfg.deviation_range * cfg.T_ref_constr - thrust) / cfg.T_ref_constr  # Normalized thrust constraint
+        thrust = analysis_outputs['data']['Total force CT'] * (0.5 * config.atmosphere.density[0] * config.oper["Vinl"] ** 2 * Lref ** 2)  # Thrust in Newtons
+        return (config.deviation_range * config.T_ref_constr - thrust) / config.T_ref_constr  # Normalized thrust constraint
 
 
     def ComputeConstraints(self,
                            analysis_outputs: dict,
                            Lref: float,
-                           out: dict,
-                           cfg: ModuleType) -> None:              
+                           out: dict) -> None:              
         """
         Compute the inequality and equality constraints based on the provided analysis outputs
         and configuration, and store the results in the output dictionary.
@@ -184,9 +170,6 @@ class Constraints:
         - out : dict
             A dictionary to store the computed constraints. The keys "G" and "H"
             will be populated with the inequality and equality constraints, respectively.
-        - cfg: ModuleType
-            The configuration module containing the reference values for CP and Lref.
-            This module should contain the attributes `CP_ref_constr` and `L_ref_constr`.
         
         Returns
         -------
@@ -204,22 +187,19 @@ class Constraints:
         # Validate inputs
         if 'data' not in analysis_outputs or 'Total power CP' not in analysis_outputs['data'] or 'Total force CT' not in analysis_outputs['data']:
             raise ValueError("Missing required output data 'Total power CP' and/or 'Total force CT' in analysis_outputs")
-        if not hasattr(cfg, 'atmosphere') or not hasattr(cfg, 'oper') or not hasattr(cfg, 'P_ref_constr') or not hasattr(cfg, 'T_ref_constr'):
-            raise ValueError("cfg must contain atmosphere, oper, P_ref_constr, and T_ref_constr attributes")
 
         # Define lists of all inequality and equality constraints, and filter them based on the constraint IDs
         ineq_constraints_list = [self.KeepEfficiencyFeasible, self.MinimumThrust, self.MaximumThrust]
         eq_constraints_list = [self.ConstantPower, self.ConstantThrust]
-        ineq_constraints = [ineq_constraints_list[i] for i in cfg.constraint_IDs[0]]
-        eq_constraints = [eq_constraints_list[i] for i in cfg.constraint_IDs[1]]
+        ineq_constraints = [ineq_constraints_list[i] for i in config.constraint_IDs[0]]
+        eq_constraints = [eq_constraints_list[i] for i in config.constraint_IDs[1]]
         
         # Compute the inequality constraints and write them to out["G"]
         if ineq_constraints:
             computed_ineq_constraints = []
             for i in range(len(ineq_constraints)):
                 computed_ineq_constraints.append(ineq_constraints[i](analysis_outputs,
-                                                                     Lref,
-                                                                     cfg))
+                                                                     Lref))
             
             out["G"] = np.column_stack(computed_ineq_constraints)
         else:
@@ -230,8 +210,7 @@ class Constraints:
             computed_eq_constraints = []
             for i in range(len(eq_constraints)):
                 computed_eq_constraints.append(eq_constraints[i](analysis_outputs,
-                                                                 Lref,
-                                                                 cfg))
+                                                                 Lref))
         
             out["H"] = np.column_stack(computed_eq_constraints)
         else: 
@@ -244,7 +223,6 @@ if __name__ == "__main__":
     # Add the parent and submodels paths to the system path
     import os
     import sys
-    import config
     parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     submodels_path = os.path.join(parent_dir, "Submodels")
     sys.path.extend([parent_dir, submodels_path])
@@ -253,15 +231,15 @@ if __name__ == "__main__":
     from Submodels.output_handling import output_processing
     
     # Extract outputs from the forces output file
-    outputs = output_processing(analysis_name='test_case').GetAllVariables(3)
+    outputs = output_processing(analysis_name='initial_analysis').GetAllVariables(3)
     
     # Create an instance of the Constraints class
     test = Constraints()
 
     # Compute the constraints
-    constraints = test.ComputeConstraints(outputs, 
-                                          Lref=config.L_ref_constr,
-                                          out={},
-                                          cfg=config)
+    output = {}
+    test.ComputeConstraints(outputs, 
+                            Lref=config.BLADE_DIAMETERS[0],
+                            out=output)
     
-    print(constraints)
+    print(output)

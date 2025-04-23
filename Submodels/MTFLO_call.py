@@ -47,6 +47,10 @@ Changelog:
 import subprocess
 import os
 import time
+from pathlib import Path
+
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+submodels_path = Path(os.path.join(parent_dir, "Submodels"))
 
 class MTFLO_call:
     """
@@ -68,7 +72,7 @@ class MTFLO_call:
         self.analysis_name = analysis_name
 
         # Define filepath of MTFLO as being in the same folder as this Python file
-        self.process_path: str = os.getenv('MTFLO_PATH', 'mtflo.exe')
+        self.process_path: str = os.getenv('MTFLO_PATH', submodels_path / 'mtflo.exe')
         if not os.path.exists(self.process_path):
             raise FileNotFoundError(f"MTFLO executable not found at {self.process_path}")
         
@@ -100,12 +104,6 @@ class MTFLO_call:
         Requires that the executable, mtflo.exe, and the input file, tflow.xxx are present in the same directory as this
         Python file. 
         """
-
-        # Get the directory where the current Python file is located
-        current_file_directory = os.path.dirname(os.path.abspath(__file__))
-
-        # Change the working directory to the directory of the current Python file
-        os.chdir(current_file_directory)
 
         # Generate the subprocess and write it to self
         self.process = subprocess.Popen([self.process_path, self.analysis_name], 
@@ -197,7 +195,7 @@ class MTFLO_call:
         self.LoadForcingField()
 
         # Wait until file has been processed
-        fpath = f"tdat.{self.analysis_name}"
+        fpath = submodels_path / "tdat.{}".format(self.analysis_name)
         while not self.FileStatus(fpath):
             time.sleep(0.01)
 

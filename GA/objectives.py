@@ -62,6 +62,8 @@ class Objectives:
         None
         """
 
+        # Initialize the design vector
+        self.x = x 
 
     def Efficiency(self,
                    outputs: dict) -> float:
@@ -84,7 +86,8 @@ class Objectives:
         return 1 - outputs['data']['EtaP']
 
 
-    def Weight(self) -> None:
+    def Weight(self,
+               outputs: dict) -> None:
         """
         Define the weight (sub-)objective.
         This sub-objective has identifier 1.
@@ -94,10 +97,11 @@ class Objectives:
         None
         """
         #TODO: Implement weight calculation based on design variables
-        pass
+        raise NotImplementedError("Weight calculation is not implemented yet.")
 
     
-    def FrontalArea(self) -> None:
+    def FrontalArea(self,
+                    outputs: dict) -> None:
         """
         Define the frontal area (sub-)objective.
         This sub-objective has identifier 2.
@@ -107,7 +111,7 @@ class Objectives:
         None
         """
         #TODO: Implement frontal area calculation/extraction based on forces.xxx file or design variables
-        pass
+        raise NotImplementedError("Frontal area calculation is not implemented yet.")
 
 
     def PressureRatio(self,
@@ -131,7 +135,8 @@ class Objectives:
         return output["data"]["Pressure Ratio"]
 
 
-    def MultiPointTOCruise(self) -> None:
+    def MultiPointTOCruise(self,
+                           outputs: dict) -> None:
         """
         Define the multi-point take-off to cruise (sub-)objective.
         This sub-objective has identifier 4.
@@ -141,7 +146,7 @@ class Objectives:
         None
         """
         #TODO: Implement multi-point objective function calculation.,
-        pass
+        raise NotImplementedError("Multi-point objective function is not implemented yet.")
 
 
     def ComputeObjective(self,

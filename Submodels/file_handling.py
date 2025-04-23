@@ -111,6 +111,8 @@ if __name__ == "__main__":
 else:
     from .Parameterizations import AirfoilParameterization
 
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+submodels_path = Path(os.path.join(parent_dir, "Submodels"))
 
 class fileHandling:
     """
@@ -352,9 +354,8 @@ class fileHandling:
             xy_centerbody = xy_centerbody / self.ref_length
 
             # Generate walls.xxx input data structure
-            output_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-            file_path = output_dir / f"walls.{self.case_name}"
-            with file_path.open("w") as file:
+            file_path = submodels_path / "walls.{}".format(self.case_name)
+            with open(file_path, "w") as file:
                 # Write opening lines of the file
                 file.write(self.case_name + '\n')
                 file.write('    '.join(map(str, domain_boundaries)) + '\n')
@@ -967,9 +968,8 @@ class fileHandling:
             """
 
             # Open the tflow.xxx file and start writing the required input data to it
-            output_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-            file_path = output_dir / f"tflow.{self.case_name}"
-            with file_path.open("w") as file:
+            file_path = submodels_path / "tflow.{}".format(self.case_name)
+            with open(file_path, "w") as file:
                 # Write the case name to the file
                 file.write('NAME\n')
                 file.write(f"{str(self.case_name)}\n")

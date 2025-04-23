@@ -48,6 +48,10 @@ Changelog:
 import subprocess
 import os
 import time
+from pathlib import Path
+
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+submodels_path = Path(os.path.join(parent_dir, "Submodels"))
 
 class MTSET_call:
     """
@@ -72,7 +76,7 @@ class MTSET_call:
         - grid_x_coeff : float, optional
             The X spacing parameter within MTSET. Larger values yield a more rectangular grid. If None, uses the default MTSET value of 0.8.
         - streamwise_points : int, optional
-            The number of streamwise points. If None, uses the default MTSET value of 141. 
+            The number of streamwise points. If None, uses the default value of 200. 
         """
 
         self.analysis_name = analysis_name
@@ -83,12 +87,15 @@ class MTSET_call:
         self.streamwise_points = streamwise_points if (streamwise_points is not None and streamwise_points > 141) else 200
 
         # Define constant filepath for the MTSET executable 
-        self.process_path: str = os.getenv('MTSET_PATH', 'mtset.exe')
+        self.process_path: str = os.getenv('MTSET_PATH', submodels_path / 'mtset.exe')
         if not os.path.exists(self.process_path):
             raise FileNotFoundError(f"MTSET executable not found at {self.process_path}")
         
         # Define filepath for the statefile
-        self.fpath = 'tdat.{}'.format(self.analysis_name)
+        self.fpath = submodels_path / 'tdat.{}'.format(self.analysis_name)
+
+        # Define filepath for walls.xxx
+        self.wallspath = submodels_path / "walls.{}".format(self.analysis_name)
     
 
     def StdinWrite(self,
@@ -121,12 +128,6 @@ class MTSET_call:
         handles sent to PIPE for direct interaction within the Python code.  
         """
 
-        # Get the directory where the current Python file is located
-        current_file_directory = os.path.dirname(os.path.abspath(__file__))
-
-        # Change the working directory to the directory of the current Python file
-        os.chdir(current_file_directory)
-
         # Generate subprocess
         self.process = subprocess.Popen([self.process_path, self.analysis_name], 
                                  stdin=subprocess.PIPE, 
@@ -139,7 +140,7 @@ class MTSET_call:
         
         # Check if subprocess is started successfully
         if self.process.poll() is not None:
-            raise ImportError(f"MTSET or walls.{self.analysis_name} not found in {self.process_path}") from None
+            raise ImportError(f"MTSET or walls.{self.analysis_name} not found") from None
     
 
     def WaitForMainMenu(self) -> list[str]:
@@ -178,8 +179,8 @@ class MTSET_call:
         # Load the walls.xxx file and count number of elements to be loaded
         # The second(+) elements are preceded by line containing [999. 999.], 
         # which can be used to count the number of elements to be loaded in by MTSET
-        element_count = 1  # There is a minimum of 1 element present
-        with open(r'walls.' + self.analysis_name, 'r') as file: 
+        element_count = 1  # There is a minimum of 1 element present 
+        with open(self.wallspath, 'r') as file: 
             for index, line in enumerate(file): 
                 if index < 2:  # Skip the first two lines (0 and 1) - these contain the analysis name and grid size. 
                     continue 

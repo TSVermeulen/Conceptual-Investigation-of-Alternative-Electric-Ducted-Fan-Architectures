@@ -62,6 +62,10 @@ atmosphere = Atmosphere(ALTITUDE)
 
 # Define the objective IDs used to construct the objective functions
 class ObjectiveID(IntEnum):
+    """
+    Enumeration of objective function identifiers for the optimization problem.
+    Each member represents a different optimization objective that can be used in the genetic algorithm's fitness evaluation.
+    """
     def _generate_next_value_(name, start, count, last_values):
         return count  # This makes the first member 0 rather than the default 1.
 
@@ -112,9 +116,9 @@ with pushd(parent_dir):
                                                                                 plot=False)
 
 # Define the target thrust/power and efficiency for use in constraints
-P_ref_constr = 0.16607 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2)  # Power in Watts
-T_ref_constr = 0.13288 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2) # Thrust in Newtons
-Eta_ref_constr = 0.80014  # Propulsive efficiency
+P_ref_constr = 0.16607 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2)  # Reference Power in Watts derived from baseline analysis
+T_ref_constr = 0.13288 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2) # Reference Thrust in Newtons derived from baseline analysis
+Eta_ref_constr = 0.80014  # Reference Propulsive efficiency derived from baseline analysis
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
 
 # Define the constraint IDs used to construct the constraint functions
@@ -122,6 +126,10 @@ deviation_range = 0.01  # +/- x% of the reference value for the constraints
 # [[inequality constraint 1, inequality constraint 2, ...],
 #  [equality constraint 1, equality constraint 2, ...]]
 class InEqConstraintID(IntEnum):
+    """
+    Enumeration of the inequality constraint identifiers for the optimization problem.
+    Each member represents a different inequality constraint that can be used in the genetic algorithm's evaluation.
+    """
     def _generate_next_value_(name, start, count, last_values):
         return count  # This makes the first member 0 rather than the default 1.
     
@@ -130,6 +138,10 @@ class InEqConstraintID(IntEnum):
     MAXIMUM_THRUST = auto()
     
 class EqConstraintID(IntEnum):
+    """
+    Enumeration of the equality constraint identifiers for the optimization problem.
+    Each member represents a different equality constraint that can be used in the genetic algorithm's evaluation.
+    """
     def _generate_next_value_(name, start, count, last_values):
         return count  # This makes the first member 0 rather than the default 1.
     

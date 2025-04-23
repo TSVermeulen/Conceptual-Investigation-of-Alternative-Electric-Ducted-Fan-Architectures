@@ -47,6 +47,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+submodels_path = Path(os.path.join(parent_dir, "Submodels"))
 
 class output_visualisation:
     """
@@ -109,28 +111,23 @@ class output_visualisation:
         None
         """ 
 
-        
-
         # Simple input validation
         if analysis_name is None:
             raise IOError("The variable 'analysis_name' cannot be none in output_visualisation!")
 
         self.analysis_name = analysis_name
 
-        # Write the local directory to self
-        self.local_dir = Path(__file__).parent.resolve()
-
         # Validate if the required files exist
-        self.flowfield_path = self.local_dir / f"flowfield.{self.analysis_name}"
-        self.walls_path = self.local_dir / f"walls.{self.analysis_name}"
-        self.tflow_path = self.local_dir / f"tflow.{self.analysis_name}"
+        self.flowfield_path = submodels_path / f"flowfield.{self.analysis_name}"
+        self.walls_path = submodels_path / f"walls.{self.analysis_name}"
+        self.tflow_path = submodels_path / f"tflow.{self.analysis_name}"
+        self.boundary_layer_path = submodels_path / f"boundary_layer.{self.analysis_name}"
 
         if not os.path.exists(self.flowfield_path) or not os.path.exists(self.walls_path) or not os.path.exists(self.tflow_path):
             raise FileNotFoundError(f"One of the required files flowfield.{self.analysis_name}, walls.{self.analysis_name}, or tflow.{self.analysis_name} was not found.")
 
         # Check if the boundary layer file exists, and if so, set viscous_exists to True
-        boundary_layer_path = self.local_dir / f"boundary_layer.{self.analysis_name}"
-        if os.path.exists(boundary_layer_path):
+        if os.path.exists(self.boundary_layer_path):
             self.viscous_exists = True
         else:
             self.viscous_exists = False
@@ -152,10 +149,8 @@ class output_visualisation:
                 A Pandas DataFrame containing the flowfield values across all streamlines.
         """
 
-        # Get the path for the flowfield.analysis_name file and read data
-        flowfield_path = self.local_dir / f"flowfield.{self.analysis_name}"
         try:
-            with open(flowfield_path, 'r') as file:
+            with open(self.flowfield_path, 'r') as file:
                 data = file.read()
         except IOError as e:
             raise IOError(f"Failed to read the flowfield data: {e}") from e
@@ -193,10 +188,8 @@ class output_visualisation:
             A list of nested DataFrames with the viscous variables for each boundary layer. 
         """
 
-        # Get the path for the boundary_layer.analysis_name file and read data
-        flowfield_path = self.local_dir / f"boundary_layer.{self.analysis_name}"
         try:
-            with open(flowfield_path, 'r') as file:
+            with open(self.boundary_layer_path, 'r') as file:
                 data = file.read()
         except IOError as e:
             raise IOError(f"Failed to read the boundary layer data: {e}") from e
@@ -231,10 +224,8 @@ class output_visualisation:
             A list of nested arrays, where each array contains the geometry of one of the axisymmetric bodies. 
         """
 
-        # Get the path for the walls.analysis_name file and read the data
-        walls_path = self.local_dir / f"walls.{self.analysis_name}"
         try:
-            with open(walls_path, 'r') as file:
+            with open(self.walls_path, 'r') as file:
                 lines = file.readlines()
         except IOError as e:
             raise IOError(f"Failed to read the geometry data: {e}") from e
@@ -268,9 +259,8 @@ class output_visualisation:
             containing the leading and trailing points.
         """
 
-        tflow_fpath = self.local_dir / f"tflow.{self.analysis_name}"
         try:
-            with open(tflow_fpath, 'r') as file:
+            with open(self.tflow_fpath, 'r') as file:
                 lines = file.readlines()
         except IOError as e:
             raise IOError(f"Failed to read the tflow file: {e}") from e
@@ -561,11 +551,8 @@ class output_processing:
 
         self.analysis_name = analysis_name
 
-        # Write the local directory to self
-        self.local_dir = Path(__file__).parent.resolve()
-
         # Validate if the required forces file exist
-        self.forces_path = self.local_dir / f"forces.{self.analysis_name}"
+        self.forces_path = submodels_path / f"forces.{self.analysis_name}"
 
         if not os.path.exists(self.forces_path):
             raise FileNotFoundError(f"The required file forces.{self.analysis_name} was not found.")

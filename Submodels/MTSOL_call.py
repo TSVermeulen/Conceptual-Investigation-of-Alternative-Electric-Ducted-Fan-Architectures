@@ -65,6 +65,8 @@ from enum import Enum
 from pathlib import Path
 import time
 
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+submodels_path = Path(os.path.join(parent_dir, "Submodels"))
 
 class FileCreatedHandling(FileSystemEventHandler):
     """ 
@@ -173,17 +175,18 @@ class MTSOL_call:
         self.ITER_LIMIT = 50  # Maximum number of iterations to perform before non-convergence is assumed.
 
         # Define filepath of MTSOL as being in the same folder as this Python file
-        self.fpath: str = os.getenv('MTSOL_PATH', 'mtsol.exe')
+        self.fpath: str = os.getenv('MTSOL_PATH', submodels_path / 'mtsol.exe')
         if not os.path.exists(self.fpath):
             raise FileNotFoundError(f"MTSOL executable not found at {self.fpath}")
         
         # Define filepaths
-        self.filepaths = {'forces': self.FILE_TEMPLATES['forces'].format(self.analysis_name),
-                          'flowfield': self.FILE_TEMPLATES['flowfield'].format(self.analysis_name),
-                          'boundary_layer': self.FILE_TEMPLATES['boundary_layer'].format(self.analysis_name)} 
+        self.filepaths = {'forces': submodels_path / self.FILE_TEMPLATES['forces'].format(self.analysis_name),
+                          'flowfield': submodels_path / self.FILE_TEMPLATES['flowfield'].format(self.analysis_name),
+                          'boundary_layer': submodels_path / self.FILE_TEMPLATES['boundary_layer'].format(self.analysis_name)} 
 
         # Define the dump folder to write non-converged forces output files to
-        self.dump_folder = Path("MTSOL_output_files")
+        self.dump_folder = Path(submodels_path / "MTSOL_output_files")
+
 
     def StdinWrite(self,
                    command: str) -> None:
@@ -212,12 +215,6 @@ class MTSOL_call:
         Requires that the executable, mtsol.exe, and the input file, tdat.xxx are present in the same directory as this
         Python file. 
         """
-
-        # Get the directory where the current Python file is located
-        current_file_directory = os.path.dirname(os.path.abspath(__file__))
-
-        # Change the working directory to the directory of the current Python file
-        os.chdir(current_file_directory)
 
         # Generate the subprocess and write it to self
         self.process = subprocess.Popen([self.fpath, self.analysis_name], 
@@ -373,9 +370,10 @@ class MTSOL_call:
                     max_wait_time = 5  # Maximum wait time in seconds
                     start_time = time.time()
                     # Wait for the file creation to be finished
-                    while not os.path.exists(f'{output_file}.{self.analysis_name}'):
+                    target_path = submodels_path / self.FILE_TEMPLATES[output_file].format(self.analysis_name)
+                    while not os.path.exists(target_path) and (time.time() - start_time) < max_wait_time:
                         time.sleep(0.01) 
-                        if time.time() - start_time > max_wait_time:
+                        if (time.time() - start_time) > max_wait_time:
                             break 
                 break
                         
@@ -436,7 +434,7 @@ class MTSOL_call:
 
         # Dump the forces data
         self.StdinWrite("F")
-        self.StdinWrite(self.filepaths['forces']) 
+        self.StdinWrite(self.FILE_TEMPLATES['forces'].format(self.analysis_name)) 
         
         # Check if the forces file is written successfully
         self.WaitForCompletion(type=2,
@@ -447,7 +445,7 @@ class MTSOL_call:
 
         # Dump the flowfield data
         self.StdinWrite("D")
-        self.StdinWrite(self.filepaths['flowfield'])
+        self.StdinWrite(self.FILE_TEMPLATES['flowfield'].format(self.analysis_name))
 
         # Check if the flowfield file is written successfully
         self.WaitForCompletion(type=2,
@@ -455,7 +453,7 @@ class MTSOL_call:
 
         # Dump the boundary layer data
         self.StdinWrite("B")
-        self.StdinWrite(self.filepaths['boundary_layer'])
+        self.StdinWrite(self.FILE_TEMPLATES['boundary_layer'].format(self.analysis_name))
 
         # Check if the boundary layer file is written successfully
         self.WaitForCompletion(type=2,
@@ -520,7 +518,7 @@ class MTSOL_call:
                     yield f.readlines()
 
         # Construct file pattern to match all output files in the MTSOL_output_files directory
-        file_pattern = 'MTSOL_output_files/' + self.filepaths['forces'] + '*'
+        file_pattern = os.path.join(parent_dir, "Submodels", "MTSOL_output_files", "forces*")
 
         # Read in all files (collect into a list so we can transpose later)
         content = list(read_file_lines(file_pattern))
@@ -622,8 +620,8 @@ class MTSOL_call:
 
         # To avoid mis-interpretation of files, delete the flowfield and boundary layer files, if they exist. 
         # For a crash output, these files are not needed, as we only use the forces.xxx file. 
-        for file in self.filepaths and file != self.filepaths['forces']:
-            if os.path.exists(file):
+        for file in self.filepaths:
+            if os.path.exists(file) and file != self.filepaths['forces']:
                 os.unlink(file)
             
         # Load in the forces file line-by-line
@@ -705,7 +703,7 @@ class MTSOL_call:
         iter_counter = 0
 
         # Initialize watchdog to check when output file has been created
-        copied_file = self.filepaths['forces'] + f'{iter_counter}'
+        copied_file = 'forces.{}.'.format(self.analysis_name) + f'{iter_counter}'
         event_handler = FileCreatedHandling(self.filepaths['forces'],
                                             self.dump_folder / copied_file)
 
@@ -739,7 +737,7 @@ class MTSOL_call:
             
             # Increase iteration counter by step size
             iter_counter += 1
-            copied_file = self.filepaths['forces'] + f'{iter_counter}'
+            copied_file = 'forces.{}.'.format(self.analysis_name) + f'{iter_counter}'
 
             # Re-intialise the event handler for the next iteration with an updated destination
             event_handler = FileCreatedHandling(self.filepaths['forces'],

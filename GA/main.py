@@ -4,7 +4,7 @@ main
 
 Description
 -----------
-This module defines the main entry point for running an optimization problem using the pymoo framework. 
+This module defines the main entry point for running a single-threaded optimization problem using the pymoo framework. 
 
 Functionality
 -------------
@@ -40,21 +40,20 @@ Changelog:
 
 from pymoo.core.mixed import MixedVariableGA
 from pymoo.optimize import minimize
-from pymoo.constraints.as_obj import ConstraintsAsObjective
-from pymoo.algorithms.moo.nsga2 import RankAndCrowdingSurvival
 import dill
 import config
+import datetime
+import os
 
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
 
 # Initialize the optimization problem
-problem = OptimizationProblem(cfg=config)
+problem = OptimizationProblem()
 
 # Initialize the algorithm
 algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
-                            sampling=InitPopulation(population_type="biased",
-                                                    cfg=config).GeneratePopulation())
+                            sampling=InitPopulation(population_type="biased").GeneratePopulation())
 
 # Run the optimization
 res = minimize(problem,
@@ -66,5 +65,13 @@ res = minimize(problem,
                return_least_infeasible=True,)
 
 # Save the results to a dill file for future reference
-with open('res.dill', 'wb') as f:
+# This avoids needing to re-run the optimization if the results are needed later.
+# The filename is generated using the process ID and current timestamp to ensure uniqueness.
+
+process_ID = f"{os.getpid() % 10000:04d}" 
+now = datetime.datetime.now()
+timestamp = f"{now:%y%m%d%H%M%S%f}"	
+output_name = f"res_{process_ID}_{timestamp}.dill"
+
+with open(output_name, 'wb') as f:
     dill.dump(res, f)
