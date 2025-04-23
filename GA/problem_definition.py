@@ -56,6 +56,7 @@ from scipy import interpolate
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 submodels_path = os.path.join(parent_dir, "Submodels")
 sys.path.extend([parent_dir, submodels_path])
+submodels_path = Path(submodels_path)  # Convert to Path object for easier manipulation
 
 # Import MTFLOW interface submodels and other dependencies
 from MTFLOW_caller import MTFLOW_caller
@@ -360,14 +361,14 @@ class OptimizationProblem(ElementwiseProblem):
                 os.unlink(file_path)
 
         # Create folder to store statefiles if it does not exist yet. 
-        tdat_file = submodels_path / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
         dump_folder = Path("Evaluated_tdat_state_files")
         os.makedirs(dump_folder, 
                     exist_ok=True)
         
         # Move the state file into the dump_folder
-        shutil.copy(tdat_file, dump_folder / tdat_file)
-        os.unlink(tdat_file)
+        shutil.copy(submodels_path / self.FILE_TEMPLATES["tdat"].format(self.analysis_name), 
+                    submodels_path / dump_folder / self.FILE_TEMPLATES["tdat"].format(self.analysis_name))
+        os.unlink(submodels_path / self.FILE_TEMPLATES["tdat"].format(self.analysis_name))
 
 
     def ComputeDuctRadialLocation(self) -> None:
@@ -410,8 +411,7 @@ class OptimizationProblem(ElementwiseProblem):
             if blading_params["rotational_rate"] != 0:
                 # Compute the y value of the duct inner surface at the blade rotor
                 x_tip = blading_params["root_LE_coordinate"] + np.tan(blading_params["sweep_angle"][-1]) * self.blade_diameters[i] / 2
-                duct_y = duct_interpolant(x_tip,
-                                          extrapolate=False)
+                duct_y = duct_interpolant(x_tip)
                 
                 if not np.isnan(duct_y):
                     # Filter out NaN values and compute the y-distance between the LE of the duct and the blade row tip LE. 
@@ -479,6 +479,7 @@ class OptimizationProblem(ElementwiseProblem):
         # Cleanup the generated files
         self.CleanUpFiles()
     
+
 if __name__ == "__main__":
     import config
 

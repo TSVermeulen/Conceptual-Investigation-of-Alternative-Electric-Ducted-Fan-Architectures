@@ -8,3 +8,4 @@ boundary_layer.*
 tdat.*
 tflow.*
 walls.*
+*.dill

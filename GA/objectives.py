@@ -81,7 +81,7 @@ class Objectives:
             A float of the propulsive efficiency, defined as CT/CP.
         """
 
-        return outputs['data']['EtaP']
+        return 1 - outputs['data']['EtaP']
 
 
     def Weight(self) -> None:
@@ -175,9 +175,7 @@ class Objectives:
         computed_objectives = []
 
         for i in range(len(objectives)):
-            # We multiply the objectives by -1 to turn the maximisation objectives (i.e. maximise efficiency) 
-            # into the PyMoo expected minimisation objectives
-            computed_objectives.append(- objectives[i](analysis_outputs))
+            computed_objectives.append(objectives[i](analysis_outputs))
 
         out["F"] = np.column_stack(computed_objectives)
         

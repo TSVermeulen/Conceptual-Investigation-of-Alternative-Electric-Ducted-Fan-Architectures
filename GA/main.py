@@ -40,8 +40,9 @@ Changelog:
 
 from pymoo.core.mixed import MixedVariableGA
 from pymoo.optimize import minimize
-import shelve
-
+from pymoo.constraints.as_obj import ConstraintsAsObjective
+from pymoo.algorithms.moo.nsga2 import RankAndCrowdingSurvival
+import dill
 import config
 
 from problem_definition import OptimizationProblem
@@ -61,15 +62,9 @@ res = minimize(problem,
                termination=('n_gen', config.MAX_GENERATIONS),
                seed=1,
                verbose=True,
-               save_history=True)
+               save_history=True,
+               return_least_infeasible=True,)
 
-print(res)
-
-# Save the results to a shelve file to enble easy access to the results
-# and to avoid the need to re-run the optimization in the future.
-with shelve.open('results.db', 'c') as myshelf:
-    for key in dir():
-        try:
-            myshelf[key] = globals()[key]
-        except Exception as e:
-            print(f"Error saving {key}: {e}")
+# Save the results to a dill file for future reference
+with open('res.dill', 'wb') as f:
+    dill.dump(res, f)

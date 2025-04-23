@@ -93,7 +93,7 @@ CENTERBODY_VALUES = {"b_0": 0., "b_2": 0., "b_8": 7.52387039e-02, "b_15": 7.4644
 
 
 # Controls for the optimisation vector - DUCT
-OPTIMIZE_DUCT = False
+OPTIMIZE_DUCT = True
 DUCT_VALUES = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.004081758291374328), 'b_15': np.float64(0.735), 'b_17': np.float64(0.8), 'x_t': np.float64(0.2691129541223092), 'y_t': np.float64(0.084601317961794), 'x_c': np.float64(0.0), 'y_c': np.float64(0.0), 'z_TE': np.float64(-0.015685), 'dz_TE': np.float64(0.0005638524603968335), 'r_LE': np.float64(-0.06953901280141099), 'trailing_wedge_angle': np.float64(0.16670974950670672), 'trailing_camberline_angle': np.float64(0.003666809042006104), 'leading_edge_direction': np.float64(-0.811232599724247), 'Chord Length': 1.2446, "Leading Edge Coordinates": (0.093, 1.20968)}
 
 
@@ -112,9 +112,10 @@ with pushd(parent_dir):
                                                                                 plot=False)
 
 # Define the target thrust/power and efficiency for use in constraints
-P_ref_constr = 0.18673 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2)  # Power in Watts
-T_ref_constr = 0.15061 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2) # Thrust in Newtons
-Eta_ref_constr = 0.80658  # Propulsive efficiency
+P_ref_constr = 0.16607 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2)  # Power in Watts
+T_ref_constr = 0.13288 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2) # Thrust in Newtons
+Eta_ref_constr = 0.80014  # Propulsive efficiency
+deviation_range = 0.01  # +/- x% of the reference value for the constraints
 
 # Define the constraint IDs used to construct the constraint functions
 # constraint IDs are structured as a nested list, of the form:
@@ -125,6 +126,8 @@ class InEqConstraintID(IntEnum):
         return count  # This makes the first member 0 rather than the default 1.
     
     EFFICIENCY_GTE_ZERO = auto()
+    MINIMUM_THRUST = auto()
+    MAXIMUM_THRUST = auto()
     
 class EqConstraintID(IntEnum):
     def _generate_next_value_(name, start, count, last_values):
@@ -133,12 +136,12 @@ class EqConstraintID(IntEnum):
     CONSTANT_POWER = auto()
     CONSTANT_THRUST = auto()
 
-constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO],
-                  [EqConstraintID.CONSTANT_THRUST]]
+constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.MINIMUM_THRUST, InEqConstraintID.MAXIMUM_THRUST],
+                  []]
 
 # Define the population size
-POPULATION_SIZE = 10
-INIT_POPULATION_SIZE = 10  # Initial population size for the first generation
+POPULATION_SIZE = 20
+INIT_POPULATION_SIZE = 20  # Initial population size for the first generation
 MAX_GENERATIONS = 10
 
 

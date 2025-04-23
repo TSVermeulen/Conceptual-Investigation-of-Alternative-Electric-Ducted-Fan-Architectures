@@ -84,7 +84,7 @@ class Constraints:
         # Compute the equality constraint for the power coefficient. Assuming constant flight condition (i.e. density and speed), 
         power = analysis_outputs['data']['Total power CP'] * (0.5 * cfg.atmosphere.density[0] * cfg.oper["Vinl"] ** 3 * Lref ** 2)  # Power in Watts
         
-        return power - cfg.P_ref_constr 
+        return (power - cfg.P_ref_constr) / cfg.P_ref_constr  # Normalized power constraint 
 
     
     def ConstantThrust(self,
@@ -109,7 +109,7 @@ class Constraints:
 
         # Compute the equality constraint for the thrust coefficient. Assuming constant flight condition (i.e. density and speed), 
         thrust = analysis_outputs['data']['Total force CT'] * (0.5 * cfg.atmosphere.density[0] * cfg.oper["Vinl"] ** 2 * Lref ** 2)  # Thrust in Newtons
-        return thrust - cfg.T_ref_constr
+        return (thrust - cfg.T_ref_constr) / cfg.T_ref_constr  # Normalized thrust constraint
     
 
     def KeepEfficiencyFeasible(self,
@@ -140,6 +140,29 @@ class Constraints:
 
         # Compute the inequality constraint for the efficiency.
         return -analysis_outputs['data']['EtaP']
+    
+
+    def MinimumThrust(self,
+                      analysis_outputs: dict,
+                      Lref: float,
+                      cfg: ModuleType) -> float:
+        """
+        Compute the inequality constraint for the thrust. Enforces that T > T_ref.
+        """
+
+        thrust = analysis_outputs['data']['Total force CT'] * (0.5 * cfg.atmosphere.density[0] * cfg.oper["Vinl"] ** 2 * Lref ** 2)  # Thrust in Newtons
+        return (thrust - cfg.T_ref_constr) / cfg.T_ref_constr  # Normalized thrust constraint
+    
+    def MaximumThrust(self,
+                      analysis_outputs: dict,
+                      Lref: float,
+                      cfg: ModuleType) -> float:
+        """
+        Compute the upper bound for the thrust. Enforces that T < T_ref + delta.
+        """
+
+        thrust = analysis_outputs['data']['Total force CT'] * (0.5 * cfg.atmosphere.density[0] * cfg.oper["Vinl"] ** 2 * Lref ** 2)  # Thrust in Newtons
+        return (cfg.deviation_range * cfg.T_ref_constr - thrust) / cfg.T_ref_constr  # Normalized thrust constraint
 
 
     def ComputeConstraints(self,
@@ -185,7 +208,7 @@ class Constraints:
             raise ValueError("cfg must contain atmosphere, oper, P_ref_constr, and T_ref_constr attributes")
 
         # Define lists of all inequality and equality constraints, and filter them based on the constraint IDs
-        ineq_constraints_list = [self.KeepEfficiencyFeasible]
+        ineq_constraints_list = [self.KeepEfficiencyFeasible, self.MinimumThrust, self.MaximumThrust]
         eq_constraints_list = [self.ConstantPower, self.ConstantThrust]
         ineq_constraints = [ineq_constraints_list[i] for i in cfg.constraint_IDs[0]]
         eq_constraints = [eq_constraints_list[i] for i in cfg.constraint_IDs[1]]
@@ -215,7 +238,6 @@ class Constraints:
             out["H"] = [[]]
 
     
-
 if __name__ == "__main__":
     # Test execution of constraints using a test-case forces output. 
 
