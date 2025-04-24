@@ -721,7 +721,7 @@ class MTSOL_call:
                 for key, file in self.filepaths.items():
                     if file.exists() and key != 'forces':
                         file.unlink()
-                for file in self.dump_folder.glob(f"forces*"):
+                for file in self.dump_folder.glob("forces*"):
                     file.unlink()
                 return
             else:
