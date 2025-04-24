@@ -49,8 +49,6 @@ import subprocess
 import time
 from pathlib import Path
 
-parent_dir = Path(__file__).resolve().parent.parent
-submodels_path = parent_dir / "Submodels"
 
 class MTSET_call:
     """
@@ -85,16 +83,20 @@ class MTSET_call:
         self.grid_x_coeff = grid_x_coeff if grid_x_coeff is not None else 0.8
         self.streamwise_points = streamwise_points if (streamwise_points is not None and streamwise_points > 141) else 200
 
+        # Define key paths/directories
+        self.parent_dir = Path(__file__).resolve().parent.parent
+        self.submodels_path = self.parent_dir / "Submodels"
+        
         # Define constant filepath for the MTSET executable 
-        self.process_path = submodels_path / 'mtset.exe'
+        self.process_path = self.submodels_path / 'mtset.exe'
         if not self.process_path.exists():
             raise FileNotFoundError(f"MTSET executable not found at {self.process_path}")
         
         # Define filepath for the statefile
-        self.fpath = submodels_path / 'tdat.{}'.format(self.analysis_name)
+        self.fpath = self.submodels_path / 'tdat.{}'.format(self.analysis_name)
 
         # Define filepath for walls.xxx
-        self.wallspath = submodels_path / "walls.{}".format(self.analysis_name)
+        self.wallspath = self.submodels_path / "walls.{}".format(self.analysis_name)
     
 
     def StdinWrite(self,

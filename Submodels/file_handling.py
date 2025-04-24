@@ -103,15 +103,12 @@ from scipy import interpolate
 from pathlib import Path
 from typing import Optional
 
-
 # Handle local versus global execution of the file with imports
 if __name__ == "__main__":
     from Parameterizations import AirfoilParameterization
 else:
     from .Parameterizations import AirfoilParameterization
 
-parent_dir = Path(__file__).resolve().parent.parent
-submodels_path = parent_dir / "Submodels"
 
 class fileHandling:
     """
@@ -220,6 +217,10 @@ class fileHandling:
             self.Y_TOP_MULTIPLIER = 2.5
             self.X_FRONT_OFFSET = 2
             self.X_AFT_OFFSET = 2
+
+            # Define key paths/directories
+            self.parent_dir = Path(__file__).resolve().parent.parent
+            self.submodels_path = self.parent_dir / "Submodels"
                         
 
         def GetGridSize(self) -> list[float, float, float, float]:
@@ -353,7 +354,7 @@ class fileHandling:
             xy_centerbody = xy_centerbody / self.ref_length
 
             # Generate walls.xxx input data structure
-            file_path = submodels_path / "walls.{}".format(self.case_name)
+            file_path = self.submodels_path / "walls.{}".format(self.case_name)
             with open(file_path, "w") as file:
                 # Write opening lines of the file
                 file.write(self.case_name + '\n')
@@ -411,6 +412,10 @@ class fileHandling:
             self.case_name= case_name
             self.ref_length = ref_length
             self.CENTERBODY_ROTOR_THICKNESS = centerbody_rotor_thickness
+
+            # Define key paths/directories
+            self.parent_dir = Path(__file__).resolve().parent.parent
+            self.submodels_path = self.parent_dir / "Submodels"
 
 
         def ValidateBladeThickness(self, 
@@ -967,7 +972,7 @@ class fileHandling:
             """
 
             # Open the tflow.xxx file and start writing the required input data to it
-            file_path = submodels_path / "tflow.{}".format(self.case_name)
+            file_path = self.submodels_path / "tflow.{}".format(self.case_name)
             with open(file_path, "w") as file:
                 # Write the case name to the file
                 file.write('NAME\n')

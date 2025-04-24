@@ -48,8 +48,6 @@ import subprocess
 import time
 from pathlib import Path
 
-parent_dir = Path(__file__).resolve().parent.parent
-submodels_path = parent_dir / "Submodels"
 
 class MTFLO_call:
     """
@@ -73,9 +71,12 @@ class MTFLO_call:
 
         self.analysis_name = analysis_name
 
+        # Define key paths/directories
+        self.parent_dir = Path(__file__).resolve().parent.parent
+        self.submodels_path = self.parent_dir / "Submodels"
 
         # Define filepath of MTFLO as being in the same folder as this Python file
-        self.process_path = submodels_path / 'mtflo.exe'
+        self.process_path = self.submodels_path / 'mtflo.exe'
         if not self.process_path.exists():
             raise FileNotFoundError(f"MTFLO executable not found at {self.process_path}")
         
@@ -198,7 +199,7 @@ class MTFLO_call:
         self.LoadForcingField()
 
         # Wait until file has been processed
-        fpath = submodels_path / "tdat.{}".format(self.analysis_name)
+        fpath = self.submodels_path / "tdat.{}".format(self.analysis_name)
         while not self.FileStatus(fpath):
             time.sleep(0.01)
 

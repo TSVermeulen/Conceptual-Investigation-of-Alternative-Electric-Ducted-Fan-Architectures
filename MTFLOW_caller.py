@@ -91,12 +91,8 @@ sys.path.append(str(Path(__file__).resolve().parent))
 
 from Submodels.MTSET_call import MTSET_call
 from Submodels.MTFLO_call import MTFLO_call
-from Submodels.MTSOL_call import MTSOL_call, ExitFlag
+from Submodels.MTSOL_call import MTSOL_call, ExitFlag, OutputType
 from Submodels.file_handling import fileHandling
-
-# Define key paths/directories
-parent_dir = Path(__file__).resolve().parent
-submodels_path = parent_dir / "Submodels"
 
 
 class MTFLOW_caller:
@@ -174,6 +170,10 @@ class MTFLOW_caller:
         seed = kwargs.get("seed", 42)
         random.seed(seed)
 
+        # Define key paths/directories
+        self.parent_dir = Path(__file__).resolve().parent
+        self.submodels_path = self.parent_dir / "Submodels"
+
 
     def HandleChoking(self,
                       exit_flag: int,
@@ -205,7 +205,7 @@ class MTFLOW_caller:
 
     def caller(self,
                external_inputs: bool = False,
-               output_type: int = 0,
+               output_type: OutputType = OutputType.FORCES_ONLY,
                ) -> tuple[int, int]:
         """ 
         Executes a complete MTSET-MTFLO-MTSOL evaluation, while handling grid issues and choking issues. 
@@ -215,8 +215,8 @@ class MTFLOW_caller:
         - external_inputs : bool, optional
             A boolean controlling the generation of the MTFLO and MTSET input files. If true, assumes walls.analysis_name and tflow.analysis_name have been generated outside of MTFLOW_caller. 
             This is useful for debugging or validation against existing, external data. 
-        - output_type : int, optional
-            A control integer to determine which output files to generate. 0 corresponds to only the forces file, while any other integer generates all files. 
+        - output_type : OutputType, optional
+            An enum to determine which output files to generate. OutputType.FORCES_ONLY generates only the forces file, while OutputType.ALL_FILES generates all files.
 
         Returns
         -------
@@ -230,102 +230,104 @@ class MTFLOW_caller:
 
         try:
             current_dir = Path.cwd()
-            os.chdir(submodels_path)
+            os.chdir(self.submodels_path) 
+            
+            # --------------------
+            # First step is generating the MTSET input file - walls.analysis_name
+            # As the MTFLO input file also contains a dependency on operating condition through Omega, it must be generated *within* the MTSOL loop. 
+            # The walls.analysis_name file, which is the input to MTSET, does not contain any dependencies, and therefore can be generated outside of this loop here.
+            # --------------------
+
+            file_handler = fileHandling()
+
+            if not external_inputs:
+                file_handler.fileHandlingMTSET(params_CB=self.centrebody_params,
+                                            params_duct=self.duct_params,
+                                            case_name=self.analysis_name,
+                                            ref_length=self.ref_length).GenerateMTSETInput()
+                
+            # --------------------
+            # Construct the initial grid in MTSET
+            # --------------------
+    
+            MTSET_call(analysis_name=self.analysis_name).caller()
+                
+            # --------------------
+            # Check the grid by running a simple, fan-less, inviscid low-Mach case. If there is an issue with the grid MTSOL will crash
+            # Hence we can check the grid by checking the exit flag
+            # --------------------
+                
+            # Initialize count of grid checks and exit flag
+            check_count = 1
+            exit_flag_gridtest = ExitFlag.NOT_PERFORMED.value
+                
+            while exit_flag_gridtest != ExitFlag.SUCCESS.value:
+                exit_flag_gridtest, iter_count_gridtest = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
+                                                                    analysis_name=self.analysis_name).caller(run_viscous=False,
+                                                                                                            generate_output=False)
+                    
+                if exit_flag_gridtest == ExitFlag.SUCCESS.value:  # If the grid status is okay, break out of the checking loop and continue
+                    break
+
+                # If the grid is incorrect, change grid parameters and rerun MTSET to update the grid. 
+                # If first_check is true, we can try the suggested coefficients
+                # The updated e and x coefficients reduce the number of streamwise points on the airfoil elements (by 0.1 * Npoints), 
+                # while yielding a more "rounded/elliptic" grid due to the reduced x-coefficient.
+                if check_count == 1:
+                    # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid   
+                    streamwise_points = 141  
+                    grid_e_coeff = 0.8
+                    grid_x_coeff = 0.8
+                elif check_count == 2:
+                    # Adjust grid parameters to try and fix the grid, while also keeping the reduced number of streamwise_points
+                    grid_e_coeff = 0.7  
+                    grid_x_coeff = 0.5
+                    streamwise_points = 141
+                elif check_count == 10: 
+                    exit_flag_gridtest = ExitFlag.CRASH.value  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
+                    os.chdir(current_dir)  # Return working directory to the main folder
+                    return exit_flag_gridtest, iter_count_gridtest
+                else:
+                    # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
+                    grid_e_coeff = random.uniform(0.6, 1.0)
+                    grid_x_coeff = random.uniform(0.2, 0.95)
+                    streamwise_points= 141  # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid
+                    
+                MTSET_call(analysis_name=self.analysis_name,
+                        grid_e_coeff=grid_e_coeff,
+                        grid_x_coeff=grid_x_coeff,
+                        streamwise_points=streamwise_points).caller()
+                
+                check_count += 1
+
+            # --------------------
+            # Execute MTSOl solver
+            # Passes the exit flag to determine if any issues have occurred. 
+            # --------------------
+
+            exit_flag = ExitFlag.NOT_PERFORMED.value  # Initialize exit flag
+            
+            while exit_flag not in (ExitFlag.SUCCESS.value, ExitFlag.NON_CONVERGENCE.value) and exit_flag_gridtest != ExitFlag.CRASH.value:
+                if not external_inputs:
+                    file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
+                                                ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
+                                                                                                design_params=self.design_parameters)  # Create the MTFLO input file
+                    
+                MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
+                
+                exit_flag, iter_count = MTSOL_call(operating_conditions=self.operating_conditions,
+                                                analysis_name=self.analysis_name).caller(run_viscous=True,
+                                                                                            generate_output=True,
+                                                                                            output_type=output_type)
+                
+                self.HandleChoking(exit_flag=exit_flag)  # Check completion status of MTSOL
+        
         except OSError as e:
             raise OSError from e
-            
-        # --------------------
-        # First step is generating the MTSET input file - walls.analysis_name
-        # As the MTFLO input file also contains a dependency on operating condition through Omega, it must be generated *within* the MTSOL loop. 
-        # The walls.analysis_name file, which is the input to MTSET, does not contain any dependencies, and therefore can be generated outside of this loop here.
-        # --------------------
 
-        file_handler = fileHandling()
-
-        if not external_inputs:
-            file_handler.fileHandlingMTSET(params_CB=self.centrebody_params,
-                                           params_duct=self.duct_params,
-                                           case_name=self.analysis_name,
-                                           ref_length=self.ref_length).GenerateMTSETInput()
-            
-        # --------------------
-        # Construct the initial grid in MTSET
-        # --------------------
-   
-        MTSET_call(analysis_name=self.analysis_name).caller()
-            
-        # --------------------
-        # Check the grid by running a simple, fan-less, inviscid low-Mach case. If there is an issue with the grid MTSOL will crash
-        # Hence we can check the grid by checking the exit flag
-        # --------------------
-            
-        # Initialize count of grid checks and exit flag
-        check_count = 1
-        exit_flag_gridtest = ExitFlag.NOT_PERFORMED.value
-            
-        while exit_flag_gridtest != ExitFlag.SUCCESS.value:
-            exit_flag_gridtest, iter_count_gridtest = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
-                                                                 analysis_name=self.analysis_name).caller(run_viscous=False,
-                                                                                                          generate_output=False)
-                
-            if exit_flag_gridtest == ExitFlag.SUCCESS.value:  # If the grid status is okay, break out of the checking loop and continue
-                break
-
-            # If the grid is incorrect, change grid parameters and rerun MTSET to update the grid. 
-            # If first_check is true, we can try the suggested coefficients
-            # The updated e and x coefficients reduce the number of streamwise points on the airfoil elements (by 0.1 * Npoints), 
-            # while yielding a more "rounded/elliptic" grid due to the reduced x-coefficient.
-            if check_count == 1:
-                # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid   
-                streamwise_points = 141  
-                grid_e_coeff = 0.8
-                grid_x_coeff = 0.8
-            elif check_count == 2:
-                # Adjust grid parameters to try and fix the grid, while also keeping the reduced number of streamwise_points
-                grid_e_coeff = 0.7  
-                grid_x_coeff = 0.5
-                streamwise_points = 141
-            elif check_count == 10: 
-                exit_flag_gridtest = ExitFlag.CRASH.value  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
-                os.chdir(current_dir)  # Return working directory to the main folder
-                return exit_flag_gridtest, iter_count_gridtest
-            else:
-                # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
-                grid_e_coeff = random.uniform(0.6, 1.0)
-                grid_x_coeff = random.uniform(0.2, 0.95)
-                streamwise_points= 141  # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid
-                   
-            MTSET_call(analysis_name=self.analysis_name,
-                       grid_e_coeff=grid_e_coeff,
-                       grid_x_coeff=grid_x_coeff,
-                       streamwise_points=streamwise_points).caller()
-               
-            check_count += 1
-
-        # --------------------
-        # Execute MTSOl solver
-        # Passes the exit flag to determine if any issues have occurred. 
-        # --------------------
-
-        exit_flag = ExitFlag.NOT_PERFORMED.value  # Initialize exit flag
-        
-        while exit_flag not in (ExitFlag.SUCCESS.value, ExitFlag.NON_CONVERGENCE.value) and exit_flag_gridtest != ExitFlag.CRASH.value:
-            if not external_inputs:
-                file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
-                                               ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
-                                                                                              design_params=self.design_parameters)  # Create the MTFLO input file
-                
-            MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
-               
-            exit_flag, iter_count = MTSOL_call(operating_conditions=self.operating_conditions,
-                                               analysis_name=self.analysis_name).caller(run_viscous=True,
-                                                                                        generate_output=True,
-                                                                                        output_type=output_type)
-               
-            self.HandleChoking(exit_flag=exit_flag)  # Check completion status of MTSOL
-            
-        # Return working directory to the main folder
-        os.chdir(current_dir)
+        finally:             
+            # Return working directory to the main folder
+            os.chdir(current_dir)
 
         return exit_flag, iter_count
 

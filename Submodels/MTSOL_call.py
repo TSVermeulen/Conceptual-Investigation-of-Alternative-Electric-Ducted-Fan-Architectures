@@ -65,8 +65,6 @@ from enum import Enum
 from pathlib import Path
 import time
 
-parent_dir = Path(__file__).resolve().parent.parent
-submodels_path = parent_dir / "Submodels"
 
 class FileCreatedHandling(FileSystemEventHandler):
     """ 
@@ -84,7 +82,7 @@ class FileCreatedHandling(FileSystemEventHandler):
         """ Handle copying of the forces.analysis_name output file."""
         if event.src_path == self.file_path:
             shutil.copy(self.file_path, self.destination)
-            os.unlink(self.file_path)
+            self.file_path.unlink()
             self.file_processed = True
         
 
@@ -183,18 +181,25 @@ class MTSOL_call:
         self.SAMPLE_SIZE = 10  # Number of iterations to use to average over in case of non-convergence. 
         self.ITER_LIMIT = 50  # Maximum number of iterations to perform before non-convergence is assumed.
 
+        # Define key paths/directories
+        self.parent_dir = Path(__file__).resolve().parent.parent
+        self.submodels_path = self.parent_dir / "Submodels"
+
         # Define filepath of MTSOL as being in the same folder as this Python file
-        self.fpath = submodels_path / 'mtsol.exe'
+        self.fpath = self.submodels_path / 'mtsol.exe'
         if not self.fpath.exists():
             raise FileNotFoundError(f"MTSOL executable not found at {self.fpath}")
         
         # Define filepaths
-        self.filepaths = {'forces': submodels_path / self.FILE_TEMPLATES['forces'].format(self.analysis_name),
-                          'flowfield': submodels_path / self.FILE_TEMPLATES['flowfield'].format(self.analysis_name),
-                          'boundary_layer': submodels_path / self.FILE_TEMPLATES['boundary_layer'].format(self.analysis_name)} 
+        self.filepaths = {'forces': self.submodels_path / self.FILE_TEMPLATES['forces'].format(self.analysis_name),
+                          'flowfield': self.submodels_path / self.FILE_TEMPLATES['flowfield'].format(self.analysis_name),
+                          'boundary_layer': self.submodels_path / self.FILE_TEMPLATES['boundary_layer'].format(self.analysis_name)} 
 
         # Define the dump folder to write non-converged forces output files to
-        self.dump_folder = submodels_path / "MTSOL_output_files"
+        self.dump_folder = self.submodels_path / "MTSOL_output_files"
+
+        # Define forces non-convergence file tmeplate
+        self.forces_template = 'forces.{}.{}'
 
 
     def StdinWrite(self,
@@ -379,7 +384,7 @@ class MTSOL_call:
                     max_wait_time = 5  # Maximum wait time in seconds
                     start_time = time.time()
                     # Wait for the file creation to be finished
-                    target_path = submodels_path / self.FILE_TEMPLATES[output_file].format(self.analysis_name)
+                    target_path = self.submodels_path / self.FILE_TEMPLATES[output_file].format(self.analysis_name)
                     while not target_path.exists() and (time.time() - start_time) < max_wait_time:
                         time.sleep(0.01) 
                 break
@@ -423,11 +428,10 @@ class MTSOL_call:
 
         Parameters
         ----------
-        - output_type : int
-            A control integer to determine which output files need to be generated:
-                - 0: Generate only the forces file (default) 
-                - 1: Generate all files (forces, flowfield, boundary_layer)
-            No other values are currently supported. 
+        - output_type : OutputType
+            An enum to determine which output files need to be generated:
+                - OutputType.FORCES_ONLY: Generate only the forces file (default)
+                - OutputType.ALL_FILES: Generate all files (forces, flowfield, boundary_layer)
 
         Returns
         -------
@@ -528,8 +532,8 @@ class MTSOL_call:
                     yield f.readlines()
 
         # Construct file pattern to match all output files in the MTSOL_output_files directory
-        file_pattern_dir = parent_dir / "Submodels" / "MTSOL_output_files"
-        file_pattern = str(file_pattern_dir) + "/forces*"
+        file_pattern_dir = self.submodels_path / "MTSOL_output_files"
+        file_pattern = str(file_pattern_dir / "forces*")
 
         # Read in all files (collect into a list so we can transpose later)
         content = list(read_file_lines(file_pattern))
@@ -632,7 +636,7 @@ class MTSOL_call:
         iter_counter = 0
 
         # Initialize watchdog to check when output file has been created
-        copied_file = 'forces.{}.{}'.format(self.analysis_name, iter_counter)
+        copied_file = self.forces_template.format(self.analysis_name, iter_counter)
         event_handler = FileCreatedHandling(self.filepaths['forces'],
                                             self.dump_folder / copied_file)
 
@@ -872,8 +876,8 @@ class MTSOL_call:
             Flag to indicate whether to run a viscous solve. Default is False.
         - generate_output : bool, optional
             Flag to determine if MTFLOW outputs (forces, flowfield, boundary layer) should be generated. 
-        - output_type : int, optional
-            A control integer to determine which output files to generate. 0 corresponds to only the forces file, while any other integer generates all files. 
+        - output_type : OutputType, optional
+            An enum to determine which output files to generate. OutputType.FORCES_ONLY generates only the forces file, while OutputType.ALL_FILES generates all files.
 
         Returns
         -------

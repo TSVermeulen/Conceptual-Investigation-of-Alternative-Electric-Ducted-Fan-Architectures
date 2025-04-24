@@ -50,10 +50,11 @@ import os
 
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
-from setup import setup
+from folder_setup import setup
 
 if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
+    multiprocessing.set_start_method('spawn', force=True)
     
     """ Perform folder setup """
     setup()
@@ -63,7 +64,7 @@ if __name__ == "__main__":
     total_threads = multiprocessing.cpu_count()
     total_threads_avail = total_threads - RESERVED_THREADS
 
-    n_processes = total_threads_avail
+    n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used
     pool = multiprocessing.Pool(n_processes)
 
     # Create runner
@@ -88,6 +89,7 @@ if __name__ == "__main__":
 
     # Close the thread pool to free up resources
     pool.close()
+    pool.join()
 
     """ Save the results to a dill file for future reference """
     # This avoids needing to re-run the optimization if the results are needed later.

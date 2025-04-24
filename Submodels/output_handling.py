@@ -46,8 +46,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-parent_dir = Path(__file__).resolve().parent.parent
-submodels_path = parent_dir / "Submodels"
 
 class output_visualisation:
     """
@@ -116,11 +114,15 @@ class output_visualisation:
 
         self.analysis_name = analysis_name
 
+        # Define key paths/directories
+        self.parent_dir = Path(__file__).resolve().parent.parent
+        self.submodels_path = self.parent_dir / "Submodels"
+
         # Validate if the required files exist
-        self.flowfield_path = submodels_path / f"flowfield.{self.analysis_name}"
-        self.walls_path = submodels_path / f"walls.{self.analysis_name}"
-        self.tflow_path = submodels_path / f"tflow.{self.analysis_name}"
-        self.boundary_layer_path = submodels_path / f"boundary_layer.{self.analysis_name}"
+        self.flowfield_path = self.submodels_path / f"flowfield.{self.analysis_name}"
+        self.walls_path = self.submodels_path / f"walls.{self.analysis_name}"
+        self.tflow_path = self.submodels_path / f"tflow.{self.analysis_name}"
+        self.boundary_layer_path = self.submodels_path / f"boundary_layer.{self.analysis_name}"
 
         if not self.flowfield_path.exists() or not self.walls_path.exists() or not self.tflow_path.exists():
             raise FileNotFoundError(f"One of the required files flowfield.{self.analysis_name}, walls.{self.analysis_name}, or tflow.{self.analysis_name} was not found.")
@@ -550,8 +552,12 @@ class output_processing:
 
         self.analysis_name = analysis_name
 
+        # Define key paths/directories
+        self.parent_dir = Path(__file__).resolve().parent.parent
+        self.submodels_path = self.parent_dir / "Submodels"
+
         # Validate if the required forces file exist
-        self.forces_path = submodels_path / f"forces.{self.analysis_name}"
+        self.forces_path = self.submodels_path / f"forces.{self.analysis_name}"
 
         if not self.forces_path.exists():
             raise FileNotFoundError(f"The required file forces.{self.analysis_name} was not found.")

@@ -1,13 +1,12 @@
 """
-setup
+folder_setup
 =====
 
 Simple script to ensure all folders exist/are created
 
 """
 
-import os
-import sys
+
 from pathlib import Path
 
 def setup() -> None:

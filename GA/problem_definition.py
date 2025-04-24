@@ -52,9 +52,7 @@ from pymoo.core.problem import ElementwiseProblem
 from scipy import interpolate
 
 # Add the parent and submodels paths to the system path
-parent_dir = Path(__file__).resolve().parent.parent
-submodels_path = parent_dir / "Submodels"
-sys.path.extend([str(parent_dir), str(submodels_path)])
+sys.path.extend([str(Path(__file__).resolve().parent.parent), str(Path(__file__).resolve().parent.parent / "Submodels")])
 
 # Import MTFLOW interface submodels and other dependencies
 from MTFLOW_caller import MTFLOW_caller
@@ -106,13 +104,17 @@ class OptimizationProblem(ElementwiseProblem):
                          n_eq_constr=len(config.constraint_IDs[1]),
                          **kwargs)
         
+        # Define key paths/directories
+        self.parent_dir = Path(__file__).resolve().parent.parent
+        self.submodels_path = self.parent_dir / "Submodels"
+        
         # Create folder path to store statefiles
-        self.dump_folder = submodels_path / "Evaluated_tdat_state_files"
+        self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
                 
 
     def GenerateAnalysisName(self) -> str:
         """
-        Generate a unique analysis name with a length of 26 characters.
+        Generate a unique analysis name with a length of 30 characters.
         This is required to enable multi-threading of the optimization problem, and log each state file,
         since each evaluation of MTFLOW requires a unique set of files. 
 
@@ -127,12 +129,12 @@ class OptimizationProblem(ElementwiseProblem):
         timestamp = f"{now:%y%m%d%H%M%S}"  # 12 chars
 
         # Generate a unique identifier using UUID
-        unique_id = str(uuid.uuid4()).replace('-', '')[:8]  # 8 chars max
+        unique_id = str(uuid.uuid4()).replace('-', '')[:12]  # 12 chars max
 
         # Add a process ID to the analysis name to ensure uniqueness in multi-threaded environments.
         process_id = f"{os.getpid() % 10000:04d}"  # 4 chars max
 
-        # The analysis name is formatted as: <YYMMDDHHMMSS>_<process_ID>_<unique_id>. with a maximum total length of 26 characters
+        # The analysis name is formatted as: <YYMMDDHHMMSS>_<process_ID>_<unique_id>. with a maximum total length of 30 characters
         analysis_name = f"{timestamp}_{process_id}_{unique_id}"
         
         return analysis_name
@@ -352,13 +354,13 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Delete the walls, tflow, forces, flowfield, and boundary layer files if they exist
         for file_type in ["walls", "tflow", "forces", "flowfield", "boundary_layer"]:
-            file_path = submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
+            file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
             if file_path.exists():
                 file_path.unlink()
 
         # Move the state file into the dump_folder
-        original_file = submodels_path / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
-        copied_file = submodels_path / self.dump_folder / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
+        original_file = self.submodels_path / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
+        copied_file = self.dump_folder / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
         shutil.copy(original_file, 
                     copied_file)
         original_file.unlink()
