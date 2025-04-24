@@ -111,6 +111,8 @@ class OptimizationProblem(ElementwiseProblem):
         
         # Create folder path to store statefiles
         self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
+        # Check existance of dump folder
+        self.dump_folder.mkdir(exist_ok=True)
                 
 
     def GenerateAnalysisName(self) -> str:

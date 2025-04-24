@@ -83,12 +83,31 @@ Changelog:
 import os
 import random
 import numpy as np
+from contextlib import contextmanager
 from pathlib import Path
 
 from Submodels.MTSET_call import MTSET_call
 from Submodels.MTFLO_call import MTFLO_call
 from Submodels.MTSOL_call import MTSOL_call, ExitFlag, OutputType
 from Submodels.file_handling import fileHandling
+
+@contextmanager
+def change_working_directory(dir: Path):
+    """
+    Context manager to temporarily change the working directory.
+
+    Parameters
+    ----------
+    - dir : Path
+        Path to which the working directory needs to be changed.
+    """
+
+    current_dir = Path.cwd()
+    try:
+        os.chdir(dir)
+        yield
+    finally:
+        os.chdir(current_dir)
 
 
 class MTFLOW_caller:
@@ -163,7 +182,7 @@ class MTFLOW_caller:
         self.ref_length = ref_length
 
         # Set the seed for the random number generator to ensure repeatability. 
-        seed = kwargs.get("seed", None)
+        seed = kwargs.get("seed")
         random.seed(seed)
 
         # Define key paths/directories
@@ -221,12 +240,11 @@ class MTFLOW_caller:
         """
             
         # --------------------
-        # Change working directory to the submodels folder
+        # Change working directory to the submodels folder using the context manager.
+        # Execute all code within the context manager
         # --------------------
 
-        try:
-            current_dir = Path.cwd()
-            os.chdir(self.submodels_path) 
+        with change_working_directory(self.submodels_path):
             
             # --------------------
             # First step is generating the MTSET input file - walls.analysis_name
@@ -281,7 +299,6 @@ class MTFLOW_caller:
                     streamwise_points = 141
                 elif check_count == 10: 
                     exit_flag_gridtest = ExitFlag.CRASH.value  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
-                    os.chdir(current_dir)  # Return working directory to the main folder
                     return exit_flag_gridtest, iter_count_gridtest
                 else:
                     # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
@@ -317,13 +334,6 @@ class MTFLOW_caller:
                                                                                             output_type=output_type)
                 
                 self.HandleChoking(exit_flag=exit_flag)  # Check completion status of MTSOL
-        
-        except OSError as e:
-            raise OSError from e
-
-        finally:             
-            # Return working directory to the main folder
-            os.chdir(current_dir)
 
         return exit_flag, iter_count
 

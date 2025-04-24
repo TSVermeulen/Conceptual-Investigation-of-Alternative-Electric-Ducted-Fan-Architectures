@@ -441,9 +441,9 @@ class MTSOL_call:
         self.WriteStateFile()
 
         # First delete the output files if they exist already
-        for output_file in self.filepaths.values():
-            if output_file.exists():
-                output_file.unlink()
+        for path in self.filepaths.values():
+            if path.exists():
+                path.unlink()
 
         # Dump the forces data
         self.StdinWrite("F")
@@ -488,16 +488,15 @@ class MTSOL_call:
         """
 
         # Initialize iteration count 
-        iter_count = 0    
-        self.iter_counter = iter_count    
+        self.iter_counter = 0 
 
         # Keep converging until the iteration count exceeds the limit
-        while iter_count < self.ITER_LIMIT:
+        while self.iter_counter < self.ITER_LIMIT:
             #Execute next iteration(s)
             self.StdinWrite(f"x {self.ITER_STEP_SIZE}")
 
             # Increase iteration counter by step size
-            self.iter_count += self.ITER_STEP_SIZE     
+            self.iter_counter += self.ITER_STEP_SIZE     
 
             # Check the exit flag to see if the solution has converged
             # If the solution has converged, break out of the iteration loop
@@ -510,7 +509,7 @@ class MTSOL_call:
             exit_flag = ExitFlag.NON_CONVERGENCE.value
 
         # Return the exit flag and iteration counter
-        return exit_flag, self.iter_count
+        return exit_flag, self.iter_counter
 
 
     def GetAverageValues(self,
@@ -526,8 +525,9 @@ class MTSOL_call:
         # Creatge a file generator to read the output files
         def read_file_lines():
             # Generator to yield lines from files matching the pattern
-            for output_file in (self.submodels_path / "MTSOL_output_files").glob("forces*"):
-                with open(file, "r") as f:
+            output_dir = self.submodels_path / "MTSOL_output_files"
+            for output_file in output_dir.glob("forces*"):
+                with open(output_file, "r") as f:
                     yield f.readlines()
     
         # Read in all files (collect into a list so we can transpose later)
@@ -636,8 +636,9 @@ class MTSOL_call:
                                             self.dump_folder / copied_file)
 
         observer = Observer()
+        monitor_path = str(self.submodels_path)
         observer.schedule(event_handler,
-                          path=os.getcwd(),
+                          path=monitor_path,
                           recursive=False,
                           )   
         observer.start()
@@ -672,7 +673,7 @@ class MTSOL_call:
                                                 self.dump_folder / copied_file)
             observer.unschedule_all()
             observer.schedule(event_handler,
-                              path=os.getcwd(),
+                              path=monitor_path,
                               recursive=False)            
 
         # Wrap up the watchdog
@@ -720,6 +721,8 @@ class MTSOL_call:
                 for key, file in self.filepaths.items():
                     if file.exists() and key != 'forces':
                         file.unlink()
+                for file in self.dump_folder.glob(f"forces*"):
+                    file.unlink()
                 return
             else:
                 return
