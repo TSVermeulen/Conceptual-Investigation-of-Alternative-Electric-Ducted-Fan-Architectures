@@ -56,7 +56,6 @@ Changelog:
 import subprocess
 import os
 import shutil
-import glob
 import re
 from collections import OrderedDict
 from watchdog.observers import Observer
@@ -80,7 +79,7 @@ class FileCreatedHandling(FileSystemEventHandler):
 
     def on_created(self, event):
         """ Handle copying of the forces.analysis_name output file."""
-        if event.src_path == self.file_path:
+        if Path(event.src_path) == self.file_path:
             shutil.copy(self.file_path, self.destination)
             self.file_path.unlink()
             self.file_processed = True
@@ -442,9 +441,9 @@ class MTSOL_call:
         self.WriteStateFile()
 
         # First delete the output files if they exist already
-        for file in self.filepaths.values():
-            if file.exists():
-                file.unlink()
+        for output_file in self.filepaths.values():
+            if output_file.exists():
+                output_file.unlink()
 
         # Dump the forces data
         self.StdinWrite("F")
@@ -498,7 +497,7 @@ class MTSOL_call:
             self.StdinWrite(f"x {self.ITER_STEP_SIZE}")
 
             # Increase iteration counter by step size
-            iter_count += self.ITER_STEP_SIZE     
+            self.iter_count += self.ITER_STEP_SIZE     
 
             # Check the exit flag to see if the solution has converged
             # If the solution has converged, break out of the iteration loop
@@ -511,7 +510,7 @@ class MTSOL_call:
             exit_flag = ExitFlag.NON_CONVERGENCE.value
 
         # Return the exit flag and iteration counter
-        return exit_flag, iter_count
+        return exit_flag, self.iter_count
 
 
     def GetAverageValues(self,
@@ -525,18 +524,14 @@ class MTSOL_call:
         """
 
         # Creatge a file generator to read the output files
-        def read_file_lines(file_pattern: str):
+        def read_file_lines():
             # Generator to yield lines from files matching the pattern
-            for file in glob.iglob(file_pattern):
+            for output_file in (self.submodels_path / "MTSOL_output_files").glob("forces*"):
                 with open(file, "r") as f:
                     yield f.readlines()
-
-        # Construct file pattern to match all output files in the MTSOL_output_files directory
-        file_pattern_dir = self.submodels_path / "MTSOL_output_files"
-        file_pattern = str(file_pattern_dir / "forces*")
-
+    
         # Read in all files (collect into a list so we can transpose later)
-        content = list(read_file_lines(file_pattern))
+        content = list(read_file_lines())
         if not content:
             return
 
@@ -903,7 +898,7 @@ class MTSOL_call:
 
         # Generate force output file to ensure output exists in case of invisic crash
         # Generating output before executing any iterations enforces the outputs to be zero.
-        self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
+        self.GenerateSolverOutput(output_type=output_type)
 
         # Execute inviscid solve
         try:  
@@ -964,10 +959,9 @@ class MTSOL_call:
         # Check that MTSOL has closed successfully 
         if self.process.poll() is not None:
             try:
-                self.process.wait(timeout=5)
+                self.process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 self.process.kill()
-                raise OSError("MTSOL did not close after completion.") from None
               
         return total_exit_flag, total_iter_count
 

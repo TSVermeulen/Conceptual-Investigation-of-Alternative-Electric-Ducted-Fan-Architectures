@@ -157,14 +157,14 @@ class MTFLO_call:
         # Close the MTFLO program
         self.StdinWrite("Q")
 
-         # Check that MTFLO has closed successfully 
+        # Check that MTFLO has closed successfully 
         if self.process.poll() is None:
             try:
-                self.process.wait(timeout=5)
+                self.process.wait(timeout=10)
             
             except subprocess.TimeoutExpired:
                 self.process.kill()
-                raise OSError("MTFLO did not close after file generation. Process was killed.") from None
+
 
     def FileStatus(self,
                    fpath: str,

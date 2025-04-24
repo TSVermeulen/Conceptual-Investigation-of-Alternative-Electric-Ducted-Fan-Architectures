@@ -361,10 +361,14 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Move the state file into the dump_folder
         original_file = self.submodels_path / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
-        copied_file = self.dump_folder / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
-        shutil.copy(original_file, 
-                    copied_file)
-        original_file.unlink()
+        if not original_file.exists():
+            # If the original file does not exist for some reason, we exit the function early to avoid errors
+            return
+        else:
+            copied_file = self.dump_folder / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
+            shutil.copy(original_file, 
+                        copied_file)
+            original_file.unlink()
 
 
     def ComputeDuctRadialLocation(self) -> None:

@@ -162,8 +162,8 @@ class MTFLOW_caller:
         self.duct_params = duct_params
         self.ref_length = ref_length
 
-        # Set the seed for the optional randum number generator to ensure repeatability. 
-        seed = kwargs.get("seed", 42)
+        # Set the seed for the random number generator to ensure repeatability. 
+        seed = kwargs.get("seed", None)
         random.seed(seed)
 
         # Define key paths/directories

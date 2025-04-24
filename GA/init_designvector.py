@@ -77,8 +77,8 @@ class DesignVector():
             vars.append(Real(bounds=(0.1, 0.9)))  # x_t
             vars.append(Real(bounds=(0.0125, 0.25)))  # y_t
             vars.append(Real(bounds=(0, 0.05)))  # dz_TE
-            vars.append(Real(bounds=(-0.1, 0)))  # r_LE
-            vars.append(Real(bounds=(0, 0.5)))  # trailing_wedge_angle
+            vars.append(Real(bounds=(-0.1, -0.001)))  # r_LE
+            vars.append(Real(bounds=(0.01, np.pi/3)))  # trailing_wedge_angle
             vars.append(Real(bounds=(0.25, 4)))  # Chord Length
         if cfg.OPTIMIZE_DUCT:
             # If the duct is to be optimised, intialise the variable types
@@ -93,10 +93,10 @@ class DesignVector():
             vars.append(Real(bounds=(0, 0.1)))  # y_c
             vars.append(Real(bounds=(0, 0.2)))  # z_TE
             vars.append(Real(bounds=(0, 0.05)))  # dz_TE
-            vars.append(Real(bounds=(-0.1, 0)))  # r_LE
-            vars.append(Real(bounds=(0, 0.5)))  # trailing_wedge_angle
-            vars.append(Real(bounds=(0, 0.5)))  # trailing_camberline_angle
-            vars.append(Real(bounds=(0, 0.5)))  # leading_edge_direction
+            vars.append(Real(bounds=(-0.1, -0.001)))  # r_LE
+            vars.append(Real(bounds=(0.01, np.pi/3)))  # trailing_wedge_angle
+            vars.append(Real(bounds=(0.01, np.pi/3)))  # trailing_camberline_angle
+            vars.append(Real(bounds=(0.01, np.pi/3)))  # leading_edge_direction
             vars.append(Real(bounds=(0.25, 2.5)))  # Chord Length
             vars.append(Real(bounds=(-0.5, 0.5)))  # Leading Edge X-Coordinate
 
@@ -115,10 +115,10 @@ class DesignVector():
                     vars.append(Real(bounds=(0, 0.1)))  # y_c
                     vars.append(Real(bounds=(0, 0.2)))  # z_TE
                     vars.append(Real(bounds=(0, 0.05)))  # dz_TE
-                    vars.append(Real(bounds=(-0.1, 0)))  # r_LE
-                    vars.append(Real(bounds=(0, 0.5)))  # trailing_wedge_angle
-                    vars.append(Real(bounds=(0, 0.5)))  # trailing_camberline_angle
-                    vars.append(Real(bounds=(0, 0.5)))  # leading_edge_direction
+                    vars.append(Real(bounds=(-0.1, -0.001)))  # r_LE
+                    vars.append(Real(bounds=(0.01, np.pi/3)))  # trailing_wedge_angle
+                    vars.append(Real(bounds=(0.01, np.pi/3)))  # trailing_camberline_angle
+                    vars.append(Real(bounds=(0.01, np.pi/3)))  # leading_edge_direction
 
         for i in range(cfg.NUM_STAGES):
             if cfg.OPTIMIZE_STAGE[i]:

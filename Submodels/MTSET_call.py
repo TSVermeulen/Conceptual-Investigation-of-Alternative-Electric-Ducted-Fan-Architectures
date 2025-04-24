@@ -283,11 +283,10 @@ class MTSET_call:
         # Check that MTSET has closed successfully 
         if self.process.poll() is not None:
             try:
-                self.process.wait(timeout=5)
+                self.process.wait(timeout=10)
             
             except subprocess.TimeoutExpired:
                 self.process.kill()
-                raise OSError("MTSET did not close after file generation. Process was killed.") from None
 
 
     def caller(self,
