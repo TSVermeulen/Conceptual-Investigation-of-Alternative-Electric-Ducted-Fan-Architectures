@@ -45,12 +45,11 @@ Changelog:
 """
 
 import subprocess
-import os
 import time
 from pathlib import Path
 
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-submodels_path = Path(os.path.join(parent_dir, "Submodels"))
+parent_dir = Path(__file__).resolve().parent.parent
+submodels_path = parent_dir / "Submodels"
 
 class MTFLO_call:
     """
@@ -72,7 +71,7 @@ class MTFLO_call:
         self.analysis_name = analysis_name
 
         # Define filepath of MTFLO as being in the same folder as this Python file
-        self.process_path: str = os.getenv('MTFLO_PATH', submodels_path / 'mtflo.exe')
+        self.process_path = submodels_path / 'mtflo.exe'
         if not Path.exists(self.process_path):
             raise FileNotFoundError(f"MTFLO executable not found at {self.process_path}")
         

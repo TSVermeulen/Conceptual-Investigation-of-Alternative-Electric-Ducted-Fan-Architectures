@@ -39,7 +39,6 @@ Changelog:
 - V1.1: Added the output_processing() class to read the forces.analysis_name file and extract the thrust and power coefficients. 
 """
 
-import os
 import re
 from pathlib import Path
 
@@ -47,8 +46,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-submodels_path = Path(os.path.join(parent_dir, "Submodels"))
+parent_dir = Path(__file__).resolve().parent.parent
+submodels_path = parent_dir / "Submodels"
 
 class output_visualisation:
     """
@@ -123,11 +122,11 @@ class output_visualisation:
         self.tflow_path = submodels_path / f"tflow.{self.analysis_name}"
         self.boundary_layer_path = submodels_path / f"boundary_layer.{self.analysis_name}"
 
-        if not os.path.exists(self.flowfield_path) or not os.path.exists(self.walls_path) or not os.path.exists(self.tflow_path):
+        if not Path.exists(self.flowfield_path) or not Path.exists(self.walls_path) or not Path.exists(self.tflow_path):
             raise FileNotFoundError(f"One of the required files flowfield.{self.analysis_name}, walls.{self.analysis_name}, or tflow.{self.analysis_name} was not found.")
 
         # Check if the boundary layer file exists, and if so, set viscous_exists to True
-        if os.path.exists(self.boundary_layer_path):
+        if Path.exists(self.boundary_layer_path):
             self.viscous_exists = True
         else:
             self.viscous_exists = False
@@ -554,7 +553,7 @@ class output_processing:
         # Validate if the required forces file exist
         self.forces_path = submodels_path / f"forces.{self.analysis_name}"
 
-        if not os.path.exists(self.forces_path):
+        if not Path.exists(self.forces_path):
             raise FileNotFoundError(f"The required file forces.{self.analysis_name} was not found.")
     
 

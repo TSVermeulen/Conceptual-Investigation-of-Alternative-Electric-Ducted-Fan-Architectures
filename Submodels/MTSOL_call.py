@@ -54,7 +54,6 @@ Changelog:
 """
 
 import subprocess
-import os
 import shutil
 import glob
 import re
@@ -65,8 +64,8 @@ from enum import Enum
 from pathlib import Path
 import time
 
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-submodels_path = Path(os.path.join(parent_dir, "Submodels"))
+parent_dir = Path(__file__).resolve().parent.parent
+submodels_path = parent_dir / "Submodels"
 
 class FileCreatedHandling(FileSystemEventHandler):
     """ 
@@ -84,7 +83,7 @@ class FileCreatedHandling(FileSystemEventHandler):
         """ Handle copying of the forces.analysis_name output file."""
         if event.src_path == self.file_path:
             shutil.copy(self.file_path, self.destination)
-            os.unlink(self.file_path)
+            Path.unlink(self.file_path)
             self.file_processed = True
         
 
@@ -184,7 +183,7 @@ class MTSOL_call:
         self.ITER_LIMIT = 50  # Maximum number of iterations to perform before non-convergence is assumed.
 
         # Define filepath of MTSOL as being in the same folder as this Python file
-        self.fpath: str = os.getenv('MTSOL_PATH', submodels_path / 'mtsol.exe')
+        self.fpath = submodels_path / 'mtsol.exe'
         if not Path.exists(self.fpath):
             raise FileNotFoundError(f"MTSOL executable not found at {self.fpath}")
         
@@ -442,7 +441,7 @@ class MTSOL_call:
         # First delete the output files if they exist already
         for file in self.filepaths.values():
             if Path.exists(file):
-                os.unlink(file)
+                Path.unlink(file)
 
         # Dump the forces data
         self.StdinWrite("F")
@@ -530,7 +529,7 @@ class MTSOL_call:
                     yield f.readlines()
 
         # Construct file pattern to match all output files in the MTSOL_output_files directory
-        file_pattern = os.path.join(parent_dir, "Submodels", "MTSOL_output_files", "forces*")
+        file_pattern = parent_dir / "Submodels" / "MTSOL_output_files" / "forces*"
 
         # Read in all files (collect into a list so we can transpose later)
         content = list(read_file_lines(file_pattern))
@@ -626,12 +625,12 @@ class MTSOL_call:
         """
 
         # Create subfolder to put all output files into if the folder doesn't already exist
-        os.makedirs(self.dump_folder, 
-                    exist_ok=True)
+        Path.mkdir(self.dump_folder,
+                   exist_ok=True)
 
         # Delete the forces.analysisname file if it exists already
         if Path.exists(self.filepaths['forces']):
-            os.unlink(self.filepaths['forces'])
+            Path.unlink(self.filepaths['forces'])
 
         # Initialize iteration counter
         iter_counter = 0
@@ -643,7 +642,7 @@ class MTSOL_call:
 
         observer = Observer()
         observer.schedule(event_handler,
-                          path=os.getcwd(),
+                          path=submodels_path,
                           recursive=False,
                           )   
         observer.start()
@@ -678,7 +677,7 @@ class MTSOL_call:
                                                 self.dump_folder / copied_file)
             observer.unschedule_all()
             observer.schedule(event_handler,
-                              path=os.getcwd(),
+                              path=submodels_path,
                               recursive=False)            
 
         # Wrap up the watchdog
@@ -725,7 +724,7 @@ class MTSOL_call:
                 # For an inviscid crash, cleanup outputs
                 for file in self.filepaths:
                     if Path.exists(file) and file != self.filepaths['forces']:
-                        os.unlink(file)
+                        Path.unlink(file)
                 return
             else:
                 return

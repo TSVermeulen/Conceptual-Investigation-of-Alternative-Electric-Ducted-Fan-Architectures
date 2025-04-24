@@ -301,11 +301,11 @@ if __name__ == "__main__":
     # Test execution of constraints using a test-case forces output. 
 
     # Add the parent and submodels paths to the system path
-    import os
     import sys
-    parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    submodels_path = os.path.join(parent_dir, "Submodels")
-    sys.path.extend([parent_dir, submodels_path])
+    from pathlib import Path
+    parent_dir = Path(__file__).resolve().parent.parent
+    submodels_path = parent_dir / "Submodels"
+    sys.path.extend([str(parent_dir), str(submodels_path)])
 
     # Import MTFLOW interface submodels and other dependencies
     from Submodels.output_handling import output_processing

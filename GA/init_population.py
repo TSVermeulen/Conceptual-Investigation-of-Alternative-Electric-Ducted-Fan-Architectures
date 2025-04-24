@@ -49,7 +49,6 @@ Changelog:
 import numpy as np
 import numbers
 import random
-from types import ModuleType
 from pymoo.core.mixed import MixedVariableSampling
 from pymoo.core.population import Population
 from pymoo.core.individual import Individual

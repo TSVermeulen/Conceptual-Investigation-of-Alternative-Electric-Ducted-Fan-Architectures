@@ -34,14 +34,15 @@ from contextlib import contextmanager
 from enum import IntEnum, auto
 import os
 import sys
+from pathlib import Path
 
 # Define paths relative to this file for better reliability
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-submodels_path = os.path.join(parent_dir, "Submodels")
+parent_dir = Path(__file__).resolve().parent.parent
+submodels_path = parent_dir / "Submodels"
+ga_path = parent_dir / "GA"
 
 # Add the parent and submodels paths to the system path
-sys.path.extend([parent_dir, submodels_path])
+sys.path.extend([str(parent_dir), str(submodels_path)])
 
 # Import the GenerateMTFLOBlading function from the X22A_validator to generate dummy X22A blade data. 
 # Also define a context manager for GenerateMTFLOBlading to ensure the working directory is set correctly

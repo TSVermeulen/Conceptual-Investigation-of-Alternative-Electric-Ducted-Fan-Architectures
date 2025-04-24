@@ -87,7 +87,7 @@ import numpy as np
 from pathlib import Path
 
 # Enable submodel relative imports 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(str(Path(__file__).resolve().parent))
 
 from Submodels.MTSET_call import MTSET_call
 from Submodels.MTFLO_call import MTFLO_call
@@ -95,8 +95,8 @@ from Submodels.MTSOL_call import MTSOL_call, ExitFlag
 from Submodels.file_handling import fileHandling
 
 # Define key paths/directories
-parent_dir = os.path.dirname(os.path.realpath(__file__))
-submodels_path = Path(os.path.join(parent_dir, "Submodels"))
+parent_dir = Path(__file__).resolve().parent.parent
+submodels_path = parent_dir / "Submodels"
 
 
 class MTFLOW_caller:
@@ -226,7 +226,7 @@ class MTFLOW_caller:
         # --------------------
 
         try:
-            current_dir = os.getcwd()
+            current_dir = Path.cwd()
             os.chdir(submodels_path)
         except OSError as e:
             raise OSError from e

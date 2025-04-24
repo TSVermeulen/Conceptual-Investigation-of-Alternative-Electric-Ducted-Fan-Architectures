@@ -187,14 +187,13 @@ class Objectives:
         
 if __name__ == "__main__":
     # Run a test of the objectives class
-    import os
-    import sys
-    parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    submodels_path = os.path.join(parent_dir, "Submodels")
-    # Add the submodels path to the system path
-    sys.path.append(submodels_path)
+
     # Add the parent folder path to the system path
-    sys.path.append(parent_dir)
+    import sys
+    from pathlib import Path
+    parent_dir = Path(__file__).resolve().parent.parent
+    submodels_path = parent_dir / "Submodels"
+    sys.path.extend([str(parent_dir), str(submodels_path)])
 
     from Submodels.output_handling import output_processing
     import config

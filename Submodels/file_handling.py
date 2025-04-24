@@ -99,7 +99,6 @@ Changelog
 """
 
 import numpy as np
-import os
 from scipy import interpolate
 from pathlib import Path
 from typing import Optional
@@ -111,8 +110,8 @@ if __name__ == "__main__":
 else:
     from .Parameterizations import AirfoilParameterization
 
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-submodels_path = Path(os.path.join(parent_dir, "Submodels"))
+parent_dir = Path(__file__).resolve().parent.parent
+submodels_path = parent_dir / "Submodels"
 
 class fileHandling:
     """

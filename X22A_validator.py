@@ -24,7 +24,7 @@ import os
 import sys
 
 # Enable submodel relative imports 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(str(Path(__file__).resolve().parent))
 
 from Submodels.Parameterizations import AirfoilParameterization
 from Submodels.file_handling import fileHandling
@@ -32,6 +32,10 @@ from Submodels.output_handling import output_processing
 from Submodels.MTSOL_call import MTSOL_call
 from Submodels.MTSET_call import MTSET_call
 from Submodels.MTFLO_call import MTFLO_call
+
+# Define key paths/directories
+parent_dir = Path(__file__).resolve().parent.parent
+submodels_path = parent_dir / "Submodels"
 
 
 # First we define some constants and the operating conditions which will be analysed
@@ -449,9 +453,8 @@ def ExecuteParameterSweep(omega: np.ndarray[float],
     
     # Change working directory to the submodels folder
     try:
-        current_dir = os.getcwd()
-        subfolder_path = os.path.join(current_dir, 'Submodels')
-        os.chdir(subfolder_path)
+        current_dir = Path.cwd()
+        os.chdir(submodels_path)
     except OSError as e:
         raise OSError from e
     

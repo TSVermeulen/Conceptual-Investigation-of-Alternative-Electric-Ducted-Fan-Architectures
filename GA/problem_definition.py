@@ -53,10 +53,9 @@ from scipy import interpolate
 import time
 
 # Add the parent and submodels paths to the system path
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-submodels_path = os.path.join(parent_dir, "Submodels")
-sys.path.extend([parent_dir, submodels_path])
-submodels_path = Path(submodels_path)  # Convert to Path object for easier manipulation
+parent_dir = Path(__file__).resolve().parent.parent
+submodels_path = parent_dir / "Submodels"
+sys.path.extend([str(parent_dir), str(submodels_path)])
 
 # Import MTFLOW interface submodels and other dependencies
 from MTFLOW_caller import MTFLOW_caller
@@ -158,8 +157,11 @@ class OptimizationProblem(ElementwiseProblem):
         def GetX(x_dict: dict,
                  base_idx: int,
                  offset: int = 0) -> float|int:
-            """ Helper function to access the design vector without repeated f-string formatting."""
-            return x_dict[f"x{base_idx + offset}"]
+            """ 
+            Helper function to access the design vector without repeated f-string formatting.
+            If the key does not exist, return 0.
+            """
+            return x_dict.get(f"x{base_idx + offset}", 0)
 
         # Define a pointer to count the number of variable parameters
         idx = 0

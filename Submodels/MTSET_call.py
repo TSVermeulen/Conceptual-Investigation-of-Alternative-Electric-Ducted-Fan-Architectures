@@ -46,12 +46,11 @@ Changelog:
 """
 
 import subprocess
-import os
 import time
 from pathlib import Path
 
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-submodels_path = Path(os.path.join(parent_dir, "Submodels"))
+parent_dir = Path(__file__).resolve().parent.parent
+submodels_path = parent_dir / "Submodels"
 
 class MTSET_call:
     """
@@ -87,7 +86,7 @@ class MTSET_call:
         self.streamwise_points = streamwise_points if (streamwise_points is not None and streamwise_points > 141) else 200
 
         # Define constant filepath for the MTSET executable 
-        self.process_path: str = os.getenv('MTSET_PATH', submodels_path / 'mtset.exe')
+        self.process_path = submodels_path / 'mtset.exe'
         if not Path.exists(self.process_path):
             raise FileNotFoundError(f"MTSET executable not found at {self.process_path}")
         
@@ -302,7 +301,7 @@ class MTSET_call:
         """
 
         # Delete the tdat file, if it already existed. 
-        os.unlink(self.fpath) if Path.exists(self.fpath) else None 
+        Path.unlink(self.fpath) if Path.exists(self.fpath) else None 
         
         # Create subprocess for the MTSET tool
         self.GenerateProcess()  
