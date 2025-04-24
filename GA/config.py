@@ -98,7 +98,7 @@ CENTERBODY_VALUES = {"b_0": 0., "b_2": 0., "b_8": 7.52387039e-02, "b_15": 7.4644
 
 
 # Controls for the optimisation vector - DUCT
-OPTIMIZE_DUCT = False
+OPTIMIZE_DUCT = True
 DUCT_VALUES = {'b_0': np.float64(0.0), 'b_2': np.float64(0.0), 'b_8': np.float64(0.004081758291374328), 'b_15': np.float64(0.735), 'b_17': np.float64(0.8), 'x_t': np.float64(0.2691129541223092), 'y_t': np.float64(0.084601317961794), 'x_c': np.float64(0.5), 'y_c': np.float64(0.0), 'z_TE': np.float64(-0.015685), 'dz_TE': np.float64(0.0005638524603968335), 'r_LE': np.float64(-0.06953901280141099), 'trailing_wedge_angle': np.float64(0.16670974950670672), 'trailing_camberline_angle': np.float64(0.003666809042006104), 'leading_edge_direction': np.float64(-0.811232599724247), 'Chord Length': 1.2446, "Leading Edge Coordinates": (0.093, 1.20968)}
 
 

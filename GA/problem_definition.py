@@ -56,6 +56,7 @@ sys.path.extend([str(Path(__file__).resolve().parent.parent), str(Path(__file__)
 
 # Import MTFLOW interface submodels and other dependencies
 from MTFLOW_caller import MTFLOW_caller
+from Submodels.MTSOL_call import OutputType
 from Submodels.output_handling import output_processing
 from Submodels.Parameterizations import AirfoilParameterization
 from objectives import Objectives
@@ -445,7 +446,7 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Run MTFLOW
         _, _ = MTFLOW_interface.caller(external_inputs=False,
-                                       output_type=0)
+                                       output_type=OutputType.FORCES_ONLY)
 
         # Extract outputs
         output_handler = output_processing(analysis_name=self.analysis_name)

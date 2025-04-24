@@ -72,8 +72,8 @@ class FileCreatedHandling(FileSystemEventHandler):
     """
 
     def __init__(self, 
-                 file_path: str, 
-                 destination: str) -> None:
+                 file_path: Path, 
+                 destination: Path) -> None:
         self.file_path = file_path
         self.destination = destination
         self.file_processed = False

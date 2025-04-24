@@ -80,14 +80,10 @@ Changelog:
 - V1.3: Removed HandleExitFlag() method as it is not needed. Extracted choking handling to a separate method.
 """
 
-import sys
 import os
 import random
 import numpy as np
 from pathlib import Path
-
-# Enable submodel relative imports 
-sys.path.append(str(Path(__file__).resolve().parent))
 
 from Submodels.MTSET_call import MTSET_call
 from Submodels.MTFLO_call import MTFLO_call
