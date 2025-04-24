@@ -31,11 +31,12 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.1
+Version: 1.2
 
 Changelog:
 - V1.0: Initial implementation with basic equality and inequality constraints.
 - V1.1: Implemented inequality constraint for efficiency such that eta is always > 0. 
+- V1.2: Normalised constraints, added 1<T/Tref<1.01 constraint, extracted common power and thrust calculations to separate helper methods
 """
 
 import numpy as np
@@ -61,9 +62,53 @@ class Constraints:
         """
 
     
+    def _calculate_power(self,
+                         analysis_outputs: dict,
+                         Lref: float) -> float:
+        """ 
+        Helper method to calculate the power in Watts.
+        
+        Parameters
+        ----------
+        - analysis_outputs : dict
+            Outputs from MTFLOW
+        - Lref : float
+            Reference length
+
+        Returns
+        -------
+        - Power : float
+            A float of the power in Watts
+        """
+        return analysis_outputs['data']['Total power CP'] * (0.5 * config.atmosphere.density[0] * config.oper["Vinl"] ** 3 * Lref ** 2)
+
+
+    def _calculate_thrust(self,
+                          analysis_outputs: dict,
+                          Lref: float) -> float:
+        """
+        Helper method to calculate the thrust in Newtons.
+        
+        Parameters
+        ----------
+        - analysis_outputs : dict
+            Outputs from MTFLOW
+        - Lref : float
+            Reference length
+
+        Returns
+        -------
+        - Thrust : float
+            A float of the thrust in Newtons
+        """
+        return analysis_outputs['data']['Total force CT'] * (0.5 * config.atmosphere.density[0] * config.oper["Vinl"] ** 2 * Lref ** 2)
+
+
     def ConstantPower(self, 
                       analysis_outputs: dict, 
-                      Lref: float) -> float:
+                      Lref: float,
+                      thrust: float,
+                      power: float) -> float:
         """
         Compute the equality constraint for the power coefficient.
 
@@ -75,38 +120,25 @@ class Constraints:
             output_handling.output_processing().GetAllVariables(3)
         - Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter. 
+        - thrust : float
+            The thrust in Newtons. Not used here but included to force constant signature.
+        - power : float
+            The power in Watts. 
+
+        Returns
+        -------
+        - float
+            The computed normalised power constraint. This is a scalar value representing the power of the system.
         """
 
-        # Compute the equality constraint for the power coefficient. Assuming constant flight condition (i.e. density and speed), 
-        power = analysis_outputs['data']['Total power CP'] * (0.5 * config.atmosphere.density[0] * config.oper["Vinl"] ** 3 * Lref ** 2)  # Power in Watts
-        
         return (power - config.P_ref_constr) / config.P_ref_constr  # Normalized power constraint 
-
-    
-    def ConstantThrust(self,
-                       analysis_outputs: dict,
-                       Lref: float) -> float:
-        """
-        Compute the equality constraint for the thrust coefficient.
-
-        Parameters
-        ----------
-        - analysis_outputs : dict
-            A dictionary containing the outputs from the MTFLOW forces output file. 
-            Must contain all entries corresponding to an execution of 
-            output_handling.output_processing().GetAllVariables(3)
-        - Lref : float
-            The reference length of the analysis. Corresponds to the propeller/fan diameter. 
-        """
-
-        # Compute the equality constraint for the thrust coefficient. Assuming constant flight condition (i.e. density and speed), 
-        thrust = analysis_outputs['data']['Total force CT'] * (0.5 * config.atmosphere.density[0] * config.oper["Vinl"] ** 2 * Lref ** 2)  # Thrust in Newtons
-        return (thrust - config.T_ref_constr) / config.T_ref_constr  # Normalized thrust constraint
     
 
     def KeepEfficiencyFeasible(self,
                                analysis_outputs: dict,
-                               Lref: float) -> float:
+                               Lref: float,
+                               thrust: float,
+                               power: float) -> float:
         """
         Compute the inequality constraint for the efficiency. Enforces that eta>0. 
 
@@ -119,6 +151,10 @@ class Constraints:
         - Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter.
             Not used in this method, but required for a uniform constraint function signature.
+        - thrust : float
+            The thrust in Newtons. Not used here but included to force constant signature.
+        - power : float
+            The power in Watts. Not used here but included to force constant signature.
 
         Returns
         -------
@@ -132,23 +168,63 @@ class Constraints:
 
     def MinimumThrust(self,
                       analysis_outputs: dict,
-                      Lref: float) -> float:
+                      Lref: float,
+                      thrust: float,
+                      power: float) -> float:
         """
         Compute the inequality constraint for the thrust. Enforces that T > T_ref.
-        """
 
-        thrust = analysis_outputs['data']['Total force CT'] * (0.5 * config.atmosphere.density[0] * config.oper["Vinl"] ** 2 * Lref ** 2)  # Thrust in Newtons
+        Parameters
+        ----------
+        - analysis_outputs : dict
+            A dictionary containing the outputs from the MTFLOW forces output file. 
+            Must contain all entries corresponding to an execution of 
+            output_handling.output_processing().GetAllVariables(3). 
+            Not used here but included to force constant signature.
+        - Lref : float
+            The reference length of the analysis. Corresponds to the propeller/fan diameter. 
+            Not used here but included to force constant signature.
+        - thrust : float
+            The thrust in Newtons. 
+        - power : float
+            The power in Watts. Not used here but included to force constant signature.
+
+        Returns
+        -------
+        - float 
+            The computed normalised thrust constraint. 
+        """
         return (thrust - config.T_ref_constr) / config.T_ref_constr  # Normalized thrust constraint
     
 
     def MaximumThrust(self,
                       analysis_outputs: dict,
-                      Lref: float) -> float:
+                      Lref: float,
+                      thrust: float,
+                      power: float) -> float:
         """
         Compute the upper bound for the thrust. Enforces that T < T_ref + delta.
-        """
 
-        thrust = analysis_outputs['data']['Total force CT'] * (0.5 * config.atmosphere.density[0] * config.oper["Vinl"] ** 2 * Lref ** 2)  # Thrust in Newtons
+        Parameters
+        ----------
+        - analysis_outputs : dict
+            A dictionary containing the outputs from the MTFLOW forces output file. 
+            Must contain all entries corresponding to an execution of 
+            output_handling.output_processing().GetAllVariables(3)
+            Not used here but included to force constant signature.
+        - Lref : float
+            The reference length of the analysis. Corresponds to the propeller/fan diameter. 
+            Not used here but included to force constant signature.
+        - thrust : float
+            The thrust in Newtons. 
+        - power : float
+            The power in Watts. Not used here but included to force constant signature.
+
+        Returns
+        -------
+        - float
+            The computed normalised thrust constraint.
+        """
         return (config.deviation_range * config.T_ref_constr - thrust) / config.T_ref_constr  # Normalized thrust constraint
 
 
@@ -193,13 +269,19 @@ class Constraints:
         eq_constraints_list = [self.ConstantPower, self.ConstantThrust]
         ineq_constraints = [ineq_constraints_list[i] for i in config.constraint_IDs[0]]
         eq_constraints = [eq_constraints_list[i] for i in config.constraint_IDs[1]]
+
+        # Compute thrust and power
+        thrust = self._calculate_thrust(analysis_outputs, Lref)
+        power = self._calculate_power(analysis_outputs, Lref)
         
         # Compute the inequality constraints and write them to out["G"]
         if ineq_constraints:
             computed_ineq_constraints = []
             for i in range(len(ineq_constraints)):
                 computed_ineq_constraints.append(ineq_constraints[i](analysis_outputs,
-                                                                     Lref))
+                                                                     Lref,
+                                                                     thrust,
+                                                                     power))
             
             out["G"] = np.column_stack(computed_ineq_constraints)
         else:
@@ -210,7 +292,9 @@ class Constraints:
             computed_eq_constraints = []
             for i in range(len(eq_constraints)):
                 computed_eq_constraints.append(eq_constraints[i](analysis_outputs,
-                                                                 Lref))
+                                                                 Lref,
+                                                                 thrust,
+                                                                 power))
         
             out["H"] = np.column_stack(computed_eq_constraints)
         else: 

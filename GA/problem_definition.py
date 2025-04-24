@@ -50,6 +50,7 @@ from pathlib import Path
 import datetime
 from pymoo.core.problem import ElementwiseProblem
 from scipy import interpolate
+import time
 
 # Add the parent and submodels paths to the system path
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -110,7 +111,7 @@ class OptimizationProblem(ElementwiseProblem):
 
     def GenerateAnalysisName(self) -> str:
         """
-        Generate a unique analysis name with a maximum length of 32 characters.
+        Generate a unique analysis name with a length of 23 characters.
         This is required to enable multi-threading of the optimization problem, and log each state file,
         since each evaluation of MTFLOW requires a unique set of files. 
 
@@ -122,18 +123,17 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Generate a timestamp string in the format YYMMDDHHMMSS
         now = datetime.datetime.now()
-        timestamp = f"{now:%y%m%d%H%M%S}"	
+        timestamp = f"{now:%y%m%d%H%M%S}"  # 12 chars
 
         # Generate a unique identifier using UUID
-        unique_id = uuid.uuid4().hex
+        unique_id = str(uuid.uuid4()).replace('-', '')[:8]  # 8 chars max
 
         # Add a process ID to the analysis name to ensure uniqueness in multi-threaded environments.
-        process_id = f"{os.getpid() % 10000:04d}" 
+        process_id = f"{os.getpid() % 10000:04d}"  # 4 chars max
 
-        # The analysis name is formatted as: <YYMMDDHHMMSS>_<process_ID>_<unique_id>.
+        # The analysis name is formatted as: <YYMMDDHHMMSS>_<process_ID>_<unique_id>. with a maximum total length of 23 characters
         analysis_name = f"{timestamp}_{process_id}_{unique_id}"
-        analysis_name = analysis_name[:32]  # Truncate analysis_name to be exactly 32 chars
-
+        
         return analysis_name
 
     
@@ -235,7 +235,7 @@ class OptimizationProblem(ElementwiseProblem):
             if self.optimize_stages[i]:
                 # If the stage is to be optimized, read in the design vector for the blading parameters
                 stage_blading_parameters["root_LE_coordinate"] = GetX(x, idx)
-                stage_blading_parameters["blade_count"] = GetX(x, idx, 1)
+                stage_blading_parameters["blade_count"] = int(round(GetX(x, idx, 1)))
                 stage_blading_parameters["ref_blade_angle"] = GetX(x, idx, 2)
                 stage_blading_parameters["reference_section_blade_angle"] = config.REFERENCE_SECTION_ANGLES[i]
                 stage_blading_parameters["radial_stations"] = radial_linspace * GetX(x, idx, 3)  # Radial stations are defined as fraction of blade radius * local radius
@@ -349,18 +349,25 @@ class OptimizationProblem(ElementwiseProblem):
         # Delete the walls, tflow, forces, flowfield, and boundary layer files if they exist
         for file_type in ["walls", "tflow", "forces", "flowfield", "boundary_layer"]:
             file_path = submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-            if os.path.exists(file_path):
+            if Path.exists(file_path):
                 os.unlink(file_path)
 
         # Create folder to store statefiles if it does not exist yet. 
-        dump_folder = Path("Evaluated_tdat_state_files")
+        dump_folder = submodels_path / "Evaluated_tdat_state_files"
         os.makedirs(dump_folder, 
                     exist_ok=True)
         
         # Move the state file into the dump_folder
-        shutil.copy(submodels_path / self.FILE_TEMPLATES["tdat"].format(self.analysis_name), 
-                    submodels_path / dump_folder / self.FILE_TEMPLATES["tdat"].format(self.analysis_name))
-        os.unlink(submodels_path / self.FILE_TEMPLATES["tdat"].format(self.analysis_name))
+        original_file = submodels_path / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
+        copied_file = submodels_path / dump_folder / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
+        shutil.copy(original_file, 
+                    copied_file)
+        while True:
+            if Path.exists(original_file) and Path.exists(copied_file):
+                os.unlink(original_file)
+                break
+            else:
+                time.sleep(0.01)
 
 
     def ComputeDuctRadialLocation(self) -> None:
@@ -405,10 +412,12 @@ class OptimizationProblem(ElementwiseProblem):
                 sweep = np.tan(blading_params["sweep_angle"][-1])
                 x_tip = blading_params["root_LE_coordinate"] + sweep * y_tip    
 
+                y_tip_clearance = y_tip + config.tipGap
                 if (x_tip <= lower_x[-1] and x_tip >= lower_x[0]):
-                    radial_duct_coordinates[i] = y_tip + config.tipGap + float(duct_interpolant(x_tip)) * 2  # Multiplied by 2 due to convention of the thickness distribution being the half-thickness of the airfoil
+                    # Only add the duct offset if the duct is over the blade row
+                    radial_duct_coordinates[i] = y_tip_clearance + float(duct_interpolant(x_tip))
                 else:
-                    radial_duct_coordinates[i] = y_tip + config.tipGap
+                    radial_duct_coordinates[i] = y_tip_clearance
     
         # Update the duct variables in self
         self.duct_variables["Leading Edge Coordinates"] = (self.duct_variables["Leading Edge Coordinates"][0],
@@ -439,8 +448,7 @@ class OptimizationProblem(ElementwiseProblem):
                                          analysis_name=self.analysis_name)
 
         # Run MTFLOW
-        _, _ = MTFLOW_interface.caller(debug=False,
-                                       external_inputs=False,
+        _, _ = MTFLOW_interface.caller(external_inputs=False,
                                        output_type=0)
 
         # Extract outputs
@@ -464,6 +472,12 @@ class OptimizationProblem(ElementwiseProblem):
     
 
 if __name__ == "__main__":
+    # Disable parameterizations to allow for testing with empty design vector
+    config.OPTIMIZE_CENTERBODY = False
+    config.OPTIMIZE_DUCT = False
+    for i in range(len(config.OPTIMIZE_STAGE)):
+        config.OPTIMIZE_STAGE[i] = False
+
     test = OptimizationProblem()
 
     output = {}

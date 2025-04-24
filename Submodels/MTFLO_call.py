@@ -73,7 +73,7 @@ class MTFLO_call:
 
         # Define filepath of MTFLO as being in the same folder as this Python file
         self.process_path: str = os.getenv('MTFLO_PATH', submodels_path / 'mtflo.exe')
-        if not os.path.exists(self.process_path):
+        if not Path.exists(self.process_path):
             raise FileNotFoundError(f"MTFLO executable not found at {self.process_path}")
         
         
@@ -117,7 +117,7 @@ class MTFLO_call:
         
         # Check if subprocess is started successfully
         if self.process.poll() is not None:
-            raise ImportError(f"MTFLO or tdat.{self.analysis_name} not found in {self.fpath}") from None
+            raise ImportError(f"MTFLO or tdat.{self.analysis_name} not found in {self.process_path}") from None
         
     
     def LoadForcingField(self,

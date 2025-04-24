@@ -80,7 +80,7 @@ if __name__ == "__main__":
                    seed=42,
                    verbose=True,
                    save_history=True,
-                   return_least_infeasible=True,)
+                   return_least_infeasible=True)
 
     # Close the thread pool to free up resources
     pool.close()
@@ -93,6 +93,9 @@ if __name__ == "__main__":
     now = datetime.datetime.now()
     timestamp = f"{now:%y%m%d%H%M%S%f}"	
     output_name = f"res_{process_ID}_{timestamp}.dill"
-
-    with open(output_name, 'wb') as f:
-        dill.dump(res, f)
+    try:
+        with open(output_name, 'wb') as f:
+            dill.dump(res, f)
+        print(f"Results saved to {output_name}")
+    except Exception as e:
+        print(f"Error saving results: {e}")

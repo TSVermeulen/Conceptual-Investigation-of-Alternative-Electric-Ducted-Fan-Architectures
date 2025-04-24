@@ -29,8 +29,8 @@ Examples
 >>> analysisName = "test_case"
     
 >>> # Roughly basing the blade design on the CFM Leap engine (approximate chord lengths)
->>> blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 0.75, "blade_count": 15, "radial_stations": [0.1, 1.15], "chord_length": [0.3, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi/8]},
->>>                       {"root_LE_coordinate": 1.1, "rotational_rate": 0., "blade_count": 15, "radial_stations": [0.1, 1.3], "chord_length": [0.15, 0.1], "sweep_angle":[np.pi/16, np.pi/16], "twist_angle": [0, np.pi/8]}]
+>>> blading_parameters = [{"root_LE_coordinate": 0.5, "rotational_rate": 0.75, "blade_count": 15, "radial_stations": [0.1, 1.15], "chord_length": [0.3, 0.2], "sweep_angle":[np.pi/16, np.pi/16], "blade_angle": [0, np.pi/8]},
+>>>                       {"root_LE_coordinate": 1.1, "rotational_rate": 0., "blade_count": 15, "radial_stations": [0.1, 1.3], "chord_length": [0.15, 0.1], "sweep_angle":[np.pi/16, np.pi/16], "blade_angle": [0, np.pi/8]}]
     
 >>> # Model the fan and stator blades using a uniform naca2415 profile along the blade span
 >>> n2415_coeff = {"b_0": 0.20300919575972556, "b_2": 0.31901972386590877, "b_8": 0.04184620466207193, "b_15": 0.7500824561993612, "b_17": 0.6789808614463232, "x_t": 0.298901583, "y_t": 0.060121131, "x_c": 0.40481558571382253, "y_c": 0.02025376839986754, "z_TE": -0.0003399582707130648, "dz_TE": 0.0017, "r_LE": -0.024240593156029916, "trailing_wedge_angle": 0.16738688797915346, "trailing_camberline_angle": 0.0651960639817597, "leading_edge_direction": 0.09407653642497815}
@@ -82,7 +82,6 @@ Changelog:
 
 import sys
 import os
-import logging
 import random
 import numpy as np
 from pathlib import Path
@@ -137,7 +136,7 @@ class MTFLOW_caller:
                 - "radial_stations": List of the radial stations along the blade span.
                 - "chord_length": List of the chord length distribution along the blade span.
                 - "sweep_angle": List of the sweep angle distribution along the blade span.
-                - "twist_angle": List of the twist angle distribution along the blade span.
+                - "blade_angle": List of the twist angle distribution along the blade span.
         - design_parameters : list[list[dict]]
             List containing an equal number of nested lists as there are stages. Each nested list contains an equal number of dictionaries as there are radial stations. 
             Each dictionary must contain the following keys:
@@ -202,7 +201,6 @@ class MTFLOW_caller:
         
 
     def caller(self,
-               debug: bool = False,
                external_inputs: bool = False,
                output_type: int = 0,
                ) -> tuple[int, int]:
@@ -211,9 +209,6 @@ class MTFLOW_caller:
 
         Parameters
         ----------
-        - debug : bool, optional
-            A boolean controlling the logging behaviour of the method. If True, the method generates a caller.log file. 
-            Default value is False. 
         - external_inputs : bool, optional
             A boolean controlling the generation of the MTFLO and MTSET input files. If true, assumes walls.analysis_name and tflow.analysis_name have been generated outside of MTFLOW_caller. 
             This is useful for debugging or validation against existing, external data. 
@@ -225,21 +220,6 @@ class MTFLOW_caller:
         - tuple[int, int]
             A tuple containing the exit flag and iteration count
         """
-
-        # --------------------
-        # Set up logging for the caller execution
-        # Writes log of the execution to the caller.log file using the 'w' mode. 
-        # This empties out the caller file at the start of each MTFLOW_caller.caller() evaluation.
-        # --------------------
-        if debug:
-            logging.basicConfig(level=logging.DEBUG,
-                                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                                handlers=[logging.FileHandler(parent_dir / "caller.log", 
-                                                              mode='w'),
-                                          logging.StreamHandler(),
-                                          ],
-                                )
-            logger = logging.getLogger(__name__)
             
         # --------------------
         # Change working directory to the submodels folder
@@ -249,10 +229,6 @@ class MTFLOW_caller:
             current_dir = os.getcwd()
             os.chdir(submodels_path)
         except OSError as e:
-            if debug:
-                logger.error(f"Failed to change directory to {submodels_path}: {e}")
-            else:
-                print(f"Failed to change directory to {submodels_path}: {e}")
             raise OSError from e
             
         # --------------------
@@ -272,19 +248,13 @@ class MTFLOW_caller:
         # --------------------
         # Construct the initial grid in MTSET
         # --------------------
-            
-        if debug:
-            logger.info("Constructing the initial grid in MTSET")
-            
+   
         MTSET_call(analysis_name=self.analysis_name).caller()
             
         # --------------------
         # Check the grid by running a simple, fan-less, inviscid low-Mach case. If there is an issue with the grid MTSOL will crash
         # Hence we can check the grid by checking the exit flag
         # --------------------
-            
-        if debug:
-            logger.info("Checking the grid")
             
         # Initialize count of grid checks and exit flag
         check_count = 1
@@ -296,14 +266,9 @@ class MTFLOW_caller:
                                                                                                           generate_output=False)
                 
             if exit_flag_gridtest == ExitFlag.SUCCESS.value:  # If the grid status is okay, break out of the checking loop and continue
-                if debug:
-                    logger.info("Grid passed checks")
                 break
 
             # If the grid is incorrect, change grid parameters and rerun MTSET to update the grid. 
-            if debug:
-                logger.warning("Grid crashed. Trying alternate grid parameters")
-
             # If first_check is true, we can try the suggested coefficients
             # The updated e and x coefficients reduce the number of streamwise points on the airfoil elements (by 0.1 * Npoints), 
             # while yielding a more "rounded/elliptic" grid due to the reduced x-coefficient.
@@ -312,23 +277,17 @@ class MTFLOW_caller:
                 streamwise_points = 141  
                 grid_e_coeff = 0.8
                 grid_x_coeff = 0.8
-                if debug:
-                    logger.info(f"Trying streamwise_points={streamwise_points}")
             elif check_count == 2:
                 # Adjust grid parameters to try and fix the grid, while also keeping the reduced number of streamwise_points
                 grid_e_coeff = 0.7  
                 grid_x_coeff = 0.5
                 streamwise_points = 141
-                if debug:
-                    logger.info(f"Trying suggested coefficients e={grid_e_coeff} and x={grid_x_coeff}")
             else:
                 # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
                 grid_e_coeff = random.uniform(0.6, 1.0)
                 grid_x_coeff = random.uniform(0.2, 0.95)
                 streamwise_points= 141  # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid
-                if debug:
-                    logger.info(f"Suggested Coefficients failed to yield a satisfactory grid. Trying bruteforce randomization method with e={grid_e_coeff} and x={grid_x_coeff}")
-                    
+                   
             MTSET_call(analysis_name=self.analysis_name,
                        grid_e_coeff=grid_e_coeff,
                        grid_x_coeff=grid_x_coeff,
@@ -339,8 +298,6 @@ class MTFLOW_caller:
             if check_count == 10: 
                 exit_flag_gridtest = ExitFlag.CRASH.value  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
                 os.chdir(current_dir)  # Return working directory to the main folder
-                if debug:
-                    logger.error("Grid test failed after 10 tries. Exiting...")
                 return exit_flag_gridtest, iter_count_gridtest
 
         # --------------------
@@ -348,38 +305,22 @@ class MTFLOW_caller:
         # Passes the exit flag to determine if any issues have occurred. 
         # --------------------
 
-        if debug:
-            logger.info("Starting MTSOL execution loop")
-
         exit_flag = ExitFlag.NOT_PERFORMED.value  # Initialize exit flag
         
         while exit_flag not in (ExitFlag.SUCCESS.value, ExitFlag.NON_CONVERGENCE.value) and exit_flag_gridtest != ExitFlag.CRASH.value:
-            if debug:
-                logger.info("Loading blade row(s) from MTFLO")
-
             if not external_inputs:
                 file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
                                                ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
                                                                                               design_params=self.design_parameters)  # Create the MTFLO input file
                 
             MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
-
-            if debug:
-                logger.info("Executing MTSOL")
-                
+               
             exit_flag, iter_count = MTSOL_call(operating_conditions=self.operating_conditions,
                                                analysis_name=self.analysis_name).caller(run_viscous=True,
                                                                                         generate_output=True,
                                                                                         output_type=output_type)
                
-            if debug:
-                logger.info(f"MTSOL finished with exit flag {exit_flag}")
-                logger.info("Processing exit flag....")
-
             self.HandleChoking(exit_flag=exit_flag)  # Check completion status of MTSOL
-
-            if debug:
-                logger.info(f"MTSOL execution loop finished with final exit flag {exit_flag}")
             
         # Return working directory to the main folder
         os.chdir(current_dir)
@@ -436,8 +377,7 @@ if __name__ == "__main__":
                                design_parameters=design_parameters,
                                ref_length=fan_diameter,
                                analysis_name=analysisName,
-                               ).caller(debug=False,  # Set to True for detailed logging during troubleshooting
-                                        external_inputs=False)
+                               ).caller(external_inputs=False)
     end_time = time.time()
 
     print(f"Execution of MTFLOW_call.caller() took {end_time - start_time} second")

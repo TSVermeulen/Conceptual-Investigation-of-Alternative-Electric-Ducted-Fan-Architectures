@@ -64,14 +64,15 @@ res = minimize(problem,
                save_history=True,
                return_least_infeasible=True,)
 
-# Save the results to a dill file for future reference
 # This avoids needing to re-run the optimization if the results are needed later.
 # The filename is generated using the process ID and current timestamp to ensure uniqueness.
-
 process_ID = f"{os.getpid() % 10000:04d}" 
 now = datetime.datetime.now()
 timestamp = f"{now:%y%m%d%H%M%S%f}"	
 output_name = f"res_{process_ID}_{timestamp}.dill"
-
-with open(output_name, 'wb') as f:
-    dill.dump(res, f)
+try:
+    with open(output_name, 'wb') as f:
+        dill.dump(res, f)
+    print(f"Results saved to {output_name}")
+except Exception as e:
+    print(f"Error saving results: {e}")
