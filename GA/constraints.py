@@ -260,10 +260,6 @@ class Constraints:
               will be empty 2D numpy arrays.                 
         """
 
-        # Validate inputs
-        if 'data' not in analysis_outputs or 'Total power CP' not in analysis_outputs['data'] or 'Total force CT' not in analysis_outputs['data']:
-            raise ValueError("Missing required output data 'Total power CP' and/or 'Total force CT' in analysis_outputs")
-
         # Define lists of all inequality and equality constraints, and filter them based on the constraint IDs
         ineq_constraints_list = [self.KeepEfficiencyFeasible, self.MinimumThrust, self.MaximumThrust]
         eq_constraints_list = [self.ConstantPower]
