@@ -266,7 +266,7 @@ class Constraints:
 
         # Define lists of all inequality and equality constraints, and filter them based on the constraint IDs
         ineq_constraints_list = [self.KeepEfficiencyFeasible, self.MinimumThrust, self.MaximumThrust]
-        eq_constraints_list = [self.ConstantPower, self.ConstantThrust]
+        eq_constraints_list = [self.ConstantPower]
         ineq_constraints = [ineq_constraints_list[i] for i in config.constraint_IDs[0]]
         eq_constraints = [eq_constraints_list[i] for i in config.constraint_IDs[1]]
 
