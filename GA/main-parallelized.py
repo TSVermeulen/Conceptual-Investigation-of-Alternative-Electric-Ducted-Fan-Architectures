@@ -72,7 +72,8 @@ if __name__ == "__main__":
 
     """ Initialize the optimization problem and algorithm """
     # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
-    problem = OptimizationProblem(elementwise_runner=runner)
+    problem = OptimizationProblem(elementwise_runner=runner,
+                                  seed=42)
 
     # Initialize the algorithm
     algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,

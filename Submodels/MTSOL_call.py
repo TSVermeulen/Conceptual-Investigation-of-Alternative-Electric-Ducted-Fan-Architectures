@@ -526,7 +526,7 @@ class MTSOL_call:
         def read_file_lines():
             # Generator to yield lines from files matching the pattern
             output_dir = self.submodels_path / "MTSOL_output_files"
-            for output_file in output_dir.glob("forces*"):
+            for output_file in output_dir.glob("forces.{}.*".format(self.analysis_name)):
                 with open(output_file, "r") as f:
                     yield f.readlines()
     

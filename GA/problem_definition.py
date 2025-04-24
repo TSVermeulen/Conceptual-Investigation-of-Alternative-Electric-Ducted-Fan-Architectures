@@ -448,7 +448,8 @@ class OptimizationProblem(ElementwiseProblem):
                                          blading_parameters=self.blade_blading_parameters,
                                          design_parameters=self.blade_design_parameters,
                                          ref_length=self.Lref,
-                                         analysis_name=self.analysis_name)
+                                         analysis_name=self.analysis_name,
+                                         **kwargs)
 
         # Run MTFLOW
         _, _ = MTFLOW_interface.caller(external_inputs=False,
