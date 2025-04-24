@@ -54,6 +54,7 @@ Changelog:
 """
 
 import subprocess
+import os
 import shutil
 import glob
 import re
@@ -83,7 +84,7 @@ class FileCreatedHandling(FileSystemEventHandler):
         """ Handle copying of the forces.analysis_name output file."""
         if event.src_path == self.file_path:
             shutil.copy(self.file_path, self.destination)
-            Path.unlink(self.file_path)
+            os.unlink(self.file_path)
             self.file_processed = True
         
 
@@ -184,7 +185,7 @@ class MTSOL_call:
 
         # Define filepath of MTSOL as being in the same folder as this Python file
         self.fpath = submodels_path / 'mtsol.exe'
-        if not Path.exists(self.fpath):
+        if not self.fpath.exists():
             raise FileNotFoundError(f"MTSOL executable not found at {self.fpath}")
         
         # Define filepaths
@@ -193,7 +194,7 @@ class MTSOL_call:
                           'boundary_layer': submodels_path / self.FILE_TEMPLATES['boundary_layer'].format(self.analysis_name)} 
 
         # Define the dump folder to write non-converged forces output files to
-        self.dump_folder = Path(submodels_path / "MTSOL_output_files")
+        self.dump_folder = submodels_path / "MTSOL_output_files"
 
 
     def StdinWrite(self,
@@ -379,10 +380,8 @@ class MTSOL_call:
                     start_time = time.time()
                     # Wait for the file creation to be finished
                     target_path = submodels_path / self.FILE_TEMPLATES[output_file].format(self.analysis_name)
-                    while not Path.exists(target_path) and (time.time() - start_time) < max_wait_time:
+                    while not target_path.exists() and (time.time() - start_time) < max_wait_time:
                         time.sleep(0.01) 
-                        if (time.time() - start_time) > max_wait_time:
-                            break 
                 break
                         
             # When changing the operating conditions, check for the end of the modify parameters menu           
@@ -440,8 +439,8 @@ class MTSOL_call:
 
         # First delete the output files if they exist already
         for file in self.filepaths.values():
-            if Path.exists(file):
-                Path.unlink(file)
+            if file.exists():
+                file.unlink()
 
         # Dump the forces data
         self.StdinWrite("F")
@@ -451,7 +450,7 @@ class MTSOL_call:
         self.WaitForCompletion(type=2,
                                output_file='forces')
     
-        if output_type == 0:
+        if output_type == OutputType.FORCES_ONLY:
             return
 
         # Dump the flowfield data
@@ -529,7 +528,8 @@ class MTSOL_call:
                     yield f.readlines()
 
         # Construct file pattern to match all output files in the MTSOL_output_files directory
-        file_pattern = parent_dir / "Submodels" / "MTSOL_output_files" / "forces*"
+        file_pattern_dir = parent_dir / "Submodels" / "MTSOL_output_files"
+        file_pattern = str(file_pattern_dir) + "/forces*"
 
         # Read in all files (collect into a list so we can transpose later)
         content = list(read_file_lines(file_pattern))
@@ -624,25 +624,21 @@ class MTSOL_call:
         None
         """
 
-        # Create subfolder to put all output files into if the folder doesn't already exist
-        Path.mkdir(self.dump_folder,
-                   exist_ok=True)
-
         # Delete the forces.analysisname file if it exists already
-        if Path.exists(self.filepaths['forces']):
-            Path.unlink(self.filepaths['forces'])
+        if self.filepaths['forces'].exists():
+            self.filepaths['forces'].unlink()
 
         # Initialize iteration counter
         iter_counter = 0
 
         # Initialize watchdog to check when output file has been created
-        copied_file = 'forces.{}.'.format(self.analysis_name) + f'{iter_counter}'
+        copied_file = 'forces.{}.{}'.format(self.analysis_name, iter_counter)
         event_handler = FileCreatedHandling(self.filepaths['forces'],
                                             self.dump_folder / copied_file)
 
         observer = Observer()
         observer.schedule(event_handler,
-                          path=submodels_path,
+                          path=os.getcwd(),
                           recursive=False,
                           )   
         observer.start()
@@ -670,14 +666,14 @@ class MTSOL_call:
             
             # Increase iteration counter by step size
             iter_counter += 1
-            copied_file = 'forces.{}.'.format(self.analysis_name) + f'{iter_counter}'
+            copied_file = 'forces.{}.{}'.format(self.analysis_name, iter_counter)
 
             # Re-intialise the event handler for the next iteration with an updated destination
             event_handler = FileCreatedHandling(self.filepaths['forces'],
                                                 self.dump_folder / copied_file)
             observer.unschedule_all()
             observer.schedule(event_handler,
-                              path=submodels_path,
+                              path=os.getcwd(),
                               recursive=False)            
 
         # Wrap up the watchdog
@@ -722,9 +718,9 @@ class MTSOL_call:
         elif exit_flag == ExitFlag.CRASH.value:  
             if type == 0:
                 # For an inviscid crash, cleanup outputs
-                for file in self.filepaths:
-                    if Path.exists(file) and file != self.filepaths['forces']:
-                        Path.unlink(file)
+                for key, file in self.filepaths.items():
+                    if file.exists() and key != 'forces':
+                        file.unlink()
                 return
             else:
                 return
@@ -903,7 +899,7 @@ class MTSOL_call:
 
         # Generate force output file to ensure output exists in case of invisic crash
         # Generating output before executing any iterations enforces the outputs to be zero.
-        self.GenerateSolverOutput(output_type=0)
+        self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
 
         # Execute inviscid solve
         try:  
@@ -952,7 +948,7 @@ class MTSOL_call:
 
         if generate_output:
             # Generate the solver output
-            self.GenerateSolverOutput(output_type)
+            self.GenerateSolverOutput(output_type=output_type)
         
         # Close the MTSOL tool
         # If no output is generated, need to write an additional white line to close MTSOL

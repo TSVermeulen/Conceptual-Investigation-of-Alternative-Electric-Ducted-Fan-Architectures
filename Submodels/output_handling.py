@@ -122,11 +122,11 @@ class output_visualisation:
         self.tflow_path = submodels_path / f"tflow.{self.analysis_name}"
         self.boundary_layer_path = submodels_path / f"boundary_layer.{self.analysis_name}"
 
-        if not Path.exists(self.flowfield_path) or not Path.exists(self.walls_path) or not Path.exists(self.tflow_path):
+        if not self.flowfield_path.exists() or not self.walls_path.exists() or not self.tflow_path.exists():
             raise FileNotFoundError(f"One of the required files flowfield.{self.analysis_name}, walls.{self.analysis_name}, or tflow.{self.analysis_name} was not found.")
 
         # Check if the boundary layer file exists, and if so, set viscous_exists to True
-        if Path.exists(self.boundary_layer_path):
+        if self.boundary_layer_path.exists():
             self.viscous_exists = True
         else:
             self.viscous_exists = False
@@ -259,7 +259,7 @@ class output_visualisation:
         """
 
         try:
-            with open(self.tflow_fpath, 'r') as file:
+            with open(self.tflow_path, 'r') as file:
                 lines = file.readlines()
         except IOError as e:
             raise IOError(f"Failed to read the tflow file: {e}") from e
@@ -553,13 +553,13 @@ class output_processing:
         # Validate if the required forces file exist
         self.forces_path = submodels_path / f"forces.{self.analysis_name}"
 
-        if not Path.exists(self.forces_path):
+        if not self.forces_path.exists():
             raise FileNotFoundError(f"The required file forces.{self.analysis_name} was not found.")
     
 
     def GetAllVariables(self,
                         output_type : int = 0,
-                        ) -> dict[dict[float], dict[float], dict[float]]:
+                        ) -> dict[str, dict[str, float]]:
         """
         Read the forces.analysis_name file and return the variables and their values.
 
@@ -574,7 +574,7 @@ class output_processing:
 
         Returns
         -------
-        - output : dict[dict[float], dict[float], dict[float]]
+        - output : dict[str, dict[str, float]]
             A nested dictionary containing:
             - oper : A dictionary containing the operating conditions
             - data : A dictionary containing the general output data

@@ -87,7 +87,7 @@ class MTSET_call:
 
         # Define constant filepath for the MTSET executable 
         self.process_path = submodels_path / 'mtset.exe'
-        if not Path.exists(self.process_path):
+        if not self.process_path.exists():
             raise FileNotFoundError(f"MTSET executable not found at {self.process_path}")
         
         # Define filepath for the statefile
@@ -301,7 +301,7 @@ class MTSET_call:
         """
 
         # Delete the tdat file, if it already existed. 
-        Path.unlink(self.fpath) if Path.exists(self.fpath) else None 
+        self.fpath.unlink() if self.fpath.exists() else None 
         
         # Create subprocess for the MTSET tool
         self.GenerateProcess()  
@@ -316,7 +316,7 @@ class MTSET_call:
         self.FileGenerator()   
 
         # Check that the tdat file writing was successful
-        while not Path.exists(self.fpath):
+        while not self.fpath.exists():
             time.sleep(0.01)  # Wait for the file to be created
 
         

@@ -58,6 +58,7 @@ class MTFLO_call:
 
     def __init__(self, 
                  analysis_name: str,
+                 **kwargs : dict,
                  ) -> None:
         """
         Initialize the MTFLO_call class with the file path and analysis name.
@@ -66,13 +67,16 @@ class MTFLO_call:
         ----------
         - analysis_name : str
             The name of the analysis case.
+        - kwargs : dict
+            Additional keyword arguments.
         """
 
         self.analysis_name = analysis_name
 
+
         # Define filepath of MTFLO as being in the same folder as this Python file
         self.process_path = submodels_path / 'mtflo.exe'
-        if not Path.exists(self.process_path):
+        if not self.process_path.exists():
             raise FileNotFoundError(f"MTFLO executable not found at {self.process_path}")
         
         

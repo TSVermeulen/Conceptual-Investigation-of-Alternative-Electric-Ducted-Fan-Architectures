@@ -95,7 +95,7 @@ from Submodels.MTSOL_call import MTSOL_call, ExitFlag
 from Submodels.file_handling import fileHandling
 
 # Define key paths/directories
-parent_dir = Path(__file__).resolve().parent.parent
+parent_dir = Path(__file__).resolve().parent
 submodels_path = parent_dir / "Submodels"
 
 
@@ -113,7 +113,8 @@ class MTFLOW_caller:
                  blading_parameters: list[dict],
                  design_parameters: list[dict],
                  ref_length: float,
-                 analysis_name: str
+                 analysis_name: str,
+                 **kwargs
                  ) -> None:
         """
         Initialize the MTSOL_call class.
@@ -152,6 +153,8 @@ class MTFLOW_caller:
             Reference length used to non-dimensionalise all geometric parameters. By convention, this is equal to the fan diameter. 
         - analysis_name : str
             String of the casename
+        - **kwargs : dict, optional
+            Additional keyword arguments. Currently only contains the seed for the random number generator.
 
         Returns
         -------
@@ -168,8 +171,8 @@ class MTFLOW_caller:
         self.ref_length = ref_length
 
         # Set the seed for the optional randum number generator to ensure repeatability. 
-        # 42 is the answer to life, the universe, and everything!
-        random.seed(42)
+        seed = kwargs.get("seed", 42)
+        random.seed(seed)
 
 
     def HandleChoking(self,
@@ -282,6 +285,10 @@ class MTFLOW_caller:
                 grid_e_coeff = 0.7  
                 grid_x_coeff = 0.5
                 streamwise_points = 141
+            elif check_count == 10: 
+                exit_flag_gridtest = ExitFlag.CRASH.value  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
+                os.chdir(current_dir)  # Return working directory to the main folder
+                return exit_flag_gridtest, iter_count_gridtest
             else:
                 # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
                 grid_e_coeff = random.uniform(0.6, 1.0)
@@ -292,13 +299,8 @@ class MTFLOW_caller:
                        grid_e_coeff=grid_e_coeff,
                        grid_x_coeff=grid_x_coeff,
                        streamwise_points=streamwise_points).caller()
-                
+               
             check_count += 1
-
-            if check_count == 10: 
-                exit_flag_gridtest = ExitFlag.CRASH.value  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
-                os.chdir(current_dir)  # Return working directory to the main folder
-                return exit_flag_gridtest, iter_count_gridtest
 
         # --------------------
         # Execute MTSOl solver

@@ -50,7 +50,6 @@ from pathlib import Path
 import datetime
 from pymoo.core.problem import ElementwiseProblem
 from scipy import interpolate
-import time
 
 # Add the parent and submodels paths to the system path
 parent_dir = Path(__file__).resolve().parent.parent
@@ -106,11 +105,14 @@ class OptimizationProblem(ElementwiseProblem):
                          n_ieq_constr=len(config.constraint_IDs[0]),
                          n_eq_constr=len(config.constraint_IDs[1]),
                          **kwargs)
+        
+        # Create folder path to store statefiles
+        self.dump_folder = submodels_path / "Evaluated_tdat_state_files"
                 
 
     def GenerateAnalysisName(self) -> str:
         """
-        Generate a unique analysis name with a length of 23 characters.
+        Generate a unique analysis name with a length of 26 characters.
         This is required to enable multi-threading of the optimization problem, and log each state file,
         since each evaluation of MTFLOW requires a unique set of files. 
 
@@ -130,7 +132,7 @@ class OptimizationProblem(ElementwiseProblem):
         # Add a process ID to the analysis name to ensure uniqueness in multi-threaded environments.
         process_id = f"{os.getpid() % 10000:04d}"  # 4 chars max
 
-        # The analysis name is formatted as: <YYMMDDHHMMSS>_<process_ID>_<unique_id>. with a maximum total length of 23 characters
+        # The analysis name is formatted as: <YYMMDDHHMMSS>_<process_ID>_<unique_id>. with a maximum total length of 26 characters
         analysis_name = f"{timestamp}_{process_id}_{unique_id}"
         
         return analysis_name
@@ -351,25 +353,15 @@ class OptimizationProblem(ElementwiseProblem):
         # Delete the walls, tflow, forces, flowfield, and boundary layer files if they exist
         for file_type in ["walls", "tflow", "forces", "flowfield", "boundary_layer"]:
             file_path = submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-            if Path.exists(file_path):
-                os.unlink(file_path)
+            if file_path.exists():
+                file_path.unlink()
 
-        # Create folder to store statefiles if it does not exist yet. 
-        dump_folder = submodels_path / "Evaluated_tdat_state_files"
-        os.makedirs(dump_folder, 
-                    exist_ok=True)
-        
         # Move the state file into the dump_folder
         original_file = submodels_path / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
-        copied_file = submodels_path / dump_folder / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
+        copied_file = submodels_path / self.dump_folder / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
         shutil.copy(original_file, 
                     copied_file)
-        while True:
-            if Path.exists(original_file) and Path.exists(copied_file):
-                os.unlink(original_file)
-                break
-            else:
-                time.sleep(0.01)
+        original_file.unlink()
 
 
     def ComputeDuctRadialLocation(self) -> None:

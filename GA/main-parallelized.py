@@ -50,11 +50,15 @@ import os
 
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
+from setup import setup
 
 if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
+    
+    """ Perform folder setup """
+    setup()
 
-    """Initialize the thread pool and create the runner"""
+    """ Initialize the thread pool and create the runner """
     RESERVED_THREADS = 1 # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
     total_threads = multiprocessing.cpu_count()
     total_threads_avail = total_threads - RESERVED_THREADS
@@ -65,7 +69,7 @@ if __name__ == "__main__":
     # Create runner
     runner = StarmapParallelization(pool.starmap)
 
-    """Initialize the optimization problem and algorithm"""
+    """ Initialize the optimization problem and algorithm """
     # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
     problem = OptimizationProblem(elementwise_runner=runner)
 
@@ -85,7 +89,7 @@ if __name__ == "__main__":
     # Close the thread pool to free up resources
     pool.close()
 
-    """ Save the results to a dill file for future reference"""
+    """ Save the results to a dill file for future reference """
     # This avoids needing to re-run the optimization if the results are needed later.
     # The filename is generated using the process ID and current timestamp to ensure uniqueness.
 

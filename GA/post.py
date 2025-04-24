@@ -16,16 +16,13 @@ def main():
         # Print the objective function values
         print("Objective function values:")
         print(res.F)
-
-        return 0
         
     except FileNotFoundError:
-        print(f"Error: Results file not found. Ensure res.dill exists.")
-        return 1
+        print("Error: Results file not found. Ensure .dill exists.")
     
     except Exception as e:
         print(f"Error loading results: {e}")
-        return 1
+
 
 if __name__ == "__main__":
     main()
