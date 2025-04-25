@@ -168,7 +168,20 @@ class OptimizationProblem(ElementwiseProblem):
             Helper function to access the design vector without repeated f-string formatting.
             If the key does not exist, return 0.
             """
-            return x_dict.get(f"x{base_idx + offset}", 0)
+            try:
+                return x_dict[f"x{base_idx + offset}"]
+            except KeyError as err:
+                raise KeyError(f"Design vector key 'x{base_idx + offset} missing. Check design vector initialisation.")
+        
+        # Define a helper function to compute parameter b_8 using the mapping design variable
+        def Getb8(b_8_map: float, 
+                  r_le: float, 
+                  x_t: float, 
+                  y_t: float) -> float:
+            """
+            Helper function to compute the bezier parameter b_8 using the mapping parameter 0 <= b_8_map <= 1
+            """
+            return b_8_map * min(y_t, np.sqrt(max(0, -2 * r_le * x_t / 3)))
 
         # Define a pointer to count the number of variable parameters
         idx = 0
@@ -181,7 +194,7 @@ class OptimizationProblem(ElementwiseProblem):
         if config.OPTIMIZE_CENTERBODY:
             self.centerbody_variables = {"b_0": 0,
                                          "b_2": 0, 
-                                         "b_8": GetX(x, idx) * min(GetX(x, idx, 3), np.sqrt(max(0, -2 * GetX(x, idx, 5) * GetX(x, idx, 2) / 3))),
+                                         "b_8": Getb8(GetX(x, idx), GetX(x, idx, 5), GetX(x, idx, 2), GetX(x, idx, 3)),
                                          "b_15": GetX(x, idx, 1),
                                          "b_17": 0,
                                          "x_t": GetX(x, idx, 2),
@@ -214,7 +227,7 @@ class OptimizationProblem(ElementwiseProblem):
                     # Loop over the number of radial sections and append each section to stage_design_parameters
                     section_parameters = {"b_0": GetX(x, idx),
                                         "b_2": GetX(x, idx, 1), 
-                                        "b_8": GetX(x, idx, 2) * min(GetX(x, idx, 6), np.sqrt(max(0, -2 * GetX(x, idx, 11) * GetX(x, idx, 5) / 3))),
+                                        "b_8": Getb8(GetX(x, idx, 2), GetX(x, idx, 11), GetX(x, idx, 5), GetX(x, idx, 6)), 
                                         "b_15": GetX(x, idx, 3),
                                         "b_17": GetX(x, idx, 4),
                                         "x_t": GetX(x, idx, 5),
@@ -280,7 +293,7 @@ class OptimizationProblem(ElementwiseProblem):
 
             self.duct_variables = {"b_0": GetX(x, idx),
                                    "b_2": GetX(x, idx, 1), 
-                                   "b_8": GetX(x, idx, 2) * min(GetX(x, idx, 6), np.sqrt(max(0, -2 * GetX(x, idx, 11) * GetX(x, idx, 5) / 3))),
+                                   "b_8": Getb8(GetX(x, idx, 2), GetX(x, idx, 11), GetX(x, idx, 5), GetX(x, idx, 6)),
                                    "b_15": GetX(x, idx, 3),
                                    "b_17": GetX(x, idx, 4),
                                    "x_t": GetX(x, idx, 5),
@@ -382,8 +395,8 @@ class OptimizationProblem(ElementwiseProblem):
         None
         """
 
-        # Initialize empty data array for the radial duct coordinates
-        radial_duct_coordinates = np.zeros(self.num_stages)
+        # Initialize data array for the radial duct coordinates
+        radial_duct_coordinates = np.full(self.num_stages, self.blade_diameters / 2)
 
         # Compute the duct x,y coordinates. Note that we are only interested in the lower surface.
         _, _, lower_x, lower_y = AirfoilParameterization().ComputeProfileCoordinates([self.duct_variables["b_0"],

@@ -54,7 +54,6 @@ Changelog:
 """
 
 import subprocess
-import os
 import shutil
 import re
 from collections import OrderedDict
@@ -67,7 +66,7 @@ import time
 
 class FileCreatedHandling(FileSystemEventHandler):
     """ 
-    Simple class to handle checking if forces.analysis_name file has been generated. 
+    Simple class to handle checking if forces.analysis_name file has been modified. 
     """
 
     def __init__(self, 
@@ -77,16 +76,12 @@ class FileCreatedHandling(FileSystemEventHandler):
         self.destination = destination
         self.file_processed = False
 
-    def on_created(self, event):
-        """ Handle copying of the forces.analysis_name output file."""
+
+    def on_modified(self, event):
         if Path(event.src_path) == self.file_path:
             shutil.copy(self.file_path, self.destination)
             self.file_path.unlink()
             self.file_processed = True
-        
-
-    def on_modified(self, event):
-        self.on_created(event)
 
     
     def is_file_processed(self) -> bool:
@@ -196,9 +191,10 @@ class MTSOL_call:
 
         # Define the dump folder to write non-converged forces output files to
         self.dump_folder = self.submodels_path / "MTSOL_output_files"
+        self.dump_folder.mkdir(exist_ok=True)
 
         # Define forces non-convergence file tmeplate
-        self.forces_template = 'forces.{}.{}'
+        self.forces_template_nonconv = 'forces.{}.{}'
 
 
     def StdinWrite(self,
@@ -440,11 +436,6 @@ class MTSOL_call:
         # Update the solution state file
         self.WriteStateFile()
 
-        # First delete the output files if they exist already
-        for path in self.filepaths.values():
-            if path.exists():
-                path.unlink()
-
         # Dump the forces data
         self.StdinWrite("F")
         self.StdinWrite(self.FILE_TEMPLATES['forces'].format(self.analysis_name)) 
@@ -623,15 +614,11 @@ class MTSOL_call:
         None
         """
 
-        # Delete the forces.analysisname file if it exists already
-        if self.filepaths['forces'].exists():
-            self.filepaths['forces'].unlink()
-
         # Initialize iteration counter
         iter_counter = 0
 
         # Initialize watchdog to check when output file has been created
-        copied_file = self.forces_template.format(self.analysis_name, iter_counter)
+        copied_file = self.forces_template_nonconv.format(self.analysis_name, iter_counter)
         event_handler = FileCreatedHandling(self.filepaths['forces'],
                                             self.dump_folder / copied_file)
 
@@ -652,7 +639,7 @@ class MTSOL_call:
             self.WaitForCompletion(type=1)
 
             # Generate solver outputs
-            self.GenerateSolverOutput()
+            self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
 
             # Rename file to indicate the iteration number, and avoid overwriting the same file. 
             # Also move the file to the output folder
@@ -900,7 +887,8 @@ class MTSOL_call:
         self.SetOperConditions()
 
         # Generate force output file to ensure output exists in case of invisic crash
-        # Generating output before executing any iterations enforces the outputs to be zero.
+        # Generating output before executing any iterations enforces the outputs to be zero, 
+        # allowing the file to be used as output for an inviscid crash too.
         self.GenerateSolverOutput(output_type=output_type)
 
         # Execute inviscid solve

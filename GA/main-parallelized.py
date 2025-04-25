@@ -50,15 +50,11 @@ import os
 
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
-from folder_setup import setup
 
 if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
     multiprocessing.set_start_method('spawn', force=True)
     
-    """ Perform folder setup """
-    setup()
-
     """ Initialize the thread pool and create the runner """
     RESERVED_THREADS = 1 # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
     total_threads = multiprocessing.cpu_count()
