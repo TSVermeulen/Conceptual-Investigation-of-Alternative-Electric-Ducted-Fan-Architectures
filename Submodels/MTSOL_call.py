@@ -87,7 +87,7 @@ class FileCreatedHandling(FileSystemEventHandler):
         otherwise False.
         """
         try:
-            with open(file_path, 'r+b') as f:
+            with open(file_path, 'rb') as f:
                 if os.name == 'nt':  # Windows
                     import msvcrt
                     # Try to lock the first byte in a non-blocking way.
@@ -119,10 +119,9 @@ class FileCreatedHandling(FileSystemEventHandler):
         
 
     def on_modified(self, event):
-        if Path(event.src_path) == self.file_path:
-            if self.wait_until_file_free(self.file_path):
-                shutil.copy(self.file_path, self.destination)
-                self.file_processed = True
+        if Path(event.src_path) == self.file_path and self.wait_until_file_free(self.file_path):
+            shutil.copy(self.file_path, self.destination)
+            self.file_processed = True
 
     
     def is_file_processed(self) -> bool:
@@ -379,7 +378,7 @@ class MTSOL_call:
   
 
     def WaitForCompletion(self,
-                          type: CompletionType = CompletionType.ITERATION,
+                          completion_type: CompletionType = CompletionType.ITERATION,
                           output_file: str = None
                           ) -> int:
         """
@@ -387,7 +386,7 @@ class MTSOL_call:
 
         Parameters
         ----------
-        - type : CompletionType, optional
+        - completion_type : CompletionType, optional
             A CompletionType enum to determine what to check for. Default value if CompletionType.ITERATION
         - output_file : str, optional
             A string of the output file for which the completion is to be monitored. Either 'forces', 'flowfield', or 'boundary_layer'. 
@@ -405,25 +404,25 @@ class MTSOL_call:
             # Read the output line by line
             line = self.process.stdout.readline()
             # Once iteration is complete, return the completed exit flag
-            if line.startswith(' =') and type == CompletionType.ITERATION:
-                exit_flag = ExitFlag.COMPLETED.value
+            if line.startswith(' =') and completion_type == CompletionType.ITERATION:
+                exit_flag = ExitFlag.COMPLETED
                 break
             
             # Once the iteration is converged, return the converged exit flag
-            elif 'Converged' in line and type == CompletionType.ITERATION:
-                exit_flag = ExitFlag.SUCCESS.value
+            elif 'Converged' in line and completion_type == CompletionType.ITERATION:
+                exit_flag = ExitFlag.SUCCESS
                 break
 
             # If choking occurs, return the exit flag to choking
-            elif ' *** QSHIFT: Mass flow or Pexit must be a DOF!' in line and type == CompletionType.ITERATION:
-                exit_flag = ExitFlag.CHOKING.value
+            elif ' *** QSHIFT: Mass flow or Pexit must be a DOF!' in line and completion_type == CompletionType.ITERATION:
+                exit_flag = ExitFlag.CHOKING
                 break
             
             # Once the solution is written to the state file, or the forces/flowfield file is written, return the completed exit flag
             # The succesful forces/flowfield writing can be detected from the prompt to overwrite the file or to enter a filename
             elif ('Solution written to state file' in line 
-                  or line.startswith((' File exists.  Overwrite?  Y', 'Enter filename'))) and type == CompletionType.OUTPUT:
-                exit_flag = ExitFlag.COMPLETED.value
+                  or line.startswith((' File exists.  Overwrite?  Y', 'Enter filename'))) and completion_type == CompletionType.OUTPUT:
+                exit_flag = ExitFlag.COMPLETED
 
                 if output_file is not None:
                     max_wait_time = 5  # Maximum wait time in seconds
@@ -435,13 +434,13 @@ class MTSOL_call:
                 break
                         
             # When changing the operating conditions, check for the end of the modify parameters menu           
-            elif line.startswith(' V1,2..') and type == CompletionType.PARAM_CHANGE:
-                exit_flag = ExitFlag.COMPLETED.value
+            elif line.startswith(' V1,2..') and completion_type == CompletionType.PARAM_CHANGE:
+                exit_flag = ExitFlag.COMPLETED
                 break
             
             # If the solver crashes, return the crash exit flag
             elif line == "" and self.process.poll() is not None:
-                exit_flag = ExitFlag.CRASH.value    
+                exit_flag = ExitFlag.CRASH    
                 break 
 
         return exit_flag 
@@ -543,12 +542,12 @@ class MTSOL_call:
             # Increase iteration counter by step size
             self.iter_counter += self.ITER_STEP_SIZE  
 
-            if exit_flag in (ExitFlag.SUCCESS.value, ExitFlag.CHOKING.value):
+            if exit_flag in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH):
                 break 
 
         # If the solver has not converged within self.ITER_LIMIT iterations, set the exit flag to non-convergence
-        if exit_flag not in (ExitFlag.SUCCESS.value, ExitFlag.CHOKING.value):
-            exit_flag = ExitFlag.NON_CONVERGENCE.value
+        if exit_flag not in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH):
+            exit_flag = ExitFlag.NON_CONVERGENCE
 
         # Return the exit flag and iteration counter
         return exit_flag, self.iter_counter
@@ -567,11 +566,10 @@ class MTSOL_call:
         # Creatge a file generator to read the output files
         def read_file_lines():
             # Generator to yield lines from files matching the pattern
-            output_dir = self.submodels_path / "MTSOL_output_files"
-            for output_file in output_dir.glob("forces.{}.*".format(self.analysis_name)):
+            for output_file in self.dump_folder.glob("forces.{}.*".format(self.analysis_name)):
                 with open(output_file, "r") as f:
                     yield f.readlines()
-    
+        
         # Read in all files (collect into a list so we can transpose later)
         content = list(read_file_lines())
         if not content:
@@ -653,7 +651,6 @@ class MTSOL_call:
             file.unlink()
 
 
-
     def HandleNonConvergence(self,
                              ) -> None:
         """
@@ -712,12 +709,7 @@ class MTSOL_call:
             copied_file = 'forces.{}.{}'.format(self.analysis_name, iter_counter)
 
             # Re-intialise the event handler for the next iteration with an updated destination
-            event_handler = FileCreatedHandling(self.filepaths['forces'],
-                                                self.dump_folder / copied_file)
-            observer.unschedule_all()
-            observer.schedule(event_handler,
-                              path=monitor_path,
-                              recursive=False)            
+            event_handler.destination = self.dump_folder / copied_file           
 
         # Wrap up the watchdog
         observer.stop()
@@ -753,12 +745,12 @@ class MTSOL_call:
         """
 
         #If solver does not converge, call the non-convergence handler function.
-        if exit_flag == ExitFlag.NON_CONVERGENCE.value:
+        if exit_flag == ExitFlag.NON_CONVERGENCE:
             self.WriteStateFile()
             self.HandleNonConvergence()
 
         # Else if the solver has crashed, delete all output files except the forces file to keep outputs clean
-        elif exit_flag == ExitFlag.CRASH.value:  
+        elif exit_flag == ExitFlag.CRASH:  
             if type == 0:
                 # For an inviscid crash, cleanup outputs
                 for key, file in self.filepaths.items():
@@ -771,7 +763,7 @@ class MTSOL_call:
                 return
         
         # Else if the solver has finished, update the statefile.   
-        elif exit_flag in (ExitFlag.COMPLETED.value, ExitFlag.SUCCESS.value, ExitFlag.NOT_PERFORMED.value, ExitFlag.CHOKING.value):
+        elif exit_flag in (ExitFlag.COMPLETED, ExitFlag.SUCCESS, ExitFlag.NOT_PERFORMED, ExitFlag.CHOKING):
             self.WriteStateFile()
             return
           
@@ -800,6 +792,11 @@ class MTSOL_call:
         
         try:
             # Restart MTSOL - this is required since MTSOL quits upon a solver crash, so we need to restart the subprocress. 
+            # First ensure that the process has indeed stopped to avoid leaking a subprocess. 
+            if getattr(self, "process", None) and self.process.poll() is None:
+                self.process.terminate()
+                self.process.wait(timeout=10)
+
             self.GenerateProcess()
 
             # Set viscous if surface_ID is given
@@ -810,7 +807,7 @@ class MTSOL_call:
             exit_flag, iter_count = self.ExecuteSolver()
         except (OSError, BrokenPipeError):
             # If the solver crashes, set the exit flag to crash
-            exit_flag = ExitFlag.CRASH.value
+            exit_flag = ExitFlag.CRASH
             iter_count = self.iter_counter
 
         return exit_flag, iter_count    
@@ -835,41 +832,41 @@ class MTSOL_call:
 
        # Define initial exit flags and iteration counters
         # Note that a negative iteration count indicates that the solver did not run
-        exit_flag_visc_CB = ExitFlag.NOT_PERFORMED.value
+        exit_flag_visc_CB = ExitFlag.NOT_PERFORMED
         iter_count_visc_CB = 0
-        exit_flag_visc_induct = ExitFlag.NOT_PERFORMED.value
+        exit_flag_visc_induct = ExitFlag.NOT_PERFORMED
         iter_count_visc_induct = 0
-        exit_flag_visc_outduct = ExitFlag.NOT_PERFORMED.value
+        exit_flag_visc_outduct = ExitFlag.NOT_PERFORMED
         iter_count_visc_outduct = 0
-        total_exit_flag = ExitFlag.NOT_PERFORMED.value
+        total_exit_flag = ExitFlag.NOT_PERFORMED
 
         # Initialize a list to keep track of any surfaces which may fail convergence
         failed_surfaces = []
 
         # Execute the initial viscous solve, where we only solve for the boundary layer on the centerbody
         exit_flag_visc_CB, iter_count_visc_CB = self.TryExecuteViscousSolver(surface_ID=1)
-        if exit_flag_visc_CB in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
+        if exit_flag_visc_CB in (ExitFlag.SUCCESS, ExitFlag.COMPLETED):
             # If the viscous CB solve was successful, update the statefile. 
             self.WriteStateFile()
-        elif exit_flag_visc_CB in (ExitFlag.CRASH.value, ExitFlag.NON_CONVERGENCE.value):
+        elif exit_flag_visc_CB in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
             # if the viscous CB solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
             failed_surfaces.append(1)
 
         # Execute the viscous solve for the outside of the duct
         exit_flag_visc_outduct, iter_count_visc_outduct = self.TryExecuteViscousSolver(surface_ID=3)
-        if exit_flag_visc_outduct in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
+        if exit_flag_visc_outduct in (ExitFlag.SUCCESS, ExitFlag.COMPLETED):
             # If the viscous solve was successful, update the statefile.
             self.WriteStateFile()
-        elif exit_flag_visc_outduct in (ExitFlag.CRASH.value, ExitFlag.NON_CONVERGENCE.value):
+        elif exit_flag_visc_outduct in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
             # if the viscous solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
             failed_surfaces.append(3)
         
         # Execute the final viscous solve for the inside of the duct
         exit_flag_visc_induct, iter_count_visc_induct = self.TryExecuteViscousSolver(surface_ID=4)
-        if exit_flag_visc_induct in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
+        if exit_flag_visc_induct in (ExitFlag.SUCCESS, ExitFlag.COMPLETED):
             # If the viscous solve was successful, update the statefile.
             self.WriteStateFile()
-        elif exit_flag_visc_induct in (ExitFlag.CRASH.value, ExitFlag.NON_CONVERGENCE.value):
+        elif exit_flag_visc_induct in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
             # if the viscous solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
             failed_surfaces.append(4)
         
@@ -881,7 +878,7 @@ class MTSOL_call:
             exit_flag_visc_retry, iter_count_visc_retry = self.TryExecuteViscousSolver(surface_ID=surface)
 
             # Check if the viscous solve was successful
-            if exit_flag_visc_retry in (ExitFlag.SUCCESS.value, ExitFlag.COMPLETED.value):
+            if exit_flag_visc_retry in (ExitFlag.SUCCESS, ExitFlag.COMPLETED):
                 # If the viscous solve was successful, update the statefile.
                 self.WriteStateFile()
             retry_flags[surface] = exit_flag_visc_retry
@@ -931,9 +928,9 @@ class MTSOL_call:
 
         # Define initial exit flags and iteration counters
         # Note that a negative iteration count indicates that the solver did not run
-        exit_flag_invisc = ExitFlag.NOT_PERFORMED.value
+        exit_flag_invisc = ExitFlag.NOT_PERFORMED
         iter_count_invisc = 0
-        exit_flag_visc = ExitFlag.NOT_PERFORMED.value
+        exit_flag_visc = ExitFlag.NOT_PERFORMED
         iter_count_visc = 0
 
         # Generate MTSOL subprocess
@@ -945,14 +942,14 @@ class MTSOL_call:
         # Generate force output file to ensure output exists in case of invisic crash
         # Generating output before executing any iterations enforces the outputs to be zero, 
         # allowing the file to be used as output for an inviscid crash too.
-        self.GenerateSolverOutput(output_type=output_type)
+        self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
 
         # Execute inviscid solve
         try:  
             exit_flag_invisc, iter_count_invisc = self.ExecuteSolver()
         except (OSError, BrokenPipeError):
             # If the inviscid solve crashes, we need to set the exit flag to crash
-            exit_flag_invisc = ExitFlag.CRASH.value
+            exit_flag_invisc = ExitFlag.CRASH
             iter_count_invisc = self.iter_counter
 
         finally:
@@ -966,7 +963,7 @@ class MTSOL_call:
         # Theoretically there is the chance a viscous run may be started on a non-converged inviscid solve. 
         # This is acceptable, as we assume a steady state residual case has formed at the end of the inviscid case. 
         # There is a probability that by then running a viscous case, convergence to the correct solution may still be obtained.
-        if run_viscous and exit_flag_invisc != ExitFlag.CRASH.value:
+        if run_viscous and exit_flag_invisc != ExitFlag.CRASH:
             # Toggle viscous on the centerbody and the inner and outer duct surfaces
             self.ToggleViscous()
             self.SetViscous(3)

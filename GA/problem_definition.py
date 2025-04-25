@@ -96,13 +96,13 @@ class OptimizationProblem(ElementwiseProblem):
         self.optimize_stages = config.OPTIMIZE_STAGE
 
         # Initialize variable list with variable types.
-        vars = DesignVector()._construct_vector(config)
+        design_vars = DesignVector()._construct_vector(config)
 
         # Preconstruct design variable x-keys for more efficient indexing
-        self.x_keys = list(vars.keys())
+        self.x_keys = list(design_vars.keys())
 
         # Initialize the parent class
-        super().__init__(vars=vars,
+        super().__init__(vars=design_vars,
                          n_obj=len(config.objective_IDs),
                          n_ieq_constr=len(config.constraint_IDs[0]),
                          n_eq_constr=len(config.constraint_IDs[1]),
@@ -194,7 +194,7 @@ class OptimizationProblem(ElementwiseProblem):
             try:
                 return x_dict[self.x_keys[base_idx + offset]]
             except (IndexError, KeyError) as err:
-                raise KeyError(f"Design vector key 'x{base_idx + offset} missing. Check design vector initialisation.") from err
+                raise KeyError(f"Design vector key 'x{base_idx + offset}' missing. Check design vector initialisation.") from err
         
         # Define a helper function to compute parameter b_8 using the mapping design variable
         def Getb8(b_8_map: float, 
@@ -400,7 +400,7 @@ class OptimizationProblem(ElementwiseProblem):
         file_types = ["walls", "tflow", "forces", "flowfield", "boundary_layer", "tdat"]
 
         for file_type in file_types:
-            file_path = self.submodels_path / self.FILE_TEMPLATES['file_type'].format(self.analysis_name)
+            file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
 
             if file_type == "tdat" and file_path.exists():
                 copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
@@ -473,7 +473,7 @@ class OptimizationProblem(ElementwiseProblem):
         """
         Element-wise evaluation function.
         """
-        
+
         # Check if we have already evaluated this design vector
         x_tuple = tuple(sorted(x.items()))  # Convert dict to hashable tuple
 
