@@ -62,6 +62,7 @@ from Submodels.Parameterizations import AirfoilParameterization
 from objectives import Objectives
 from constraints import Constraints
 from init_designvector import DesignVector
+from shared_cache import SharedCache
 import config
 
 
@@ -121,6 +122,10 @@ class OptimizationProblem(ElementwiseProblem):
         # Define analysisname template
         self.timestamp_format = "%m%d%H%M%S"
         self.analysis_name_template = "{}_{:04d}_{}"
+
+        # Initialize the cache
+        self.cache = SharedCache() if 'elementwise_runner' in kwargs else {}
+        self.using_shared_cache = 'elementwise_runner' in kwargs
                 
 
     def GenerateAnalysisName(self) -> str:
@@ -475,17 +480,22 @@ class OptimizationProblem(ElementwiseProblem):
         """
 
         # Check if we have already evaluated this design vector
-        x_tuple = tuple(sorted(x.items()))  # Convert dict to hashable tuple
+        # Make a hashable key
+        key = tuple(sorted((str(k), float(v)) for k,v in x.items()))
 
-        # use class-level cache if available or create a new one
-        if not hasattr(type(self), '_evaluation_cache'):
-            type(self)._evaluation_cache = {}
-        
-        # Return cached results if available
-        if x_tuple in type(self)._evaluation_cache:
-            cached_result = type(self)._evaluation_cache[x_tuple]
-            out.update(cached_result)
-            return
+        # Check the cache
+        if self.using_shared_cache:
+            # If we use multi-processing, check the shared cache.
+            cached_result = self.cache.get(key)
+            if cached_result:
+                for k, v in cached_result.items():
+                    out[k] = v
+                return
+        else:
+            if key in self.cache:
+                for k, v in self.cache[key].items():
+                    out[k] = v
+                return
         
         # Generate a unique analysis name
         self.analysis_name = self.GenerateAnalysisName()
@@ -534,7 +544,11 @@ class OptimizationProblem(ElementwiseProblem):
         self.CleanUpFiles()
 
         # Store result in cache for future use
-        type(self)._evaluation_cache[x_tuple] = out.copy()
+        if self.using_shared_cache:
+            # If we use multi-processing, write to the shared cache
+            self.cache.put(key, dict(out))
+        else:
+            self.cache[key] = {k: v.copy() if hasattr(v, 'copy') else v for k, v in out.items()}
     
 
 if __name__ == "__main__":

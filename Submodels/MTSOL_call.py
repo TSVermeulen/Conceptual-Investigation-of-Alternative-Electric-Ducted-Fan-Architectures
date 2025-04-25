@@ -345,7 +345,7 @@ class MTSOL_call:
         self.StdinWrite("")
 
         # Wait for the change to be processed in MTSOL
-        self.WaitForCompletion(type=CompletionType.PARAM_CHANGE)
+        self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
 
 
     def SetViscous(self,
@@ -374,7 +374,7 @@ class MTSOL_call:
         self.StdinWrite("")
 
         # Wait for the change to be processed in MTSOL
-        self.WaitForCompletion(type=CompletionType.PARAM_CHANGE)
+        self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
   
 
     def WaitForCompletion(self,
@@ -460,7 +460,7 @@ class MTSOL_call:
         self.StdinWrite("W")
 
         # Check if the solution state file is written successfully
-        self.WaitForCompletion(type=CompletionType.OUTPUT)
+        self.WaitForCompletion(completion_type=CompletionType.OUTPUT)
             
 
     def GenerateSolverOutput(self,
@@ -490,7 +490,7 @@ class MTSOL_call:
         self.StdinWrite(self.FILE_TEMPLATES['forces'].format(self.analysis_name)) 
         
         # Check if the forces file is written successfully
-        self.WaitForCompletion(type=CompletionType.OUTPUT,
+        self.WaitForCompletion(completion_type=CompletionType.OUTPUT,
                                output_file='forces')
     
         if output_type == OutputType.FORCES_ONLY:
@@ -501,7 +501,7 @@ class MTSOL_call:
         self.StdinWrite(self.FILE_TEMPLATES['flowfield'].format(self.analysis_name))
 
         # Check if the flowfield file is written successfully
-        self.WaitForCompletion(type=CompletionType.OUTPUT,
+        self.WaitForCompletion(completion_type=CompletionType.OUTPUT,
                                output_file='flowfield')  
 
         # Dump the boundary layer data
@@ -509,7 +509,7 @@ class MTSOL_call:
         self.StdinWrite(self.FILE_TEMPLATES['boundary_layer'].format(self.analysis_name))
 
         # Check if the boundary layer file is written successfully
-        self.WaitForCompletion(type=CompletionType.OUTPUT,
+        self.WaitForCompletion(completion_type=CompletionType.OUTPUT,
                                output_file='boundary_layer')             
 
 
@@ -537,7 +537,7 @@ class MTSOL_call:
              
             # Check the exit flag to see if the solution has converged
             # If the solution has converged, break out of the iteration loop
-            exit_flag = self.WaitForCompletion(type=CompletionType.ITERATION)
+            exit_flag = self.WaitForCompletion(completion_type=CompletionType.ITERATION)
 
             # Increase iteration counter by step size
             self.iter_counter += self.ITER_STEP_SIZE  
@@ -689,7 +689,7 @@ class MTSOL_call:
             self.StdinWrite("x 1")
 
             # Wait for current iteration to complete
-            self.WaitForCompletion(type=CompletionType.ITERATION)
+            self.WaitForCompletion(completion_type=CompletionType.ITERATION)
 
             # Generate solver outputs
             self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
@@ -709,7 +709,8 @@ class MTSOL_call:
             copied_file = 'forces.{}.{}'.format(self.analysis_name, iter_counter)
 
             # Re-intialise the event handler for the next iteration with an updated destination
-            event_handler.destination = self.dump_folder / copied_file           
+            event_handler.destination = self.dump_folder / copied_file   
+            event_handler.file_processed = False        
 
         # Wrap up the watchdog
         observer.stop()
