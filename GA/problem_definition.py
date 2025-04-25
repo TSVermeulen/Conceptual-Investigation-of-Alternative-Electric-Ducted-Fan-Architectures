@@ -171,7 +171,7 @@ class OptimizationProblem(ElementwiseProblem):
             try:
                 return x_dict[f"x{base_idx + offset}"]
             except KeyError as err:
-                raise KeyError(f"Design vector key 'x{base_idx + offset} missing. Check design vector initialisation.")
+                raise KeyError(f"Design vector key 'x{base_idx + offset} missing. Check design vector initialisation.") from err
         
         # Define a helper function to compute parameter b_8 using the mapping design variable
         def Getb8(b_8_map: float, 
