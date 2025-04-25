@@ -207,7 +207,7 @@ class MTFLOW_caller:
         """
                 
         # If the exit flag indicates choking, reduce the rotor RPM to fix the issue
-        if exit_flag == ExitFlag.CHOKING.value:
+        if exit_flag == ExitFlag.CHOKING:
             print("Choking occurs. Using a rudimentary fix....")
             
             #Use a 5% reduction in RPM as guess
@@ -273,14 +273,14 @@ class MTFLOW_caller:
                 
             # Initialize count of grid checks and exit flag
             check_count = 1
-            exit_flag_gridtest = ExitFlag.NOT_PERFORMED.value
+            exit_flag_gridtest = ExitFlag.NOT_PERFORMED
                 
-            while exit_flag_gridtest != ExitFlag.SUCCESS.value:
+            while exit_flag_gridtest != ExitFlag.SUCCESS:
                 exit_flag_gridtest, iter_count_gridtest = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
                                                                     analysis_name=self.analysis_name).caller(run_viscous=False,
                                                                                                             generate_output=False)
                     
-                if exit_flag_gridtest == ExitFlag.SUCCESS.value:  # If the grid status is okay, break out of the checking loop and continue
+                if exit_flag_gridtest == ExitFlag.SUCCESS:  # If the grid status is okay, break out of the checking loop and continue
                     break
 
                 # If the grid is incorrect, change grid parameters and rerun MTSET to update the grid. 
@@ -298,7 +298,7 @@ class MTFLOW_caller:
                     grid_x_coeff = 0.5
                     streamwise_points = 141
                 elif check_count == 10: 
-                    exit_flag_gridtest = ExitFlag.CRASH.value  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
+                    exit_flag_gridtest = ExitFlag.CRASH  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
                     return exit_flag_gridtest, iter_count_gridtest
                 else:
                     # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
@@ -318,9 +318,9 @@ class MTFLOW_caller:
             # Passes the exit flag to determine if any issues have occurred. 
             # --------------------
 
-            exit_flag = ExitFlag.NOT_PERFORMED.value  # Initialize exit flag
+            exit_flag = ExitFlag.NOT_PERFORMED  # Initialize exit flag
             
-            while exit_flag not in (ExitFlag.SUCCESS.value, ExitFlag.NON_CONVERGENCE.value) and exit_flag_gridtest != ExitFlag.CRASH.value:
+            while exit_flag not in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE) and exit_flag_gridtest != ExitFlag.CRASH:
                 if not external_inputs:
                     file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
                                                 ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,

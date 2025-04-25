@@ -893,7 +893,7 @@ class MTSOL_call:
         exit_flag_visc_outduct = retry_flags.get(3, exit_flag_visc_outduct)
         exit_flag_visc_induct = retry_flags.get(4, exit_flag_visc_induct)
 
-        total_exit_flag = max(exit_flag_visc_CB, exit_flag_visc_outduct, exit_flag_visc_induct)
+        total_exit_flag = max(exit_flag_visc_CB.value, exit_flag_visc_outduct.value, exit_flag_visc_induct.value)
         total_iter_count = iter_count_visc_CB + iter_count_visc_outduct + iter_count_visc_induct + retry_count
 
         return total_exit_flag, total_iter_count
@@ -977,7 +977,7 @@ class MTSOL_call:
                 # Update the statefile
                 self.WriteStateFile()
                 
-                total_exit_flag = max(exit_flag_visc, exit_flag_invisc)
+                total_exit_flag = max(exit_flag_visc.value, exit_flag_invisc.value)
                 total_iter_count = iter_count_invisc + iter_count_visc
 
             except (OSError, BrokenPipeError):

@@ -62,7 +62,6 @@ from Submodels.Parameterizations import AirfoilParameterization
 from objectives import Objectives
 from constraints import Constraints
 from init_designvector import DesignVector
-from shared_cache import SharedCache
 import config
 
 
@@ -122,10 +121,6 @@ class OptimizationProblem(ElementwiseProblem):
         # Define analysisname template
         self.timestamp_format = "%m%d%H%M%S"
         self.analysis_name_template = "{}_{:04d}_{}"
-
-        # Initialize the cache
-        self.cache = SharedCache() if 'elementwise_runner' in kwargs else {}
-        self.using_shared_cache = 'elementwise_runner' in kwargs
                 
 
     def GenerateAnalysisName(self) -> str:
@@ -478,24 +473,6 @@ class OptimizationProblem(ElementwiseProblem):
         """
         Element-wise evaluation function.
         """
-
-        # Check if we have already evaluated this design vector
-        # Make a hashable key
-        key = tuple(sorted((str(k), float(v)) for k,v in x.items()))
-
-        # Check the cache
-        if self.using_shared_cache:
-            # If we use multi-processing, check the shared cache.
-            cached_result = self.cache.get(key)
-            if cached_result:
-                for k, v in cached_result.items():
-                    out[k] = v
-                return
-        else:
-            if key in self.cache:
-                for k, v in self.cache[key].items():
-                    out[k] = v
-                return
         
         # Generate a unique analysis name
         self.analysis_name = self.GenerateAnalysisName()
@@ -542,13 +519,6 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Cleanup the generated files
         self.CleanUpFiles()
-
-        # Store result in cache for future use
-        if self.using_shared_cache:
-            # If we use multi-processing, write to the shared cache
-            self.cache.put(key, dict(out))
-        else:
-            self.cache[key] = {k: v.copy() if hasattr(v, 'copy') else v for k, v in out.items()}
     
 
 if __name__ == "__main__":
