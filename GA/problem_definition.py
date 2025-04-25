@@ -117,7 +117,7 @@ class OptimizationProblem(ElementwiseProblem):
 
     def GenerateAnalysisName(self) -> str:
         """
-        Generate a unique analysis name with a length of 30 characters.
+        Generate a unique analysis name with a length of 32 characters.
         This is required to enable multi-threading of the optimization problem, and log each state file,
         since each evaluation of MTFLOW requires a unique set of files. 
 
@@ -127,17 +127,17 @@ class OptimizationProblem(ElementwiseProblem):
             A unique analysis name based on the current date and time and a unique identifier.
         """
 
-        # Generate a timestamp string in the format YYMMDDHHMMSS
+        # Generate a timestamp string in the format MMDDHHMMSS
         now = datetime.datetime.now()
-        timestamp = f"{now:%y%m%d%H%M%S}"  # 12 chars
+        timestamp = f"{now:%m%d%H%M%S}"  # 10 chars
 
         # Generate a unique identifier using UUID
-        unique_id = str(uuid.uuid4()).replace('-', '')[:12]  # 12 chars max
+        unique_id = str(uuid.uuid4()).replace('-', '')[:16]  # 16 chars max
 
         # Add a process ID to the analysis name to ensure uniqueness in multi-threaded environments.
         process_id = f"{os.getpid() % 10000:04d}"  # 4 chars max
 
-        # The analysis name is formatted as: <YYMMDDHHMMSS>_<process_ID>_<unique_id>. with a maximum total length of 30 characters
+        # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>. with a maximum total length of 32 characters
         analysis_name = f"{timestamp}_{process_id}_{unique_id}"
         
         return analysis_name
@@ -396,7 +396,7 @@ class OptimizationProblem(ElementwiseProblem):
         """
 
         # Initialize data array for the radial duct coordinates
-        radial_duct_coordinates = np.full(self.num_stages, self.blade_diameters / 2)
+        radial_duct_coordinates = np.asarray(self.blade_diameters, dtype=float) / 2
 
         # Compute the duct x,y coordinates. Note that we are only interested in the lower surface.
         _, _, lower_x, lower_y = AirfoilParameterization().ComputeProfileCoordinates([self.duct_variables["b_0"],
