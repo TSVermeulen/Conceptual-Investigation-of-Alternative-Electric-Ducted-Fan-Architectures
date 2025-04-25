@@ -77,11 +77,27 @@ class FileCreatedHandling(FileSystemEventHandler):
         self.file_processed = False
 
 
+    def wait_until_file_free(self,
+                             file_path: Path) -> bool:
+        """ Helper function to wait until the file_path has finished being written to, and is available. """
+        try:
+            with open(file_path, 'rb'):
+                return True
+        except IOError:
+                return False
+        
+
     def on_modified(self, event):
         if Path(event.src_path) == self.file_path:
-            shutil.copy(self.file_path, self.destination)
-            self.file_path.unlink()
-            self.file_processed = True
+            # Check that file has finished being written to
+            start_time = time.time()
+            while (time.time() - start_time) <= 5.:
+                if self.wait_until_file_free(self.file_path):
+                    shutil.copy(self.file_path, self.destination)
+                    self.file_processed = True
+                    break
+                else:
+                    time.sleep(0.01)
 
     
     def is_file_processed(self) -> bool:

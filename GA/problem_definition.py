@@ -98,6 +98,9 @@ class OptimizationProblem(ElementwiseProblem):
         # Initialize variable list with variable types.
         vars = DesignVector()._construct_vector(config)
 
+        # Preconstruct design variable x-keys for more efficient indexing
+        self.x_keys = list(vars.keys())
+
         # Initialize the parent class
         super().__init__(vars=vars,
                          n_obj=len(config.objective_IDs),
@@ -113,6 +116,10 @@ class OptimizationProblem(ElementwiseProblem):
         self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
         # Check existance of dump folder
         self.dump_folder.mkdir(exist_ok=True)
+
+        # Define analysisname template
+        self.timestamp_format = "%m%d%H%M%S"
+        self.analysis_name_template = "{}_{:04d}_{}"
                 
 
     def GenerateAnalysisName(self) -> str:
@@ -129,16 +136,16 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Generate a timestamp string in the format MMDDHHMMSS
         now = datetime.datetime.now()
-        timestamp = f"{now:%m%d%H%M%S}"  # 10 chars
+        timestamp = now.strftime(self.timestamp_format)
 
         # Generate a unique identifier using UUID
-        unique_id = str(uuid.uuid4()).replace('-', '')[:16]  # 16 chars max
+        unique_id = str(uuid.uuid4().hex)[:16]  # 16 chars max
 
         # Add a process ID to the analysis name to ensure uniqueness in multi-threaded environments.
-        process_id = f"{os.getpid() % 10000:04d}"  # 4 chars max
+        process_id = os.getpid() % 10000  # 4 chars max
 
         # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>. with a maximum total length of 32 characters
-        analysis_name = f"{timestamp}_{process_id}_{unique_id}"
+        analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)
         
         return analysis_name
 
@@ -166,10 +173,10 @@ class OptimizationProblem(ElementwiseProblem):
                  offset: int = 0) -> float|int:
             """ 
             Helper function to access the design vector without repeated f-string formatting.
-            If the key does not exist, return 0.
+            If the key does not exist, raises a KeyError.
             """
             try:
-                return x_dict[f"x{base_idx + offset}"]
+                return x_dict[self.x_keys[base_idx + offset]]
             except KeyError as err:
                 raise KeyError(f"Design vector key 'x{base_idx + offset} missing. Check design vector initialisation.") from err
         
@@ -181,7 +188,14 @@ class OptimizationProblem(ElementwiseProblem):
             """
             Helper function to compute the bezier parameter b_8 using the mapping parameter 0 <= b_8_map <= 1
             """
-            return b_8_map * min(y_t, np.sqrt(max(0, -2 * r_le * x_t / 3)))
+            
+            term = -2 * r_le * x_t / 3
+            if term <= 0:
+                sqrt_term = 0
+            else:
+                sqrt_term = np.sqrt(term)
+
+            return b_8_map * min(y_t, sqrt_term)
 
         # Define a pointer to count the number of variable parameters
         idx = 0
@@ -368,22 +382,21 @@ class OptimizationProblem(ElementwiseProblem):
         None
         """
 
+        # Precompute all file paths: 
+        file_paths = { file_type: self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name) for file_type in ["walls", "tflow", "forces", "flowfield", "boundary_layer", "tdat"]}
+
         # Delete the walls, tflow, forces, flowfield, and boundary layer files if they exist
-        for file_type in ["walls", "tflow", "forces", "flowfield", "boundary_layer"]:
-            file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-            if file_path.exists():
-                file_path.unlink()
+        [path.unlink() for path in 
+         [file_paths[file_type] for file_type in ["walls", "tflow", "forces", "flowfield", "boundary_layer"]] 
+         if path.exists()]
 
         # Move the state file into the dump_folder
-        original_file = self.submodels_path / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
-        if not original_file.exists():
-            # If the original file does not exist for some reason, we exit the function early to avoid errors
-            return
-        else:
+        tdat_path = file_paths["tdat"]
+        if tdat_path.exists():
             copied_file = self.dump_folder / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
-            shutil.copy(original_file, 
+            shutil.copy(tdat_path, 
                         copied_file)
-            original_file.unlink()
+            tdat_path.unlink()
 
 
     def ComputeDuctRadialLocation(self) -> None:
