@@ -649,6 +649,8 @@ class MTSOL_call:
             file.writelines(average_content)
 
         # Remove the now unnecessary output files in the dump folder
+        for file in self.dump_folder.glob("forces.{}.*".format(self.analysis_name)):
+            file.unlink()
 
 
 
