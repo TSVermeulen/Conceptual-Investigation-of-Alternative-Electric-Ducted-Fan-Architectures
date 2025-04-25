@@ -160,8 +160,8 @@ class OptimizationProblem(ElementwiseProblem):
         
         Parameters
         ----------
-        - x : np.ndarray
-            A 1D array of the design vector being analysed. 
+        - x : dict[str, float|int]
+            Dictionary representation of the design vector received from pymoo.
 
         Returns
         -------
@@ -194,7 +194,7 @@ class OptimizationProblem(ElementwiseProblem):
             try:
                 return x_dict[self.x_keys[base_idx + offset]]
             except (IndexError, KeyError) as err:
-                raise KeyError(f"Design vector key 'x{base_idx + offset}' missing. Check design vector initialisation.") from err
+                raise KeyError(f"Design vector key '{self.x_keys[base_idx + offset]}' missing. Check design vector initialisation.") from err
         
         # Define a helper function to compute parameter b_8 using the mapping design variable
         def Getb8(b_8_map: float, 
