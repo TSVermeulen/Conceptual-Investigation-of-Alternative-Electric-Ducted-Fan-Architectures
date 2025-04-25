@@ -55,6 +55,7 @@ Changelog:
 
 import subprocess
 import shutil
+import os
 import re
 from collections import OrderedDict
 from watchdog.observers import Observer
@@ -77,27 +78,51 @@ class FileCreatedHandling(FileSystemEventHandler):
         self.file_processed = False
 
 
-    def wait_until_file_free(self,
-                             file_path: Path) -> bool:
-        """ Helper function to wait until the file_path has finished being written to, and is available. """
+    def is_file_free(self, file_path: Path) -> bool:
+        """
+        Checks if the file is free by attempting to lock a small portion of it.
+        On Windows, it uses msvcrt.locking; on Unix-like systems, it uses fcntl.flock.
+        
+        Returns True if the lock can be acquired (indicating the file is likely free),
+        otherwise False.
+        """
         try:
-            with open(file_path, 'rb'):
+            with open(file_path, 'r+b') as f:
+                if os.name == 'nt':  # Windows
+                    import msvcrt
+                    # Try to lock the first byte in a non-blocking way.
+                    msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                    # Immediately unlock.
+                    msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+
+                else:
+                    import fcntl
+                    # Attempt a non-blocking exclusive lock.
+                    fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    # Release the lock.
+                    fcntl.flock(f, fcntl.LOCK_UN)
+            return True
+        except Exception:
+            return False
+
+
+    def wait_until_file_free(self,
+                             file_path: Path,
+                             timeout: float = 5) -> bool:
+        """ Helper function to wait until the file_path has finished being written to, and is available. """
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if self.is_file_free(file_path):
                 return True
-        except IOError:
-                return False
+            time.sleep(0.01)
+        return False
         
 
     def on_modified(self, event):
         if Path(event.src_path) == self.file_path:
-            # Check that file has finished being written to
-            start_time = time.time()
-            while (time.time() - start_time) <= 5.:
-                if self.wait_until_file_free(self.file_path):
-                    shutil.copy(self.file_path, self.destination)
-                    self.file_processed = True
-                    break
-                else:
-                    time.sleep(0.01)
+            if self.wait_until_file_free(self.file_path):
+                shutil.copy(self.file_path, self.destination)
+                self.file_processed = True
 
     
     def is_file_processed(self) -> bool:
@@ -147,6 +172,16 @@ class OutputType(Enum):
 
     FORCES_ONLY = 0
     ALL_FILES = 1
+
+
+class CompletionType(Enum):
+    """
+    Enum class to define the completion type to be checked for in MTSOL.
+    """
+
+    ITERATION = 1
+    OUTPUT = 2
+    PARAM_CHANGE = 3    
 
 
 class MTSOL_call:
@@ -207,7 +242,8 @@ class MTSOL_call:
 
         # Define the dump folder to write non-converged forces output files to
         self.dump_folder = self.submodels_path / "MTSOL_output_files"
-        self.dump_folder.mkdir(exist_ok=True)
+        self.dump_folder.mkdir(exist_ok=True,
+                               parents=True)
 
         # Define forces non-convergence file tmeplate
         self.forces_template_nonconv = 'forces.{}.{}'
@@ -245,8 +281,7 @@ class MTSOL_call:
         self.process = subprocess.Popen([self.fpath, self.analysis_name], 
                                         stdin=subprocess.PIPE, 
                                         stdout=subprocess.PIPE, 
-                                        stderr=subprocess.PIPE,
-                                        shell=True, 
+                                        stderr=subprocess.PIPE, 
                                         text=True,
                                         bufsize=1,
                                         )
@@ -311,7 +346,7 @@ class MTSOL_call:
         self.StdinWrite("")
 
         # Wait for the change to be processed in MTSOL
-        self.WaitForCompletion(type=3)
+        self.WaitForCompletion(type=CompletionType.PARAM_CHANGE)
 
 
     def SetViscous(self,
@@ -340,11 +375,11 @@ class MTSOL_call:
         self.StdinWrite("")
 
         # Wait for the change to be processed in MTSOL
-        self.WaitForCompletion(type=3)
+        self.WaitForCompletion(type=CompletionType.PARAM_CHANGE)
   
 
     def WaitForCompletion(self,
-                          type: int = 1,
+                          type: CompletionType = CompletionType.ITERATION,
                           output_file: str = None
                           ) -> int:
         """
@@ -352,9 +387,8 @@ class MTSOL_call:
 
         Parameters
         ----------
-        - type : int
-            Specifies the type of completion to monitor. Default is 1, which corresponds to an iteration.
-            Other options are: 2 for output generation and 3 for changing operating conditions.
+        - type : CompletionType, optional
+            A CompletionType enum to determine what to check for. Default value if CompletionType.ITERATION
         - output_file : str, optional
             A string of the output file for which the completion is to be monitored. Either 'forces', 'flowfield', or 'boundary_layer'. 
             Note that the file extension (i.e.) casename, should not be included!
@@ -371,24 +405,24 @@ class MTSOL_call:
             # Read the output line by line
             line = self.process.stdout.readline()
             # Once iteration is complete, return the completed exit flag
-            if line.startswith(' =') and type == 1:
+            if line.startswith(' =') and type == CompletionType.ITERATION:
                 exit_flag = ExitFlag.COMPLETED.value
                 break
             
             # Once the iteration is converged, return the converged exit flag
-            elif 'Converged' in line and type == 1:
+            elif 'Converged' in line and type == CompletionType.ITERATION:
                 exit_flag = ExitFlag.SUCCESS.value
                 break
 
             # If choking occurs, return the exit flag to choking
-            elif ' *** QSHIFT: Mass flow or Pexit must be a DOF!' in line and type == 1:
+            elif ' *** QSHIFT: Mass flow or Pexit must be a DOF!' in line and type == CompletionType.ITERATION:
                 exit_flag = ExitFlag.CHOKING.value
                 break
             
             # Once the solution is written to the state file, or the forces/flowfield file is written, return the completed exit flag
             # The succesful forces/flowfield writing can be detected from the prompt to overwrite the file or to enter a filename
             elif ('Solution written to state file' in line 
-                  or line.startswith((' File exists.  Overwrite?  Y', 'Enter filename'))) and type == 2:
+                  or line.startswith((' File exists.  Overwrite?  Y', 'Enter filename'))) and type == CompletionType.OUTPUT:
                 exit_flag = ExitFlag.COMPLETED.value
 
                 if output_file is not None:
@@ -401,7 +435,7 @@ class MTSOL_call:
                 break
                         
             # When changing the operating conditions, check for the end of the modify parameters menu           
-            elif line.startswith(' V1,2..') and type == 3:
+            elif line.startswith(' V1,2..') and type == CompletionType.PARAM_CHANGE:
                 exit_flag = ExitFlag.COMPLETED.value
                 break
             
@@ -427,7 +461,7 @@ class MTSOL_call:
         self.StdinWrite("W")
 
         # Check if the solution state file is written successfully
-        self.WaitForCompletion(type=2)
+        self.WaitForCompletion(type=CompletionType.OUTPUT)
             
 
     def GenerateSolverOutput(self,
@@ -457,7 +491,7 @@ class MTSOL_call:
         self.StdinWrite(self.FILE_TEMPLATES['forces'].format(self.analysis_name)) 
         
         # Check if the forces file is written successfully
-        self.WaitForCompletion(type=2,
+        self.WaitForCompletion(type=CompletionType.OUTPUT,
                                output_file='forces')
     
         if output_type == OutputType.FORCES_ONLY:
@@ -468,7 +502,7 @@ class MTSOL_call:
         self.StdinWrite(self.FILE_TEMPLATES['flowfield'].format(self.analysis_name))
 
         # Check if the flowfield file is written successfully
-        self.WaitForCompletion(type=2,
+        self.WaitForCompletion(type=CompletionType.OUTPUT,
                                output_file='flowfield')  
 
         # Dump the boundary layer data
@@ -476,7 +510,7 @@ class MTSOL_call:
         self.StdinWrite(self.FILE_TEMPLATES['boundary_layer'].format(self.analysis_name))
 
         # Check if the boundary layer file is written successfully
-        self.WaitForCompletion(type=2,
+        self.WaitForCompletion(type=CompletionType.OUTPUT,
                                output_file='boundary_layer')             
 
 
@@ -501,15 +535,16 @@ class MTSOL_call:
         while self.iter_counter < self.ITER_LIMIT:
             #Execute next iteration(s)
             self.StdinWrite(f"x {self.ITER_STEP_SIZE}")
-
-            # Increase iteration counter by step size
-            self.iter_counter += self.ITER_STEP_SIZE     
-
+             
             # Check the exit flag to see if the solution has converged
             # If the solution has converged, break out of the iteration loop
-            exit_flag = self.WaitForCompletion(type=1)
+            exit_flag = self.WaitForCompletion(type=CompletionType.ITERATION)
+
+            # Increase iteration counter by step size
+            self.iter_counter += self.ITER_STEP_SIZE  
+
             if exit_flag in (ExitFlag.SUCCESS.value, ExitFlag.CHOKING.value):
-                break    
+                break 
 
         # If the solver has not converged within self.ITER_LIMIT iterations, set the exit flag to non-convergence
         if exit_flag not in (ExitFlag.SUCCESS.value, ExitFlag.CHOKING.value):
@@ -613,6 +648,9 @@ class MTSOL_call:
         with open(self.filepaths['forces'], 'w') as file:
             file.writelines(average_content)
 
+        # Remove the now unnecessary output files in the dump folder
+
+
 
     def HandleNonConvergence(self,
                              ) -> None:
@@ -647,12 +685,12 @@ class MTSOL_call:
         observer.start()
     
         # Keep looping until iter_count exceeds the target value for number of iterations to average 
-        while iter_counter <= self.SAMPLE_SIZE:
+        while iter_counter < self.SAMPLE_SIZE:
             #Execute iteration
             self.StdinWrite("x 1")
 
             # Wait for current iteration to complete
-            self.WaitForCompletion(type=1)
+            self.WaitForCompletion(type=CompletionType.ITERATION)
 
             # Generate solver outputs
             self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)

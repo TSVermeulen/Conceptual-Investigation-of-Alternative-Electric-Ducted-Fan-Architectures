@@ -115,7 +115,8 @@ class OptimizationProblem(ElementwiseProblem):
         # Create folder path to store statefiles
         self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
         # Check existance of dump folder
-        self.dump_folder.mkdir(exist_ok=True)
+        self.dump_folder.mkdir(exist_ok=True,
+                               parents=True)
 
         # Define analysisname template
         self.timestamp_format = "%m%d%H%M%S"
@@ -145,7 +146,7 @@ class OptimizationProblem(ElementwiseProblem):
         process_id = os.getpid() % 10000  # 4 chars max
 
         # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>. with a maximum total length of 32 characters
-        analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)
+        analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)[:32]
         
         return analysis_name
 
@@ -168,16 +169,31 @@ class OptimizationProblem(ElementwiseProblem):
         """
 
         # Define a helper function to access the design vector values
-        def GetX(x_dict: dict,
+        def GetX(x_dict: dict[str, float|int],
                  base_idx: int,
                  offset: int = 0) -> float|int:
             """ 
             Helper function to access the design vector without repeated f-string formatting.
             If the key does not exist, raises a KeyError.
+
+            Parameters
+            ----------
+            - x_dict : dict[str, float|int]
+                The design vector dictionary
+            - base_idx : int
+                Base index for vector access
+            - offset : int, optional
+                Offset from base index, defaults to 0
+        
+            Returns
+            -------
+            - float|int
+                The value at the specified position
             """
+
             try:
                 return x_dict[self.x_keys[base_idx + offset]]
-            except KeyError as err:
+            except (IndexError, KeyError) as err:
                 raise KeyError(f"Design vector key 'x{base_idx + offset} missing. Check design vector initialisation.") from err
         
         # Define a helper function to compute parameter b_8 using the mapping design variable
@@ -188,12 +204,9 @@ class OptimizationProblem(ElementwiseProblem):
             """
             Helper function to compute the bezier parameter b_8 using the mapping parameter 0 <= b_8_map <= 1
             """
-            
+
             term = -2 * r_le * x_t / 3
-            if term <= 0:
-                sqrt_term = 0
-            else:
-                sqrt_term = np.sqrt(term)
+            sqrt_term = 0 if term <= 0 else np.sqrt(term)
 
             return b_8_map * min(y_t, sqrt_term)
 
@@ -225,6 +238,7 @@ class OptimizationProblem(ElementwiseProblem):
                                          "Leading Edge Coordinates": (0, 0)}
             
             # Update the index to point to the blade design variables, since we need the blade variables deconstructed first in order to correctly set the duct variables. 
+            # Design Vector structure: [centerbody, duct, blades] but we process [centerbody, blades, duct] because the duct position depends on blade geometry for the tip gap constraint.
             idx += (centerbody_designvar_count + duct_designvar_count) if config.OPTIMIZE_DUCT else centerbody_designvar_count
         else:
             self.centerbody_variables = config.CENTERBODY_VALUES
@@ -382,21 +396,19 @@ class OptimizationProblem(ElementwiseProblem):
         None
         """
 
-        # Precompute all file paths: 
-        file_paths = { file_type: self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name) for file_type in ["walls", "tflow", "forces", "flowfield", "boundary_layer", "tdat"]}
+        # Files to be deleted directly
+        file_types = ["walls", "tflow", "forces", "flowfield", "boundary_layer", "tdat"]
 
-        # Delete the walls, tflow, forces, flowfield, and boundary layer files if they exist
-        [path.unlink() for path in 
-         [file_paths[file_type] for file_type in ["walls", "tflow", "forces", "flowfield", "boundary_layer"]] 
-         if path.exists()]
+        for file_type in file_types:
+            file_path = self.submodels_path / self.FILE_TEMPLATES['file_type'].format(self.analysis_name)
 
-        # Move the state file into the dump_folder
-        tdat_path = file_paths["tdat"]
-        if tdat_path.exists():
-            copied_file = self.dump_folder / self.FILE_TEMPLATES["tdat"].format(self.analysis_name)
-            shutil.copy(tdat_path, 
-                        copied_file)
-            tdat_path.unlink()
+            if file_type == "tdat" and file_path.exists():
+                copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
+                shutil.copy(file_path, 
+                            copied_file)
+            
+            if file_path.exists():
+                file_path.unlink()
 
 
     def ComputeDuctRadialLocation(self) -> None:
@@ -453,7 +465,28 @@ class OptimizationProblem(ElementwiseProblem):
                                                            np.max(radial_duct_coordinates))
 
 
-    def _evaluate(self, x, out, *args, **kwargs) -> None:
+    def _evaluate(self, 
+                  x:dict, 
+                  out:dict, 
+                  *args, 
+                  **kwargs) -> None:
+        """
+        Element-wise evaluation function.
+        """
+        
+        # Check if we have already evaluated this design vector
+        x_tuple = tuple(sorted(x.items()))  # Convert dict to hashable tuple
+
+        # use class-level cache if available or create a new one
+        if not hasattr(type(self), '_evaluation_cache'):
+            type(self)._evaluation_cache = {}
+        
+        # Return cached results if available
+        if x_tuple in type(self)._evaluation_cache:
+            cached_result = type(self)._evaluation_cache[x_tuple]
+            out.update(cached_result)
+            return
+        
         # Generate a unique analysis name
         self.analysis_name = self.GenerateAnalysisName()
         
@@ -499,6 +532,9 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Cleanup the generated files
         self.CleanUpFiles()
+
+        # Store result in cache for future use
+        type(self)._evaluation_cache[x_tuple] = out.copy()
     
 
 if __name__ == "__main__":

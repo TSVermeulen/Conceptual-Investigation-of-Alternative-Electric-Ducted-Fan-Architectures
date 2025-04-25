@@ -134,7 +134,6 @@ class MTSET_call:
                                  stdin=subprocess.PIPE, 
                                  stdout=subprocess.PIPE, 
                                  stderr=subprocess.PIPE,
-                                 shell=True, 
                                  text=True,
                                  bufsize=1,
                                  )
