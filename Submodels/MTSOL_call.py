@@ -757,7 +757,7 @@ class MTSOL_call:
                 for key, file in self.filepaths.items():
                     if file.exists() and key != 'forces':
                         file.unlink()
-                for file in self.dump_folder.glob("forces*"):
+                for file in self.dump_folder.glob("forces.{}.*".format(self.analysis_name)):
                     file.unlink()
                 return
             else:
@@ -793,11 +793,6 @@ class MTSOL_call:
         
         try:
             # Restart MTSOL - this is required since MTSOL quits upon a solver crash, so we need to restart the subprocress. 
-            # First ensure that the process has indeed stopped to avoid leaking a subprocess. 
-            if getattr(self, "process", None) and self.process.poll() is None:
-                self.process.terminate()
-                self.process.wait(timeout=10)
-
             self.GenerateProcess()
 
             # Set viscous if surface_ID is given

@@ -329,7 +329,7 @@ class MTFLOW_caller:
                 MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
                 
                 exit_flag, iter_count = MTSOL_call(operating_conditions=self.operating_conditions,
-                                                analysis_name=self.analysis_name).caller(run_viscous=True,
+                                                   analysis_name=self.analysis_name).caller(run_viscous=True,
                                                                                             generate_output=True,
                                                                                             output_type=output_type)
                 
