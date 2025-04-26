@@ -58,12 +58,12 @@ import subprocess
 import shutil
 import os
 import re
+import time
+from pathlib import Path
 from collections import OrderedDict
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from enum import Enum
-from pathlib import Path
-import time
 
 
 class FileCreatedHandling(FileSystemEventHandler):
@@ -245,7 +245,7 @@ class MTSOL_call:
         self.dump_folder.mkdir(exist_ok=True,
                                parents=True)
 
-        # Define forces non-convergence file tmeplate
+        # Define forces non-convergence file template
         self.forces_template_nonconv = 'forces.{}.{}'
 
 
@@ -400,30 +400,26 @@ class MTSOL_call:
         """
 
         # Check the console output to ensure that commands are completed
-        while True:
+        timer_start = time.time()
+        while (time.time() - timer_start) < 60:
             # Read the output line by line
             line = self.process.stdout.readline()
             # Once iteration is complete, return the completed exit flag
             if line.startswith(' =') and completion_type == CompletionType.ITERATION:
-                exit_flag = ExitFlag.COMPLETED
-                break
+                return ExitFlag.COMPLETED
             
             # Once the iteration is converged, return the converged exit flag
             elif 'Converged' in line and completion_type == CompletionType.ITERATION:
-                exit_flag = ExitFlag.SUCCESS
-                break
+                return ExitFlag.SUCCESS
 
             # If choking occurs, return the exit flag to choking
             elif ' *** QSHIFT: Mass flow or Pexit must be a DOF!' in line and completion_type == CompletionType.ITERATION:
-                exit_flag = ExitFlag.CHOKING
-                break
+                return ExitFlag.CHOKING
             
             # Once the solution is written to the state file, or the forces/flowfield file is written, return the completed exit flag
             # The succesful forces/flowfield writing can be detected from the prompt to overwrite the file or to enter a filename
             elif ('Solution written to state file' in line 
                   or line.startswith((' File exists.  Overwrite?  Y', 'Enter filename'))) and completion_type == CompletionType.OUTPUT:
-                exit_flag = ExitFlag.COMPLETED
-
                 if output_file is not None:
                     max_wait_time = 10  # Maximum wait time in seconds
                     # Wait for the file creation to be finished
@@ -431,19 +427,19 @@ class MTSOL_call:
                     start_time = time.time()
                     while not target_path.exists() and (time.time() - start_time) < max_wait_time:
                         time.sleep(0.01) 
-                break
+
+                return ExitFlag.COMPLETED
                         
             # When changing the operating conditions, check for the end of the modify parameters menu           
             elif line.startswith(' V1,2..') and completion_type == CompletionType.PARAM_CHANGE:
-                exit_flag = ExitFlag.COMPLETED
-                break
+                return ExitFlag.COMPLETED
             
             # If the solver crashes, return the crash exit flag
             elif line == "" and self.process.poll() is not None:
-                exit_flag = ExitFlag.CRASH    
-                break 
+                return ExitFlag.CRASH    
 
-        return exit_flag 
+        # If timer ran out while waiting for completion, assume the solver has crashed/hung
+        return ExitFlag.CRASH 
     
 
     def WriteStateFile(self,
@@ -941,6 +937,9 @@ class MTSOL_call:
 
         # Write operating conditions
         self.SetOperConditions()
+
+        # Write empty forces file
+        self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
 
         # Execute inviscid solve
         try:  

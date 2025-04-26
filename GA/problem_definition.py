@@ -50,13 +50,8 @@ from pathlib import Path
 import datetime
 from pymoo.core.problem import ElementwiseProblem
 from scipy import interpolate
-import time
 
-# Add the parent and submodels paths to the system path
-sys.path.extend([str(Path(__file__).resolve().parent.parent), str(Path(__file__).resolve().parent.parent / "Submodels")])
-
-# Import MTFLOW interface submodels and other dependencies
-from MTFLOW_caller import MTFLOW_caller
+# Import interface submodels and other dependencies
 from Submodels.MTSOL_call import OutputType, ExitFlag
 from Submodels.output_handling import output_processing
 from Submodels.Parameterizations import AirfoilParameterization
@@ -146,6 +141,9 @@ class OptimizationProblem(ElementwiseProblem):
         # Define analysisname template
         self.timestamp_format = "%m%d%H%M%S"
         self.analysis_name_template = "{}_{:04d}_{}"
+
+        # Precompute radial linspace array to avoid repeated definition
+        self.radial_linspace = np.linspace(0, 1, self.num_radial)
                 
 
     def GenerateAnalysisName(self) -> str:
@@ -278,7 +276,6 @@ class OptimizationProblem(ElementwiseProblem):
 
         self.blade_blading_parameters = []
         self.blade_diameters = []
-        radial_linspace = np.linspace(0, 1, self.num_radial)
         for i in range(self.num_stages):
             # Initiate empty list for each stage
             stage_blading_parameters = {}
@@ -288,7 +285,7 @@ class OptimizationProblem(ElementwiseProblem):
                 stage_blading_parameters["blade_count"] = int(round(vector.get(idx, 1)))
                 stage_blading_parameters["ref_blade_angle"] = vector.get(idx, 2)
                 stage_blading_parameters["reference_section_blade_angle"] = config.REFERENCE_SECTION_ANGLES[i]
-                stage_blading_parameters["radial_stations"] = radial_linspace * vector.get(idx, 3)  # Radial stations are defined as fraction of blade radius * local radius
+                stage_blading_parameters["radial_stations"] = self.radial_linspace * vector.get(idx, 3)  # Radial stations are defined as fraction of blade radius * local radius
                 self.blade_diameters.append(vector.get(idx, 3) * 2)
 
                 # Initialize sectional blading parameter lists
@@ -452,14 +449,16 @@ class OptimizationProblem(ElementwiseProblem):
             if config.ROTATING[i]:
                 # Compute the y value of the duct inner surface at the blade rotor
                 sweep = np.tan(blading_params["sweep_angle"][-1])
-                x_tip = blading_params["root_LE_coordinate"] + sweep * y_tip    
+                x_tip_LE = blading_params["root_LE_coordinate"] + sweep * y_tip 
+                projected_chord_length = blading_params["chord_length"][-1] * np.cos(np.pi/2 - (blading_params["blade_angle"][-1] + blading_params["ref_blade_angle"] - blading_params["reference_section_blade_angle"]))
+                x_tip_TE = x_tip_LE + projected_chord_length
 
-                y_tip_clearance = y_tip + config.tipGap
-                if (x_tip <= lower_x[-1] and x_tip >= lower_x[0]):
-                    # Only add the duct offset if the duct is over the blade row
-                    radial_duct_coordinates[i] = y_tip_clearance + float(duct_interpolant(x_tip))
-                else:
-                    radial_duct_coordinates[i] = y_tip_clearance
+                # Compute the offsets for the LE and TE of the blade tip
+                LE_offset = float(duct_interpolant(x_tip_LE)) if (x_tip_LE <= lower_x[-1] and x_tip_LE >= lower_x[0]) else 0  # Set to 0 if duct does not lie above LE
+                TE_offset = float(duct_interpolant(x_tip_TE)) if (x_tip_TE <= lower_x[-1] and x_tip_TE >= lower_x[0]) else 0  # Set to 0 if duct does not lie above TE
+
+                # Compute the radial location of the duct
+                radial_duct_coordinates[i] = y_tip + config.tipGap + max(LE_offset, TE_offset)
     
         # Update the duct variables in self
         self.duct_variables["Leading Edge Coordinates"] = (self.duct_variables["Leading Edge Coordinates"][0],
@@ -474,6 +473,10 @@ class OptimizationProblem(ElementwiseProblem):
         """
         Element-wise evaluation function.
         """
+
+        # Lazy import the MTFLOW interface
+        # This helps to improve startup time and memory usage in parallel workers
+        from MTFLOW_caller import MTFLOW_caller
         
         # Generate a unique analysis name
         self.analysis_name = self.GenerateAnalysisName()
@@ -499,16 +502,12 @@ class OptimizationProblem(ElementwiseProblem):
                                          **kwargs)
 
         # Run MTFLOW
-        exit_flag, _ = MTFLOW_interface.caller(external_inputs=False,
+        _, _ = MTFLOW_interface.caller(external_inputs=False,
                                                output_type=OutputType.FORCES_ONLY)
 
-        # Extract outputs - uses pre-defined crash output file in case of a crash exit flag. 
-        if exit_flag != ExitFlag.CRASH:
-            output_handler = output_processing(analysis_name=self.analysis_name)
-        else:
-            output_handler = output_processing(analysis_name="crash_outputs")
-        MTFLOW_outputs = output_handler.GetAllVariables(output_type=3,
-                                                        GA=True)
+        # Extract outputs
+        output_handler = output_processing(analysis_name=self.analysis_name)
+        MTFLOW_outputs = output_handler.GetAllVariables(output_type=3)
 
         # Obtain objective(s)
         # The out dictionary is updated in-place
@@ -527,6 +526,9 @@ class OptimizationProblem(ElementwiseProblem):
     
 
 if __name__ == "__main__":
+    # Add the parent and submodels paths to the system path
+    sys.path.extend([str(Path(__file__).resolve().parent.parent), str(Path(__file__).resolve().parent.parent / "Submodels")])
+
     # Disable parameterizations to allow for testing with empty design vector
     config.OPTIMIZE_CENTERBODY = False
     config.OPTIMIZE_DUCT = False

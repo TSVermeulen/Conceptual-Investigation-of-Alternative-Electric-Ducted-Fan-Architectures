@@ -185,7 +185,7 @@ class MTFLOW_caller:
         self.ref_length = ref_length
 
         # Set the seed for the random number generator to ensure repeatability. 
-        seed = kwargs.get("seed")
+        seed = kwargs.get("seed", 1)
         random.seed(seed)
 
         # Define key paths/directories

@@ -43,13 +43,28 @@ from pymoo.core.mixed import MixedVariableGA
 import multiprocessing
 from pymoo.core.problem import StarmapParallelization
 from pymoo.optimize import minimize
+from pathlib import Path
 import dill
 import config
 import datetime
 import os
+import sys
 
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
+
+# Define the parent and submodels paths
+parent_dir = str(Path(__file__).resolve().parent.parent)
+submodels_dir =  str(Path(__file__).resolve().parent.parent / "Submodels")
+
+def worker_init(parent_dir_str: str,
+                submodels_path_str: str) -> None:
+    """
+    Initializer for each worker process in the pool. Ensures sys.path and environment variables are set up for imports.
+    """
+
+    sys.path.extend([parent_dir_str, submodels_path_str])
+
 
 if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
@@ -61,7 +76,9 @@ if __name__ == "__main__":
     total_threads_avail = total_threads - RESERVED_THREADS
 
     n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used
-    pool = multiprocessing.Pool(n_processes)
+    pool = multiprocessing.Pool(processes=n_processes,
+                                initializer=worker_init,
+                                initargs=(parent_dir, submodels_dir))
 
     # Create runner
     runner = StarmapParallelization(pool.starmap)
