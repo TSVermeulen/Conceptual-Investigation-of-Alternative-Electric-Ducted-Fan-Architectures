@@ -180,7 +180,7 @@ class Objectives:
         computed_objectives = []
 
         for i in range(len(objectives)):
-            computed_objectives.append(objectives[i](analysis_outputs))
+            computed_objectives.append(round(objectives[i](analysis_outputs), 5))
 
         out["F"] = np.column_stack(computed_objectives)
         

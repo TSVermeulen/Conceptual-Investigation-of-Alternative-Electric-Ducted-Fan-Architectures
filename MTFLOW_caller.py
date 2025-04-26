@@ -78,6 +78,7 @@ Changelog:
 - V1.1: Cleaned up following successful implementation of validation case. Crash handling is now done within MTSOL_call. 
 - V1.2: Cleaned up import statements, resolved infite loop issue in gridtest, and added MTSOL loop exit for non-convergence. 
 - V1.3: Removed HandleExitFlag() method as it is not needed. Extracted choking handling to a separate method.
+- V1.4: Clead up imports. Implemented chdir context manager. Switched to pathlib for path operations. Cleaned up/streamlined exit flags. Implemented OutputType enum class. 
 """
 
 import os
@@ -148,7 +149,9 @@ class MTFLOW_caller:
                 - "radial_stations": List of the radial stations along the blade span.
                 - "chord_length": List of the chord length distribution along the blade span.
                 - "sweep_angle": List of the sweep angle distribution along the blade span.
-                - "blade_angle": List of the twist angle distribution along the blade span.
+                - "blade_angle": List of the blade angle distribution along the blade span.
+                - "ref_blade_angle": The set angle at the reference section (in radians).
+                - "reference_section_blade_angle": The reference blade angle at the reference section (in radians).
         - design_parameters : list[list[dict]]
             List containing an equal number of nested lists as there are stages. Each nested list contains an equal number of dictionaries as there are radial stations. 
             Each dictionary must contain the following keys:

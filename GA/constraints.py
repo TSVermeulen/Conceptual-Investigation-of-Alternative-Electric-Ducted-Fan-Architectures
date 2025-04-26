@@ -274,10 +274,10 @@ class Constraints:
         if ineq_constraints:
             computed_ineq_constraints = []
             for i in range(len(ineq_constraints)):
-                computed_ineq_constraints.append(ineq_constraints[i](analysis_outputs,
-                                                                     Lref,
-                                                                     thrust,
-                                                                     power))
+                computed_ineq_constraints.append(round(ineq_constraints[i](analysis_outputs,
+                                                                           Lref,
+                                                                           thrust,
+                                                                           power), 5))
             
             out["G"] = np.column_stack(computed_ineq_constraints)
         else:
@@ -287,10 +287,10 @@ class Constraints:
         if eq_constraints:
             computed_eq_constraints = []
             for i in range(len(eq_constraints)):
-                computed_eq_constraints.append(eq_constraints[i](analysis_outputs,
-                                                                 Lref,
-                                                                 thrust,
-                                                                 power))
+                computed_eq_constraints.append(round(eq_constraints[i](analysis_outputs,
+                                                                       Lref,
+                                                                       thrust,
+                                                                       power), 5))
         
             out["H"] = np.column_stack(computed_eq_constraints)
         else: 
