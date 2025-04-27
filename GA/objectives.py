@@ -180,6 +180,7 @@ class Objectives:
         computed_objectives = []
 
         for i in range(len(objectives)):
+            # Rounds the objective values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
             computed_objectives.append(round(objectives[i](analysis_outputs), 5))
 
         out["F"] = np.column_stack(computed_objectives)

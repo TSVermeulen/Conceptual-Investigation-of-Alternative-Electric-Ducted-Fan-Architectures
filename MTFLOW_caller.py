@@ -277,18 +277,15 @@ class MTFLOW_caller:
             check_count = 1
             exit_flag_gridtest = ExitFlag.NOT_PERFORMED
                 
-            while exit_flag_gridtest != ExitFlag.SUCCESS:
-                exit_flag_gridtest, iter_count_gridtest = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
-                                                                    analysis_name=self.analysis_name).caller(run_viscous=False,
-                                                                                                            generate_output=False)
-                    
-                if exit_flag_gridtest == ExitFlag.SUCCESS:  # If the grid status is okay, break out of the checking loop and continue
-                    break
-
+            while exit_flag_gridtest != ExitFlag.SUCCESS:                    
                 # If the grid is incorrect, change grid parameters and rerun MTSET to update the grid. 
-                # If first_check is true, we can try the suggested coefficients
                 # The updated e and x coefficients reduce the number of streamwise points on the airfoil elements (by 0.1 * Npoints), 
                 # while yielding a more "rounded/elliptic" grid due to the reduced x-coefficient.
+                if check_count == 0:
+                    # For the initial attempt, use the default values. 
+                    streamwise_points = None
+                    grid_e_coeff = None
+                    grid_x_coeff = None
                 if check_count == 1:
                     # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid   
                     streamwise_points = 141  
@@ -307,11 +304,19 @@ class MTFLOW_caller:
                     grid_e_coeff = self._rng.uniform(0.6, 1.0)
                     grid_x_coeff = self._rng.uniform(0.2, 0.95)
                     streamwise_points= 141  # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid
-                    
+                
+                # Generate the grid
                 MTSET_call(analysis_name=self.analysis_name,
                            grid_e_coeff=grid_e_coeff,
                            grid_x_coeff=grid_x_coeff,
                            streamwise_points=streamwise_points).caller()
+                
+                exit_flag_gridtest, iter_count_gridtest = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
+                                                                     analysis_name=self.analysis_name).caller(run_viscous=False,
+                                                                                                              generate_output=False)
+                
+                if exit_flag_gridtest == ExitFlag.SUCCESS:  # If the grid status is okay, break out of the checking loop and continue
+                    break
                 
                 check_count += 1
 

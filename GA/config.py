@@ -113,7 +113,7 @@ REFERENCE_SECTION_ANGLES = [np.deg2rad(19), 0, 0]  # Reference angles at the ref
 BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
 tipGap = 0.01016  # 1.016 cm tip gap
 
-with pushd(parent_dir):
+with pushd(parent_path):
         STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = GenerateMTFLOBlading(oper["Omega"],
                                                                                 REFERENCE_SECTION_ANGLES[0],
                                                                                 plot=False)

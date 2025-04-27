@@ -271,6 +271,7 @@ class Constraints:
         power = self._calculate_power(analysis_outputs, Lref)
         
         # Compute the inequality constraints and write them to out["G"]
+        # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
         if ineq_constraints:
             computed_ineq_constraints = []
             for i in range(len(ineq_constraints)):
@@ -284,6 +285,7 @@ class Constraints:
             out["G"] = [[]]
 
         # Compute the equality constraints and write them to out["H"]
+        # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
         if eq_constraints:
             computed_eq_constraints = []
             for i in range(len(eq_constraints)):

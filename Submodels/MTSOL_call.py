@@ -153,6 +153,8 @@ class ExitFlag(Enum):
         Non-convergence, to be handled by the HandleNonConvergence function. 
     NOT_PERFORMED : int
         Not performed, with no iterations executed or outputs generated. 
+    COMPLETED : int
+        Finished the iteration/operation, but not converged. 
     CHOKING : int
         Choking occurs somewhere in the solution, indicated by the 'QSHIFT' message in the MTSOL console output
     """
@@ -701,8 +703,7 @@ class MTSOL_call:
             # Also move the file to the output folder
             # Waits for the file to exist before copying.
             init_time = time.time()
-            while not event_handler.is_file_processed() and (current_time - init_time) <= 10:
-                current_time = time.time()
+            while not event_handler.is_file_processed() and (time.time() - init_time) <= 10:
                 time.sleep(0.1)
             
             # Increase iteration counter by step size
