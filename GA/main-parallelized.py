@@ -62,8 +62,12 @@ def worker_init(parent_dir_str: str,
     """
     Initializer for each worker process in the pool. Ensures sys.path and environment variables are set up for imports.
     """
+    # Add the parent and submodels paths to the system path if they are not already in the path
+    if parent_dir_str not in sys.path:
+        sys.path.append(parent_dir_str)
 
-    sys.path.extend([parent_dir_str, submodels_path_str])
+    if submodels_path_str not in sys.path:
+        sys.path.append(submodels_path_str)
 
 
 if __name__ == "__main__":
@@ -71,7 +75,7 @@ if __name__ == "__main__":
     multiprocessing.set_start_method('spawn', force=True)
     
     """ Initialize the thread pool and create the runner """
-    RESERVED_THREADS = 1 # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
+    RESERVED_THREADS = 2 # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
     total_threads = multiprocessing.cpu_count()
     total_threads_avail = total_threads - RESERVED_THREADS
 

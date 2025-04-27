@@ -51,8 +51,18 @@ import datetime
 from pymoo.core.problem import ElementwiseProblem
 from scipy import interpolate
 
+# Add the parent and submodels paths to the system path if they are not already in the path
+parent_path = str(Path(__file__).resolve().parent.parent)
+submodels_path = str(Path(__file__).resolve().parent.parent / "Submodels")
+
+if parent_path not in sys.path:
+    sys.path.append(parent_path)
+
+if submodels_path not in sys.path:
+    sys.path.append(submodels_path)
+
 # Import interface submodels and other dependencies
-from Submodels.MTSOL_call import OutputType, ExitFlag
+from Submodels.MTSOL_call import OutputType
 from Submodels.output_handling import output_processing
 from Submodels.Parameterizations import AirfoilParameterization
 from objectives import Objectives
@@ -60,9 +70,8 @@ from constraints import Constraints
 from init_designvector import DesignVector
 import config
 
-
 class DesignVectorAccessor:
-    """ Simple class to privide efficient access to the design vector elements without repeated string formatting. """
+    """ Simple class to provide efficient access to design vector elements without repeated string formatting. """
     
     def __init__(self,
                  x_dict: dict[str, float|int],
@@ -439,27 +448,27 @@ class OptimizationProblem(ElementwiseProblem):
                                                    np.abs(lower_y),  # Take absolute value of y-coordinates since we need the distance, not the actual coordinate
                                                    extrapolate=False) 
 
-        # Loop over all stages
+        rot_flags = config.ROTATING
         for i in range(self.num_stages):
-            blading_params = self.blade_blading_parameters[i]
-
-            # Compute the blade tip coordinate
+            blading = self.blade_blading_parameters[i]
             y_tip = self.blade_diameters[i] / 2
+            if not rot_flags[i]:
+                continue
+        
+            sweep = np.tan(blading["sweep_angle"][-1])
+            x_tip_LE = blading["root_LE_coordinate"] + sweep * y_tip
+            projected_chord = blading["chord_length"][-1] * np.cos(np.pi/2 - 
+                                                                   (blading["blade_angle"][-1] + blading["ref_blade_angle"] - blading["reference_section_blade_angle"]))
             
-            if config.ROTATING[i]:
-                # Compute the y value of the duct inner surface at the blade rotor
-                sweep = np.tan(blading_params["sweep_angle"][-1])
-                x_tip_LE = blading_params["root_LE_coordinate"] + sweep * y_tip 
-                projected_chord_length = blading_params["chord_length"][-1] * np.cos(np.pi/2 - (blading_params["blade_angle"][-1] + blading_params["ref_blade_angle"] - blading_params["reference_section_blade_angle"]))
-                x_tip_TE = x_tip_LE + projected_chord_length
+            x_tip_TE = x_tip_LE + projected_chord
 
-                # Compute the offsets for the LE and TE of the blade tip
-                LE_offset = float(duct_interpolant(x_tip_LE)) if (x_tip_LE <= lower_x[-1] and x_tip_LE >= lower_x[0]) else 0  # Set to 0 if duct does not lie above LE
-                TE_offset = float(duct_interpolant(x_tip_TE)) if (x_tip_TE <= lower_x[-1] and x_tip_TE >= lower_x[0]) else 0  # Set to 0 if duct does not lie above TE
+            # Compute the offsets for the LE and TE of the blade tip
+            LE_offset = float(duct_interpolant(x_tip_LE)) if (x_tip_LE <= lower_x[-1] and x_tip_LE >= lower_x[0]) else 0  # Set to 0 if duct does not lie above LE
+            TE_offset = float(duct_interpolant(x_tip_TE)) if (x_tip_TE <= lower_x[-1] and x_tip_TE >= lower_x[0]) else 0  # Set to 0 if duct does not lie above TE
 
-                # Compute the radial location of the duct
-                radial_duct_coordinates[i] = y_tip + config.tipGap + max(LE_offset, TE_offset)
-    
+            # Compute the radial location of the duct
+            radial_duct_coordinates[i] = y_tip + config.tipGap + max(LE_offset, TE_offset)
+
         # Update the duct variables in self
         self.duct_variables["Leading Edge Coordinates"] = (self.duct_variables["Leading Edge Coordinates"][0],
                                                            np.max(radial_duct_coordinates))
@@ -526,9 +535,6 @@ class OptimizationProblem(ElementwiseProblem):
     
 
 if __name__ == "__main__":
-    # Add the parent and submodels paths to the system path
-    sys.path.extend([str(Path(__file__).resolve().parent.parent), str(Path(__file__).resolve().parent.parent / "Submodels")])
-
     # Disable parameterizations to allow for testing with empty design vector
     config.OPTIMIZE_CENTERBODY = False
     config.OPTIMIZE_DUCT = False

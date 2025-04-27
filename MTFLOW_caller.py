@@ -185,8 +185,7 @@ class MTFLOW_caller:
         self.ref_length = ref_length
 
         # Set the seed for the random number generator to ensure repeatability. 
-        seed = kwargs.get("seed", 1)
-        random.seed(seed)
+        self._rng = random.Random(kwargs.get("seed", 1))
 
         # Define key paths/directories
         self.parent_dir = Path(__file__).resolve().parent
@@ -305,14 +304,14 @@ class MTFLOW_caller:
                     return exit_flag_gridtest, iter_count_gridtest
                 else:
                     # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
-                    grid_e_coeff = random.uniform(0.6, 1.0)
-                    grid_x_coeff = random.uniform(0.2, 0.95)
+                    grid_e_coeff = self._rng.uniform(0.6, 1.0)
+                    grid_x_coeff = self._rng.uniform(0.2, 0.95)
                     streamwise_points= 141  # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid
                     
                 MTSET_call(analysis_name=self.analysis_name,
-                        grid_e_coeff=grid_e_coeff,
-                        grid_x_coeff=grid_x_coeff,
-                        streamwise_points=streamwise_points).caller()
+                           grid_e_coeff=grid_e_coeff,
+                           grid_x_coeff=grid_x_coeff,
+                           streamwise_points=streamwise_points).caller()
                 
                 check_count += 1
 
@@ -325,9 +324,9 @@ class MTFLOW_caller:
             
             while exit_flag not in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE) and exit_flag_gridtest != ExitFlag.CRASH:
                 if not external_inputs:
-                    file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
-                                                ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
-                                                                                                design_params=self.design_parameters)  # Create the MTFLO input file
+                    fileHandling().fileHandlingMTFLO(case_name=self.analysis_name,
+                                                     ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
+                                                                                                    design_params=self.design_parameters)  # Create the MTFLO input file
                     
                 MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
                 

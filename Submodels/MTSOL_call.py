@@ -401,7 +401,8 @@ class MTSOL_call:
 
         # Check the console output to ensure that commands are completed
         timer_start = time.time()
-        while (time.time() - timer_start) < 60:
+        time_out = 20
+        while (time.time() - timer_start) < time_out:
             # Read the output line by line
             line = self.process.stdout.readline()
             # Once iteration is complete, return the completed exit flag
@@ -421,7 +422,7 @@ class MTSOL_call:
             elif ('Solution written to state file' in line 
                   or line.startswith((' File exists.  Overwrite?  Y', 'Enter filename'))) and completion_type == CompletionType.OUTPUT:
                 if output_file is not None:
-                    max_wait_time = 10  # Maximum wait time in seconds
+                    max_wait_time = 5  # Maximum wait time in seconds
                     # Wait for the file creation to be finished
                     target_path = self.submodels_path / self.FILE_TEMPLATES[output_file].format(self.analysis_name)
                     start_time = time.time()
@@ -531,13 +532,13 @@ class MTSOL_call:
         while self.iter_counter < self.ITER_LIMIT:
             #Execute next iteration(s)
             self.StdinWrite(f"x {self.ITER_STEP_SIZE}")
+
+            # Increase iteration counter by step size
+            self.iter_counter += self.ITER_STEP_SIZE
              
             # Check the exit flag to see if the solution has converged
             # If the solution has converged, break out of the iteration loop
             exit_flag = self.WaitForCompletion(completion_type=CompletionType.ITERATION)
-
-            # Increase iteration counter by step size
-            self.iter_counter += self.ITER_STEP_SIZE  
 
             if exit_flag in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH):
                 break 
@@ -564,7 +565,9 @@ class MTSOL_call:
         def read_file_lines():
             # Generator to yield lines from files matching the pattern
             for output_file in self.dump_folder.glob("forces.{}.*".format(self.analysis_name)):
-                with open(output_file, "r") as f:
+                with open(file=output_file, 
+                          mode="r",
+                          newline='') as f:
                     yield f.readlines()
         
         # Read in all files (collect into a list so we can transpose later)
@@ -698,10 +701,8 @@ class MTSOL_call:
             # Also move the file to the output folder
             # Waits for the file to exist before copying.
             init_time = time.time()
-            timer = 0
-            while not event_handler.is_file_processed() and timer < 10:
+            while not event_handler.is_file_processed() and (current_time - init_time) <= 10:
                 current_time = time.time()
-                timer = current_time - init_time
                 time.sleep(0.1)
             
             # Increase iteration counter by step size
@@ -796,6 +797,10 @@ class MTSOL_call:
         
         try:
             # Restart MTSOL - this is required since MTSOL quits upon a solver crash, so we need to restart the subprocress. 
+            # First ensure the subprocess is closed/killed
+            if getattr(self, "process", None) and self.process.poll() is None:
+                self.process.kill()
+
             self.GenerateProcess()
 
             # Set viscous if surface_ID is given
@@ -804,6 +809,10 @@ class MTSOL_call:
 
             # Execute the solver and get the exit flag and iteration count
             exit_flag, iter_count = self.ExecuteSolver()
+
+            # If solve was successful or non-converging, update the statefile
+            if exit_flag in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE):
+                self.WriteStateFile()
         except (OSError, BrokenPipeError):
             # If the solver crashes, set the exit flag to crash
             exit_flag = ExitFlag.CRASH
@@ -868,31 +877,21 @@ class MTSOL_call:
         elif exit_flag_visc_induct in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
             # if the viscous solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
             failed_surfaces.append(4)
-        
-        retry_flags = {}
-        retry_counts = {}
-        for surface in failed_surfaces:
-            # If the surface failed to converge, we need to toggle it and try again
-            # Execute the viscous solve for the failed surface
-            exit_flag_visc_retry, iter_count_visc_retry = self.TryExecuteViscousSolver(surface_ID=surface)
 
-            # Check if the viscous solve was successful
-            if exit_flag_visc_retry in (ExitFlag.SUCCESS, ExitFlag.COMPLETED):
-                # If the viscous solve was successful, update the statefile.
-                self.WriteStateFile()
-            retry_flags[surface] = exit_flag_visc_retry
-            retry_counts[surface] = iter_count_visc_retry
+        # Retry convergence of the failed surfaced
+        retry_results = {surface: self.TryExecuteViscousSolver(surface_ID=surface) for surface in failed_surfaces}
+
+        retry_iter_count = 0
+        for surface in retry_results.keys():
+            retry_iter_count += retry_results[surface][1]
         
-        # Compute total iteration count of the retry attempt
-        retry_count = sum(retry_counts.values())
-    
         # Compute the overall exit flag and total iteration count
-        exit_flag_visc_CB = retry_flags.get(1, exit_flag_visc_CB)
-        exit_flag_visc_outduct = retry_flags.get(3, exit_flag_visc_outduct)
-        exit_flag_visc_induct = retry_flags.get(4, exit_flag_visc_induct)
+        exit_flag_visc_CB = retry_results.get(1, (exit_flag_visc_CB, iter_count_visc_CB))[0]
+        exit_flag_visc_outduct = retry_results.get(3, (exit_flag_visc_outduct, iter_count_visc_outduct))[0]
+        exit_flag_visc_induct = retry_results.get(4, (exit_flag_visc_induct, iter_count_visc_induct))[0]
 
         total_exit_flag = max([exit_flag_visc_CB, exit_flag_visc_outduct, exit_flag_visc_induct], key=lambda flag: flag.value)
-        total_iter_count = iter_count_visc_CB + iter_count_visc_outduct + iter_count_visc_induct + retry_count
+        total_iter_count = iter_count_visc_CB + iter_count_visc_outduct + iter_count_visc_induct + retry_iter_count
 
         return total_exit_flag, total_iter_count
     
@@ -997,12 +996,9 @@ class MTSOL_call:
             self.process.stdin.write("\n")
         self.process.stdin.flush()
 
-        # Check that MTSOL has closed successfully 
-        if self.process.poll() is not None:
-            try:
-                self.process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
+        # Check that MTSOL has closed successfully. If not, forcefully closes MTSOL
+        if self.process.poll() is None:
+            self.process.kill()
               
         return total_exit_flag, total_iter_count
 

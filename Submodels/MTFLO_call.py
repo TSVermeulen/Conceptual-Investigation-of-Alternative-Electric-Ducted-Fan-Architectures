@@ -156,13 +156,9 @@ class MTFLO_call:
         # Close the MTFLO program
         self.StdinWrite("Q")
 
-        # Check that MTFLO has closed successfully 
+        # Check that MTFLO has closed successfully. If not, forcefully closes MTSOL
         if self.process.poll() is None:
-            try:
-                self.process.wait(timeout=10)
-            
-            except subprocess.TimeoutExpired:
-                self.process.kill()
+            self.process.kill()
 
 
     def FileStatus(self,
@@ -172,7 +168,7 @@ class MTFLO_call:
         Simple function to check if the file update/write has finished
         """
         try:
-            with open(fpath, "a"):
+            with open(fpath, "rb"):
                 return True
         except IOError:
             return False
@@ -199,8 +195,13 @@ class MTFLO_call:
 
         # Wait until file has been processed
         fpath = self.submodels_path / "tdat.{}".format(self.analysis_name)
-        while not self.FileStatus(fpath):
-            time.sleep(0.01)
+        start_time = time.time()
+        timeout = 10
+        while (time.time() - start_time) <= timeout:
+            if self.FileStatus(fpath):
+                break
+            else:
+                time.sleep(0.01)
 
         return self.process.returncode      
 

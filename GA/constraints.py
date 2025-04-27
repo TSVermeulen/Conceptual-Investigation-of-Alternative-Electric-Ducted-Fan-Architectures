@@ -303,9 +303,15 @@ if __name__ == "__main__":
     # Add the parent and submodels paths to the system path
     import sys
     from pathlib import Path
-    parent_dir = Path(__file__).resolve().parent.parent
-    submodels_path = parent_dir / "Submodels"
-    sys.path.extend([str(parent_dir), str(submodels_path)])
+    # Add the parent and submodels paths to the system path if they are not already in the path
+    parent_path = str(Path(__file__).resolve().parent.parent)
+    submodels_path = str(Path(__file__).resolve().parent.parent / "Submodels")
+
+    if parent_path not in sys.path:
+        sys.path.append(parent_path)
+
+    if submodels_path not in sys.path:
+        sys.path.append(submodels_path)
 
     # Import MTFLOW interface submodels and other dependencies
     from Submodels.output_handling import output_processing

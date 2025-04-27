@@ -279,13 +279,9 @@ class MTSET_call:
         # Note that MTSET automatically closes after writing the tdat file!
         self.StdinWrite("w")
 
-        # Check that MTSET has closed successfully 
-        if self.process.poll() is not None:
-            try:
-                self.process.wait(timeout=10)
-            
-            except subprocess.TimeoutExpired:
-                self.process.kill()
+        # Check that MTSET has closed successfully. If not, forcefully closes MTSOL
+        if self.process.poll() is None:
+            self.process.kill()
 
 
     def caller(self,
