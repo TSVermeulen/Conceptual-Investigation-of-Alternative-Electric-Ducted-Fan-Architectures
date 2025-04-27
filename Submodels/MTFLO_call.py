@@ -158,7 +158,11 @@ class MTFLO_call:
 
         # Check that MTFLO has closed successfully. If not, forcefully closes MTSOL
         if self.process.poll() is None:
-            self.process.kill()
+            try:
+                self.process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+
 
 
     def FileStatus(self,

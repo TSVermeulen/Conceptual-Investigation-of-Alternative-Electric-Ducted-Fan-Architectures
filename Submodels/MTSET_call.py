@@ -281,7 +281,10 @@ class MTSET_call:
 
         # Check that MTSET has closed successfully. If not, forcefully closes MTSOL
         if self.process.poll() is None:
-            self.process.kill()
+            try:
+                self.process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
 
 
     def caller(self,

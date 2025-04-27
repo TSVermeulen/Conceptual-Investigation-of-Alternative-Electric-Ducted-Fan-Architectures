@@ -121,9 +121,12 @@ class FileCreatedHandling(FileSystemEventHandler):
         
 
     def on_modified(self, event):
-        if Path(event.src_path).name == self.file_path.name and self.wait_until_file_free(self.file_path):
-            shutil.copy(self.file_path, self.destination)
-            self.file_processed = True
+        if Path(event.src_path).name == self.file_path.name:
+            if self.wait_until_file_free(self.file_path):
+                shutil.copy(self.file_path, self.destination)
+                self.file_processed = True
+            else:
+                print(f"Warning: File {self.file_path} was still busy after timeout")
 
     
     def is_file_processed(self) -> bool:
@@ -236,7 +239,7 @@ class MTSOL_call:
         # Define filepath of MTSOL as being in the same folder as this Python file
         self.fpath = self.submodels_path / 'mtsol.exe'
         if not self.fpath.exists():
-            raise FileNotFoundError(f"MTSOL executable not found at {self.fpath}")
+            raise FileNotFoundError("MTSOL executable not found at {}".format(self.fpath))
         
         # Define filepaths
         self.filepaths = {'forces': self.submodels_path / self.FILE_TEMPLATES['forces'].format(self.analysis_name),
@@ -288,7 +291,6 @@ class MTSOL_call:
                                         text=True,
                                         bufsize=1,
                                         )
-        
         # Check if subprocess is started successfully
         if self.process.poll() is not None:
             raise ImportError(f"MTSOL or tdat.{self.analysis_name} not found in {self.fpath}") from None    
@@ -337,7 +339,7 @@ class MTSOL_call:
         # Enter the Modify solution parameters menu
         self.StdinWrite("m")
 
-        # Set the viscous Reynolds number, calculated using the length self.LREF = 1!
+        # Set the viscous Reynolds number, calculated using the length self.LREF
         self.StdinWrite(f"R {self.operating_conditions['Inlet_Reynolds']}")
 
         # Disable the viscous toggle on surfaces 3,4
@@ -603,7 +605,7 @@ class MTSOL_call:
                         for line in lines
                     ]
                     average_value = sum(values) / len(values)
-                    key = line_text.split("=")[0].strip()
+                    key = base_line.split("=")[0].strip()
                     line_text = f'{key} = {average_value:.5E}\n'
                 
                 # Case 2: multiple key=value pairs in one line.
@@ -641,83 +643,6 @@ class MTSOL_call:
                 
                 # Write the processed line
                 averaged_file.write(line_text)
-
-        
-        # UNCOMMENT BELOW FOR OLD IMPLEMENTATION
-        # # Create a file generator to read the output files
-        # def read_file_lines():
-        #     # Generator to yield lines from files matching the pattern
-        #     for output_file in self.dump_folder.glob("forces.{}.*".format(self.analysis_name)):
-        #         with open(output_file, 
-        #                   mode="r",
-        #                   newline='') as f:
-        #             yield f.readlines()
-        
-        # # Read in all files (collect into a list so we can transpose later)
-        # content = list(read_file_lines())
-        
-        # if not content:
-        #     return
-
-        # # Transpose content to group corresponding lines together from all files
-        # transposed_content = list(map(list, zip(*content)))
-        # average_content = []
-
-        # # Process each group of corresponding lines
-        # for idx, lines in enumerate(transposed_content):
-        #     # Start with the first file’s line as the base
-        #     line_text = lines[0]
-
-        #     # Skip header or pre-defined lines
-        #     if idx in skip_lines:
-        #         average_content.append(line_text)
-        #         continue
-
-        #     # Case 1: Single key=value pair per line
-        #     if all('=' in line and len(line.split('=')[1].split()) == 1 for line in lines):
-        #         values = [
-        #             float(value_pattern.search(line.split('=')[1]).group())
-        #             for line in lines
-        #         ]
-        #         average_value = sum(values) / len(values)
-        #         key = line_text.split("=")[0].strip()
-        #         line_text = f'{key} = {average_value:.5E}\n'
-
-        #     # Case 2: Multiple key=value pairs in one line (e.g. "var1=data1 var2=data2")
-        #     # Instead of checking for extra '=' via split, we count regex matches.
-        #     elif all('=' in line for line in lines) and any(len(var_value_pattern.findall(line)) > 1 for line in lines):
-        #         var_values_dict = OrderedDict()
-        #         for line in lines:
-        #             # Find all key/value pairs in the line
-        #             for var, value in var_value_pattern.findall(line):
-        #                 var = var.strip()  # ensure the variable name has no extra whitespace
-        #                 var_values_dict.setdefault(var, []).append(float(value))
-        #         # Compute average for each encountered key, preserving order from the first appearance.
-        #         avg_values = [
-        #             f"{var} = {sum(vals) / len(vals):.5E}"
-        #             for var, vals in var_values_dict.items()
-        #         ]
-        #         line_text = " ".join(avg_values) + "\n"
-
-        #     # Case 3: Lines with a colon and multiple space-separated values (e.g. "variable: data1 data2 data3 data4")
-        #     elif all(':' in line for line in lines):
-        #         text_part = lines[0].split(':')[0].strip() + ': '
-        #         all_values = [list(map(float, line.split(':')[1].split())) for line in lines]
-        #         # Average each column of values
-        #         avg_values = [sum(col) / len(col) for col in zip(*all_values)]
-        #         line_text = text_part + '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
-
-        #     # Case 4: Lines with unnamed values separated by varying spaces
-        #     elif all(re.match(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?(?:\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)*', line) for line in lines):
-        #         all_values = [list(map(float, re.split(r'\s+', line.strip()))) for line in lines]
-        #         avg_values = [sum(col) / len(col) for col in zip(*all_values)]
-        #         line_text = '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
-
-        #     average_content.append(line_text)
-
-        # # Write the averaged content to the output file
-        # with open(self.filepaths['forces'], 'w') as file:
-        #     file.writelines(average_content)
 
 
     def HandleNonConvergence(self,
@@ -1070,7 +995,11 @@ class MTSOL_call:
 
         # Check that MTSOL has closed successfully. If not, forcefully closes MTSOL
         if self.process.poll() is None:
-            self.process.kill()
+            try:
+                self.process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+
               
         return total_exit_flag, total_iter_count
 

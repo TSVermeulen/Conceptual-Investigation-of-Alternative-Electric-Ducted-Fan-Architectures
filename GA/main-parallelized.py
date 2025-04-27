@@ -75,7 +75,7 @@ if __name__ == "__main__":
     multiprocessing.set_start_method('spawn', force=True)
     
     """ Initialize the thread pool and create the runner """
-    RESERVED_THREADS = 2 # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
+    RESERVED_THREADS = 4 # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
     total_threads = multiprocessing.cpu_count()
     total_threads_avail = total_threads - RESERVED_THREADS
 

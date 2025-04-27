@@ -192,34 +192,6 @@ class MTFLOW_caller:
         self.submodels_path = self.parent_dir / "Submodels"
 
 
-    def HandleChoking(self,
-                      exit_flag: int,
-                      ) -> None:
-        """
-        Handle choking based on the exitflag of the MTSOL caller.
-
-        Parameters
-        ----------
-        - exit_flag : int
-            Exit flag indicating the status of the solver execution.
-        
-        Returns
-        -------
-        None
-        """
-                
-        # If the exit flag indicates choking, reduce the rotor RPM to fix the issue
-        if exit_flag == ExitFlag.CHOKING:
-            print("Choking occurs. Using a rudimentary fix....")
-            
-            #Use a 5% reduction in RPM as guess
-            for i in range(len(self.blading_parameters)):
-                reduction_factor = 0.05
-                self.blading_parameters[i]["rotational_rate"] = self.blading_parameters[i]["rotational_rate"] * (1 - reduction_factor)
-            
-            return
-        
-
     def caller(self,
                external_inputs: bool = False,
                output_type: OutputType = OutputType.FORCES_ONLY,
@@ -249,24 +221,18 @@ class MTFLOW_caller:
         with change_working_directory(self.submodels_path):
             
             # --------------------
-            # First step is generating the MTSET input file - walls.analysis_name
-            # As the MTFLO input file also contains a dependency on operating condition through Omega, it must be generated *within* the MTSOL loop. 
-            # The walls.analysis_name file, which is the input to MTSET, does not contain any dependencies, and therefore can be generated outside of this loop here.
+            # First step is generating the MTSET input file - walls.analysis_name and MTFLO input file - tflow.analysis_name
             # --------------------
-
-            file_handler = fileHandling()
 
             if not external_inputs:
+                file_handler = fileHandling()
                 file_handler.fileHandlingMTSET(params_CB=self.centrebody_params,
-                                            params_duct=self.duct_params,
-                                            case_name=self.analysis_name,
-                                            ref_length=self.ref_length).GenerateMTSETInput()
-                
-            # --------------------
-            # Construct the initial grid in MTSET
-            # --------------------
-    
-            MTSET_call(analysis_name=self.analysis_name).caller()
+                                               params_duct=self.duct_params,
+                                               case_name=self.analysis_name,
+                                               ref_length=self.ref_length).GenerateMTSETInput()
+                file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
+                                               ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
+                                                                                              design_params=self.design_parameters)
                 
             # --------------------
             # Check the grid by running a simple, fan-less, inviscid low-Mach case. If there is an issue with the grid MTSOL will crash
@@ -325,24 +291,15 @@ class MTFLOW_caller:
             # Execute MTSOl solver
             # Passes the exit flag to determine if any issues have occurred. 
             # --------------------
+                   
+            MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
 
-            exit_flag = ExitFlag.NOT_PERFORMED  # Initialize exit flag
-            
-            while exit_flag not in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE) and exit_flag_gridtest != ExitFlag.CRASH:
-                if not external_inputs:
-                    fileHandling().fileHandlingMTFLO(case_name=self.analysis_name,
-                                                     ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
-                                                                                                    design_params=self.design_parameters)  # Create the MTFLO input file
-                    
-                MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
+            # Execute MTSOL    
+            exit_flag, iter_count = MTSOL_call(operating_conditions=self.operating_conditions,
+                                               analysis_name=self.analysis_name).caller(run_viscous=True,
+                                                                                        generate_output=True,
+                                                                                        output_type=output_type)
                 
-                exit_flag, iter_count = MTSOL_call(operating_conditions=self.operating_conditions,
-                                                   analysis_name=self.analysis_name).caller(run_viscous=True,
-                                                                                            generate_output=True,
-                                                                                            output_type=output_type)
-                
-                self.HandleChoking(exit_flag=exit_flag)  # Check completion status of MTSOL
-
         return exit_flag, iter_count
 
 
