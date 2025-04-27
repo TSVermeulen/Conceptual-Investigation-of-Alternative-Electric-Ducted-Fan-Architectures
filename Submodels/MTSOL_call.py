@@ -61,6 +61,7 @@ import re
 import time
 from pathlib import Path
 from collections import OrderedDict
+from contextlib import ExitStack
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from enum import Enum
@@ -534,13 +535,14 @@ class MTSOL_call:
         while self.iter_counter < self.ITER_LIMIT:
             #Execute next iteration(s)
             self.StdinWrite(f"x {self.ITER_STEP_SIZE}")
-
-            # Increase iteration counter by step size
-            self.iter_counter += self.ITER_STEP_SIZE
              
             # Check the exit flag to see if the solution has converged
             # If the solution has converged, break out of the iteration loop
             exit_flag = self.WaitForCompletion(completion_type=CompletionType.ITERATION)
+
+            if exit_flag != ExitFlag.CRASH:
+                # Increase iteration counter by step size only if the solver did not crash
+                self.iter_counter += self.ITER_STEP_SIZE
 
             if exit_flag in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH):
                 break 
@@ -563,23 +565,10 @@ class MTSOL_call:
         None
         """
 
-        # Creatge a file generator to read the output files
-        def read_file_lines():
-            # Generator to yield lines from files matching the pattern
-            for output_file in self.dump_folder.glob("forces.{}.*".format(self.analysis_name)):
-                with open(file=output_file, 
-                          mode="r",
-                          newline='') as f:
-                    yield f.readlines()
-        
-        # Read in all files (collect into a list so we can transpose later)
-        content = list(read_file_lines())
-        if not content:
+        # Extract output files from the dump folder
+        output_files = list(self.dump_folder.glob(f"forces.{self.analysis_name}.*"))
+        if not output_files:
             return
-
-        # Transpose content to group corresponding lines together from all files
-        transposed_content = list(map(list, zip(*content)))
-        average_content = []
 
         # Regular expression for key=value pairs.
         # We use (?:...) for the exponent part so that findall returns just two groups.
@@ -589,64 +578,146 @@ class MTSOL_call:
         # Regular expression for generic numeric value (scientific-notated numbers, etc.)
         value_pattern = re.compile(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?')
 
+        # Regular expression for the generic numerical values with no name
+        unnamed_var_pattern = re.compile(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?(?:\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)*')
+
         # Indices of header lines that should not be averaged
         skip_lines = [0, 1, 2, 3, 4, 5, 13, 25, 26, 31, 36, 41]
 
-        # Process each group of corresponding lines
-        for idx, lines in enumerate(transposed_content):
-            # Start with the first file’s line as the base
-            line_text = lines[0]
+        with ExitStack() as stack, open(self.filepaths['forces'], 'w') as averaged_file:
+            file_handlers = [stack.enter_context(open(output_file, 'r', newline='')) for output_file in output_files]    
 
-            # Skip header or pre-defined lines
-            if idx in skip_lines:
-                average_content.append(line_text)
-                continue
+            # Process all files one line at a time using zip(lazy evaluation)
+            for idx, lines in enumerate(zip(*file_handlers)):
+                # Start with the first file's line as the base
+                base_line = lines[0]
 
-            # Case 1: Single key=value pair per line
-            if all('=' in line and len(line.split('=')[1].split()) == 1 for line in lines):
-                values = [
-                    float(value_pattern.search(line.split('=')[1]).group())
-                    for line in lines
-                ]
-                average_value = sum(values) / len(values)
-                key = line_text.split("=")[0].strip()
-                line_text = f'{key} = {average_value:.5E}\n'
+                if idx in skip_lines:
+                    averaged_file.write(base_line)
+                    continue
 
-            # Case 2: Multiple key=value pairs in one line (e.g. "var1=data1 var2=data2")
-            # Instead of checking for extra '=' via split, we count regex matches.
-            elif all('=' in line for line in lines) and any(len(var_value_pattern.findall(line)) > 1 for line in lines):
-                var_values_dict = OrderedDict()
-                for line in lines:
-                    # Find all key/value pairs in the line
-                    for var, value in var_value_pattern.findall(line):
-                        var = var.strip()  # ensure the variable name has no extra whitespace
-                        var_values_dict.setdefault(var, []).append(float(value))
-                # Compute average for each encountered key, preserving order from the first appearance.
-                avg_values = [
-                    f"{var} = {sum(vals) / len(vals):.5E}"
-                    for var, vals in var_values_dict.items()
-                ]
-                line_text = " ".join(avg_values) + "\n"
+                # Case 1: single key=value per line.
+                if all('=' in line and len(line.split('=')[1].split()) == 1 for line in lines):
+                    values = [
+                        float(value_pattern.search(line.split('=')[1]).group())
+                        for line in lines
+                    ]
+                    average_value = sum(values) / len(values)
+                    key = line_text.split("=")[0].strip()
+                    line_text = f'{key} = {average_value:.5E}\n'
+                
+                # Case 2: multiple key=value pairs in one line.
+                elif all('=' in line for line in lines) and any(len(var_value_pattern.findall(line)) > 1 for line in lines):
+                    var_values_dict = OrderedDict()
+                    for line in lines:
+                        # Find all key/value pairs in the line
+                        for var, value in var_value_pattern.findall(line):
+                            var = var.strip()  # ensure the variable name has no extra whitespace
+                            var_values_dict.setdefault(var, []).append(float(value))
+                    # Compute average for each encountered key, preserving order from the first appearance.
+                    avg_values = [
+                        f"{var} = {sum(vals) / len(vals):.5E}"
+                        for var, vals in var_values_dict.items()
+                    ]
+                    line_text = " ".join(avg_values) + "\n"
+                
+                # Case 3: Lines with a colon and multiple space-separated values (e.g. "variable: data1 data2 data3 data4")
+                elif all(':' in line for line in lines):
+                    text_part = base_line.split(':')[0].strip() + ': '
+                    all_values = [list(map(float, line.split(':')[1].split())) for line in lines]
+                    # Average each column of values
+                    avg_values = [sum(col) / len(col) for col in zip(*all_values)]
+                    line_text = text_part + '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
 
-            # Case 3: Lines with a colon and multiple space-separated values (e.g. "variable: data1 data2 data3 data4")
-            elif all(':' in line for line in lines):
-                text_part = lines[0].split(':')[0].strip() + ': '
-                all_values = [list(map(float, line.split(':')[1].split())) for line in lines]
-                # Average each column of values
-                avg_values = [sum(col) / len(col) for col in zip(*all_values)]
-                line_text = text_part + '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
+                # Case 4: Lines with unnamed values separated by varying spaces
+                elif all(re.match(unnamed_var_pattern, line) for line in lines):
+                    all_values = [list(map(float, re.split(r'\s+', line.strip()))) for line in lines]
+                    avg_values = [sum(col) / len(col) for col in zip(*all_values)]
+                    line_text = '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
+                
+                # If none of these cases match, use the first line as fallback
+                else:
+                    line_text = base_line
+                
+                # Write the processed line
+                averaged_file.write(line_text)
 
-            # Case 4: Lines with unnamed values separated by varying spaces
-            elif all(re.match(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?(?:\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)*', line) for line in lines):
-                all_values = [list(map(float, re.split(r'\s+', line.strip()))) for line in lines]
-                avg_values = [sum(col) / len(col) for col in zip(*all_values)]
-                line_text = '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
+        
+        # UNCOMMENT BELOW FOR OLD IMPLEMENTATION
+        # # Create a file generator to read the output files
+        # def read_file_lines():
+        #     # Generator to yield lines from files matching the pattern
+        #     for output_file in self.dump_folder.glob("forces.{}.*".format(self.analysis_name)):
+        #         with open(output_file, 
+        #                   mode="r",
+        #                   newline='') as f:
+        #             yield f.readlines()
+        
+        # # Read in all files (collect into a list so we can transpose later)
+        # content = list(read_file_lines())
+        
+        # if not content:
+        #     return
 
-            average_content.append(line_text)
+        # # Transpose content to group corresponding lines together from all files
+        # transposed_content = list(map(list, zip(*content)))
+        # average_content = []
 
-        # Write the averaged content to the output file
-        with open(self.filepaths['forces'], 'w') as file:
-            file.writelines(average_content)
+        # # Process each group of corresponding lines
+        # for idx, lines in enumerate(transposed_content):
+        #     # Start with the first file’s line as the base
+        #     line_text = lines[0]
+
+        #     # Skip header or pre-defined lines
+        #     if idx in skip_lines:
+        #         average_content.append(line_text)
+        #         continue
+
+        #     # Case 1: Single key=value pair per line
+        #     if all('=' in line and len(line.split('=')[1].split()) == 1 for line in lines):
+        #         values = [
+        #             float(value_pattern.search(line.split('=')[1]).group())
+        #             for line in lines
+        #         ]
+        #         average_value = sum(values) / len(values)
+        #         key = line_text.split("=")[0].strip()
+        #         line_text = f'{key} = {average_value:.5E}\n'
+
+        #     # Case 2: Multiple key=value pairs in one line (e.g. "var1=data1 var2=data2")
+        #     # Instead of checking for extra '=' via split, we count regex matches.
+        #     elif all('=' in line for line in lines) and any(len(var_value_pattern.findall(line)) > 1 for line in lines):
+        #         var_values_dict = OrderedDict()
+        #         for line in lines:
+        #             # Find all key/value pairs in the line
+        #             for var, value in var_value_pattern.findall(line):
+        #                 var = var.strip()  # ensure the variable name has no extra whitespace
+        #                 var_values_dict.setdefault(var, []).append(float(value))
+        #         # Compute average for each encountered key, preserving order from the first appearance.
+        #         avg_values = [
+        #             f"{var} = {sum(vals) / len(vals):.5E}"
+        #             for var, vals in var_values_dict.items()
+        #         ]
+        #         line_text = " ".join(avg_values) + "\n"
+
+        #     # Case 3: Lines with a colon and multiple space-separated values (e.g. "variable: data1 data2 data3 data4")
+        #     elif all(':' in line for line in lines):
+        #         text_part = lines[0].split(':')[0].strip() + ': '
+        #         all_values = [list(map(float, line.split(':')[1].split())) for line in lines]
+        #         # Average each column of values
+        #         avg_values = [sum(col) / len(col) for col in zip(*all_values)]
+        #         line_text = text_part + '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
+
+        #     # Case 4: Lines with unnamed values separated by varying spaces
+        #     elif all(re.match(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?(?:\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)*', line) for line in lines):
+        #         all_values = [list(map(float, re.split(r'\s+', line.strip()))) for line in lines]
+        #         avg_values = [sum(col) / len(col) for col in zip(*all_values)]
+        #         line_text = '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
+
+        #     average_content.append(line_text)
+
+        # # Write the averaged content to the output file
+        # with open(self.filepaths['forces'], 'w') as file:
+        #     file.writelines(average_content)
 
 
     def HandleNonConvergence(self,
@@ -883,7 +954,7 @@ class MTSOL_call:
         retry_results = {surface: self.TryExecuteViscousSolver(surface_ID=surface) for surface in failed_surfaces}
 
         retry_iter_count = 0
-        for surface in retry_results.keys():
+        for surface in retry_results:
             retry_iter_count += retry_results[surface][1]
         
         # Compute the overall exit flag and total iteration count

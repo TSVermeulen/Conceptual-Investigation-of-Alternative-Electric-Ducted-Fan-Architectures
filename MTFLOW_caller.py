@@ -273,9 +273,10 @@ class MTFLOW_caller:
             # Hence we can check the grid by checking the exit flag
             # --------------------
                 
-            # Initialize count of grid checks and exit flag
-            check_count = 1
+            # Initialize count of grid checks, iteration_count, and exit flag
+            check_count = 0
             exit_flag_gridtest = ExitFlag.NOT_PERFORMED
+            iter_count_gridtest = 0
                 
             while exit_flag_gridtest != ExitFlag.SUCCESS:                    
                 # If the grid is incorrect, change grid parameters and rerun MTSET to update the grid. 

@@ -115,7 +115,7 @@ class Objectives:
 
 
     def PressureRatio(self,
-                      output: dict) -> float:
+                      outputs: dict) -> float:
         """
         Define the pressure ratio (sub-)objective.
         This sub-objective has identifier 3.
@@ -132,7 +132,7 @@ class Objectives:
             A float of the exit pressure ratio.
         """
 
-        return output["data"]["Pressure Ratio"]
+        return outputs["data"]["Pressure Ratio"]
 
 
     def MultiPointTOCruise(self,
@@ -200,7 +200,8 @@ if __name__ == "__main__":
     import config
 
     objectives_class = Objectives()
-    output = objectives_class.ComputeObjective(output_processing('test_case').GetAllVariables(3),
-                                               config.objective_IDs,
-                                               {}) 
+    output = {}
+    objectives_class.ComputeObjective(output_processing('test_case').GetAllVariables(3),
+                                      config.objective_IDs,
+                                      output) 
     print(output)       

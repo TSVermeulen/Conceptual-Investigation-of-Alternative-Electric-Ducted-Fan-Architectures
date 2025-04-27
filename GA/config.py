@@ -154,8 +154,8 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.MINIMU
                   []]
 
 # Define the population size
-POPULATION_SIZE = 35
-INIT_POPULATION_SIZE = 35  # Initial population size for the first generation
+POPULATION_SIZE = 40
+INIT_POPULATION_SIZE = 40  # Initial population size for the first generation
 MAX_GENERATIONS = 30
 
 
