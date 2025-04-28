@@ -64,7 +64,6 @@ if submodels_path not in sys.path:
 
 # Import interface submodels and other dependencies
 from Submodels.MTSOL_call import OutputType
-from Submodels.output_handling import output_processing
 from Submodels.Parameterizations import AirfoilParameterization
 from objectives import Objectives
 from constraints import Constraints
@@ -154,6 +153,9 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Precompute radial linspace array to avoid repeated definition
         self.radial_linspace = np.linspace(0, 1, self.num_radial)
+
+        # Initialize the AirfoilParameterization class for slightly better memory usage
+        self.Parameterization = AirfoilParameterization()
                 
 
     def GenerateAnalysisName(self) -> str:
@@ -432,12 +434,12 @@ class OptimizationProblem(ElementwiseProblem):
         radial_duct_coordinates = np.asarray(self.blade_diameters, dtype=float) / 2
 
         # Compute the duct x,y coordinates. Note that we are only interested in the lower surface.
-        _, _, lower_x, lower_y = AirfoilParameterization().ComputeProfileCoordinates([self.duct_variables["b_0"],
-                                                                                      self.duct_variables["b_2"],
-                                                                                      self.duct_variables["b_8"],
-                                                                                      self.duct_variables["b_15"],
-                                                                                      self.duct_variables["b_17"]],
-                                                                                     self.duct_variables)
+        _, _, lower_x, lower_y = self.Parameterization.ComputeProfileCoordinates([self.duct_variables["b_0"],
+                                                                                  self.duct_variables["b_2"],
+                                                                                  self.duct_variables["b_8"],
+                                                                                  self.duct_variables["b_15"],
+                                                                                  self.duct_variables["b_17"]],
+                                                                                  self.duct_variables)
         lower_x = lower_x * self.duct_variables["Chord Length"]
         lower_y = lower_y * self.duct_variables["Chord Length"]
 
@@ -475,6 +477,28 @@ class OptimizationProblem(ElementwiseProblem):
                                                            np.max(radial_duct_coordinates))
 
 
+    def CheckBlades(self) -> None:
+        """
+        Function to check the validity of the blade geometry by evaluating the blade parameters at each radial section.
+        Simply constructs the blade profile x,y for each section of each stage. If there is any invalid section, it will throw an error, which will be catched by the try-except block in _evaluate.
+
+        Returns
+        -------
+        None
+        """
+
+        for i in range(self.num_stages):
+            if config.OPTIMIZE_STAGE[i]:
+                for j in range(self.num_radial):
+                    blade_section = self.blade_design_parameters[i][j]
+                    self.Parameterization.ComputeProfileCoordinates([blade_section["b_0"],
+                                                                     blade_section["b_2"],
+                                                                     blade_section["b_8"],
+                                                                     blade_section["b_15"],
+                                                                     blade_section["b_17"]],
+                                                                     blade_section)
+
+
     def _evaluate(self, 
                   x:dict, 
                   out:dict, 
@@ -484,9 +508,10 @@ class OptimizationProblem(ElementwiseProblem):
         Element-wise evaluation function.
         """
 
-        # Lazy import the MTFLOW interface
+        # Lazy import the MTFLOW interface and output_handling interface
         # This helps to improve startup time and memory usage in parallel workers
         from MTFLOW_caller import MTFLOW_caller
+        from Submodels.output_handling import output_processing
         
         # Generate a unique analysis name
         self.analysis_name = self.GenerateAnalysisName()
@@ -499,24 +524,38 @@ class OptimizationProblem(ElementwiseProblem):
         self.ComputeReynolds()
         self.ComputeOmega()
         self.SetOmega()
-        self.ComputeDuctRadialLocation()
+        
+        # Check validity of the duct and blades
+        design_okay = True
+        try:
+            self.ComputeDuctRadialLocation()
+            self.CheckBlades()
+        except ValueError:
+            # If a value error occurs with interpolation of the duct surface, this is an indication that the duct geometry is invalid. so we can set a crash flag and skip the MTFLOW analysis
+            design_okay = False
 
         # Initialize the MTFLOW caller class
-        MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
-                                         centrebody_params=self.centerbody_variables,
-                                         duct_params=self.duct_variables,
-                                         blading_parameters=self.blade_blading_parameters,
-                                         design_parameters=self.blade_design_parameters,
-                                         ref_length=self.Lref,
-                                         analysis_name=self.analysis_name,
-                                         **kwargs)
+        if design_okay:
+            MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
+                                            centrebody_params=self.centerbody_variables,
+                                            duct_params=self.duct_variables,
+                                            blading_parameters=self.blade_blading_parameters,
+                                            design_parameters=self.blade_design_parameters,
+                                            ref_length=self.Lref,
+                                            analysis_name=self.analysis_name,
+                                            **kwargs)
 
-        # Run MTFLOW
-        exit_flag = MTFLOW_interface.caller(external_inputs=False,
-                                            output_type=OutputType.FORCES_ONLY)
+            # Run MTFLOW
+            MTFLOW_interface.caller(external_inputs=False,
+                                    output_type=OutputType.FORCES_ONLY)
 
-        # Extract outputs
-        output_handler = output_processing(analysis_name=self.analysis_name)
+            # Extract outputs
+            output_handler = output_processing(analysis_name=self.analysis_name)
+        else:
+            # If the design is infeasible, we load the crash outputs
+            # This is a predefined file with all outputs set to 0.
+            output_handler = output_processing(analysis_name="crash_outputs")
+        
         MTFLOW_outputs = output_handler.GetAllVariables(output_type=3)
 
         # Obtain objective(s)

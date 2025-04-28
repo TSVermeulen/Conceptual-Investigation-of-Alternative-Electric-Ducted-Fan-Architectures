@@ -263,7 +263,7 @@ class MTFLOW_caller:
                     streamwise_points = 141
                 elif check_count == 10: 
                     exit_flag_gridtest = ExitFlag.CRASH  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
-                    return exit_flag_gridtest, 0
+                    return exit_flag_gridtest
                 else:
                     # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
                     grid_e_coeff = self._rng.uniform(0.6, 1.0)

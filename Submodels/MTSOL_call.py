@@ -288,6 +288,12 @@ class MTSOL_call:
         Python file. 
         """
 
+        # Stop any orphaned reader threads if they exist before starting the new subprocess
+        if getattr(self, "reader", None) and self.reader.is_alive():
+            if getattr(self, "process", None):
+                self.process.stdout.close()
+            self.reader.join(timeout=1)
+
         # Generate the subprocess and write it to self
         self.process = subprocess.Popen([self.fpath, self.analysis_name], 
                                         stdin=subprocess.PIPE, 
@@ -298,10 +304,6 @@ class MTSOL_call:
                                         )
         
         # Initialize output reader thread
-        # First stopping any orphaned reader threads
-        if getattr(self, "reader", None) and self.reader.is_alive():
-            self.reader.join(timeout=1)
-            
         self.output_queue = queue.Queue()
 
         def output_reader(out, q):
@@ -455,6 +457,9 @@ class MTSOL_call:
             try:
                 line = self.output_queue.get(timeout=0.025)
             except queue.Empty:
+                # Check if process is still alive
+                if self.process.poll() is not None:
+                    return ExitFlag.CRASH
                 continue
             
             # Once iteration is complete, return the completed exit flag
@@ -586,7 +591,7 @@ class MTSOL_call:
              
             # Check the exit flag to see if the solution has converged
             # If the solution has converged, break out of the iteration loop
-            exit_flag = self.WaitForCompletion(completion_type=CompletionType.ITERATION)
+            self.WaitForCompletion(completion_type=CompletionType.ITERATION)
 
             if exit_flag != ExitFlag.CRASH:
                 # Increase iteration counter by step size only if the solver did not crash
@@ -722,7 +727,7 @@ class MTSOL_call:
             self.StdinWrite("x 1")
 
             # Wait for current iteration to complete
-            exit_flag = self.WaitForCompletion(completion_type=CompletionType.ITERATION)
+            self.WaitForCompletion(completion_type=CompletionType.ITERATION)
 
             # Generate solver outputs
             self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)

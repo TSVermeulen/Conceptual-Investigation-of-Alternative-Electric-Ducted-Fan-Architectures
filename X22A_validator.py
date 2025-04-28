@@ -487,11 +487,11 @@ def ExecuteParameterSweep(omega: np.ndarray[float],
                 }
         
         # Execute MTSOL
-        exit_flag  = MTSOL_call(operating_conditions=oper,
-                                analysis_name=ANALYSIS_NAME,
-                                ).caller(run_viscous=True,
-                                         generate_output=True,
-                                         )
+        MTSOL_call(operating_conditions=oper,
+                   analysis_name=ANALYSIS_NAME,
+                   ).caller(run_viscous=True,
+                            generate_output=True,
+                            )
 
         # Collect outputs from the forces.xxx file
         CT, CP, etaP = output_processing(ANALYSIS_NAME).GetCTCPEtaP()
