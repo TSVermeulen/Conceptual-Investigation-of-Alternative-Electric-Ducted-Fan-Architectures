@@ -1,0 +1,44 @@
+
+ Case name: 0429001155_5856_5303d4b870014362
+
+ Ma =   0.10285
+ Re =   5.1123e6     Ncrit =    9.0000
+
+  Total power    CP  =  0.15436         EtaP  =   0.77740
+  Total force    CT  =  0.12000    
+
+  Element  2 top CTV = -0.65426E-02
+             bot CTv = -0.80941E-02
+  Axis body      CTv = -0.16177E-02
+
+   CT breakdown
+ Viscous ,inviscid:   CTv = -0.16254E-01   CTi =  0.13626    
+ Friction,pressure:   CTf = -0.12068E-01   CTp =  0.13207    
+
+  Element  2          CTf = -0.11142E-01   CTp =  0.12819E-01 top Xtr =   0.24850 bot Xtr =   0.25768
+
+  Axis body           CTf = -0.92611E-03   CTp = -0.17283E-03     Xtr =   0.17497
+
+ Source = -0.34693E-01   Doublet =  0.15890       at  z =   0.27285      rms(V-Vff) =  0.44648E-03
+
+ Pexit/Po =  0.99266    
+
+ Inter-element passage properties...
+                 Capture area  Exit area       CTi          Cpi
+      Total    :   5.9396       5.9054      0.13626      0.15436    
+   elements 2-3:   4.9744       4.9844      0.14182E-10   0.0000    
+   elements 1-2:  0.96516      0.91367      0.13626      0.15436    
+
+                 Wetted areas
+      Total    :   4.3311    
+      element 2:   4.0437    
+      element 1:  0.28743    
+
+                   Volumes
+      Total    :  0.13292    
+      element 2:  0.12351    
+      element 1:  0.94066E-02
+
+                    CPK1        CPV1       CPK1+CPV1    CPK2        CPV2       CPK2+CPV2    CPK         CPV        CPK +CPV 
+   elements 2-3: -0.3134E-05   0.000     -0.3134E-05  0.5253E-06   0.000      0.5253E-06 -0.2609E-05   0.000     -0.2609E-05
+   elements 1-2:  0.1884E-03 -0.2115E-03 -0.2303E-04  0.1543      0.1101E-04  0.1543      0.1545     -0.2004E-03  0.1543    

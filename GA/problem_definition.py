@@ -252,6 +252,8 @@ class OptimizationProblem(ElementwiseProblem):
             idx += (centerbody_designvar_count + duct_designvar_count) if config.OPTIMIZE_DUCT else centerbody_designvar_count
         else:
             self.centerbody_variables = config.CENTERBODY_VALUES
+            # Update the index to point to the blades first if the duct is part of the design vector
+            idx += duct_designvar_count if config.OPTIMIZE_DUCT else 0
                 
         # Deconstruct the rotorblade parametersPrecompute indices for rotorblade parameters if they are variable.
         # If the rotorblade parameters are constant, read in the parameters from config.
@@ -418,7 +420,7 @@ class OptimizationProblem(ElementwiseProblem):
                             copied_file)
                 
             if file_path.exists():
-                file_path.unlink()
+                file_path.unlink(missing_ok=True)
 
 
     def ComputeDuctRadialLocation(self) -> None:

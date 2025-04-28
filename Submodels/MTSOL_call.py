@@ -108,7 +108,8 @@ class FileCreatedHandling(FileSystemEventHandler):
                     # Release the lock.
                     fcntl.flock(f, fcntl.LOCK_UN)
             return True
-        except Exception:
+        except (IOError, OSError, PermissionError) as e:
+            print(f"Could not check if file is free in FileCreatedHandling().is_file_free(): {e}")
             return False
 
 
@@ -117,7 +118,7 @@ class FileCreatedHandling(FileSystemEventHandler):
                              timeout: float = 5) -> bool:
         """ Helper function to wait until the file_path has finished being written to, and is available. """
         start_time = time.time()
-        while time.time() - start_time < timeout:
+        while (time.monotonic() - start_time) < timeout:
             if self.is_file_free(file_path):
                 return True
             time.sleep(0.01)
@@ -296,7 +297,12 @@ class MTSOL_call:
         if getattr(self, "reader", None) and self.reader.is_alive():
             if getattr(self, "process", None):
                 self.process.stdout.close()
-            self.reader.join(timeout=1)
+            try:
+                self.reader.join(timeout=5)
+                if self.reader.is_alive():
+                    print("Warning: Reader thread could not be joined within timeout")
+            except Exception as e:
+                print(f"Error cleaning up reader thread: {e}")
 
         # Generate the subprocess and write it to self
         self.process = subprocess.Popen([self.fpath, self.analysis_name], 
@@ -456,7 +462,7 @@ class MTSOL_call:
         # Check the console output to ensure that commands are completed
         timer_start = time.time()
         time_out = 30
-        while (time.time() - timer_start) <= time_out:
+        while (time.monotonic() - timer_start) <= time_out:
             # First check if the subprocess has terminated to ensure fail fast if this is the case
             if self.process.poll() is not None:
                 return ExitFlag.CRASH
@@ -760,6 +766,29 @@ class MTSOL_call:
             file.unlink()
 
 
+    def CleanupOutputFiles(self) -> None:
+        """
+        A simple method to clean up output files, preserving the forces file.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+
+        # Remove any superflous output files from the submodels folder
+        for key, file in self.filepaths.items():
+            if file.exists() and (key != 'forces'):
+                file.unlink()
+        
+        # Remove any output file from the dump folder
+        for file in self.dump_folder.glob("forces.{}.*".format(self.analysis_name)):
+                file.unlink()
+
+
     def HandleExitFlag(self,
                        exit_flag: ExitFlag,
                        handle_type : str,
@@ -794,11 +823,7 @@ class MTSOL_call:
         elif exit_flag == ExitFlag.CRASH:  
             if handle_type == 'Inviscid':
                 # For an inviscid crash, cleanup outputs
-                for key, file in self.filepaths.items():
-                    if file.exists() and key != 'forces':
-                        file.unlink()
-                for file in self.dump_folder.glob("forces.{}.*".format(self.analysis_name)):
-                    file.unlink()
+                self.CleanupOutputFiles()
                 return
             else:
                 return
