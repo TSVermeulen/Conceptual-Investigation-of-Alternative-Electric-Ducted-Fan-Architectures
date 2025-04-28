@@ -36,43 +36,93 @@ Version: 1.1
 Changelog:
 - V1.0: Initial implementation. 
 - V1.1: Updated documentation to reflect changes in the main module structure and added examples for usage.
+- V1.2: Updated to match structure of main-parallelized, but with n_processes = 1.
 """
 
 from pymoo.core.mixed import MixedVariableGA
+from pymoo.core.problem import StarmapParallelization
 from pymoo.optimize import minimize
+import multiprocessing
+from pathlib import Path
 import dill
 import config
 import datetime
 import os
+import sys
+import time
 
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
 
-# Initialize the optimization problem
-problem = OptimizationProblem()
+# Define the parent and submodels paths
+parent_dir = str(Path(__file__).resolve().parent.parent)
+submodels_dir =  str(Path(__file__).resolve().parent.parent / "Submodels")
 
-# Initialize the algorithm
-algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
-                            sampling=InitPopulation(population_type="biased").GeneratePopulation())
+def worker_init(parent_dir_str: str,
+                submodels_path_str: str) -> None:
+    """
+    Initializer for each worker process in the pool. Ensures sys.path and environment variables are set up for imports.
+    """
+    # Add the parent and submodels paths to the system path if they are not already in the path
+    if parent_dir_str not in sys.path:
+        sys.path.append(parent_dir_str)
 
-# Run the optimization
-res = minimize(problem,
-               algorithm,
-               termination=('n_gen', config.MAX_GENERATIONS),
-               seed=1,
-               verbose=True,
-               save_history=True,
-               return_least_infeasible=True,)
+    if submodels_path_str not in sys.path:
+        sys.path.append(submodels_path_str)
 
-# This avoids needing to re-run the optimization if the results are needed later.
-# The filename is generated using the process ID and current timestamp to ensure uniqueness.
-process_ID = f"{os.getpid() % 10000:04d}" 
-now = datetime.datetime.now()
-timestamp = f"{now:%y%m%d%H%M%S%f}"	
-output_name = f"res_{process_ID}_{timestamp}.dill"
-try:
-    with open(output_name, 'wb') as f:
-        dill.dump(res, f)
-    print(f"Results saved to {output_name}")
-except Exception as e:
-    print(f"Error saving results: {e}")
+
+if __name__ == "__main__":
+    multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
+    if os.name == 'nt':
+        multiprocessing.set_start_method('spawn', force=True)
+    
+    """ Initialize the thread pool and create the runner """
+    n_processes = 1  
+    pool = multiprocessing.Pool(processes=n_processes,
+                                initializer=worker_init,
+                                initargs=(parent_dir, submodels_dir))
+
+    # Create runner
+    runner = StarmapParallelization(pool.starmap)
+
+    """ Initialize the optimization problem and algorithm """
+    # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
+    problem = OptimizationProblem(elementwise_runner=runner,
+                                  seed=42)
+
+    # Initialize the algorithm
+    algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
+                                sampling=InitPopulation(population_type="biased").GeneratePopulation())
+
+    # Run the optimization
+    start_time = time.time()
+    res = minimize(problem,
+                   algorithm,
+                   termination=('n_gen', config.MAX_GENERATIONS),
+                   seed=42,
+                   verbose=True,
+                   save_history=False,  # If True, generates a very large history object, which is bad for memory usage. Only set to true for small cases!
+                   return_least_infeasible=True)
+    elapsed_time = time.time() - start_time
+
+    # Close the thread pool to free up resources
+    pool.close()
+    pool.join()
+
+    # Print some performance metrics
+    print(f"Optimization completed in {elapsed_time:.2f} seconds")
+    print(f"Average time per generation: {elapsed_time/min(res.n_gen, config.MAX_GENERATIONS):.2f} seconds")
+
+    """ Save the results to a dill file for future reference """
+    # This avoids needing to re-run the optimization if the results are needed later.
+    # The filename is generated using the process ID and current timestamp to ensure uniqueness.
+
+    now = datetime.datetime.now()
+    timestamp = f"{now:%y%m%d%H%M%S%f}"	
+    output_name = f"res_pop{config.POPULATION_SIZE}_gen{config.MAX_GENERATIONS}_{timestamp}.dill"
+    try:
+        with open(output_name, 'wb') as f:
+            dill.dump(res, f)
+        print(f"Results saved to {output_name}")
+    except Exception as e:
+        print(f"Error saving results: {e}")

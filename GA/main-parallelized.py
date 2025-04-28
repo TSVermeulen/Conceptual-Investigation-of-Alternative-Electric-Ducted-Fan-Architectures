@@ -37,6 +37,7 @@ Version: 1.1
 Changelog:
 - V1.0: Initial implementation. 
 - V1.1: Updated documentation to reflect changes in the main module structure and added examples for usage.
+- V1.2: Updated to include reserved thread for MTSOL output reader.
 """
 
 from pymoo.core.mixed import MixedVariableGA
@@ -78,7 +79,7 @@ if __name__ == "__main__":
     
     """ Initialize the thread pool and create the runner """
     total_threads = multiprocessing.cpu_count()
-    RESERVED_THREADS = min(4, total_threads // 5 ) # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
+    RESERVED_THREADS = min(2, total_threads // 5 ) # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
     total_threads_avail = total_threads // 2 - RESERVED_THREADS  # Divide by 2 as each MTFLOW evaluation uses 2 threads: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
     n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used
@@ -107,7 +108,7 @@ if __name__ == "__main__":
                    verbose=True,
                    save_history=False,  # If True, generates a very large history object, which is bad for memory usage. Only set to true for small cases!
                    return_least_infeasible=True)
-    elapsed_time = time.time() = start_time
+    elapsed_time = time.time() - start_time
 
     # Close the thread pool to free up resources
     pool.close()

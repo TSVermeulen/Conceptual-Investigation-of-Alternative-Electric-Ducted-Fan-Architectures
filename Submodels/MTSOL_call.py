@@ -52,6 +52,7 @@ Changelog:
 - V1.2: Added watchdog to check if the forces file is created before copying it.
 - V1.3: Added crash handling for the inviscid solve. Added a function to set all values to zero in case of a crash during the inviscid solve. Added a function to handle non-convergence by averaging over the last self.SAMPLE_SIZE iterations. Added a function to handle the exit flag of the solver execution. Added a function to handle the convergence of individual surfaces in case of a crash during the viscous solve.
 - V1.4: Full rework of FileCreatedHandling(). Revamped file processing. Cleaned up imports. Removed shell=True from process initialisation. Switched to pathlib for path handling. Revamped individual surface convergence 
+- V1.4.1: Removed iter_count from outputs. 
 """
 
 import subprocess
@@ -393,26 +394,30 @@ class MTSOL_call:
 
 
     def SetViscous(self,
-                   surface_ID: int,
+                   surface_ID: list[int] | int,
                    ) -> None:
         """
         Set the viscous toggle for the given surface identifier.
 
         Parameters
         ----------
-        - surface_ID : int
-            ID of the surface which is to be toggled. For a ducted fan, the ID should be either 1, 3, or 4. 
+        - surface_ID : list[int] | int
+            IDs of the surface which are to be toggled. For a ducted fan, the ID should be either 1, 3, or 4. 
         
         Returns
         -------
         None
         """
+
+        # Input validation to format surface_ID into a list if a pure integer is provided
+        if isinstance(surface_ID, int):
+            surface_ID = [surface_ID]
         
         # Enter the Modify solution parameters menu
         self.StdinWrite("m")
 
-        # Toggle the given surface
-        self.StdinWrite(f"V{surface_ID}")
+        # Toggle the given surfaces
+        self.StdinWrite(f"V{' '.join(map(str, surface_ID))}")
 
         # Wait for the change to be processed in MTSOL
         self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
@@ -560,17 +565,14 @@ class MTSOL_call:
 
 
     def ExecuteSolver(self,
-                      ) -> tuple[ExitFlag, int]:
+                      ) -> ExitFlag:
         """
         Execute the MTSOL solver for the current analysis.
 
         Returns
         -------
-        - tuple :
-            exit_flag : ExitFlag
-                Exit flag indicating the status of the solver execution.
-            iter_count : int
-                Number of iterations performed up until failure of the solver.
+        - exit_flag : ExitFlag
+            Exit flag indicating the status of the solver execution.
         """
 
         # Initialize iteration count and exit flag
@@ -578,7 +580,7 @@ class MTSOL_call:
         exit_flag = ExitFlag.NOT_PERFORMED
 
         # Keep converging until the iteration count exceeds the limit
-        while self.iter_counter < self.ITER_LIMIT:
+        while (self.iter_counter < self.ITER_LIMIT) and (exit_flag not in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH)):
             #Execute next iteration(s)
             self.StdinWrite(f"x {self.ITER_STEP_SIZE}")
              
@@ -597,8 +599,8 @@ class MTSOL_call:
         if exit_flag not in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH):
             exit_flag = ExitFlag.NON_CONVERGENCE
 
-        # Return the exit flag and iteration counter
-        return exit_flag, self.iter_counter
+        # Return the exit flag
+        return exit_flag
 
 
     def GetAverageValues(self,
@@ -713,9 +715,6 @@ class MTSOL_call:
                           recursive=False,
                           )   
         observer.start()
-
-        # Initialize exit flag
-        exit_flag = ExitFlag.NON_CONVERGENCE
     
         # Keep looping until iter_count exceeds the target value for number of iterations to average 
         while iter_counter < self.SAMPLE_SIZE:
@@ -724,10 +723,6 @@ class MTSOL_call:
 
             # Wait for current iteration to complete
             exit_flag = self.WaitForCompletion(completion_type=CompletionType.ITERATION)
-
-            if exit_flag == ExitFlag.SUCCESS:
-                # Should the solver converge while performing the non-convergence handling, break out of the loop. 
-                break
 
             # Generate solver outputs
             self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
@@ -754,8 +749,7 @@ class MTSOL_call:
         # Average the data from all the iterations to obtain the assumed true values. This effectively assumes that the iterations are oscillating about the true value.
         # This is a simplification, but it is the best we can do in this case.
         # The average is calculated by summing all the values and dividing by the number of iterations.
-        if exit_flag != ExitFlag.SUCCESS:
-            self.GetAverageValues()
+        self.GetAverageValues()
 
         # Remove the now unnecessary output files in the dump folder
         for file in self.dump_folder.glob("forces.{}.*".format(self.analysis_name)):
@@ -765,6 +759,7 @@ class MTSOL_call:
     def HandleExitFlag(self,
                        exit_flag: ExitFlag,
                        handle_type : str,
+                       update_statefile : bool = False,
                        ) -> None:
         """
         Handle the exit flag of the solver execution. 
@@ -777,6 +772,8 @@ class MTSOL_call:
             A string indicating the type of solve:
                 - 'Inviscid'
                 - 'Viscous'
+        - update_statefile: bool, optional
+            A control boolean to determine if the state file should be updated. 
 
         Returns
         -------
@@ -785,7 +782,8 @@ class MTSOL_call:
 
         #If solver does not converge, call the non-convergence handler function.
         if exit_flag == ExitFlag.NON_CONVERGENCE:
-            self.WriteStateFile()
+            if update_statefile:
+                self.WriteStateFile()
             self.HandleNonConvergence()
 
         # Else if the solver has crashed, delete all output files except the forces file to keep outputs clean
@@ -803,7 +801,8 @@ class MTSOL_call:
         
         # Else if the solver has finished, update the statefile.   
         elif exit_flag in (ExitFlag.COMPLETED, ExitFlag.SUCCESS, ExitFlag.NOT_PERFORMED, ExitFlag.CHOKING):
-            self.WriteStateFile()
+            if update_statefile:
+                self.WriteStateFile()
             return
           
         else:
@@ -812,7 +811,7 @@ class MTSOL_call:
 
     def TryExecuteViscousSolver(self,
                          surface_ID: int = None,
-                         ) -> tuple[ExitFlag, int]:
+                         ) -> ExitFlag:
         """
         Try to execute the MTSOL solver for the current analysis on the viscous surface surface_ID.
 
@@ -825,8 +824,6 @@ class MTSOL_call:
         -------
         - exit_flag : ExitFlag
             Exit flag indicating the status of the solver execution.
-        - iter_counter : int
-            Number of iterations performed up until failure of the solver.
         """
         
         try:
@@ -845,7 +842,7 @@ class MTSOL_call:
                 self.SetViscous(surface_ID)
 
             # Execute the solver and get the exit flag and iteration count
-            exit_flag, iter_count = self.ExecuteSolver()
+            exit_flag = self.ExecuteSolver()
 
             # If solve was successful or non-converging, update the statefile
             if exit_flag in (ExitFlag.SUCCESS, ExitFlag.CHOKING):
@@ -853,13 +850,12 @@ class MTSOL_call:
         except (OSError, BrokenPipeError):
             # If the solver crashes, set the exit flag to crash
             exit_flag = ExitFlag.CRASH
-            iter_count = self.iter_counter
 
-        return exit_flag, iter_count    
+        return exit_flag  
     
     
     def ConvergeIndividualSurfaces(self,
-                                   ) -> tuple[ExitFlag, int]:
+                                   ) -> ExitFlag:
         """
         Should a complete viscous analysis fail and cause an MTSOL crash, a partial run, where each axisymmetric surface is toggled individually, 
         may sometimes improve performance and yield (partially) converged results.
@@ -871,64 +867,54 @@ class MTSOL_call:
         -------
         - total_exit_flag : ExitFlag
             Exit flag indicating the overall status of the convergence. 
-        - total_iter_count : int
-            Count of the total number of iterations performed across the different analyses. 
         """
 
        # Define initial exit flags and iteration counters
         # Note that a negative iteration count indicates that the solver did not run
         exit_flag_visc_CB = ExitFlag.NOT_PERFORMED
-        iter_count_visc_CB = 0
         exit_flag_visc_induct = ExitFlag.NOT_PERFORMED
-        iter_count_visc_induct = 0
         exit_flag_visc_outduct = ExitFlag.NOT_PERFORMED
-        iter_count_visc_outduct = 0
         total_exit_flag = ExitFlag.NOT_PERFORMED
 
         # Initialize a list to keep track of any surfaces which may fail convergence
         failed_surfaces = []
 
         # Execute the initial viscous solve, where we only solve for the boundary layer on the centerbody
-        exit_flag_visc_CB, iter_count_visc_CB = self.TryExecuteViscousSolver(surface_ID=1)
+        exit_flag_visc_CB = self.TryExecuteViscousSolver(surface_ID=1)
         if exit_flag_visc_CB in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
             # if the viscous CB solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
             failed_surfaces.append(1)
 
         # Execute the viscous solve for the outside of the duct
-        exit_flag_visc_outduct, iter_count_visc_outduct = self.TryExecuteViscousSolver(surface_ID=3)
+        exit_flag_visc_outduct = self.TryExecuteViscousSolver(surface_ID=3)
         if exit_flag_visc_outduct in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
             # if the viscous solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
             failed_surfaces.append(3)
         
         # Execute the final viscous solve for the inside of the duct
-        exit_flag_visc_induct, iter_count_visc_induct = self.TryExecuteViscousSolver(surface_ID=4)
+        exit_flag_visc_induct = self.TryExecuteViscousSolver(surface_ID=4)
         if exit_flag_visc_induct in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
             # if the viscous solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
             failed_surfaces.append(4)
 
         # Retry convergence of the failed surfaced
         retry_results = {surface: self.TryExecuteViscousSolver(surface_ID=surface) for surface in failed_surfaces}
-
-        retry_iter_count = 0
-        for surface in retry_results:
-            retry_iter_count += retry_results[surface][1]
         
         # Compute the overall exit flag and total iteration count
-        exit_flag_visc_CB = retry_results.get(1, (exit_flag_visc_CB, iter_count_visc_CB))[0]
-        exit_flag_visc_outduct = retry_results.get(3, (exit_flag_visc_outduct, iter_count_visc_outduct))[0]
-        exit_flag_visc_induct = retry_results.get(4, (exit_flag_visc_induct, iter_count_visc_induct))[0]
+        exit_flag_visc_CB = retry_results.get(1, exit_flag_visc_CB)
+        exit_flag_visc_outduct = retry_results.get(3, exit_flag_visc_outduct)
+        exit_flag_visc_induct = retry_results.get(4, exit_flag_visc_induct)
 
         total_exit_flag = max([exit_flag_visc_CB, exit_flag_visc_outduct, exit_flag_visc_induct], key=lambda flag: flag.value)
-        total_iter_count = iter_count_visc_CB + iter_count_visc_outduct + iter_count_visc_induct + retry_iter_count
 
-        return total_exit_flag, total_iter_count
+        return total_exit_flag
     
 
     def caller(self,
                run_viscous: bool = False,
                generate_output: bool = False,
                output_type: OutputType = OutputType.FORCES_ONLY,
-               ) -> tuple[int, int]:
+               ) -> ExitFlag:
         """
         Main execution interface of MTSOL.
 
@@ -945,19 +931,15 @@ class MTSOL_call:
 
         Returns
         -------
-        - total_exit_flag : int
+        - total_exit_flag : ExitFlag
             Exit flag indicating the status of the solver execution. Is equal to the maximum value of the inviscid and viscous exit flags, since exit_flag > -1 indicate failed/nonconverging solves.
             This is used as a one-variable status indicator, while the corresponding output list gives more details. 
-        - total_iter_count : int
-            An integer summation of the inviscid and viscous iteration counters. 
         """
 
-        # Define initial exit flags and iteration counters
+        # Define initial exit flags
         # Note that a negative iteration count indicates that the solver did not run
         exit_flag_invisc = ExitFlag.NOT_PERFORMED
-        iter_count_invisc = 0
         exit_flag_visc = ExitFlag.NOT_PERFORMED
-        iter_count_visc = 0
 
         # Generate MTSOL subprocess
         self.GenerateProcess()
@@ -965,26 +947,25 @@ class MTSOL_call:
         # Write operating conditions
         self.SetOperConditions()
 
-        # Update the statefile with the operating conditions
-        self.WriteStateFile()
-
-        # Write empty forces file
-        self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
+        if generate_output:
+            # Update the statefile with the operating conditions
+            self.WriteStateFile()
+            # Write empty forces file
+            self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
 
         # Execute inviscid solve
         try:  
-            exit_flag_invisc, iter_count_invisc = self.ExecuteSolver()
+            exit_flag_invisc = self.ExecuteSolver()
         except (OSError, BrokenPipeError):
             # If the inviscid solve crashes, we need to set the exit flag to crash
             exit_flag_invisc = ExitFlag.CRASH
-            iter_count_invisc = self.iter_counter
 
         finally:
             # Handle solver based on exit flag
             self.HandleExitFlag(exit_flag_invisc,
-                                handle_type='Inviscid')
+                                handle_type='Inviscid',
+                                update_statefile=generate_output)
             total_exit_flag = exit_flag_invisc
-            total_iter_count = iter_count_invisc
 
         # Only run a viscous solve if required by the user
         # Theoretically there is the chance a viscous run may be started on a non-converged inviscid solve. 
@@ -993,27 +974,25 @@ class MTSOL_call:
         if run_viscous and exit_flag_invisc != ExitFlag.CRASH:
             # Toggle viscous on the centerbody and the inner and outer duct surfaces
             self.ToggleViscous()
-            self.SetViscous(3)
-            self.SetViscous(4)
+            self.SetViscous([3, 4])
             
             # First we try to run a complete viscous case. Only if this doesn't work and causes a crash do we try to converge each surface individually
             try:
-                exit_flag_visc, iter_count_visc = self.ExecuteSolver()
+                exit_flag_visc = self.ExecuteSolver()
                 
                 total_exit_flag = max([exit_flag_visc, exit_flag_invisc], key=lambda flag: flag.value)
-                total_iter_count = iter_count_invisc + iter_count_visc
 
             except (OSError, BrokenPipeError):
                 # If the complete viscous solve crashed, restart MTSOL and try to converge the individual surfaces separately
-                total_exit_flag, individual_iter_count = self.ConvergeIndividualSurfaces()                
-                total_iter_count += individual_iter_count
-            
+                total_exit_flag = self.ConvergeIndividualSurfaces()                
+
             finally:
                 # Handle the exit flag
                 self.HandleExitFlag(exit_flag_visc, 
-                                    handle_type='Viscous')
+                                    handle_type='Viscous',
+                                    update_statefile=generate_output)
 
-        if generate_output and total_exit_flag != ExitFlag.CHOKING:
+        if generate_output:
             # Generate the solver output
             # If the solution is choking, the design is infeasible, so we keep the crash outputs
             self.GenerateSolverOutput(output_type=output_type)
@@ -1033,7 +1012,7 @@ class MTSOL_call:
                 self.process.kill()
 
               
-        return total_exit_flag, total_iter_count
+        return total_exit_flag
 
 
 if __name__ == "__main__": 

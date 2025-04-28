@@ -78,7 +78,8 @@ Changelog:
 - V1.1: Cleaned up following successful implementation of validation case. Crash handling is now done within MTSOL_call. 
 - V1.2: Cleaned up import statements, resolved infite loop issue in gridtest, and added MTSOL loop exit for non-convergence. 
 - V1.3: Removed HandleExitFlag() method as it is not needed. Extracted choking handling to a separate method.
-- V1.4: Clead up imports. Implemented chdir context manager. Switched to pathlib for path operations. Cleaned up/streamlined exit flags. Implemented OutputType enum class. 
+- V1.4: Cleaned up imports. Implemented chdir context manager. Switched to pathlib for path operations. Cleaned up/streamlined exit flags. Implemented OutputType enum class. 
+- V1.5: Updated to remove iter_count output from MTSOl_call.
 """
 
 import os
@@ -195,7 +196,7 @@ class MTFLOW_caller:
     def caller(self,
                external_inputs: bool = False,
                output_type: OutputType = OutputType.FORCES_ONLY,
-               ) -> tuple[int, int]:
+               ) -> ExitFlag:
         """ 
         Executes a complete MTSET-MTFLO-MTSOL evaluation, while handling grid issues and choking issues. 
 
@@ -209,8 +210,8 @@ class MTFLOW_caller:
 
         Returns
         -------
-        - tuple[int, int]
-            A tuple containing the exit flag and iteration count
+        - ExitFlag
+            The total exit flag of the MTFLOW analysis
         """
             
         # --------------------
@@ -275,9 +276,9 @@ class MTFLOW_caller:
                            grid_x_coeff=grid_x_coeff,
                            streamwise_points=streamwise_points).caller()
                 
-                exit_flag_gridtest, _ = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
-                                                   analysis_name=self.analysis_name).caller(run_viscous=False,
-                                                                                            generate_output=False)
+                exit_flag_gridtest  = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
+                                                 analysis_name=self.analysis_name).caller(run_viscous=False,
+                                                                                          generate_output=False)
                                 
                 check_count += 1
 
@@ -297,12 +298,12 @@ class MTFLOW_caller:
             MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
 
             # Execute MTSOL    
-            exit_flag, iter_count = MTSOL_call(operating_conditions=self.operating_conditions,
-                                               analysis_name=self.analysis_name).caller(run_viscous=True,
-                                                                                        generate_output=True,
-                                                                                        output_type=output_type)
+            exit_flag = MTSOL_call(operating_conditions=self.operating_conditions,
+                                   analysis_name=self.analysis_name).caller(run_viscous=True,
+                                                                            generate_output=True,
+                                                                            output_type=output_type)
                 
-        return exit_flag, iter_count
+        return exit_flag
 
 
 if __name__ == "__main__":

@@ -39,6 +39,7 @@ Changelog:
 - V1.0: Initial implementation. 
 - V1.1: Improved documentation. Fixed issues with deconstruction of design vector. Fixed analysisname generator and switched to using datetime & evaluation counter for name generation. 
 - V1.1.5: Changed analysis name generation to only use datetime to simplify naming generation. 
+- V1.1.6: Updated to remove iter_count from MTFLOW_caller outputs
 """
 
 import os
@@ -511,8 +512,8 @@ class OptimizationProblem(ElementwiseProblem):
                                          **kwargs)
 
         # Run MTFLOW
-        _, _ = MTFLOW_interface.caller(external_inputs=False,
-                                               output_type=OutputType.FORCES_ONLY)
+        exit_flag = MTFLOW_interface.caller(external_inputs=False,
+                                            output_type=OutputType.FORCES_ONLY)
 
         # Extract outputs
         output_handler = output_processing(analysis_name=self.analysis_name)
