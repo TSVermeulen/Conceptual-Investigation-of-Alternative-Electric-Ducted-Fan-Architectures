@@ -55,11 +55,12 @@ Changelog:
 """
 
 import subprocess
-import asyncio
 import shutil
 import os
 import re
 import time
+import queue
+import threading
 import numpy as np
 from pathlib import Path
 from collections import OrderedDict
@@ -294,6 +295,20 @@ class MTSOL_call:
                                         text=True,
                                         bufsize=1,
                                         )
+        
+        # Initialize output reader thread
+        self.output_queue = queue.Queue()
+
+        def output_reader(out, q):
+            """ Helper function to read the output on a separate thread """
+            for line in iter(out.readline, ''):
+                q.put(line)
+        
+        self.reader = threading.Thread(target=output_reader, args=(self.process.stdout, self.output_queue))
+        self.reader.daemon = True
+
+        # Start the reader thread
+        self.reader.start()
 
         # Check if subprocess is started successfully
         if self.process.poll() is not None:
@@ -316,14 +331,26 @@ class MTSOL_call:
         # Write inlet Mach number
         self.StdinWrite(f"M {self.operating_conditions['Inlet_Mach']}")
 
+        # Wait for completion of processing operating condition change
+        self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
+
         # Set critical amplification factor to N=9 rather than the default N=7
         self.StdinWrite(f"N {self.operating_conditions['N_crit']}")
+
+        # Wait for completion of processing operating condition change
+        self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
 
         # Set the Reynolds number to 0 to ensure an inviscid solve is performed initially
         self.StdinWrite("R 0")
 
+        # Wait for completion of processing operating condition change
+        self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
+
         # Set momentum/entropy conservation Smom flag
         self.StdinWrite("S 4")
+
+        # Wait for completion of processing operating condition change
+        self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
 
         # Exit the modify solution parameters menu
         self.StdinWrite("")
@@ -346,16 +373,19 @@ class MTSOL_call:
         # Set the viscous Reynolds number, calculated using the length self.LREF
         self.StdinWrite(f"R {self.operating_conditions['Inlet_Reynolds']}")
 
+        # Wait for completion of processing operating condition change
+        self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
+
         # Disable the viscous toggle on surfaces 3,4
         # This ensures the initial viscous run is only performed on the centerbody BL. 
         # Successive toggling of the other handles can then improve numerical stability
-        self.StdinWrite("V3,4")
+        self.StdinWrite("V3 4")
+
+        # Wait for completion of processing operating condition change
+        self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
 
         # Exit the Modify solution parameters menu
         self.StdinWrite("")
-
-        # Wait for the change to be processed in MTSOL
-        self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
 
 
     def SetViscous(self,
@@ -380,11 +410,11 @@ class MTSOL_call:
         # Toggle the given surface
         self.StdinWrite(f"V{surface_ID}")
 
-        # Exit the Modify solution parameters menu
-        self.StdinWrite("")
-
         # Wait for the change to be processed in MTSOL
         self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
+
+        # Exit the Modify solution parameters menu
+        self.StdinWrite("")
   
 
     def WaitForCompletion(self,
@@ -411,11 +441,15 @@ class MTSOL_call:
         # Check the console output to ensure that commands are completed
         timer_start = time.time()
         time_out = 30
-        while (time.time() - timer_start) < time_out:
-            # Read the output line by line
-            line = self.process.stdout.readline()
+        while (time.time() - timer_start) <= time_out:
+            # Read the output from the output thread
+            try:
+                line = self.output_queue.get(timeout=0.01)
+            except queue.Empty:
+                continue
+            
             # Once iteration is complete, return the completed exit flag
-            if line.startswith(' =') and completion_type == CompletionType.ITERATION:
+            if line.strip().startswith('=') and completion_type == CompletionType.ITERATION:
                 return ExitFlag.COMPLETED
             
             # Once the iteration is converged, return the converged exit flag
@@ -429,7 +463,7 @@ class MTSOL_call:
             # Once the solution is written to the state file, or the forces/flowfield file is written, return the completed exit flag
             # The succesful forces/flowfield writing can be detected from the prompt to overwrite the file or to enter a filename
             elif ('Solution written to state file' in line 
-                  or line.startswith((' File exists.  Overwrite?  Y', 'Enter filename'))) and completion_type == CompletionType.OUTPUT:
+                  or line.strip().startswith(('File exists.  Overwrite?  Y', 'Enter filename'))) and completion_type == CompletionType.OUTPUT:
                 if output_file is not None:
                     max_wait_time = 5  # Maximum wait time in seconds
                     # Wait for the file creation to be finished
@@ -441,13 +475,13 @@ class MTSOL_call:
                 return ExitFlag.COMPLETED
                         
             # When changing the operating conditions, check for the end of the modify parameters menu           
-            elif line.startswith(' V1,2..') and completion_type == CompletionType.PARAM_CHANGE:
+            elif line.strip().startswith('----') and completion_type == CompletionType.PARAM_CHANGE:
                 return ExitFlag.COMPLETED
             
             # If the solver crashes, return the crash exit flag
             # A crash can be detectede either by the MTSOL subprocess exiting, or neg. temp. lines in the console output
-            elif (line == "" and self.process.poll() is not None) or line.startswith(' *** Neg. temp.'):
-                return ExitFlag.CRASH    
+            elif (line == "" and self.process.poll() is not None) or line.strip().startswith('*** Neg. temp.'):
+                return ExitFlag.CRASH   
             
         # If timer ran out while waiting for completion, assume the solver has crashed/hung
         return ExitFlag.NON_CONVERGENCE 
@@ -492,9 +526,6 @@ class MTSOL_call:
         # First check if MTSOL is still running. If MTSOl has crashed, restart MTSOL
         if getattr(self, "process", None) and self.process.poll() is not None:
             self.GenerateProcess()
-
-        # Update the solution state file
-        self.WriteStateFile()
 
         # Dump the forces data
         self.StdinWrite("F")
@@ -798,15 +829,15 @@ class MTSOL_call:
         """
         
         try:
-            # Restart MTSOL - this is required since MTSOL quits upon a solver crash, so we need to restart the subprocress. 
-            # First ensure the subprocess is closed/killed
+            # Reload the MTSOL statefile if MTSOL is still active, otherwise restart MTSOL
             if getattr(self, "process", None) and self.process.poll() is None:
-                try:
-                    self.process.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    self.process.kill()
+                # Return it to the main menu. Initial 0 is to exit iteration menu if relevant
+                self.StdinWrite("0 \n \n \n \n \n")
 
-            self.GenerateProcess()
+                # Reload the state file 
+                self.StdinWrite("R")
+            else:
+                self.GenerateProcess()
 
             # Set viscous if surface_ID is given
             if surface_ID is not None:
@@ -816,7 +847,7 @@ class MTSOL_call:
             exit_flag, iter_count = self.ExecuteSolver()
 
             # If solve was successful or non-converging, update the statefile
-            if exit_flag in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE):
+            if exit_flag in (ExitFlag.SUCCESS, ExitFlag.CHOKING):
                 self.WriteStateFile()
         except (OSError, BrokenPipeError):
             # If the solver crashes, set the exit flag to crash
@@ -858,28 +889,19 @@ class MTSOL_call:
 
         # Execute the initial viscous solve, where we only solve for the boundary layer on the centerbody
         exit_flag_visc_CB, iter_count_visc_CB = self.TryExecuteViscousSolver(surface_ID=1)
-        if exit_flag_visc_CB in (ExitFlag.SUCCESS, ExitFlag.COMPLETED):
-            # If the viscous CB solve was successful, update the statefile. 
-            self.WriteStateFile()
-        elif exit_flag_visc_CB in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
+        if exit_flag_visc_CB in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
             # if the viscous CB solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
             failed_surfaces.append(1)
 
         # Execute the viscous solve for the outside of the duct
         exit_flag_visc_outduct, iter_count_visc_outduct = self.TryExecuteViscousSolver(surface_ID=3)
-        if exit_flag_visc_outduct in (ExitFlag.SUCCESS, ExitFlag.COMPLETED):
-            # If the viscous solve was successful, update the statefile.
-            self.WriteStateFile()
-        elif exit_flag_visc_outduct in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
+        if exit_flag_visc_outduct in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
             # if the viscous solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
             failed_surfaces.append(3)
         
         # Execute the final viscous solve for the inside of the duct
         exit_flag_visc_induct, iter_count_visc_induct = self.TryExecuteViscousSolver(surface_ID=4)
-        if exit_flag_visc_induct in (ExitFlag.SUCCESS, ExitFlag.COMPLETED):
-            # If the viscous solve was successful, update the statefile.
-            self.WriteStateFile()
-        elif exit_flag_visc_induct in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
+        if exit_flag_visc_induct in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
             # if the viscous solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
             failed_surfaces.append(4)
 
@@ -942,6 +964,9 @@ class MTSOL_call:
         # Write operating conditions
         self.SetOperConditions()
 
+        # Update the statefile with the operating conditions
+        self.WriteStateFile()
+
         # Write empty forces file
         self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
 
@@ -973,9 +998,6 @@ class MTSOL_call:
             # First we try to run a complete viscous case. Only if this doesn't work and causes a crash do we try to converge each surface individually
             try:
                 exit_flag_visc, iter_count_visc = self.ExecuteSolver()
-
-                # Update the statefile
-                self.WriteStateFile()
                 
                 total_exit_flag = max([exit_flag_visc, exit_flag_invisc], key=lambda flag: flag.value)
                 total_iter_count = iter_count_invisc + iter_count_visc
@@ -990,8 +1012,9 @@ class MTSOL_call:
                 self.HandleExitFlag(exit_flag_visc, 
                                     handle_type='Viscous')
 
-        if generate_output:
+        if generate_output and ExitFlag != ExitFlag.CHOKING:
             # Generate the solver output
+            # If the solution is choking, the design is infeasible, so we keep the crash outputs
             self.GenerateSolverOutput(output_type=output_type)
         
         # Close the MTSOL tool
