@@ -72,11 +72,12 @@ def worker_init(parent_dir_str: str,
 
 if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
-    multiprocessing.set_start_method('spawn', force=True)
+    if os.name == 'nt':
+        multiprocessing.set_start_method('spawn', force=True)
     
     """ Initialize the thread pool and create the runner """
-    RESERVED_THREADS = 4 # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
     total_threads = multiprocessing.cpu_count()
+    RESERVED_THREADS = min(4, total_threads // 5 ) # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
     total_threads_avail = total_threads - RESERVED_THREADS
 
     n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used
@@ -102,7 +103,7 @@ if __name__ == "__main__":
                    termination=('n_gen', config.MAX_GENERATIONS),
                    seed=42,
                    verbose=True,
-                   save_history=True,
+                   save_history=False,  # If True, generates a very large history object, which is bad for memory usage. Only set to true for small cases!
                    return_least_infeasible=True)
 
     # Close the thread pool to free up resources

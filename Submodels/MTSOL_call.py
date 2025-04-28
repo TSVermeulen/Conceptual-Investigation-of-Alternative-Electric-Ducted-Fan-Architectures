@@ -59,6 +59,7 @@ import shutil
 import os
 import re
 import time
+import numpy as np
 from pathlib import Path
 from collections import OrderedDict
 from contextlib import ExitStack
@@ -443,6 +444,10 @@ class MTSOL_call:
             # If the solver crashes, return the crash exit flag
             elif line == "" and self.process.poll() is not None:
                 return ExitFlag.CRASH    
+            
+            # We can also check if the solver will crash by checking for neg. temp. lines in the console output:
+            elif line.startswith(' *** Neg. temp.'):
+                return ExitFlag.CRASH
 
         # If timer ran out while waiting for completion, assume the solver has crashed/hung
         return ExitFlag.CRASH 
@@ -483,6 +488,10 @@ class MTSOL_call:
         -------
         None
         """
+
+        # First check if MTSOL is still running. If MTSOl has crashed, restart MTSOL
+        if getattr(self, "process", None) and self.process.poll() is not None:
+            self.GenerateProcess()
 
         # Update the solution state file
         self.WriteStateFile()
@@ -600,11 +609,8 @@ class MTSOL_call:
 
                 # Case 1: single key=value per line.
                 if all('=' in line and len(line.split('=')[1].split()) == 1 for line in lines):
-                    values = [
-                        float(value_pattern.search(line.split('=')[1]).group())
-                        for line in lines
-                    ]
-                    average_value = sum(values) / len(values)
+                    matrix = np.array([float(value_pattern.search(line.split('=')[1]).group()) for line in lines])
+                    average_value = np.mean(matrix, axis=0)
                     key = base_line.split("=")[0].strip()
                     line_text = f'{key} = {average_value:.5E}\n'
                 
@@ -618,7 +624,7 @@ class MTSOL_call:
                             var_values_dict.setdefault(var, []).append(float(value))
                     # Compute average for each encountered key, preserving order from the first appearance.
                     avg_values = [
-                        f"{var} = {sum(vals) / len(vals):.5E}"
+                        f"{var} = {np.mean(vals):.5E}"
                         for var, vals in var_values_dict.items()
                     ]
                     line_text = " ".join(avg_values) + "\n"
@@ -626,15 +632,14 @@ class MTSOL_call:
                 # Case 3: Lines with a colon and multiple space-separated values (e.g. "variable: data1 data2 data3 data4")
                 elif all(':' in line for line in lines):
                     text_part = base_line.split(':')[0].strip() + ': '
-                    all_values = [list(map(float, line.split(':')[1].split())) for line in lines]
-                    # Average each column of values
-                    avg_values = [sum(col) / len(col) for col in zip(*all_values)]
+                    matrix = np.array([list(map(float, line.split(':')[1].split())) for line in lines])
+                    avg_values = np.mean(matrix, axis=0)
                     line_text = text_part + '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
 
                 # Case 4: Lines with unnamed values separated by varying spaces
                 elif all(re.match(unnamed_var_pattern, line) for line in lines):
-                    all_values = [list(map(float, re.split(r'\s+', line.strip()))) for line in lines]
-                    avg_values = [sum(col) / len(col) for col in zip(*all_values)]
+                    matrix = np.array([list(map(float, re.split(r'\s+', line.strip()))) for line in lines])
+                    avg_values = np.mean(matrix, axis=0)
                     line_text = '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
                 
                 # If none of these cases match, use the first line as fallback
@@ -796,7 +801,10 @@ class MTSOL_call:
             # Restart MTSOL - this is required since MTSOL quits upon a solver crash, so we need to restart the subprocress. 
             # First ensure the subprocess is closed/killed
             if getattr(self, "process", None) and self.process.poll() is None:
-                self.process.kill()
+                try:
+                    self.process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    self.process.kill()
 
             self.GenerateProcess()
 
