@@ -452,6 +452,8 @@ class OptimizationProblem(ElementwiseProblem):
                                                    extrapolate=False) 
 
         rot_flags = config.ROTATING
+        x_min, x_max = lower_x[0], lower_x[-1]
+        tip_gap = config.tipGap
         for i in range(self.num_stages):
             blading = self.blade_blading_parameters[i]
             y_tip = self.blade_diameters[i] / 2
@@ -466,11 +468,11 @@ class OptimizationProblem(ElementwiseProblem):
             x_tip_TE = x_tip_LE + projected_chord
 
             # Compute the offsets for the LE and TE of the blade tip
-            LE_offset = float(duct_interpolant(x_tip_LE)) if (x_tip_LE <= lower_x[-1] and x_tip_LE >= lower_x[0]) else 0  # Set to 0 if duct does not lie above LE
-            TE_offset = float(duct_interpolant(x_tip_TE)) if (x_tip_TE <= lower_x[-1] and x_tip_TE >= lower_x[0]) else 0  # Set to 0 if duct does not lie above TE
+            LE_offset = float(duct_interpolant(x_tip_LE)) if x_min <= x_tip_LE <= x_max else 0  # Set to 0 if duct does not lie above LE
+            TE_offset = float(duct_interpolant(x_tip_TE)) if x_min <= x_tip_TE <= x_max else 0  # Set to 0 if duct does not lie above TE
 
             # Compute the radial location of the duct
-            radial_duct_coordinates[i] = y_tip + config.tipGap + max(LE_offset, TE_offset)
+            radial_duct_coordinates[i] = y_tip + tip_gap + max(LE_offset, TE_offset)
 
         # Update the duct variables in self
         self.duct_variables["Leading Edge Coordinates"] = (self.duct_variables["Leading Edge Coordinates"][0],

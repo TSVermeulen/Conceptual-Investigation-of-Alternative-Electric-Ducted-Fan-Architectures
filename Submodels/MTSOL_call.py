@@ -259,6 +259,10 @@ class MTSOL_call:
         # Define forces non-convergence file template
         self.forces_template_nonconv = 'forces.{}.{}'
 
+        # Define regular expression patterns for the GetAverageValues method
+        self.var_value_pattern = re.compile(r'([\w\s]+?)\s*=\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)')  # Regular expression for key=value pairs.We use (?:...) for the exponent part so that findall returns just two groups.
+        self.value_pattern = re.compile(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?')  # Regular expression for generic numeric value (scientific-notated numbers, etc.)
+
 
     def StdinWrite(self,
                    command: str) -> None:
@@ -453,13 +457,14 @@ class MTSOL_call:
         timer_start = time.time()
         time_out = 30
         while (time.time() - timer_start) <= time_out:
+            # First check if the subprocess has terminated to ensure fail fast if this is the case
+            if self.process.poll() is not None:
+                return ExitFlag.CRASH
+            
             # Read the output from the output thread
             try:
                 line = self.output_queue.get(timeout=0.025)
             except queue.Empty:
-                # Check if process is still alive
-                if self.process.poll() is not None:
-                    return ExitFlag.CRASH
                 continue
             
             # Once iteration is complete, return the completed exit flag
@@ -591,14 +596,16 @@ class MTSOL_call:
              
             # Check the exit flag to see if the solution has converged
             # If the solution has converged, break out of the iteration loop
-            self.WaitForCompletion(completion_type=CompletionType.ITERATION)
-
-            if exit_flag != ExitFlag.CRASH:
-                # Increase iteration counter by step size only if the solver did not crash
-                self.iter_counter += self.ITER_STEP_SIZE
+            exit_flag = self.WaitForCompletion(completion_type=CompletionType.ITERATION)
 
             if exit_flag in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH):
+                if exit_flag != ExitFlag.CRASH:
+                    # Increase iteration counter by step size only if the solver did not crash
+                    self.iter_counter += self.ITER_STEP_SIZE
                 break 
+            else:
+                # For non-terminal states, increase the iteration counter
+                self.iter_counter += self.ITER_STEP_SIZE
 
         # If the solver has not converged within self.ITER_LIMIT iterations, set the exit flag to non-convergence
         if exit_flag not in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH):
@@ -623,14 +630,6 @@ class MTSOL_call:
         if not output_files:
             return
 
-        # Regular expression for key=value pairs.
-        # We use (?:...) for the exponent part so that findall returns just two groups.
-        var_value_pattern = re.compile(
-            r'([\w\s]+?)\s*=\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)'
-        )
-        # Regular expression for generic numeric value (scientific-notated numbers, etc.)
-        value_pattern = re.compile(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?')
-
         # Indices of header lines that should not be averaged
         skip_lines = [0, 1, 2, 3, 4, 5, 13, 25, 26, 31, 36, 41]
 
@@ -648,17 +647,17 @@ class MTSOL_call:
 
                 # Case 1: single key=value per line.
                 if all('=' in line and len(line.split('=')[1].split()) == 1 for line in lines):
-                    matrix = np.array([float(value_pattern.search(line.split('=')[1]).group()) for line in lines])
+                    matrix = np.array([float(self.value_pattern.search(line.split('=')[1]).group()) for line in lines])
                     average_value = np.mean(matrix, axis=0)
                     key = base_line.split("=")[0].strip()
                     line_text = f'{key} = {average_value:.5E}\n'
                 
                 # Case 2: multiple key=value pairs in one line.
-                elif all('=' in line for line in lines) and any(len(var_value_pattern.findall(line)) > 1 for line in lines):
+                elif all('=' in line for line in lines) and any(len(self.var_value_pattern.findall(line)) > 1 for line in lines):
                     var_values_dict = OrderedDict()
                     for line in lines:
                         # Find all key/value pairs in the line
-                        for var, value in var_value_pattern.findall(line):
+                        for var, value in self.var_value_pattern.findall(line):
                             var = var.strip()  # ensure the variable name has no extra whitespace
                             var_values_dict.setdefault(var, []).append(float(value))
                     # Compute average for each encountered key, preserving order from the first appearance.
@@ -676,7 +675,7 @@ class MTSOL_call:
                     line_text = text_part + '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
 
                 # Case 4: Lines with unnamed values separated by varying spaces
-                elif all(re.match(value_pattern, line) for line in lines):
+                elif all(re.match(self.value_pattern, line) for line in lines):
                     matrix = np.array([list(map(float, re.split(r'\s+', line.strip()))) for line in lines])
                     avg_values = np.mean(matrix, axis=0)
                     line_text = '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
@@ -741,7 +740,7 @@ class MTSOL_call:
             
             # Increase iteration counter by step size
             iter_counter += 1
-            copied_file = 'forces.{}.{}'.format(self.analysis_name, iter_counter)
+            copied_file = self.forces_template_nonconv.format(self.analysis_name, iter_counter)
 
             # Re-intialise the event handler for the next iteration with an updated destination
             event_handler.destination = self.dump_folder / copied_file   
@@ -998,8 +997,7 @@ class MTSOL_call:
                                     update_statefile=generate_output)
 
         if generate_output:
-            # Generate the solver output
-            # If the solution is choking, the design is infeasible, so we keep the crash outputs
+            # Generate the requested solver outputs based on output_type
             self.GenerateSolverOutput(output_type=output_type)
         
         # Close the MTSOL tool
