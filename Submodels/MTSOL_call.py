@@ -117,7 +117,7 @@ class FileCreatedHandling(FileSystemEventHandler):
                              file_path: Path,
                              timeout: float = 5) -> bool:
         """ Helper function to wait until the file_path has finished being written to, and is available. """
-        start_time = time.time()
+        start_time = time.monotonic()
         while (time.monotonic() - start_time) < timeout:
             if self.is_file_free(file_path):
                 return True
@@ -460,7 +460,7 @@ class MTSOL_call:
         """
 
         # Check the console output to ensure that commands are completed
-        timer_start = time.time()
+        timer_start = time.monotonic()
         time_out = 30
         while (time.monotonic() - timer_start) <= time_out:
             # First check if the subprocess has terminated to ensure fail fast if this is the case
@@ -493,8 +493,8 @@ class MTSOL_call:
                     max_wait_time = 5  # Maximum wait time in seconds
                     # Wait for the file creation to be finished
                     target_path = self.submodels_path / self.FILE_TEMPLATES[output_file].format(self.analysis_name)
-                    start_time = time.time()
-                    while not target_path.exists() and (time.time() - start_time) < max_wait_time:
+                    start_time = time.monotonic()
+                    while not target_path.exists() and (time.monotonic() - start_time) < max_wait_time:
                         time.sleep(0.01) 
 
                 return ExitFlag.COMPLETED
@@ -505,7 +505,7 @@ class MTSOL_call:
             
             # If the solver crashes, return the crash exit flag
             # A crash can be detectede either by the MTSOL subprocess exiting, or neg. temp. lines in the console output
-            elif self.process.poll() is not None or line.strip().startswith(' *** Neg. temp.'):
+            elif self.process.poll() is not None or line.startswith(' *** Neg. temp.'):
                 return ExitFlag.CRASH   
             
         # If timer ran out while waiting for completion, assume the solver has crashed/hung
@@ -740,8 +740,8 @@ class MTSOL_call:
             # Rename file to indicate the iteration number, and avoid overwriting the same file. 
             # Also move the file to the output folder
             # Waits for the file to exist before copying.
-            init_time = time.time()
-            while not event_handler.is_file_processed() and (time.time() - init_time) <= 10:
+            init_time = time.monotonic()
+            while not event_handler.is_file_processed() and (time.monotonic() - init_time) <= 10:
                 time.sleep(0.1)
             
             # Increase iteration counter by step size
@@ -1000,7 +1000,7 @@ class MTSOL_call:
         # Theoretically there is the chance a viscous run may be started on a non-converged inviscid solve. 
         # This is acceptable, as we assume a steady state residual case has formed at the end of the inviscid case. 
         # There is a probability that by then running a viscous case, convergence to the correct solution may still be obtained.
-        if run_viscous and exit_flag_invisc != ExitFlag.CRASH:
+        if run_viscous and exit_flag_invisc in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE):
             # Toggle viscous on the centerbody and the inner and outer duct surfaces
             self.ToggleViscous()
             self.SetViscous([3, 4])
@@ -1052,9 +1052,9 @@ if __name__ == "__main__":
             "N_crit": 9,
             }
 
-    start_time = time.time()
+    start_time = time.monotonic()
     test = MTSOL_call(oper, analysisName).caller(run_viscous=True,
                                                  generate_output=True)
-    end_time = time.time()
+    end_time = time.monotonic()
 
     print(f"Execution of MTSOL_call took {end_time -  start_time} seconds")

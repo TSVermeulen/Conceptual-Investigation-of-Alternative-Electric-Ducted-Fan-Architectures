@@ -205,7 +205,8 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Create a design vector accessor instance for more efficient access
         vector = DesignVectorAccessor(x, self.x_keys)
-        
+        vget = vector.get  # Create a local alias for vector.get - this is marginally quicker per call
+
         # Define a helper function to compute parameter b_8 using the mapping design variable
         def Getb8(b_8_map: float, 
                   r_le: float, 
@@ -231,20 +232,20 @@ class OptimizationProblem(ElementwiseProblem):
         if config.OPTIMIZE_CENTERBODY:
             self.centerbody_variables = {"b_0": 0,
                                          "b_2": 0, 
-                                         "b_8": Getb8(vector.get(idx), vector.get(idx, 5), vector.get(idx, 2), vector.get(idx, 3)),
-                                         "b_15": vector.get(idx, 1),
+                                         "b_8": Getb8(vget(idx), vget(idx, 5), vget(idx, 2), vget(idx, 3)),
+                                         "b_15": vget(idx, 1),
                                          "b_17": 0,
-                                         "x_t": vector.get(idx, 2),
-                                         "y_t": vector.get(idx, 3),
+                                         "x_t": vget(idx, 2),
+                                         "y_t": vget(idx, 3),
                                          "x_c": 0,
                                          "y_c": 0,
                                          "z_TE": 0,
-                                         "dz_TE": vector.get(idx, 4),
-                                         "r_LE": vector.get(idx, 5),
-                                         "trailing_wedge_angle": vector.get(idx, 6),
+                                         "dz_TE": vget(idx, 4),
+                                         "r_LE": vget(idx, 5),
+                                         "trailing_wedge_angle": vget(idx, 6),
                                          "trailing_camberline_angle": 0,
                                          "leading_edge_direction": 0, 
-                                         "Chord Length": vector.get(idx, 7),
+                                         "Chord Length": vget(idx, 7),
                                          "Leading Edge Coordinates": (0, 0)}
             
             # Update the index to point to the blade design variables, since we need the blade variables deconstructed first in order to correctly set the duct variables. 
@@ -265,21 +266,21 @@ class OptimizationProblem(ElementwiseProblem):
                 # If the stage is to be optimized, read in the design vector for the blade profiles
                 for _ in range(self.num_radial):
                     # Loop over the number of radial sections and append each section to stage_design_parameters
-                    section_parameters = {"b_0": vector.get(idx),
-                                        "b_2": vector.get(idx, 1), 
-                                        "b_8": Getb8(vector.get(idx, 2), vector.get(idx, 11), vector.get(idx, 5), vector.get(idx, 6)), 
-                                        "b_15": vector.get(idx, 3),
-                                        "b_17": vector.get(idx, 4),
-                                        "x_t": vector.get(idx, 5),
-                                        "y_t": vector.get(idx, 6),
-                                        "x_c": vector.get(idx, 7),
-                                        "y_c": vector.get(idx, 8),
-                                        "z_TE": vector.get(idx, 9),
-                                        "dz_TE": vector.get(idx, 10),
-                                        "r_LE": vector.get(idx, 11),
-                                        "trailing_wedge_angle": vector.get(idx, 12),
-                                        "trailing_camberline_angle": vector.get(idx, 13),
-                                        "leading_edge_direction": vector.get(idx, 14)}
+                    section_parameters = {"b_0": vget(idx),
+                                        "b_2": vget(idx, 1), 
+                                        "b_8": Getb8(vget(idx, 2), vget(idx, 11), vget(idx, 5), vget(idx, 6)), 
+                                        "b_15": vget(idx, 3),
+                                        "b_17": vget(idx, 4),
+                                        "x_t": vget(idx, 5),
+                                        "y_t": vget(idx, 6),
+                                        "x_c": vget(idx, 7),
+                                        "y_c": vget(idx, 8),
+                                        "z_TE": vget(idx, 9),
+                                        "dz_TE": vget(idx, 10),
+                                        "r_LE": vget(idx, 11),
+                                        "trailing_wedge_angle": vget(idx, 12),
+                                        "trailing_camberline_angle": vget(idx, 13),
+                                        "leading_edge_direction": vget(idx, 14)}
                     idx += 15
                     stage_design_parameters.append(section_parameters)
             else:
@@ -295,12 +296,12 @@ class OptimizationProblem(ElementwiseProblem):
             stage_blading_parameters = {}
             if self.optimize_stages[i]:
                 # If the stage is to be optimized, read in the design vector for the blading parameters
-                stage_blading_parameters["root_LE_coordinate"] = vector.get(idx)
-                stage_blading_parameters["blade_count"] = int(round(vector.get(idx, 1)))
-                stage_blading_parameters["ref_blade_angle"] = vector.get(idx, 2)
+                stage_blading_parameters["root_LE_coordinate"] = vget(idx)
+                stage_blading_parameters["blade_count"] = int(round(vget(idx, 1)))
+                stage_blading_parameters["ref_blade_angle"] = vget(idx, 2)
                 stage_blading_parameters["reference_section_blade_angle"] = config.REFERENCE_SECTION_ANGLES[i]
-                stage_blading_parameters["radial_stations"] = self.radial_linspace * vector.get(idx, 3)  # Radial stations are defined as fraction of blade radius * local radius
-                self.blade_diameters.append(vector.get(idx, 3) * 2)
+                stage_blading_parameters["radial_stations"] = self.radial_linspace * vget(idx, 3)  # Radial stations are defined as fraction of blade radius * local radius
+                self.blade_diameters.append(vget(idx, 3) * 2)
 
                 # Initialize sectional blading parameter lists
                 stage_blading_parameters["chord_length"] = [None] * self.num_radial
@@ -310,9 +311,9 @@ class OptimizationProblem(ElementwiseProblem):
                 base_idx = idx + 4
                 for j in range(self.num_radial):
                     # Loop over the number of radial sections and write their data to the corresponding lists
-                    stage_blading_parameters["chord_length"][j]= vector.get(base_idx, j)
-                    stage_blading_parameters["sweep_angle"][j] = vector.get(base_idx, self.num_radial + j)
-                    stage_blading_parameters["blade_angle"][j] = vector.get(base_idx, self.num_radial * 2 + j)
+                    stage_blading_parameters["chord_length"][j]= vget(base_idx, j)
+                    stage_blading_parameters["sweep_angle"][j] = vget(base_idx, self.num_radial + j)
+                    stage_blading_parameters["blade_angle"][j] = vget(base_idx, self.num_radial * 2 + j)
                 idx = base_idx + 3 * self.num_radial                
             else:
                 stage_blading_parameters = config.STAGE_BLADING_PARAMETERS[i]
@@ -330,23 +331,23 @@ class OptimizationProblem(ElementwiseProblem):
         if config.OPTIMIZE_DUCT:
             idx = centerbody_designvar_count if config.OPTIMIZE_CENTERBODY else 0
 
-            self.duct_variables = {"b_0": vector.get(idx),
-                                   "b_2": vector.get(idx, 1), 
-                                   "b_8": Getb8(vector.get(idx, 2), vector.get(idx, 11), vector.get(idx, 5), vector.get(idx, 6)),
-                                   "b_15": vector.get(idx, 3),
-                                   "b_17": vector.get(idx, 4),
-                                   "x_t": vector.get(idx, 5),
-                                   "y_t": vector.get(idx, 6),
-                                   "x_c": vector.get(idx, 7),
-                                   "y_c": vector.get(idx, 8),
-                                   "z_TE": vector.get(idx, 9),
-                                   "dz_TE": vector.get(idx, 10),
-                                   "r_LE": vector.get(idx, 11),
-                                   "trailing_wedge_angle": vector.get(idx, 12),
-                                   "trailing_camberline_angle": vector.get(idx, 13),
-                                   "leading_edge_direction": vector.get(idx, 14), 
-                                   "Chord Length": vector.get(idx, 15),
-                                   "Leading Edge Coordinates": (vector.get(idx, 16), 0)}
+            self.duct_variables = {"b_0": vget(idx),
+                                   "b_2": vget(idx, 1), 
+                                   "b_8": Getb8(vget(idx, 2), vget(idx, 11), vget(idx, 5), vget(idx, 6)),
+                                   "b_15": vget(idx, 3),
+                                   "b_17": vget(idx, 4),
+                                   "x_t": vget(idx, 5),
+                                   "y_t": vget(idx, 6),
+                                   "x_c": vget(idx, 7),
+                                   "y_c": vget(idx, 8),
+                                   "z_TE": vget(idx, 9),
+                                   "dz_TE": vget(idx, 10),
+                                   "r_LE": vget(idx, 11),
+                                   "trailing_wedge_angle": vget(idx, 12),
+                                   "trailing_camberline_angle": vget(idx, 13),
+                                   "leading_edge_direction": vget(idx, 14), 
+                                   "Chord Length": vget(idx, 15),
+                                   "Leading Edge Coordinates": (vget(idx, 16), 0)}
             idx += 17
         else:
             self.duct_variables = config.DUCT_VALUES
