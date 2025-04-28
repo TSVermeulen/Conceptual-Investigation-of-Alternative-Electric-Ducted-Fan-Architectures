@@ -55,6 +55,7 @@ Changelog:
 """
 
 import subprocess
+import asyncio
 import shutil
 import os
 import re
@@ -128,6 +129,7 @@ class FileCreatedHandling(FileSystemEventHandler):
                 self.file_processed = True
             else:
                 print(f"Warning: File {self.file_path} was still busy after timeout")
+                self.file_processed = True  # Still mark the file as processed to avoid hanging
 
     
     def is_file_processed(self) -> bool:
@@ -292,6 +294,7 @@ class MTSOL_call:
                                         text=True,
                                         bufsize=1,
                                         )
+
         # Check if subprocess is started successfully
         if self.process.poll() is not None:
             raise ImportError(f"MTSOL or tdat.{self.analysis_name} not found in {self.fpath}") from None    
@@ -397,7 +400,7 @@ class MTSOL_call:
             A CompletionType enum to determine what to check for. Default value if CompletionType.ITERATION
         - output_file : str, optional
             A string of the output file for which the completion is to be monitored. Either 'forces', 'flowfield', or 'boundary_layer'. 
-            Note that the file extension (i.e.) casename, should not be included!
+            Note that the file extension (i.e. casename), should not be included!
 
         Returns
         -------
@@ -407,7 +410,7 @@ class MTSOL_call:
 
         # Check the console output to ensure that commands are completed
         timer_start = time.time()
-        time_out = 20
+        time_out = 30
         while (time.time() - timer_start) < time_out:
             # Read the output line by line
             line = self.process.stdout.readline()
@@ -442,15 +445,12 @@ class MTSOL_call:
                 return ExitFlag.COMPLETED
             
             # If the solver crashes, return the crash exit flag
-            elif line == "" and self.process.poll() is not None:
+            # A crash can be detectede either by the MTSOL subprocess exiting, or neg. temp. lines in the console output
+            elif (line == "" and self.process.poll() is not None) or line.startswith(' *** Neg. temp.'):
                 return ExitFlag.CRASH    
             
-            # We can also check if the solver will crash by checking for neg. temp. lines in the console output:
-            elif line.startswith(' *** Neg. temp.'):
-                return ExitFlag.CRASH
-
         # If timer ran out while waiting for completion, assume the solver has crashed/hung
-        return ExitFlag.CRASH 
+        return ExitFlag.NON_CONVERGENCE 
     
 
     def WriteStateFile(self,

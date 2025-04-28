@@ -221,18 +221,16 @@ class MTFLOW_caller:
         with change_working_directory(self.submodels_path):
             
             # --------------------
-            # First step is generating the MTSET input file - walls.analysis_name and MTFLO input file - tflow.analysis_name
+            # First step is generating the MTSET input file - walls.analysis_name
             # --------------------
 
+            # Define filehandling class instance to enable reuse later on when generating the MTFLO input file
+            file_handler = fileHandling()
             if not external_inputs:
-                file_handler = fileHandling()
                 file_handler.fileHandlingMTSET(params_CB=self.centrebody_params,
                                                params_duct=self.duct_params,
                                                case_name=self.analysis_name,
                                                ref_length=self.ref_length).GenerateMTSETInput()
-                file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
-                                               ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
-                                                                                              design_params=self.design_parameters)
                 
             # --------------------
             # Check the grid by running a simple, fan-less, inviscid low-Mach case. If there is an issue with the grid MTSOL will crash
@@ -287,6 +285,14 @@ class MTFLOW_caller:
                 
                 check_count += 1
 
+            # --------------------
+            # Generate the MTFLO input file tflow.analysis_name
+            # --------------------
+            if not external_inputs:
+                file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
+                                               ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
+                                                                                              design_params=self.design_parameters)
+            
             # --------------------
             # Execute MTSOl solver
             # Passes the exit flag to determine if any issues have occurred. 

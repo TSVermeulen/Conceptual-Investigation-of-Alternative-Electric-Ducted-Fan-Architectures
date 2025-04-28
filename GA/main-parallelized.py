@@ -78,7 +78,7 @@ if __name__ == "__main__":
     """ Initialize the thread pool and create the runner """
     total_threads = multiprocessing.cpu_count()
     RESERVED_THREADS = min(4, total_threads // 5 ) # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
-    total_threads_avail = total_threads - RESERVED_THREADS
+    total_threads_avail = total_threads // 2 - RESERVED_THREADS
 
     n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used
     pool = multiprocessing.Pool(processes=n_processes,
