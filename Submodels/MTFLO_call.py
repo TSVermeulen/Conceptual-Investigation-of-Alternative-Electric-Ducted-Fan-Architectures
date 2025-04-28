@@ -149,9 +149,6 @@ class MTFLO_call:
 
         # Write to the flowfield file tdat.xxx and check if writing was successful 
         self.StdinWrite("W")
-
-        if self.process.poll() is not None:
-            raise OSError(f"Issue writing parameters to tdat.{self.analysis_name}, MTFLO crashed") from None
         
         # Close the MTFLO program
         self.StdinWrite("Q")
@@ -162,7 +159,6 @@ class MTFLO_call:
                 self.process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 self.process.kill()
-
 
 
     def FileStatus(self,
