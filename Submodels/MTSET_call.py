@@ -158,7 +158,7 @@ class MTSET_call:
             interface_output.append(next_line)                
             if next_line == "" and self.process.poll() is not None:  #Handle (unexpected) quitting of program
                break
-            if next_line.strip() == 'Q uit\n':  # Stop collecting once end of MTSET menu is reached
+            if next_line == '   Q uit\n':  # Stop collecting once end of MTSET menu is reached
                break
         
         return interface_output

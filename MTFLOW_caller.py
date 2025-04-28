@@ -240,7 +240,6 @@ class MTFLOW_caller:
             # Initialize count of grid checks, iteration_count, and exit flag
             check_count = 0
             exit_flag_gridtest = ExitFlag.NOT_PERFORMED
-            iter_count_gridtest = 0
                 
             while exit_flag_gridtest != ExitFlag.SUCCESS:                    
                 # If the grid is incorrect, change grid parameters and rerun MTSET to update the grid. 
@@ -263,7 +262,7 @@ class MTFLOW_caller:
                     streamwise_points = 141
                 elif check_count == 10: 
                     exit_flag_gridtest = ExitFlag.CRASH  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
-                    return exit_flag_gridtest, iter_count_gridtest
+                    return exit_flag_gridtest, 0
                 else:
                     # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
                     grid_e_coeff = self._rng.uniform(0.6, 1.0)
@@ -276,13 +275,10 @@ class MTFLOW_caller:
                            grid_x_coeff=grid_x_coeff,
                            streamwise_points=streamwise_points).caller()
                 
-                exit_flag_gridtest, iter_count_gridtest = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
-                                                                     analysis_name=self.analysis_name).caller(run_viscous=False,
-                                                                                                              generate_output=False)
-                
-                if exit_flag_gridtest == ExitFlag.SUCCESS:  # If the grid status is okay, break out of the checking loop and continue
-                    break
-                
+                exit_flag_gridtest, _ = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
+                                                   analysis_name=self.analysis_name).caller(run_viscous=False,
+                                                                                            generate_output=False)
+                                
                 check_count += 1
 
             # --------------------

@@ -4,7 +4,7 @@ main-parallelized
 
 Description
 -----------
-This module defines the main entry point for running a mutli-threaded optimization problem using the pymoo framework.
+This module defines the main entry point for running a multi-threaded optimization problem using the pymoo framework.
 Uses the starmap parallelization method for flexible parallelization opportunities.
 
 Functionality
@@ -15,7 +15,7 @@ Functionality
 
 Examples
 --------
->>> python main.py
+>>> python main-parallelized.py
 
 Notes
 -----
@@ -40,15 +40,16 @@ Changelog:
 """
 
 from pymoo.core.mixed import MixedVariableGA
-import multiprocessing
 from pymoo.core.problem import StarmapParallelization
 from pymoo.optimize import minimize
+import multiprocessing
 from pathlib import Path
 import dill
 import config
 import datetime
 import os
 import sys
+import time
 
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
@@ -78,7 +79,7 @@ if __name__ == "__main__":
     """ Initialize the thread pool and create the runner """
     total_threads = multiprocessing.cpu_count()
     RESERVED_THREADS = min(4, total_threads // 5 ) # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
-    total_threads_avail = total_threads // 2 - RESERVED_THREADS  # Use 2 threads per MTFLOW caller, one for MTSET/MTSOL/MTFLO, and 1 to poll the outputs
+    total_threads_avail = total_threads // 2 - RESERVED_THREADS  # Divide by 2 as each MTFLOW evaluation uses 2 threads: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
     n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used
     pool = multiprocessing.Pool(processes=n_processes,
@@ -98,6 +99,7 @@ if __name__ == "__main__":
                                 sampling=InitPopulation(population_type="biased").GeneratePopulation())
 
     # Run the optimization
+    start_time = time.time()
     res = minimize(problem,
                    algorithm,
                    termination=('n_gen', config.MAX_GENERATIONS),
@@ -105,19 +107,23 @@ if __name__ == "__main__":
                    verbose=True,
                    save_history=False,  # If True, generates a very large history object, which is bad for memory usage. Only set to true for small cases!
                    return_least_infeasible=True)
+    elapsed_time = time.time() = start_time
 
     # Close the thread pool to free up resources
     pool.close()
     pool.join()
 
+    # Print some performance metrics
+    print(f"Optimization completed in {elapsed_time:.2f} seconds")
+    print(f"Average time per generation: {elapsed_time/min(res.n_gen, config.MAX_GENERATIONS):.2f} seconds")
+
     """ Save the results to a dill file for future reference """
     # This avoids needing to re-run the optimization if the results are needed later.
     # The filename is generated using the process ID and current timestamp to ensure uniqueness.
 
-    process_ID = f"{os.getpid() % 10000:04d}" 
     now = datetime.datetime.now()
     timestamp = f"{now:%y%m%d%H%M%S%f}"	
-    output_name = f"res_{process_ID}_{timestamp}.dill"
+    output_name = f"res_pop{config.POPULATION_SIZE}_gen{config.MAX_GENERATIONS}_{timestamp}.dill"
     try:
         with open(output_name, 'wb') as f:
             dill.dump(res, f)

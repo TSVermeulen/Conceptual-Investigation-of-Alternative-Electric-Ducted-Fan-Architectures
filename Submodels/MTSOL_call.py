@@ -297,6 +297,10 @@ class MTSOL_call:
                                         )
         
         # Initialize output reader thread
+        # First stopping any orphaned reader threads
+        if getattr(self, "reader", None) and self.reader.is_alive():
+            self.reader.join(timeout=1)
+            
         self.output_queue = queue.Queue()
 
         def output_reader(out, q):
@@ -444,12 +448,12 @@ class MTSOL_call:
         while (time.time() - timer_start) <= time_out:
             # Read the output from the output thread
             try:
-                line = self.output_queue.get(timeout=0.01)
+                line = self.output_queue.get(timeout=0.025)
             except queue.Empty:
                 continue
             
             # Once iteration is complete, return the completed exit flag
-            if line.strip().startswith('=') and completion_type == CompletionType.ITERATION:
+            if line.startswith(' =') and completion_type == CompletionType.ITERATION:
                 return ExitFlag.COMPLETED
             
             # Once the iteration is converged, return the converged exit flag
@@ -463,7 +467,7 @@ class MTSOL_call:
             # Once the solution is written to the state file, or the forces/flowfield file is written, return the completed exit flag
             # The succesful forces/flowfield writing can be detected from the prompt to overwrite the file or to enter a filename
             elif ('Solution written to state file' in line 
-                  or line.strip().startswith(('File exists.  Overwrite?  Y', 'Enter filename'))) and completion_type == CompletionType.OUTPUT:
+                  or line.startswith((' File exists.  Overwrite?  Y', 'Enter filename'))) and completion_type == CompletionType.OUTPUT:
                 if output_file is not None:
                     max_wait_time = 5  # Maximum wait time in seconds
                     # Wait for the file creation to be finished
@@ -475,12 +479,12 @@ class MTSOL_call:
                 return ExitFlag.COMPLETED
                         
             # When changing the operating conditions, check for the end of the modify parameters menu           
-            elif line.strip().startswith('----') and completion_type == CompletionType.PARAM_CHANGE:
+            elif line.startswith(' ----') and completion_type == CompletionType.PARAM_CHANGE:
                 return ExitFlag.COMPLETED
             
             # If the solver crashes, return the crash exit flag
             # A crash can be detectede either by the MTSOL subprocess exiting, or neg. temp. lines in the console output
-            elif (line == "" and self.process.poll() is not None) or line.strip().startswith('*** Neg. temp.'):
+            elif self.process.poll() is not None or line.strip().startswith(' *** Neg. temp.'):
                 return ExitFlag.CRASH   
             
         # If timer ran out while waiting for completion, assume the solver has crashed/hung
@@ -523,7 +527,7 @@ class MTSOL_call:
         None
         """
 
-        # First check if MTSOL is still running. If MTSOl has crashed, restart MTSOL
+        # First check if MTSOL is still running. If MTSOl has crashed, restart MTSOL based on the last saved statefile
         if getattr(self, "process", None) and self.process.poll() is not None:
             self.GenerateProcess()
 
@@ -1009,7 +1013,7 @@ class MTSOL_call:
                 self.HandleExitFlag(exit_flag_visc, 
                                     handle_type='Viscous')
 
-        if generate_output and ExitFlag != ExitFlag.CHOKING:
+        if generate_output and total_exit_flag != ExitFlag.CHOKING:
             # Generate the solver output
             # If the solution is choking, the design is infeasible, so we keep the crash outputs
             self.GenerateSolverOutput(output_type=output_type)
