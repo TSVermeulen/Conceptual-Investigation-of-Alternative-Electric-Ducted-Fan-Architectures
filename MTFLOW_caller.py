@@ -150,8 +150,8 @@ class MTFLOW_caller:
                 - "chord_length": List of the chord length distribution along the blade span.
                 - "sweep_angle": List of the sweep angle distribution along the blade span.
                 - "blade_angle": List of the blade angle distribution along the blade span.
-                - "ref_blade_angle": The set angle at the reference section (in radians).
-                - "reference_section_blade_angle": The reference blade angle at the reference section (in radians).
+                - "ref_blade_angle": The measured set angle at the reference section (in radians).
+                - "reference_section_blade_angle": The actual reference blade angle at the reference section (in radians).
         - design_parameters : list[list[dict]]
             List containing an equal number of nested lists as there are stages. Each nested list contains an equal number of dictionaries as there are radial stations. 
             Each dictionary must contain the following keys:

@@ -620,9 +620,6 @@ class MTSOL_call:
         # Regular expression for generic numeric value (scientific-notated numbers, etc.)
         value_pattern = re.compile(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?')
 
-        # Regular expression for the generic numerical values with no name
-        unnamed_var_pattern = re.compile(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?(?:\s+[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)*')
-
         # Indices of header lines that should not be averaged
         skip_lines = [0, 1, 2, 3, 4, 5, 13, 25, 26, 31, 36, 41]
 
@@ -668,7 +665,7 @@ class MTSOL_call:
                     line_text = text_part + '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
 
                 # Case 4: Lines with unnamed values separated by varying spaces
-                elif all(re.match(unnamed_var_pattern, line) for line in lines):
+                elif all(re.match(value_pattern, line) for line in lines):
                     matrix = np.array([list(map(float, re.split(r'\s+', line.strip()))) for line in lines])
                     avg_values = np.mean(matrix, axis=0)
                     line_text = '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
