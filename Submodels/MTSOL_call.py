@@ -41,7 +41,7 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.3
+Version: 1.4.1
 
 Changelog:
 - V0.0: File created with empty class as placeholder.
