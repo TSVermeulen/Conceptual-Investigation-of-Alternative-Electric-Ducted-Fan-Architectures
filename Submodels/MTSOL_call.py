@@ -461,7 +461,7 @@ class MTSOL_call:
 
         # Check the console output to ensure that commands are completed
         timer_start = time.monotonic()
-        time_out = 30
+        time_out = 45  # seconds
         while (time.monotonic() - timer_start) <= time_out:
             # First check if the subprocess has terminated to ensure fail fast if this is the case
             if self.process.poll() is not None:
@@ -471,6 +471,7 @@ class MTSOL_call:
             try:
                 line = self.output_queue.get(timeout=0.025)
             except queue.Empty:
+                time.sleep(0.01)
                 continue
             
             # Once iteration is complete, return the completed exit flag
@@ -490,11 +491,11 @@ class MTSOL_call:
             elif ('Solution written to state file' in line 
                   or line.startswith((' File exists.  Overwrite?  Y', 'Enter filename'))) and completion_type == CompletionType.OUTPUT:
                 if output_file is not None:
-                    max_wait_time = 5  # Maximum wait time in seconds
+                    max_wait_time = 10  # Maximum wait time in seconds
                     # Wait for the file creation to be finished
                     target_path = self.submodels_path / self.FILE_TEMPLATES[output_file].format(self.analysis_name)
                     start_time = time.monotonic()
-                    while not target_path.exists() and (time.monotonic() - start_time) < max_wait_time:
+                    while not target_path.exists() and (time.monotonic() - start_time) <= max_wait_time:
                         time.sleep(0.01) 
 
                 return ExitFlag.COMPLETED
@@ -762,13 +763,12 @@ class MTSOL_call:
         self.GetAverageValues()
 
         # Remove the now unnecessary output files in the dump folder
-        for file in self.dump_folder.glob("forces.{}.*".format(self.analysis_name)):
-            file.unlink()
+        self.CleanupOutputFiles()
 
 
     def CleanupOutputFiles(self) -> None:
         """
-        A simple method to clean up output files, preserving the forces file.
+        A simple method to clean up output files from the dump folder
 
         Parameters
         ----------
@@ -778,15 +778,10 @@ class MTSOL_call:
         -------
         None
         """
-
-        # Remove any superflous output files from the submodels folder
-        for key, file in self.filepaths.items():
-            if file.exists() and (key != 'forces'):
-                file.unlink()
         
         # Remove any output file from the dump folder
         for file in self.dump_folder.glob("forces.{}.*".format(self.analysis_name)):
-                file.unlink()
+            file.unlink()
 
 
     def HandleExitFlag(self,
@@ -981,6 +976,10 @@ class MTSOL_call:
             self.WriteStateFile()
             # Write empty forces file
             self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
+        else:
+            # If we don't want to generate output, we still need to create the forces file to ensure post-processing of results does not fail
+            # However, we don't need to update the statefile with the operating conditions
+            self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
 
         # Execute inviscid solve
         try:  
@@ -1000,7 +999,7 @@ class MTSOL_call:
         # Theoretically there is the chance a viscous run may be started on a non-converged inviscid solve. 
         # This is acceptable, as we assume a steady state residual case has formed at the end of the inviscid case. 
         # There is a probability that by then running a viscous case, convergence to the correct solution may still be obtained.
-        if run_viscous and exit_flag_invisc in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE):
+        if run_viscous and total_exit_flag in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE):
             # Toggle viscous on the centerbody and the inner and outer duct surfaces
             self.ToggleViscous()
             self.SetViscous([3, 4])

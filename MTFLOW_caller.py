@@ -251,7 +251,7 @@ class MTFLOW_caller:
                     streamwise_points = None
                     grid_e_coeff = None
                     grid_x_coeff = None
-                if check_count == 1:
+                elif check_count == 1:
                     # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid   
                     streamwise_points = 141  
                     grid_e_coeff = 0.8

@@ -79,7 +79,7 @@ if __name__ == "__main__":
     
     """ Initialize the thread pool and create the runner """
     total_threads = multiprocessing.cpu_count()
-    RESERVED_THREADS = min(2, total_threads // 5 ) # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
+    RESERVED_THREADS = min(1, total_threads // 5 ) # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
     total_threads_avail = total_threads // 2 - RESERVED_THREADS  # Divide by 2 as each MTFLOW evaluation uses 2 threads: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
     n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used

@@ -400,10 +400,14 @@ class OptimizationProblem(ElementwiseProblem):
 
     def CleanUpFiles(self) -> None:
         """
-        Move the MTFLOW statefile to a separate folder to maintain clarity, and delete the no-longer needed output files. 
-        Note that the output files can always be regenerated from the statefile.
-        Uses the FileCreatedHandling.wait_until_file_free method to check if the file being deleted is free before deleting. 
+        Archive the MTFLOW statefile to a separate folder and clean up temporary files.
 
+        This method:
+        1. Copies the tdat statefile to a persistent archive folder.
+        2. Removes all temporary MTFLOW input/output files, including the original statefile.
+        
+        Note that the output files can always be regenerated from the statefile.
+    
         Returns
         -------
         None
@@ -413,13 +417,16 @@ class OptimizationProblem(ElementwiseProblem):
         file_types = ["walls", "tflow", "forces", "flowfield", "boundary_layer", "tdat"]
 
         for file_type in file_types:
+            # Construct filepath
             file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
 
+            # First archive the state file if it exists
             if file_type == "tdat" and file_path.exists():
                 copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
                 shutil.copy(file_path, 
                             copied_file)
-                
+            
+            # Then, cleanup all temporary files
             if file_path.exists():
                 file_path.unlink(missing_ok=True)
 
