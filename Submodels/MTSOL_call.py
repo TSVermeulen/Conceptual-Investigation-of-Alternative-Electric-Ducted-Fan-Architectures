@@ -57,6 +57,7 @@ Changelog:
 
 import subprocess
 import os
+import shutil
 import re
 import time
 import queue
@@ -69,6 +70,11 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from enum import Enum
 
+# Conditionally load the correct locking module based on the operating system
+if os.name == 'nt':
+    import msvcrt
+else:
+    import fcntl
 
 class FileCreatedHandling(FileSystemEventHandler):
     """ 
@@ -94,14 +100,12 @@ class FileCreatedHandling(FileSystemEventHandler):
         try:
             with open(file_path, 'rb') as f:
                 if os.name == 'nt':  # Windows
-                    import msvcrt
                     # Try to lock the first byte in a non-blocking way.
                     msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
                     # Immediately unlock.
                     msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
 
                 else:
-                    import fcntl
                     # Attempt a non-blocking exclusive lock.
                     fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
                     # Release the lock.
@@ -130,7 +134,6 @@ class FileCreatedHandling(FileSystemEventHandler):
                 try:
                     os.replace(self.file_path, self.destination)
                 except OSError:
-                    import shutil
                     shutil.move(self.file_path, self.destination)
                 self.file_processed = True
             else:
