@@ -45,7 +45,6 @@ Changelog:
 import os
 import sys
 import numpy as np
-import shutil
 import uuid
 from pathlib import Path
 import datetime
@@ -420,15 +419,15 @@ class OptimizationProblem(ElementwiseProblem):
             # Construct filepath
             file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
 
-            # First archive the state file if it exists
-            if file_type == "tdat" and file_path.exists():
-                copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-                shutil.copy(file_path, 
-                            copied_file)
-            
-            # Then, cleanup all temporary files
-            if file_path.exists():
-                file_path.unlink(missing_ok=True)
+            # Archive the state file if it exists
+            if file_type == "tdat": 
+                if file_path.exists():
+                    copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
+                    os.replace(file_path, copied_file)
+            else:
+                if file_path.exists():
+                    # Cleanup all temporary files
+                    file_path.unlink(missing_ok=True)
 
 
     def ComputeDuctRadialLocation(self) -> None:

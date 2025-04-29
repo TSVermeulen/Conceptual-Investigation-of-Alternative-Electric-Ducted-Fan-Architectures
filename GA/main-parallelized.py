@@ -83,36 +83,32 @@ if __name__ == "__main__":
     total_threads_avail = total_threads // 2 - RESERVED_THREADS  # Divide by 2 as each MTFLOW evaluation uses 2 threads: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
     n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used
-    pool = multiprocessing.Pool(processes=n_processes,
-                                initializer=worker_init,
-                                initargs=(parent_dir, submodels_dir))
+    with multiprocessing.Pool(processes=n_processes,
+                              initializer=worker_init,
+                              initargs=(parent_dir, submodels_dir)) as pool:
 
-    # Create runner
-    runner = StarmapParallelization(pool.starmap)
+        # Create runner
+        runner = StarmapParallelization(pool.starmap)
 
-    """ Initialize the optimization problem and algorithm """
-    # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
-    problem = OptimizationProblem(elementwise_runner=runner,
-                                  seed=42)
+        """ Initialize the optimization problem and algorithm """
+        # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
+        problem = OptimizationProblem(elementwise_runner=runner,
+                                    seed=42)
 
-    # Initialize the algorithm
-    algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
-                                sampling=InitPopulation(population_type="biased").GeneratePopulation())
+        # Initialize the algorithm
+        algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
+                                    sampling=InitPopulation(population_type="biased").GeneratePopulation())
 
-    # Run the optimization
-    start_time = time.time()
-    res = minimize(problem,
-                   algorithm,
-                   termination=('n_gen', config.MAX_GENERATIONS),
-                   seed=42,
-                   verbose=True,
-                   save_history=False,  # If True, generates a very large history object, which is bad for memory usage. Only set to true for small cases!
-                   return_least_infeasible=True)
-    elapsed_time = time.time() - start_time
-
-    # Close the thread pool to free up resources
-    pool.close()
-    pool.join()
+        # Run the optimization
+        start_time = time.time()
+        res = minimize(problem,
+                    algorithm,
+                    termination=('n_gen', config.MAX_GENERATIONS),
+                    seed=42,
+                    verbose=True,
+                    save_history=False,  # If True, generates a very large history object, which is bad for memory usage. Only set to true for small cases!
+                    return_least_infeasible=True)
+        elapsed_time = time.time() - start_time
 
     # Print some performance metrics
     print(f"Optimization completed in {elapsed_time:.2f} seconds")

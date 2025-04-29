@@ -56,7 +56,6 @@ Changelog:
 """
 
 import subprocess
-import shutil
 import os
 import re
 import time
@@ -128,7 +127,7 @@ class FileCreatedHandling(FileSystemEventHandler):
     def on_modified(self, event):
         if Path(event.src_path).name == self.file_path.name:
             if self.wait_until_file_free(self.file_path):
-                shutil.copy(self.file_path, self.destination)
+                os.replace(self.file_path, self.destination)
                 self.file_processed = True
             else:
                 print(f"Warning: File {self.file_path} was still busy after timeout")

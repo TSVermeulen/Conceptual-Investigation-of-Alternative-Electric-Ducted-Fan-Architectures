@@ -71,7 +71,7 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID 4995309
-Version: 1.3
+Version: 1.5
 
 Changelog:
 - V1.0: Initial version. Lacks proper crash handling and choking handling in the HandleExitFlag() method, but otherwise complete. 
@@ -240,9 +240,9 @@ class MTFLOW_caller:
                 
             # Initialize count of grid checks, iteration_count, and exit flag
             check_count = 0
-            exit_flag_gridtest = ExitFlag.NOT_PERFORMED
+            exit_flag = ExitFlag.NOT_PERFORMED
                 
-            while exit_flag_gridtest != ExitFlag.SUCCESS:                    
+            while exit_flag != ExitFlag.SUCCESS:                    
                 # If the grid is incorrect, change grid parameters and rerun MTSET to update the grid. 
                 # The updated e and x coefficients reduce the number of streamwise points on the airfoil elements (by 0.1 * Npoints), 
                 # while yielding a more "rounded/elliptic" grid due to the reduced x-coefficient.
@@ -262,8 +262,8 @@ class MTFLOW_caller:
                     grid_x_coeff = 0.5
                     streamwise_points = 141
                 elif check_count == 10: 
-                    exit_flag_gridtest = ExitFlag.CRASH  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
-                    return exit_flag_gridtest
+                    exit_flag = ExitFlag.CRASH  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
+                    break
                 else:
                     # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
                     grid_e_coeff = self._rng.uniform(0.6, 1.0)
@@ -276,7 +276,7 @@ class MTFLOW_caller:
                            grid_x_coeff=grid_x_coeff,
                            streamwise_points=streamwise_points).caller()
                 
-                exit_flag_gridtest  = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
+                exit_flag  = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
                                                  analysis_name=self.analysis_name).caller(run_viscous=False,
                                                                                           generate_output=False)
                                 
@@ -285,7 +285,7 @@ class MTFLOW_caller:
             # --------------------
             # Generate the MTFLO input file tflow.analysis_name
             # --------------------
-            if not external_inputs:
+            if not external_inputs and exit_flag != ExitFlag.CRASH:
                 file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
                                                ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
                                                                                               design_params=self.design_parameters)
@@ -294,14 +294,14 @@ class MTFLOW_caller:
             # Execute MTSOl solver
             # Passes the exit flag to determine if any issues have occurred. 
             # --------------------
-                   
-            MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
+            if exit_flag != ExitFlag.CRASH:       
+                MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
 
-            # Execute MTSOL    
-            exit_flag = MTSOL_call(operating_conditions=self.operating_conditions,
-                                   analysis_name=self.analysis_name).caller(run_viscous=True,
-                                                                            generate_output=True,
-                                                                            output_type=output_type)
+                # Execute MTSOL    
+                exit_flag = MTSOL_call(operating_conditions=self.operating_conditions,
+                                    analysis_name=self.analysis_name).caller(run_viscous=True,
+                                                                                generate_output=True,
+                                                                                output_type=output_type)
                 
         return exit_flag
 
