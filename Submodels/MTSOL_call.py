@@ -59,6 +59,7 @@ import subprocess
 import os
 import re
 import time
+import shutil
 import queue
 import threading
 import numpy as np
@@ -130,11 +131,10 @@ class FileCreatedHandling(FileSystemEventHandler):
     def on_modified(self, event):
         if Path(event.src_path).name == self.file_path.name:
             if self.wait_until_file_free(self.file_path):
-                while self.file_path.exists():
-                    try:
-                        os.replace(self.file_path, self.destination)
-                    except:
-                        time.sleep(0.01)
+                try:
+                    os.replace(self.file_path, self.destination)
+                except:
+                    shutil.move(self.file_path, self.destination)
                 self.file_processed = True
             else:
                 print(f"Warning: File {self.file_path} was still busy after timeout")
