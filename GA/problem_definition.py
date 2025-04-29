@@ -423,7 +423,11 @@ class OptimizationProblem(ElementwiseProblem):
             if file_type == "tdat": 
                 if file_path.exists():
                     copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-                    os.replace(file_path, copied_file)
+                    try:
+                        os.replace(file_path, copied_file)
+                    except OSError:
+                        import shutil
+                        shutil.move(file_path, copied_file)
             else:
                 if file_path.exists():
                     # Cleanup all temporary files
@@ -510,6 +514,21 @@ class OptimizationProblem(ElementwiseProblem):
                                                                      blade_section)
 
 
+    def CheckCenterbody(self) -> None:
+        """
+        Function to check the validity of the centerbody geometry by evaluating the profile x,y. If the design is invalid, it will throw a ValueError, 
+        which will be catched by the try-except block in _evaluate
+        """
+
+        if config.OPTIMIZE_CENTERBODY:
+           self.Parameterization.ComputeProfileCoordinates([self.centerbody_variables["b_0"],
+                                                            self.centerbody_variables["b_2"],
+                                                            self.centerbody_variables["b_8"],
+                                                            self.centerbody_variables["b_15"],
+                                                            self.centerbody_variables["b_17"]],
+                                                            self.centerbody_variables)
+            
+    
     def _evaluate(self, 
                   x:dict, 
                   out:dict, 
@@ -536,11 +555,12 @@ class OptimizationProblem(ElementwiseProblem):
         self.ComputeOmega()
         self.SetOmega()
         
-        # Check validity of the duct and blades
+        # Check validity of the duct, centerbody and blades
         design_okay = True
         try:
             self.ComputeDuctRadialLocation()
             self.CheckBlades()
+            self.CheckCenterbody()
         except ValueError:
             # If a value error occurs with interpolation of the duct surface, this is an indication that the duct geometry is invalid. so we can set a crash flag and skip the MTFLOW analysis
             design_okay = False

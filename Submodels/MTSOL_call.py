@@ -127,7 +127,11 @@ class FileCreatedHandling(FileSystemEventHandler):
     def on_modified(self, event):
         if Path(event.src_path).name == self.file_path.name:
             if self.wait_until_file_free(self.file_path):
-                os.replace(self.file_path, self.destination)
+                try:
+                    os.replace(self.file_path, self.destination)
+                except OSError:
+                    import shutil
+                    shutil.move(self.file_path, self.destination)
                 self.file_processed = True
             else:
                 print(f"Warning: File {self.file_path} was still busy after timeout")
@@ -470,7 +474,10 @@ class MTSOL_call:
             try:
                 line = self.output_queue.get(timeout=0.025)
             except queue.Empty:
-                time.sleep(0.01)
+                if self.process.poll() is not None:
+                    return ExitFlag.CRASH
+                else:
+                    time.sleep(0.01)
                 continue
             
             # Once iteration is complete, return the completed exit flag
