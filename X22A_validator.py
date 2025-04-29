@@ -34,7 +34,7 @@ from Submodels.MTSET_call import MTSET_call
 from Submodels.MTFLO_call import MTFLO_call
 
 # Define key paths/directories
-parent_dir = Path(__file__).resolve().parent.parent
+parent_dir = Path(__file__).resolve().parent
 submodels_path = parent_dir / "Submodels"
 
 

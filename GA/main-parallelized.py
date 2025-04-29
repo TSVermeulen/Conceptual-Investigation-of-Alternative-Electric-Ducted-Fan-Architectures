@@ -50,7 +50,6 @@ import config
 import datetime
 import os
 import sys
-import time
 
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
@@ -100,7 +99,6 @@ if __name__ == "__main__":
                                     sampling=InitPopulation(population_type="biased").GeneratePopulation())
 
         # Run the optimization
-        start_time = time.time()
         res = minimize(problem,
                     algorithm,
                     termination=('n_gen', config.MAX_GENERATIONS),
@@ -108,11 +106,9 @@ if __name__ == "__main__":
                     verbose=True,
                     save_history=False,  # If True, generates a very large history object, which is bad for memory usage. Only set to true for small cases!
                     return_least_infeasible=True)
-        elapsed_time = time.time() - start_time
 
     # Print some performance metrics
-    print(f"Optimization completed in {elapsed_time:.2f} seconds")
-    print(f"Average time per generation: {elapsed_time/min(res.n_gen, config.MAX_GENERATIONS):.2f} seconds")
+    print(f"Optimization completed in {res.exec_time:.2f} seconds")
 
     """ Save the results to a dill file for future reference """
     # This avoids needing to re-run the optimization if the results are needed later.

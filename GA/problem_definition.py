@@ -423,11 +423,7 @@ class OptimizationProblem(ElementwiseProblem):
             if file_type == "tdat": 
                 if file_path.exists():
                     copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-                    try:
-                        os.replace(file_path, copied_file)
-                    except OSError:
-                        import shutil
-                        shutil.move(file_path, copied_file)
+                    os.replace(file_path, copied_file)
             else:
                 if file_path.exists():
                     # Cleanup all temporary files
