@@ -297,6 +297,9 @@ class MTSOL_call:
         Python file. 
         """
 
+        # Add a shutdown event to signal thread termination
+        self.shutdown_event = threading.Event()
+
         # Stop any orphaned reader threads if they exist before starting the new subprocess
         if getattr(self, "reader", None) and self.reader.is_alive():
             try:
@@ -329,8 +332,14 @@ class MTSOL_call:
 
         def output_reader(out, q):
             """ Helper function to read the output on a separate thread """
-            for line in iter(out.readline, ''):
-                q.put(line)
+            try:
+                while not getattr(self, "shutdown_event", threading.Event()).is_set():
+                    line = out.readline()
+                    if not line:
+                        break
+                    q.put(line)
+            except Exception as e:
+                print(e)
         
         self.reader = threading.Thread(target=output_reader, args=(self.process.stdout, self.output_queue))
         self.reader.daemon = True
