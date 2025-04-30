@@ -124,8 +124,17 @@ class output_visualisation:
         self.tflow_path = self.submodels_path / f"tflow.{self.analysis_name}"
         self.boundary_layer_path = self.submodels_path / f"boundary_layer.{self.analysis_name}"
 
-        if not self.flowfield_path.exists() or not self.walls_path.exists() or not self.tflow_path.exists():
-            raise FileNotFoundError(f"One of the required files flowfield.{self.analysis_name}, walls.{self.analysis_name}, or tflow.{self.analysis_name} was not found.")
+        if not self.flowfield_path.exists():
+            raise FileNotFoundError(f"The required file flowfield.{self.analysis_name} was not found.")
+        
+        if self.walls_path.exists():
+            self.walls = True
+        else:
+            self.walls = False
+        if self.tflow_path.exists():
+            self.tflow = True
+        else:
+            self.tflow = False
 
         # Check if the boundary layer file exists, and if so, set viscous_exists to True
         if self.boundary_layer_path.exists():
@@ -504,13 +513,16 @@ class output_visualisation:
         blocks, df = self.GetFlowfield()
 
         # Read in the axi-symmetric geometry
-        bodies = self.ReadGeometry()
+        if self.walls:
+            bodies = self.ReadGeometry()
 
         # Read in the blade outlines
-        blades = self.ReadBlades()
+        if self.tflow:
+            blades = self.ReadBlades()
 
         # Create contour plots from the flowfield
-        self.CreateContours(df, bodies, blades)
+        if self.walls and self.tflow:
+            self.CreateContours(df, bodies, blades)
 
         # Create the streamline plots
         self.CreateStreamlinePlots(blocks,
