@@ -391,11 +391,12 @@ class OptimizationProblem(ElementwiseProblem):
         None
         """
 
-        for i in range(len(self.blade_blading_parameters)):
-            if config.ROTATING[i]:
-                self.blade_blading_parameters[i]["rotational_rate"] = self.oper["Omega"]
+        rotating = config.ROTATING
+        for i, blading_params in enumerate(self.blade_blading_parameters):
+            if rotating[i]:
+                blading_params["rotational_rate"] = self.oper["Omega"]
             else:
-                self.blade_blading_parameters[i]["rotational_rate"] = 0
+                blading_params["rotational_rate"] = 0
 
 
     def CleanUpFiles(self) -> None:
@@ -624,8 +625,7 @@ if __name__ == "__main__":
     # Disable parameterizations to allow for testing with empty design vector
     config.OPTIMIZE_CENTERBODY = False
     config.OPTIMIZE_DUCT = False
-    for i in range(len(config.OPTIMIZE_STAGE)):
-        config.OPTIMIZE_STAGE[i] = False
+    config.OPTIMIZE_STAGE = [False] * len(config.OPTIMIZE_STAGE)
 
     test = OptimizationProblem()
 

@@ -240,7 +240,7 @@ class MTSOL_call:
         # Define constants for the class
         self.ITER_STEP_SIZE = 2  # Step size in which iterations are performed in MTSOL
         self.SAMPLE_SIZE = 10  # Number of iterations to use to average over in case of non-convergence. 
-        self.ITER_LIMIT = 50  # Maximum number of iterations to perform before non-convergence is assumed.
+        self.ITER_LIMIT = 75  # Maximum number of iterations to perform before non-convergence is assumed.
 
         # Define key paths/directories
         self.parent_dir = Path(__file__).resolve().parent.parent
@@ -495,6 +495,10 @@ class MTSOL_call:
             Exit flag indicating the status of the solver execution.
         """
 
+        # Define an exponential time_delay function to limit CPU usage while the solver is working
+        def sleep_time(delta_t: float) -> float:
+            return min(0.25, 0.01 * (1 + int(delta_t // 5)))
+
         # Check the console output to ensure that commands are completed
         timer_start = time.monotonic()
         time_out = 45  # seconds
@@ -512,8 +516,7 @@ class MTSOL_call:
                 else:
                     # Exponential back-off to limit CPU usage while the solver is working
                     elapsed_time = time.monotonic() - timer_start
-                    sleep_s = min(0.25, 0.01 * (1 + int(elapsed_time // 5)))
-                    time.sleep(sleep_s)
+                    time.sleep(sleep_time(elapsed_time))
                 continue
             
             # Once iteration is complete, return the completed exit flag
@@ -538,7 +541,7 @@ class MTSOL_call:
                     target_path = self.submodels_path / self.FILE_TEMPLATES[output_file].format(self.analysis_name)
                     start_time = time.monotonic()
                     while not target_path.exists() and (time.monotonic() - start_time) <= max_wait_time:
-                        time.sleep(0.01) 
+                        time.sleep(sleep_time(time.monotonic() - start_time)) 
 
                 return ExitFlag.COMPLETED
                         
@@ -686,7 +689,7 @@ class MTSOL_call:
             return
 
         # Indices of header lines that should not be averaged
-        skip_lines = [0, 1, 2, 3, 4, 5, 13, 25, 26, 31, 36, 41]
+        skip_lines = {0, 1, 2, 3, 4, 5, 13, 25, 26, 31, 36, 41}
 
         with ExitStack() as stack, open(self.filepaths['forces'], 'w') as averaged_file:
             file_handlers = [stack.enter_context(open(output_file, 'r', newline='')) for output_file in output_files]    
@@ -700,50 +703,75 @@ class MTSOL_call:
                     averaged_file.write(base_line)
                     continue
 
+                # Precompute the presence of '=' and ':' in each line
+                eq_flags = [('=' in line) for line in lines]
+                colon_flags = [(':' in line) for line in lines]
+
                 # Case 1: single key=value per line.
-                if all('=' in line and len(line.split('=')[1].split()) == 1 for line in lines):
+                if all(eq_flags) and all(len(line.split("=", 1)[1].split()) == 1 for line in lines):
+                    key = base_line.split("=", 1)[0].strip()
                     values = []
                     for line in lines:
-                        match = self.value_pattern.search(line.split('=')[1])
-                        if match is None:
-                            continue
-                        values.append(float(match.group()))
+                        try:
+                            value_str = line.split("=", 1)[1].strip()
+                            values.append(float(value_str))
+                        except (IndexError, ValueError):
+                            # Fall back on base_line in case any error occurs
+                            values = []
+                            break
                     if not values:
-                        line_text = base_line  # fall back unchanged
-                        averaged_file.write(line_text)
+                        averaged_file.write(base_line)
                         continue
-                    matrix = np.array(values)
-                    average_value = np.mean(matrix, axis=0)
-                    key = base_line.split("=")[0].strip()
+                    average_value = np.mean(values, axis=0)
                     line_text = f'{key} = {average_value:.5E}\n'
                 
                 # Case 2: multiple key=value pairs in one line.
-                elif all('=' in line for line in lines) and any(len(self.var_value_pattern.findall(line)) > 1 for line in lines):
-                    var_values_dict = OrderedDict()
-                    for line in lines:
-                        # Find all key/value pairs in the line
-                        for var, value in self.var_value_pattern.findall(line):
-                            var = var.strip()  # ensure the variable name has no extra whitespace
-                            var_values_dict.setdefault(var, []).append(float(value))
-                    # Compute average for each encountered key, preserving order from the first appearance.
-                    avg_values = [
-                        f"{var} = {np.mean(vals):.5E}"
-                        for var, vals in var_values_dict.items()
-                    ]
-                    line_text = " ".join(avg_values) + "\n"
+                elif all(eq_flags):
+                    # Cache regex finds for each line in one go:
+                    parsed_lines = [self.var_value_pattern.findall(line) for line in lines]
+
+                    if any(len(matches) > 1 for matches in parsed_lines):
+                        # Build the dictionary once
+                        var_values_dict = OrderedDict()
+
+                        for matches in parsed_lines:
+                            for var, value in matches:
+                                var = var.strip()  # remove extra whitespace
+                                var_values_dict.setdefault(var, []).append(float(value))
+                                
+                        # Compute average for each encountered key, preserving order from the first appearance.
+                        avg_values = [
+                            f"{var} = {np.mean(vals):.5E}"
+                            for var, vals in var_values_dict.items()
+                        ]
+                        line_text = " ".join(avg_values) + "\n"
+                    else:
+                        line_text = base_line  # If there aren't multiple pairs, fall back to base_line
                 
                 # Case 3: Lines with a colon and multiple space-separated values (e.g. "variable: data1 data2 data3 data4")
-                elif all(':' in line for line in lines):
-                    text_part = base_line.split(':')[0].strip() + ': '
-                    matrix = np.array([list(map(float, line.split(':')[1].split())) for line in lines])
-                    avg_values = np.mean(matrix, axis=0)
-                    line_text = text_part + '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
+                elif all(colon_flags):
+                    text_part = base_line.split(':', 1)[0].strip() + ': '
+                    try:
+                        matrix = np.array([list(map(float, line.split(':')[1].split())) for line in lines])
+                    except ValueError:
+                        matrix = np.array([])
+                    if matrix.size:
+                        avg_values = np.mean(matrix, axis=0)
+                        line_text = text_part + '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
+                    else:
+                        line_text = base_line
 
                 # Case 4: Lines with unnamed values separated by varying spaces
                 elif all(self.value_pattern.match(line) for line in lines):
-                    matrix = np.array([list(map(float, re.split(r'\s+', line.strip()))) for line in lines])
-                    avg_values = np.mean(matrix, axis=0)
-                    line_text = '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
+                    try:
+                        matrix = np.array([list(map(float, re.split(r'\s+', line.strip()))) for line in lines])
+                    except ValueError:
+                        matrix = np.array([])
+                    if matrix.size:
+                        avg_values = np.mean(matrix, axis=0)
+                        line_text = '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
+                    else:
+                        line_text = base_line
                 
                 # If none of these cases match, use the first line as fallback
                 else:

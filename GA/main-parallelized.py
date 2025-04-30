@@ -108,7 +108,7 @@ if __name__ == "__main__":
                         termination=('n_gen', config.MAX_GENERATIONS),
                         seed=42,
                         verbose=True,
-                        save_history=True,  # If True, generates a very large history object, which is bad for memory usage. Only set to true for small cases!
+                        save_history=True,
                         return_least_infeasible=True)
 
     # Print some performance metrics
