@@ -300,11 +300,11 @@ class MTSOL_call:
         # Stop any orphaned reader threads if they exist before starting the new subprocess
         if getattr(self, "reader", None) and self.reader.is_alive():
             try:
+                if getattr(self, "process", None):  # As last resort, force-close stdout
+                    self.process.stdout.close()
                 self.reader.join(timeout=5)
                 if self.reader.is_alive():
-                    print("Warning: Reader thread could not be joined within timeout")
-                    if getattr(self, "process", None):  # As last resort, force-close stdout
-                        self.process.stdout.close()
+                    print("Warning: Reader thread could not be joined within timeout")     
             except Exception as e:
                 print(f"Error cleaning up reader thread: {e}")
 
@@ -499,7 +499,10 @@ class MTSOL_call:
                 if self.process.poll() is not None:
                     return ExitFlag.CRASH
                 else:
-                    time.sleep(0.01)
+                    # Exponential back-off to limit CPU usage while the solver is working
+                    elapsed_time = time.monotonic() - timer_start
+                    sleep_s = min(0.25, 0.01 * (1 + int(elapsed_time // 5)))
+                    time.sleep(sleep_s)
                 continue
             
             # Once iteration is complete, return the completed exit flag
@@ -726,7 +729,7 @@ class MTSOL_call:
                     line_text = text_part + '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
 
                 # Case 4: Lines with unnamed values separated by varying spaces
-                elif all(re.match(self.value_pattern, line) for line in lines):
+                elif all(self.value_pattern.match(line) for line in lines):
                     matrix = np.array([list(map(float, re.split(r'\s+', line.strip()))) for line in lines])
                     avg_values = np.mean(matrix, axis=0)
                     line_text = '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
