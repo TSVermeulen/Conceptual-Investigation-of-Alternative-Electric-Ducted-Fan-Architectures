@@ -32,7 +32,7 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.1
+Version: 1.2
 
 Changelog:
 - V1.0: Initial implementation. 
@@ -82,30 +82,38 @@ if __name__ == "__main__":
     total_threads_avail = (total_threads - RESERVED_THREADS) // 2  # Divide by 2 as each MTFLOW evaluation uses 2 threads: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
     n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used
-    with multiprocessing.Pool(processes=n_processes,
-                              initializer=worker_init,
-                              initargs=(parent_dir, submodels_dir)) as pool:
+    with multiprocessing.Manager() as manager:
+        shared_cache = manager.dict()  # Initialize shared cache
 
-        # Create runner
-        runner = StarmapParallelization(pool.starmap)
+        with multiprocessing.Pool(processes=n_processes,
+                                initializer=worker_init,
+                                initargs=(parent_dir, submodels_dir)) as pool:
 
-        """ Initialize the optimization problem and algorithm """
-        # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
-        problem = OptimizationProblem(elementwise_runner=runner,
-                                    seed=42)
+            # Create runner
+            runner = StarmapParallelization(pool.starmap)
 
-        # Initialize the algorithm
-        algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
-                                    sampling=InitPopulation(population_type="biased").GeneratePopulation())
+            """ Initialize the optimization problem and algorithm """
+            # Create a shared cache for storing evaluation results across processes
+            manager = multiprocessing.Manager()
+            cache = manager.dict()
 
-        # Run the optimization
-        res = minimize(problem,
-                    algorithm,
-                    termination=('n_gen', config.MAX_GENERATIONS),
-                    seed=42,
-                    verbose=True,
-                    save_history=False,  # If True, generates a very large history object, which is bad for memory usage. Only set to true for small cases!
-                    return_least_infeasible=True)
+            # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
+            problem = OptimizationProblem(elementwise_runner=runner,
+                                        seed=42,
+                                        cache=cache)
+
+            # Initialize the algorithm
+            algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
+                                        sampling=InitPopulation(population_type="biased").GeneratePopulation())
+
+            # Run the optimization
+            res = minimize(problem,
+                        algorithm,
+                        termination=('n_gen', config.MAX_GENERATIONS),
+                        seed=42,
+                        verbose=True,
+                        save_history=False,  # If True, generates a very large history object, which is bad for memory usage. Only set to true for small cases!
+                        return_least_infeasible=True)
 
     # Print some performance metrics
     print(f"Optimization completed in {res.exec_time:.2f} seconds")

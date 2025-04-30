@@ -113,7 +113,7 @@ class MTFLO_call:
         self.process = subprocess.Popen([self.process_path, self.analysis_name], 
                                         stdin=subprocess.PIPE, 
                                         stdout=subprocess.PIPE, 
-                                        stderr=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL,
                                         text=True,
                                         bufsize=1,
                                         )

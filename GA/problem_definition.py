@@ -523,8 +523,8 @@ class OptimizationProblem(ElementwiseProblem):
                                                             self.centerbody_variables["b_15"],
                                                             self.centerbody_variables["b_17"]],
                                                             self.centerbody_variables)
-            
-    
+                  
+
     def _evaluate(self, 
                   x:dict, 
                   out:dict, 
@@ -533,6 +533,17 @@ class OptimizationProblem(ElementwiseProblem):
         """
         Element-wise evaluation function.
         """
+
+        # Construct key for design vector in cache
+        key = tuple(sorted(x.items()))
+
+        # Obtain current cache
+        self.cache = kwargs.get('cache', None)
+
+        # Check if key in cache
+        if self.cache is not None and key in self.cache:
+            out.update(self.cache[key])
+            return
 
         # Lazy import the MTFLOW interface and output_handling interface
         # This helps to improve startup time and memory usage in parallel workers
@@ -599,6 +610,9 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Cleanup the generated files
         self.CleanUpFiles()
+
+        # Add result to cache
+        self.cache[key] = out.copy()
     
 
 if __name__ == "__main__":

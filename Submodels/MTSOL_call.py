@@ -131,10 +131,7 @@ class FileCreatedHandling(FileSystemEventHandler):
     def on_modified(self, event):
         if Path(event.src_path).name == self.file_path.name:
             if self.wait_until_file_free(self.file_path):
-                try:
-                    os.replace(self.file_path, self.destination)
-                except:
-                    shutil.move(self.file_path, self.destination)
+                shutil.copy(self.file_path, self.destination)
                 self.file_processed = True
             else:
                 print(f"Warning: File {self.file_path} was still busy after timeout")
@@ -199,7 +196,8 @@ class CompletionType(Enum):
 
     ITERATION = 1
     OUTPUT = 2
-    PARAM_CHANGE = 3    
+    PARAM_CHANGE = 3 
+    VISCOUS_TOGGLE = 4   
 
 
 class MTSOL_call:
@@ -314,7 +312,7 @@ class MTSOL_call:
         self.process = subprocess.Popen([self.fpath, self.analysis_name], 
                                         stdin=subprocess.PIPE, 
                                         stdout=subprocess.PIPE, 
-                                        stderr=subprocess.PIPE, 
+                                        stderr=subprocess.DEVNULL, 
                                         text=True,
                                         bufsize=1,
                                         )
@@ -380,10 +378,16 @@ class MTSOL_call:
     
 
     def ToggleViscous(self,
+                      surface_IDs: list[int] = [3, 4]
                       ) -> None:
         """
         Toggle the viscous setting for the centrebody by setting the inlet Reynolds number. 
         Note that the Reynolds number must be defined using the MTFLOW reference length LREF. 
+
+        Parameters
+        ----------
+        - surface_IDs : list[int], optional
+            List of surface IDs which are to be toggled to viscous
 
         Returns
         -------
@@ -399,13 +403,12 @@ class MTSOL_call:
         # Wait for completion of processing operating condition change
         self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
 
-        # Disable the viscous toggle on surfaces 3,4
-        # This ensures the initial viscous run is only performed on the centerbody BL. 
-        # Successive toggling of the other handles can then improve numerical stability
-        self.StdinWrite("V3 4")
-
-        # Wait for completion of processing operating condition change
-        self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
+        # Ensure all viscous toggles are disabled
+        for ID in surface_IDs:
+            flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)
+            if flag != ExitFlag.COMPLETED:
+                self.StdinWrite(f"V{ID}")
+                flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)
 
         # Exit the Modify solution parameters menu
         self.StdinWrite("")
@@ -434,11 +437,12 @@ class MTSOL_call:
         # Enter the Modify solution parameters menu
         self.StdinWrite("m")
 
-        # Toggle the given surfaces
-        self.StdinWrite(f"V{' '.join(map(str, surface_ID))}")
-
-        # Wait for the change to be processed in MTSOL
-        self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
+        # Toggle the given surfaces to enable their viscous setting only if the surface was disabled
+        for ID in surface_ID:
+            flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)
+            if flag != ExitFlag.SUCCESS:
+                self.StdinWrite(f"V{ID}")
+                flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)           
 
         # Exit the Modify solution parameters menu
         self.StdinWrite("")
@@ -446,7 +450,8 @@ class MTSOL_call:
 
     def WaitForCompletion(self,
                           completion_type: CompletionType = CompletionType.ITERATION,
-                          output_file: str = None
+                          output_file: str = None,
+                          surface_ID: str = None,
                           ) -> ExitFlag:
         """
         Monitor the console output to verify the completion of a command.
@@ -511,6 +516,12 @@ class MTSOL_call:
                         
             # When changing the operating conditions, check for the end of the modify parameters menu           
             elif line.startswith(' ----') and completion_type == CompletionType.PARAM_CHANGE:
+                return ExitFlag.COMPLETED
+            
+            # When toggling viscous surfaces, check for the star at the corresponding line:
+            elif line.startswith(' T{} *'.format(surface_ID)) and completion_type == CompletionType.VISCOUS_TOGGLE:
+                return ExitFlag.SUCCESS
+            elif line.startswith(' T{}    '.format(surface_ID)) and completion_type == CompletionType.VISCOUS_TOGGLE:
                 return ExitFlag.COMPLETED
             
             # If the solver crashes, return the crash exit flag
@@ -663,7 +674,17 @@ class MTSOL_call:
 
                 # Case 1: single key=value per line.
                 if all('=' in line and len(line.split('=')[1].split()) == 1 for line in lines):
-                    matrix = np.array([float(self.value_pattern.search(line.split('=')[1]).group()) for line in lines])
+                    values = []
+                    for line in lines:
+                        match = self.value_pattern.search(line.split('=')[1])
+                        if match is None:
+                            continue
+                        values.append(float(match.group()))
+                    if not values:
+                        line_text = base_line  # fall back unchanged
+                        averaged_file.write(line_text)
+                        continue
+                    matrix = np.array(values)
                     average_value = np.mean(matrix, axis=0)
                     key = base_line.split("=")[0].strip()
                     line_text = f'{key} = {average_value:.5E}\n'
@@ -821,7 +842,10 @@ class MTSOL_call:
         if exit_flag == ExitFlag.NON_CONVERGENCE:
             if update_statefile:
                 self.WriteStateFile()
-            self.HandleNonConvergence()
+            if handle_type == 'Inviscid':
+                return
+            else:
+                self.HandleNonConvergence()
 
         # Else if the solver has crashed, delete all output files except the forces file to keep outputs clean
         elif exit_flag == ExitFlag.CRASH:  
@@ -843,14 +867,14 @@ class MTSOL_call:
 
 
     def TryExecuteViscousSolver(self,
-                         surface_ID: int = None,
+                         surface_ID: list[int]|int = None,
                          ) -> ExitFlag:
         """
         Try to execute the MTSOL solver for the current analysis on the viscous surface surface_ID.
 
         Parameters
         ----------
-        - surface_ID : int, optional
+        - surface_ID : list[int]|int, optional
             ID of the surface which is to be toggled. For a ducted fan, the ID should be either 1, 3, or 4. 
         
         Returns
@@ -996,19 +1020,25 @@ class MTSOL_call:
         except (OSError, BrokenPipeError):
             # If the inviscid solve crashes, we need to set the exit flag to crash
             exit_flag_invisc = ExitFlag.CRASH
-
         finally:
             # Handle solver based on exit flag
             self.HandleExitFlag(exit_flag_invisc,
                                 handle_type='Inviscid',
                                 update_statefile=generate_output)
             total_exit_flag = exit_flag_invisc
+        
+        if not run_viscous: 
+            # Using handle_type="inviscid" bypasses the handle non-convergence loop. 
+            # This is intentional for a viscous run, as it speeds up the solution process substantially. However, for an inviscid run, we do need to perform this loop. 
+            self.HandleExitFlag(total_exit_flag,
+                                handle_type="Viscous",
+                                update_statefile=generate_output)
 
         # Only run a viscous solve if required by the user
         # Theoretically there is the chance a viscous run may be started on a non-converged inviscid solve. 
         # This is acceptable, as we assume a steady state residual case has formed at the end of the inviscid case. 
         # There is a probability that by then running a viscous case, convergence to the correct solution may still be obtained.
-        if run_viscous and total_exit_flag in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE):
+        if run_viscous and total_exit_flag in (ExitFlag.SUCCESS, ExitFlag.COMPLETED, ExitFlag.NON_CONVERGENCE):
             # Toggle viscous on the centerbody and the inner and outer duct surfaces
             self.ToggleViscous()
             self.SetViscous([3, 4])
