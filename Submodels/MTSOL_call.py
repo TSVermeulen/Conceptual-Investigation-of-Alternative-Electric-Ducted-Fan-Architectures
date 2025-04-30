@@ -495,6 +495,9 @@ class MTSOL_call:
             Exit flag indicating the status of the solver execution.
         """
 
+        # Define exponential sleep lambda function for later use in the code
+        sleep_s = lambda x: min(0.25, 0.01* (1 + int(x // 5)))
+
         # Check the console output to ensure that commands are completed
         timer_start = time.monotonic()
         time_out = 45  # seconds
@@ -512,8 +515,7 @@ class MTSOL_call:
                 else:
                     # Exponential back-off to limit CPU usage while the solver is working
                     elapsed_time = time.monotonic() - timer_start
-                    sleep_s = min(0.25, 0.01 * (1 + int(elapsed_time // 5)))
-                    time.sleep(sleep_s)
+                    time.sleep(sleep_s(elapsed_time))
                 continue
             
             # Once iteration is complete, return the completed exit flag
@@ -538,7 +540,7 @@ class MTSOL_call:
                     target_path = self.submodels_path / self.FILE_TEMPLATES[output_file].format(self.analysis_name)
                     start_time = time.monotonic()
                     while not target_path.exists() and (time.monotonic() - start_time) <= max_wait_time:
-                        time.sleep(0.01) 
+                        time.sleep(sleep_s(time.monotonic() - start_time)) 
 
                 return ExitFlag.COMPLETED
                         
