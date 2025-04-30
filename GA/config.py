@@ -137,6 +137,7 @@ class InEqConstraintID(IntEnum):
         return count  # This makes the first member 0 rather than the default 1.
     
     EFFICIENCY_GTE_ZERO = auto()
+    EFFICIENCY_LEQ_ONE = auto()
     MINIMUM_THRUST = auto()
     MAXIMUM_THRUST = auto()
     
@@ -150,7 +151,7 @@ class EqConstraintID(IntEnum):
     
     CONSTANT_POWER = auto()
 
-constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.MINIMUM_THRUST, InEqConstraintID.MAXIMUM_THRUST],
+constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICIENCY_LEQ_ONE, InEqConstraintID.MINIMUM_THRUST, InEqConstraintID.MAXIMUM_THRUST],
                   []]
 
 # Define the population size

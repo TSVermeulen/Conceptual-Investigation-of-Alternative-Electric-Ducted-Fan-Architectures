@@ -45,6 +45,7 @@ Changelog:
 import os
 import sys
 import numpy as np
+import shutil
 import uuid
 from pathlib import Path
 import datetime
@@ -423,7 +424,10 @@ class OptimizationProblem(ElementwiseProblem):
             if file_type == "tdat": 
                 if file_path.exists():
                     copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-                    os.replace(file_path, copied_file)
+                    try:
+                        os.replace(file_path, copied_file)
+                    except OSError:
+                        shutil.move(file_path, copied_file)
             else:
                 if file_path.exists():
                     # Cleanup all temporary files
@@ -538,7 +542,7 @@ class OptimizationProblem(ElementwiseProblem):
         key = tuple(sorted(x.items()))
 
         # Obtain current cache
-        self.cache = kwargs.get('cache', None)
+        self.cache = kwargs.pop('cache', None)
 
         # Check if key in cache
         if self.cache is not None and key in self.cache:
@@ -612,7 +616,8 @@ class OptimizationProblem(ElementwiseProblem):
         self.CleanUpFiles()
 
         # Add result to cache
-        self.cache[key] = out.copy()
+        if self.cache is not None:
+            self.cache[key] = out.copy()
     
 
 if __name__ == "__main__":

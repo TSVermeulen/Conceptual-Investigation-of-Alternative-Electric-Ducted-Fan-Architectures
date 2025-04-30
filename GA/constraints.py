@@ -134,13 +134,45 @@ class Constraints:
         return (power - config.P_ref_constr) / config.P_ref_constr  # Normalized power constraint 
     
 
-    def KeepEfficiencyFeasible(self,
+    def KeepEfficiencyFeasibleUpper(self,
                                analysis_outputs: dict,
                                Lref: float,
                                thrust: float,
                                power: float) -> float:
         """
-        Compute the inequality constraint for the efficiency. Enforces that eta>0. 
+        Compute the inequality constraint for the efficiency. Enforces that eta < 1. 
+
+        Parameters
+        ----------
+        - analysis_outputs : dict
+            A dictionary containing the outputs from the MTFLOW forces output file. 
+            Must contain all entries corresponding to an execution of 
+            output_handling.output_processing().GetAllVariables(3).
+        - Lref : float
+            The reference length of the analysis. Corresponds to the propeller/fan diameter.
+            Not used in this method, but required for a uniform constraint function signature.
+        - thrust : float
+            The thrust in Newtons. Not used here but included to force constant signature.
+        - power : float
+            The power in Watts. Not used here but included to force constant signature.
+
+        Returns
+        -------
+        - float
+            The computed efficiency constraint. This is a scalar value representing the efficiency of the system.
+        """
+
+        # Compute the inequality constraint for the efficiency.
+        return analysis_outputs['data']['EtaP'] - 1
+    
+
+    def KeepEfficiencyFeasibleLower(self,
+                               analysis_outputs: dict,
+                               Lref: float,
+                               thrust: float,
+                               power: float) -> float:
+        """
+        Compute the inequality constraint for the efficiency. Enforces that eta > 0. 
 
         Parameters
         ----------
@@ -165,6 +197,7 @@ class Constraints:
         # Compute the inequality constraint for the efficiency.
         return -analysis_outputs['data']['EtaP']
     
+    
 
     def MinimumThrust(self,
                       analysis_outputs: dict,
@@ -172,7 +205,7 @@ class Constraints:
                       thrust: float,
                       power: float) -> float:
         """
-        Compute the inequality constraint for the thrust. Enforces that T > T_ref.
+        Compute the inequality constraint for the thrust. Enforces that T > (1 - delta) * T_ref.
 
         Parameters
         ----------
@@ -194,7 +227,7 @@ class Constraints:
         - float 
             The computed normalised thrust constraint. 
         """
-        return (thrust - config.T_ref_constr) / config.T_ref_constr  # Normalized thrust constraint
+        return (thrust - (1 - config.deviation_range) * config.T_ref_constr) / config.T_ref_constr  # Normalized thrust constraint
     
 
     def MaximumThrust(self,
@@ -261,7 +294,7 @@ class Constraints:
         """
 
         # Define lists of all inequality and equality constraints, and filter them based on the constraint IDs
-        ineq_constraints_list = [self.KeepEfficiencyFeasible, self.MinimumThrust, self.MaximumThrust]
+        ineq_constraints_list = [self.KeepEfficiencyFeasibleLower, self.KeepEfficiencyFeasibleUpper, self.MinimumThrust, self.MaximumThrust]
         eq_constraints_list = [self.ConstantPower]
         ineq_constraints = [ineq_constraints_list[i] for i in config.constraint_IDs[0]]
         eq_constraints = [eq_constraints_list[i] for i in config.constraint_IDs[1]]

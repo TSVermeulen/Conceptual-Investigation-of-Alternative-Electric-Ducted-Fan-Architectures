@@ -299,16 +299,23 @@ class MTSOL_call:
 
         # Stop any orphaned reader threads if they exist before starting the new subprocess
         if getattr(self, "reader", None) and self.reader.is_alive():
-            if getattr(self, "process", None):
-                self.process.stdout.close()
             try:
                 self.reader.join(timeout=5)
                 if self.reader.is_alive():
                     print("Warning: Reader thread could not be joined within timeout")
+                    if getattr(self, "process", None):  # As last resort, force-close stdout
+                        self.process.stdout.close()
             except Exception as e:
                 print(f"Error cleaning up reader thread: {e}")
 
         # Generate the subprocess and write it to self
+        # First check if the process already exists. If it does, close it before starting the new subprocess
+        if getattr(self, "process", None) and self.process.poll() is None:
+            try:
+                self.process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+
         self.process = subprocess.Popen([self.fpath, self.analysis_name], 
                                         stdin=subprocess.PIPE, 
                                         stdout=subprocess.PIPE, 
@@ -378,7 +385,7 @@ class MTSOL_call:
     
 
     def ToggleViscous(self,
-                      surface_IDs: list[int] = [3, 4]
+                      surface_IDs: list[int] = None
                       ) -> None:
         """
         Toggle the viscous setting for the centrebody by setting the inlet Reynolds number. 
@@ -394,6 +401,9 @@ class MTSOL_call:
         None
         """
 
+        if surface_IDs is None:
+            surface_IDs = [3, 4]
+
         # Enter the Modify solution parameters menu
         self.StdinWrite("m")
 
@@ -405,8 +415,10 @@ class MTSOL_call:
 
         # Ensure all viscous toggles are disabled
         for ID in surface_IDs:
+            # First check current state of the surface
             flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)
-            if flag != ExitFlag.COMPLETED:
+            # Success indicates the surface is viscous, so for any surface whose flag is success, toggle the surface to disable the viscous option.
+            if flag == ExitFlag.SUCCESS:
                 self.StdinWrite(f"V{ID}")
                 flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)
 
@@ -439,8 +451,10 @@ class MTSOL_call:
 
         # Toggle the given surfaces to enable their viscous setting only if the surface was disabled
         for ID in surface_ID:
+            # First check the current state of the surface
             flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)
-            if flag != ExitFlag.SUCCESS:
+            # Toggle if not already enabled, since completed indicates the surface is inviscid
+            if flag == ExitFlag.COMPLETED:
                 self.StdinWrite(f"V{ID}")
                 flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)           
 
@@ -854,6 +868,7 @@ class MTSOL_call:
                 self.CleanupOutputFiles()
                 return
             else:
+                self.GenerateProcess()
                 return
         
         # Else if the solver has finished, update the statefile.   

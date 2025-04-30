@@ -93,14 +93,10 @@ if __name__ == "__main__":
             runner = StarmapParallelization(pool.starmap)
 
             """ Initialize the optimization problem and algorithm """
-            # Create a shared cache for storing evaluation results across processes
-            manager = multiprocessing.Manager()
-            cache = manager.dict()
-
             # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
             problem = OptimizationProblem(elementwise_runner=runner,
-                                        seed=42,
-                                        cache=cache)
+                                          seed=42,
+                                          cache=shared_cache)
 
             # Initialize the algorithm
             algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
@@ -112,7 +108,7 @@ if __name__ == "__main__":
                         termination=('n_gen', config.MAX_GENERATIONS),
                         seed=42,
                         verbose=True,
-                        save_history=False,  # If True, generates a very large history object, which is bad for memory usage. Only set to true for small cases!
+                        save_history=True,  # If True, generates a very large history object, which is bad for memory usage. Only set to true for small cases!
                         return_least_infeasible=True)
 
     # Print some performance metrics
