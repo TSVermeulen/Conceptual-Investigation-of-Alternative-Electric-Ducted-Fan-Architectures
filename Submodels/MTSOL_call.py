@@ -302,6 +302,8 @@ class MTSOL_call:
 
         # Stop any orphaned reader threads if they exist before starting the new subprocess
         if getattr(self, "reader", None) and self.reader.is_alive():
+            # Signal the thread to stop
+            self.shutdown_event.set()
             try:
                 if getattr(self, "process", None):  # As last resort, force-close stdout
                     self.process.stdout.close()
