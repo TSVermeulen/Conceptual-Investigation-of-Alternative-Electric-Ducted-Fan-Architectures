@@ -157,7 +157,7 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
 # Define the population size
 POPULATION_SIZE = 40
 INIT_POPULATION_SIZE = 40  # Initial population size for the first generation
-MAX_GENERATIONS = 30
+MAX_GENERATIONS = 20
 
 
 # Define the initial population parameter spreads, used to construct a biased initial population 

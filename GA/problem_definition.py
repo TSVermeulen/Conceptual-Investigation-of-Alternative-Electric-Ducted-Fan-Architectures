@@ -293,9 +293,16 @@ class OptimizationProblem(ElementwiseProblem):
             # Compute the radial location of the duct
             radial_duct_coordinates[i] = y_tip + tip_gap + max(LE_offset, TE_offset)
 
+        LE_coordinate_duct = np.max(radial_duct_coordinates)
         # Update the duct variables in self
         self.duct_variables["Leading Edge Coordinates"] = (self.duct_variables["Leading Edge Coordinates"][0],
-                                                           np.max(radial_duct_coordinates))
+                                                           LE_coordinate_duct)
+        
+        # Set the radius of all stators equal to this y coordinate
+        for i in range(self.num_stages):
+            if not rot_flags[i]:
+                r_old = np.max(self.blade_blading_parameters[i]["radial_stations"])
+                self.blade_blading_parameters[i]["radial_stations"] = self.blade_blading_parameters[i]["radial_stations"] / r_old * LE_coordinate_duct
 
 
     def CheckBlades(self) -> None:
@@ -419,7 +426,7 @@ class OptimizationProblem(ElementwiseProblem):
                                          out=out)
 
         # Cleanup the generated files
-        # self.CleanUpFiles()
+        self.CleanUpFiles()
 
         # Add result to cache
         if self.cache is not None:
