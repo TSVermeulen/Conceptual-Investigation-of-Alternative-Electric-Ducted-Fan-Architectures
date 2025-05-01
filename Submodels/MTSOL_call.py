@@ -124,7 +124,7 @@ class FileCreatedHandling(FileSystemEventHandler):
         while (time.monotonic() - start_time) < timeout:
             if self.is_file_free(file_path):
                 return True
-            time.sleep(0.01)
+            time.sleep(min(0.25, 0.01 * (1 + int((time.monotonic - start_time) // 5))))
         return False
         
 
