@@ -67,75 +67,66 @@ class DesignVector():
             A dictionary containing the design vector variables and their bounds.
         """
 
+        # Define helper function with the default 15-parameter profile definition values to keep the method cleaned up
+        def profile_section_vars() -> list:
+            """ Return the standard 15-var profile section definition """
+            return [Real(bounds=(0, 1)),  # b_0
+                    Real(bounds=(0, 0.5)),  # b_2
+                    Real(bounds=(0.05, 1)),  # mapping variable for b_8
+                    Real(bounds=(0, 1)),  # b_15
+                    Real(bounds=(0, 1)),  # b_17
+                    Real(bounds=(0.1, 0.9)),  # x_t
+                    Real(bounds=(0.0125, 0.25)),  # y_t
+                    Real(bounds=(0.05, 1)),  # x_c
+                    Real(bounds=(0, 0.1)),  # y_c
+                    Real(bounds=(0, 0.2)),  # z_TE
+                    Real(bounds=(0, 0.02)),  # dz_TE
+                    Real(bounds=(-0.1, -0.001)),  # r_LE
+                    Real(bounds=(0.01, np.pi/3)),  # trailing_wedge_angle
+                    Real(bounds=(0.01, np.pi/3)),  # trailing_camberline_angle
+                    Real(bounds=(0.01, np.pi/3))]  # leading_edge_direction
+
         # Initialize variable list with variable types.
         # This is required to handle the mixed-variable nature of the optimisation, where the blade count is an integer
-        vars = []
+        vector = []
         if cfg.OPTIMIZE_CENTERBODY:
             # If the centerbody is to be optimised, initialise the variable types
-            vars.append(Real(bounds=(0.05, 1)))  # mapping variable for b_8
-            vars.append(Real(bounds=(0, 1)))  # b_15
-            vars.append(Real(bounds=(0.1, 0.9)))  # x_t
-            vars.append(Real(bounds=(0.0125, 0.25)))  # y_t
-            vars.append(Real(bounds=(0, 0.02)))  # dz_TE
-            vars.append(Real(bounds=(-0.1, -0.001)))  # r_LE
-            vars.append(Real(bounds=(0.01, np.pi/3)))  # trailing_wedge_angle
-            vars.append(Real(bounds=(0.25, 4)))  # Chord Length
+            profile = profile_section_vars()
+            for n in reversed([0, 1, 4, 7, 8, 9, 13, 14]):
+                # For the centerbody, remove the unwanted variables
+                profile.pop(n)
+
+            vector.extend(profile)
+            vector.append(Real(bounds=(0.25, 4)))  # Chord Length
         if cfg.OPTIMIZE_DUCT:
             # If the duct is to be optimised, intialise the variable types
-            vars.append(Real(bounds=(0, 1)))  # b_0
-            vars.append(Real(bounds=(0, 0.5)))  # b_2
-            vars.append(Real(bounds=(0.05, 1)))  # mapping variable for b_8
-            vars.append(Real(bounds=(0, 1)))  # b_15
-            vars.append(Real(bounds=(0, 1)))  # b_17
-            vars.append(Real(bounds=(0.1, 0.9)))  # x_t
-            vars.append(Real(bounds=(0.0125, 0.25)))  # y_t
-            vars.append(Real(bounds=(0.05, 1)))  # x_c
-            vars.append(Real(bounds=(0, 0.1)))  # y_c
-            vars.append(Real(bounds=(0, 0.2)))  # z_TE
-            vars.append(Real(bounds=(0, 0.02)))  # dz_TE
-            vars.append(Real(bounds=(-0.1, -0.001)))  # r_LE
-            vars.append(Real(bounds=(0.01, np.pi/3)))  # trailing_wedge_angle
-            vars.append(Real(bounds=(0.01, np.pi/3)))  # trailing_camberline_angle
-            vars.append(Real(bounds=(0.01, np.pi/3)))  # leading_edge_direction
-            vars.append(Real(bounds=(0.25, 2.5)))  # Chord Length
-            vars.append(Real(bounds=(-0.5, 0.5)))  # Leading Edge X-Coordinate
+            vector.extend(profile_section_vars())
+            vector.append(Real(bounds=(0.25, 2.5)))  # Chord Length
+            vector.append(Real(bounds=(-0.5, 0.5)))  # Leading Edge X-Coordinate
 
         for i in range(cfg.NUM_STAGES):
             # If (any of) the rotor/stator stage(s) are to be optimised, initialise the variable types
             if cfg.OPTIMIZE_STAGE[i]:
                 for _ in range(cfg.NUM_RADIALSECTIONS[i]):
-                    vars.append(Real(bounds=(0, 1)))  # b_0
-                    vars.append(Real(bounds=(0, 0.5)))  # b_2
-                    vars.append(Real(bounds=(0.05, 1)))  # mapping variable for b_8
-                    vars.append(Real(bounds=(0, 1)))  # b_15
-                    vars.append(Real(bounds=(0, 1)))  # b_17
-                    vars.append(Real(bounds=(0.1, 0.9)))  # x_t
-                    vars.append(Real(bounds=(0.0125, 0.25)))  # y_t
-                    vars.append(Real(bounds=(0.05, 1)))  # x_c
-                    vars.append(Real(bounds=(0, 0.1)))  # y_c
-                    vars.append(Real(bounds=(0, 0.2)))  # z_TE
-                    vars.append(Real(bounds=(0, 0.02)))  # dz_TE
-                    vars.append(Real(bounds=(-0.1, -0.001)))  # r_LE
-                    vars.append(Real(bounds=(0.01, np.pi/3)))  # trailing_wedge_angle
-                    vars.append(Real(bounds=(0.01, np.pi/3)))  # trailing_camberline_angle
-                    vars.append(Real(bounds=(0.01, np.pi/3)))  # leading_edge_direction
+                    vector.extend(profile_section_vars())
+                    
 
         for i in range(cfg.NUM_STAGES):
             if cfg.OPTIMIZE_STAGE[i]:
-                vars.append(Real(bounds=(0.1, 0.4)))  # root_LE_coordinate
-                vars.append(Integer(bounds=(3, 20)))  # blade_count
-                vars.append(Real(bounds=(-np.pi/4, np.pi/4)))  # ref_blade_angle
-                vars.append(Real(bounds=(0, 1.5)))  # blade radius
+                vector.append(Real(bounds=(0.1, 0.4)))  # root_LE_coordinate
+                vector.append(Integer(bounds=(3, 20)))  # blade_count
+                vector.append(Real(bounds=(-np.pi/4, np.pi/4)))  # ref_blade_angle
+                vector.append(Real(bounds=(0, 1.5)))  # blade radius
 
                 for _ in range(cfg.NUM_RADIALSECTIONS[i]): 
-                    vars.append(Real(bounds=(0.05, 0.5)))  # chord length
+                    vector.append(Real(bounds=(0.05, 0.5)))  # chord length
                 for _ in range(cfg.NUM_RADIALSECTIONS[i]): 
-                    vars.append(Real(bounds=(0, np.pi/3)))  # sweep_angle
+                    vector.append(Real(bounds=(0, np.pi/3)))  # sweep_angle
                 for _ in range(cfg.NUM_RADIALSECTIONS[i]): 
-                    vars.append(Real(bounds=(-np.pi/4, np.pi/4)))  # blade_angle
+                    vector.append(Real(bounds=(-np.pi/4, np.pi/4)))  # blade_angle
 
-        # For a mixed-variable problem, PyMoo expects the vars to be a dictionary, so we convert vars to a dictionary.
+        # For a mixed-variable problem, PyMoo expects the vector to be a dictionary, so we convert vector to a dictionary.
         # Note that all variables are given a name xi.
-        vars = {f"x{i}": var for i, var in enumerate(vars)}
+        vector = {f"x{i}": var for i, var in enumerate(vector)}
 
-        return vars
+        return vector

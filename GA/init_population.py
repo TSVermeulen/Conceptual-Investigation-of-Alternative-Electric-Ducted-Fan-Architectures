@@ -64,7 +64,8 @@ class InitPopulation():
 
 
     def __init__(self,
-                 population_type: str) -> None:
+                 population_type: str,
+                 **kwargs) -> None:
         """
         Initialisation for the InitPopulation class.
 
@@ -73,8 +74,6 @@ class InitPopulation():
         - population_type : str
             A string indicating the type of population to generate. Either 'biased' or 'random'.
             "biased" will generate a population with perturbed individuals based on a reference design, while "random" will generate a random population.
-        - cfg : ModuleType
-            The config module containing the design vector configuration.
         """
 
         self.type = population_type
@@ -83,96 +82,102 @@ class InitPopulation():
         self.design_vector = DesignVector()._construct_vector(config)
 
         # Set the seed for the random number generator to ensure reproducibility
-        random.seed(42)  # 42 is the answer to everything
-        np.random.seed(42)
+        seed = kwargs.get("seed", 1)
+        random.seed(seed)
+        np.random.seed(seed)
 
 
-    def DeconstructDictFromReferenceDesign(self)->dict:
+    def DeconstructDictFromReferenceDesign(self) -> dict:
         """
         Deconstruct the reference design vector dictionaries back into a pymoo design vector.
         This is used to create the initial population for the optimisation problem.
 
         Returns
         -------
-        - vars : dict
+        - vector : dict
             A dict of design variables for the optimisation problem.
         """
 
-        vars = []
+        # Define a helper function to map the b_8 variable
+        def map_b8_value(variable_dict: dict):
+            """ Compute a normalised b_8 mapping variables on [0, 1]"""
+            denominator = min(variable_dict["y_t"], np.sqrt(-2 * variable_dict["x_t"] * variable_dict["r_LE"] / 3))
+            return variable_dict["b_8"] / denominator if denominator > 0 else 0
+
+        vector = []
         if config.OPTIMIZE_CENTERBODY:
             # If the centerbody is to be optimised, read in the reference design dictionary and extract the design vector x
-            vars.append(config.CENTERBODY_VALUES["b_8"] / min(config.CENTERBODY_VALUES["y_t"], np.sqrt(-2 * config.CENTERBODY_VALUES["x_t"] * config.CENTERBODY_VALUES["r_LE"] / 3)) if min(config.CENTERBODY_VALUES["y_t"], np.sqrt(-2 * config.CENTERBODY_VALUES["x_t"] * config.CENTERBODY_VALUES["r_LE"] / 3)) > 0 else 0)
-            vars.append(config.CENTERBODY_VALUES["b_15"])
-            vars.append(config.CENTERBODY_VALUES["x_t"])
-            vars.append(config.CENTERBODY_VALUES["y_t"])
-            vars.append(config.CENTERBODY_VALUES["dz_TE"])
-            vars.append(config.CENTERBODY_VALUES["r_LE"])
-            vars.append(config.CENTERBODY_VALUES["trailing_wedge_angle"])
-            vars.append(config.CENTERBODY_VALUES["Chord Length"])
-
-        for i in range(config.NUM_STAGES):
-            # If the blade rows are to be optimised, read the reference values into the design vector
-            if config.OPTIMIZE_STAGE[i]:
-                # Read the reference values into the design vector
-                for j in range(config.NUM_RADIALSECTIONS[i]):
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["b_0"])
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["b_2"])
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["b_8"] / min(config.STAGE_DESIGN_VARIABLES[i][j]["y_t"], np.sqrt(-2 * config.STAGE_DESIGN_VARIABLES[i][j]["x_t"] * config.STAGE_DESIGN_VARIABLES[i][j]["r_LE"] / 3)) if min(config.STAGE_DESIGN_VARIABLES[i][j]["y_t"], np.sqrt(-2 * config.STAGE_DESIGN_VARIABLES[i][j]["x_t"] * config.STAGE_DESIGN_VARIABLES[i][j]["r_LE"] / 3)) > 0 else 0)
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["b_15"])
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["b_17"])
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["x_t"])
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["y_t"])
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["x_c"])
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["y_c"])
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["z_TE"])
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["dz_TE"])
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["r_LE"])
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["trailing_wedge_angle"])
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["trailing_camberline_angle"])
-                    vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["leading_edge_direction"])
-
-        for i in range(config.NUM_STAGES):
-            # If the blade rows are to be optimised, read the reference values into the design vector
-            if config.OPTIMIZE_STAGE[i]:
-                # Read the reference values into the design vector
-                vars.append(config.STAGE_BLADING_PARAMETERS[i]["root_LE_coordinate"])
-                vars.append(int(config.STAGE_BLADING_PARAMETERS[i]["blade_count"]))
-                vars.append(config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle"])
-                vars.append(np.max(config.STAGE_BLADING_PARAMETERS[i]["radial_stations"]))  # The interfaces uses the radial locations, but the design varable is the blade radius!
-
-                for j in range(config.NUM_RADIALSECTIONS[i]):
-                    vars.append(config.STAGE_BLADING_PARAMETERS[i]["chord_length"][j])
-                for j in range(config.NUM_RADIALSECTIONS[i]):
-                    vars.append(config.STAGE_BLADING_PARAMETERS[i]["sweep_angle"][j])
-                for j in range(config.NUM_RADIALSECTIONS[i]):
-                    vars.append(config.STAGE_BLADING_PARAMETERS[i]["blade_angle"][j])
-
+            vector.append(map_b8_value(config.CENTERBODY_VALUES))
+            vector.append(config.CENTERBODY_VALUES["b_15"])
+            vector.append(config.CENTERBODY_VALUES["x_t"])
+            vector.append(config.CENTERBODY_VALUES["y_t"])
+            vector.append(config.CENTERBODY_VALUES["dz_TE"])
+            vector.append(config.CENTERBODY_VALUES["r_LE"])
+            vector.append(config.CENTERBODY_VALUES["trailing_wedge_angle"])
+            vector.append(config.CENTERBODY_VALUES["Chord Length"])
+        
         if config.OPTIMIZE_DUCT:
-            # If the duct is to be optimised, read the reference values into the design vector
-            vars.append(config.DUCT_VALUES["b_0"])
-            vars.append(config.DUCT_VALUES["b_2"])
-            vars.append(config.DUCT_VALUES["b_8"] / min(config.DUCT_VALUES["y_t"], np.sqrt(-2 * config.DUCT_VALUES["x_t"] * config.DUCT_VALUES["r_LE"] / 3)) if min(config.DUCT_VALUES["y_t"], np.sqrt(-2 * config.DUCT_VALUES["x_t"] * config.DUCT_VALUES["r_LE"] / 3)) > 0 else 0)
-            vars.append(config.DUCT_VALUES["b_15"])
-            vars.append(config.DUCT_VALUES["b_17"])
-            vars.append(config.DUCT_VALUES["x_t"])
-            vars.append(config.DUCT_VALUES["y_t"])
-            vars.append(config.DUCT_VALUES["x_c"])
-            vars.append(config.DUCT_VALUES["y_c"])
-            vars.append(config.DUCT_VALUES["z_TE"])
-            vars.append(config.DUCT_VALUES["dz_TE"])
-            vars.append(config.DUCT_VALUES["r_LE"])
-            vars.append(config.DUCT_VALUES["trailing_wedge_angle"])
-            vars.append(config.DUCT_VALUES["trailing_camberline_angle"])
-            vars.append(config.DUCT_VALUES["leading_edge_direction"])
-            vars.append(config.DUCT_VALUES["Chord Length"])
-            vars.append(config.DUCT_VALUES["Leading Edge Coordinates"][0])
+                    # If the duct is to be optimised, read the reference values into the design vector
+                    vector.append(config.DUCT_VALUES["b_0"])
+                    vector.append(config.DUCT_VALUES["b_2"])
+                    vector.append(map_b8_value(config.DUCT_VALUES))
+                    vector.append(config.DUCT_VALUES["b_15"])
+                    vector.append(config.DUCT_VALUES["b_17"])
+                    vector.append(config.DUCT_VALUES["x_t"])
+                    vector.append(config.DUCT_VALUES["y_t"])
+                    vector.append(config.DUCT_VALUES["x_c"])
+                    vector.append(config.DUCT_VALUES["y_c"])
+                    vector.append(config.DUCT_VALUES["z_TE"])
+                    vector.append(config.DUCT_VALUES["dz_TE"])
+                    vector.append(config.DUCT_VALUES["r_LE"])
+                    vector.append(config.DUCT_VALUES["trailing_wedge_angle"])
+                    vector.append(config.DUCT_VALUES["trailing_camberline_angle"])
+                    vector.append(config.DUCT_VALUES["leading_edge_direction"])
+                    vector.append(config.DUCT_VALUES["Chord Length"])
+                    vector.append(config.DUCT_VALUES["Leading Edge Coordinates"][0])
 
+        for i in range(config.NUM_STAGES):
+            # If the blade rows are to be optimised, read the reference values into the design vector
+            if config.OPTIMIZE_STAGE[i]:
+                # Read the reference values into the design vector
+                for j in range(config.NUM_RADIALSECTIONS[i]):
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["b_0"])
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["b_2"])
+                    vector.append(map_b8_value(config.STAGE_DESIGN_VARIABLES[i][j]))
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["b_15"])
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["b_17"])
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["x_t"])
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["y_t"])
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["x_c"])
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["y_c"])
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["z_TE"])
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["dz_TE"])
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["r_LE"])
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["trailing_wedge_angle"])
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["trailing_camberline_angle"])
+                    vector.append(config.STAGE_DESIGN_VARIABLES[i][j]["leading_edge_direction"])
 
-        # Change vars from a list to a dictionary to match the expected structure of pymoo
+        for i in range(config.NUM_STAGES):
+            # If the blade rows are to be optimised, read the reference values into the design vector
+            if config.OPTIMIZE_STAGE[i]:
+                # Read the reference values into the design vector
+                vector.append(config.STAGE_BLADING_PARAMETERS[i]["root_LE_coordinate"])
+                vector.append(int(config.STAGE_BLADING_PARAMETERS[i]["blade_count"]))
+                vector.append(config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle"])
+                vector.append(np.max(config.STAGE_BLADING_PARAMETERS[i]["radial_stations"]))  # The interfaces uses the radial locations, but the design varable is the blade radius!
+
+                for j in range(config.NUM_RADIALSECTIONS[i]):
+                    vector.append(config.STAGE_BLADING_PARAMETERS[i]["chord_length"][j])
+                for j in range(config.NUM_RADIALSECTIONS[i]):
+                    vector.append(config.STAGE_BLADING_PARAMETERS[i]["sweep_angle"][j])
+                for j in range(config.NUM_RADIALSECTIONS[i]):
+                    vector.append(config.STAGE_BLADING_PARAMETERS[i]["blade_angle"][j])
+
+        # Change vector from a list to a dictionary to match the expected structure of pymoo
         keys = list(self.design_vector.keys())
-        vars = {key: value for key, value in zip(keys, vars)}
+        vector = {key: value for key, value in zip(keys, vector)}
 
-        return vars
+        return vector
                                
 
     def GenerateBiasedPopulation(self) -> Population:
@@ -194,7 +199,7 @@ class InitPopulation():
             """ Apply perturbation while keeping values within bounds. """
             lower_spread = value * config.SPREAD_CONTINUOUS[0]
             upper_spread = value * config.SPREAD_CONTINUOUS[1]        
-            return max(bounds[0], min(bounds[1], random.uniform(value - lower_spread, value + upper_spread)))
+            return max(bounds[0], min(bounds[1], value + random.uniform(-lower_spread, upper_spread)))
 
         def apply_integer_spread(value: int,
                                  bounds: tuple[int, int]) -> int:
@@ -241,11 +246,9 @@ class InitPopulation():
         - pop : Population|MixedVariableSampling
             The initial population for the optimisation problem as a pymoo Population object or a MixedVariableSampling object.
             The type of population is determined by the `type` parameter.
+            - For "biased" type: Returns a fully initialised Population object ready for optimisation.
+            - For "random" type: Returns a MixedVariableSampling strategy object that Pymoo will use to generate the population. 
         """
-
-        # Use either: 
-        # - A biased population where we introduce some perturbations around a known design vector
-        # - A random population where we sample the design vector uniformly across the bounds
 
         if self.type == "biased":
             # Generate a biased population based on an existing solution
@@ -260,10 +263,11 @@ class InitPopulation():
     
 
 if __name__ == "__main__":
-    import time
-    start_time = time.time()
     test = InitPopulation("biased")
-    print(test.GeneratePopulation())
-    print(f"Generation took: {time.time() - start_time} seconds")
 
+    biased_pop = test.GeneratePopulation()
+    print("Biased Population:", biased_pop)
 
+    test = InitPopulation("random")
+    random_pop = test.GeneratePopulation()
+    print("Random Population:", random_pop)

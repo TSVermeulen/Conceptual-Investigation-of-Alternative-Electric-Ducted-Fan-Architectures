@@ -331,7 +331,7 @@ class MTSOL_call:
                                         )
         
         # Initialize output reader thread
-        self.output_queue = queue.Queue()
+        self.output_queue = queue.Queue(maxsize=1000)
 
         def output_reader(out, q):
             """ Helper function to read the output on a separate thread """
@@ -396,25 +396,15 @@ class MTSOL_call:
         self.StdinWrite("")
     
 
-    def ToggleViscous(self,
-                      surface_IDs: list[int] = None
-                      ) -> None:
+    def ToggleViscous(self) -> None:
         """
-        Toggle the viscous setting for the centrebody by setting the inlet Reynolds number. 
+        Toggle the viscous setting for all surfaces by setting the inlet Reynolds number. 
         Note that the Reynolds number must be defined using the MTFLOW reference length LREF. 
-
-        Parameters
-        ----------
-        - surface_IDs : list[int], optional
-            List of surface IDs which are to be toggled to viscous
 
         Returns
         -------
         None
         """
-
-        if surface_IDs is None:
-            surface_IDs = [3, 4]
 
         # Enter the Modify solution parameters menu
         self.StdinWrite("m")
@@ -425,21 +415,13 @@ class MTSOL_call:
         # Wait for completion of processing operating condition change
         self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
 
-        # Ensure all viscous toggles are disabled
-        for ID in surface_IDs:
-            # First check current state of the surface
-            flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)
-            # Success indicates the surface is viscous, so for any surface whose flag is success, toggle the surface to disable the viscous option.
-            if flag == ExitFlag.SUCCESS:
-                self.StdinWrite(f"V{ID}")
-                flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)
-
         # Exit the Modify solution parameters menu
         self.StdinWrite("")
 
 
     def SetViscous(self,
                    surface_ID: list[int] | int,
+                   mode: str = "enable"
                    ) -> None:
         """
         Set the viscous toggle for the given surface identifier.
@@ -448,11 +430,20 @@ class MTSOL_call:
         ----------
         - surface_ID : list[int] | int
             IDs of the surface which are to be toggled. For a ducted fan, the ID should be either 1, 3, or 4. 
+        - mode : str, optional
+            Optional string to determine which toggling mode to use: enable or disable.
         
         Returns
         -------
         None
         """
+
+        if mode == "enable":
+            lookfor_flag = ExitFlag.COMPLETED
+        elif mode == "disable":
+            lookfor_flag = ExitFlag.SUCCESS
+        else:
+            raise ValueError(f"Unknown mode in SetViscous: {mode}")
 
         # Input validation to format surface_ID into a list if a pure integer is provided
         if isinstance(surface_ID, int):
@@ -466,7 +457,7 @@ class MTSOL_call:
             # First check the current state of the surface
             flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)
             # Toggle if not already enabled, since completed indicates the surface is inviscid
-            if flag == ExitFlag.COMPLETED:
+            if flag == lookfor_flag:
                 self.StdinWrite(f"V{ID}")
                 flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)           
 
@@ -511,7 +502,6 @@ class MTSOL_call:
             # Read the output from the output thread
             try:
                 line = self.output_queue.get(timeout=0.025)
-                print(line)
             except queue.Empty:
                 if self.process.poll() is not None:
                     return ExitFlag.CRASH
@@ -823,7 +813,7 @@ class MTSOL_call:
                 break
             
             #Execute iteration
-            self.StdinWrite("x 1")
+            self.StdinWrite("x1")
 
             # Wait for current iteration to complete
             self.WaitForCompletion(completion_type=CompletionType.ITERATION)
@@ -933,8 +923,8 @@ class MTSOL_call:
 
 
     def TryExecuteViscousSolver(self,
-                         surface_ID: list[int]|int = None,
-                         ) -> ExitFlag:
+                                surface_ID: list[int]|int = None,
+                                ) -> ExitFlag:
         """
         Try to execute the MTSOL solver for the current analysis on the viscous surface surface_ID.
 
@@ -953,7 +943,7 @@ class MTSOL_call:
             # Reload the MTSOL statefile if MTSOL is still active, otherwise restart MTSOL
             if getattr(self, "process", None) and self.process.poll() is None:
                 # Return it to the main menu. Initial 0 is to exit iteration menu if relevant
-                self.StdinWrite("0 \n \n \n \n \n")
+                self.StdinWrite("0 \n")
 
                 # Reload the state file 
                 self.StdinWrite("R")
@@ -962,7 +952,8 @@ class MTSOL_call:
 
             # Set viscous if surface_ID is given
             if surface_ID is not None:
-                self.SetViscous(surface_ID)
+                self.SetViscous(surface_ID,
+                                mode="enable")
 
             # Execute the solver and get the exit flag and iteration count
             exit_flag = self.ExecuteSolver()
@@ -1003,6 +994,8 @@ class MTSOL_call:
         failed_surfaces = []
 
         # Execute the initial viscous solve, where we only solve for the boundary layer on the centerbody
+        self.SetViscous([3, 4],
+                        mode="disable")  # Disable the duct viscous surfaces
         exit_flag_visc_CB = self.TryExecuteViscousSolver(surface_ID=1)
         if exit_flag_visc_CB in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
             # if the viscous CB solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
@@ -1073,12 +1066,9 @@ class MTSOL_call:
         if generate_output:
             # Update the statefile with the operating conditions
             self.WriteStateFile()
-            # Write empty forces file
-            self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
-        else:
-            # If we don't want to generate output, we still need to create the forces file to ensure post-processing of results does not fail
-            # However, we don't need to update the statefile with the operating conditions
-            self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
+        
+        # Even if we don't want to generate output, we still need to create the forces file to ensure post-processing of results does not fail
+        self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
 
         # Execute inviscid solve
         try:
@@ -1106,9 +1096,11 @@ class MTSOL_call:
         # This is acceptable, as we assume a steady state residual case has formed at the end of the inviscid case. 
         # There is a probability that by then running a viscous case, convergence to the correct solution may still be obtained.
         if run_viscous and total_exit_flag in (ExitFlag.SUCCESS, ExitFlag.COMPLETED, ExitFlag.NON_CONVERGENCE):
-            # Toggle viscous on the centerbody and the inner and outer duct surfaces
-            self.ToggleViscous()
-            self.SetViscous([3, 4])
+            # Toggle viscous on all surfaces
+            self.ToggleViscous()  # Turn on viscous
+
+            # Update the state file
+            self.WriteStateFile()
 
             # Update the iteration limit
             self.ITER_LIMIT = self.ITER_LIMIT_VISC

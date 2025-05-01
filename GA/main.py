@@ -49,7 +49,6 @@ import config
 import datetime
 import os
 import sys
-import time
 
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
@@ -58,17 +57,16 @@ from init_population import InitPopulation
 parent_dir = str(Path(__file__).resolve().parent.parent)
 submodels_dir =  str(Path(__file__).resolve().parent.parent / "Submodels")
 
-def worker_init(parent_dir_str: str,
-                submodels_path_str: str) -> None:
+def worker_init() -> None:
     """
     Initializer for each worker process in the pool. Ensures sys.path and environment variables are set up for imports.
     """
     # Add the parent and submodels paths to the system path if they are not already in the path
-    if parent_dir_str not in sys.path:
-        sys.path.append(parent_dir_str)
+    if parent_dir not in sys.path:
+        sys.path.append(parent_dir)
 
-    if submodels_path_str not in sys.path:
-        sys.path.append(submodels_path_str)
+    if submodels_dir not in sys.path:
+        sys.path.append(submodels_dir)
 
 
 if __name__ == "__main__":
@@ -77,17 +75,13 @@ if __name__ == "__main__":
         multiprocessing.set_start_method('spawn', force=True)
     
     """ Initialize the thread pool and create the runner """
-    total_threads = multiprocessing.cpu_count()
-    RESERVED_THREADS = min(1, total_threads // 5 ) # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
-    total_threads_avail = (total_threads - RESERVED_THREADS) // 2  # Divide by 2 as each MTFLOW evaluation uses 2 threads: one for running MTSET/MTSOL/MTFLO and one for polling outputs
-
     n_processes = 1  # Use 1 worker
     with multiprocessing.Manager() as manager:
         shared_cache = manager.dict()  # Initialize shared cache
 
         with multiprocessing.Pool(processes=n_processes,
-                                initializer=worker_init,
-                                initargs=(parent_dir, submodels_dir)) as pool:
+                                  initializer=worker_init,
+                                  initargs=()) as pool:
 
             # Create runner
             runner = StarmapParallelization(pool.starmap)
@@ -100,7 +94,8 @@ if __name__ == "__main__":
 
             # Initialize the algorithm
             algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
-                                        sampling=InitPopulation(population_type="biased").GeneratePopulation())
+                                        sampling=InitPopulation(population_type="biased",
+                                                                seed=42).GeneratePopulation())
 
             # Run the optimization
             res = minimize(problem,

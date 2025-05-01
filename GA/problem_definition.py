@@ -419,7 +419,7 @@ class OptimizationProblem(ElementwiseProblem):
                                          out=out)
 
         # Cleanup the generated files
-        self.CleanUpFiles()
+        # self.CleanUpFiles()
 
         # Add result to cache
         if self.cache is not None:

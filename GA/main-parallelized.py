@@ -58,17 +58,16 @@ from init_population import InitPopulation
 parent_dir = str(Path(__file__).resolve().parent.parent)
 submodels_dir =  str(Path(__file__).resolve().parent.parent / "Submodels")
 
-def worker_init(parent_dir_str: str,
-                submodels_path_str: str) -> None:
+def worker_init() -> None:
     """
     Initializer for each worker process in the pool. Ensures sys.path and environment variables are set up for imports.
     """
     # Add the parent and submodels paths to the system path if they are not already in the path
-    if parent_dir_str not in sys.path:
-        sys.path.append(parent_dir_str)
+    if parent_dir not in sys.path:
+        sys.path.append(parent_dir)
 
-    if submodels_path_str not in sys.path:
-        sys.path.append(submodels_path_str)
+    if submodels_dir not in sys.path:
+        sys.path.append(submodels_dir)
 
 
 if __name__ == "__main__":
@@ -87,7 +86,7 @@ if __name__ == "__main__":
 
         with multiprocessing.Pool(processes=n_processes,
                                 initializer=worker_init,
-                                initargs=(parent_dir, submodels_dir)) as pool:
+                                initargs=()) as pool:
 
             # Create runner
             runner = StarmapParallelization(pool.starmap)
@@ -100,7 +99,8 @@ if __name__ == "__main__":
 
             # Initialize the algorithm
             algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
-                                        sampling=InitPopulation(population_type="biased").GeneratePopulation())
+                                        sampling=InitPopulation(population_type="biased",
+                                                                seed=42).GeneratePopulation())
 
             # Run the optimization
             res = minimize(problem,
