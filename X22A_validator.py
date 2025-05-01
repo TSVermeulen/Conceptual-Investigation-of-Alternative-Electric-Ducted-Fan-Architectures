@@ -74,7 +74,7 @@ def GenerateMTFLOBlading(Omega: float,
     """
 
     # Start defining the MTFLO blading inputs
-    propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, "reference_section_blade_angle": np.deg2rad(20), "blade_count": 3, "radial_stations": np.array([0.1, 
+    propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, "reference_section_blade_angle": np.deg2rad(20), "blade_count": 3, "radial_stations": np.array([0, 
                                                                                                                                                                                                                       0.2,
                                                                                                                                                                                                                       0.3, 
                                                                                                                                                                                                                       0.4,
@@ -83,7 +83,7 @@ def GenerateMTFLOBlading(Omega: float,
                                                                                                                                                                                                                       0.7, 
                                                                                                                                                                                                                       0.8,
                                                                                                                                                                                                                       0.9,
-                                                                                                                                                                                                                      1]) * FAN_DIAMETER / 2, 
+                                                                                                                                                                                                                      1]).astype(float) * FAN_DIAMETER / 2, 
                                                                                                                                                                                     "chord_length": np.array([0.3510,
                                                                                                                                                                                                               0.3510,
                                                                                                                                                                                                               0.3152,
@@ -93,7 +93,7 @@ def GenerateMTFLOBlading(Omega: float,
                                                                                                                                                                                                               0.2367,
                                                                                                                                                                                                               0.2309,
                                                                                                                                                                                                               0.2251,
-                                                                                                                                                                                                              0.2205]), 
+                                                                                                                                                                                                              0.2205]).astype(float), 
                                                                                                                                                                                     "blade_angle": np.array([np.deg2rad(53.6),
                                                                                                                                                                                                              np.deg2rad(53.6), 
                                                                                                                                                                                                              np.deg2rad(46.8),
@@ -103,7 +103,7 @@ def GenerateMTFLOBlading(Omega: float,
                                                                                                                                                                                                              np.deg2rad(22.3),
                                                                                                                                                                                                              np.deg2rad(19.1),
                                                                                                                                                                                                              np.deg2rad(16.8),
-                                                                                                                                                                                                             np.deg2rad(15.5)])}
+                                                                                                                                                                                                             np.deg2rad(15.5)]).astype(float)}
     
     horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 4, "radial_stations": np.array([0.05, 
                                                                                                                                                                                     1]) * 1.15, 
@@ -142,7 +142,10 @@ def GenerateMTFLOBlading(Omega: float,
 
         # Compute sweep such that the midchord line is constant.
         local_LE = root_mid_chord - (blading_parameters[0]["chord_length"][i] / 2) * np.cos(rotation_angle)
-        sweep_angle[i] = np.atan((local_LE - root_LE) / (blading_parameters[0]["radial_stations"][i]))      
+        if blading_parameters[0]["radial_stations"][i] != 0:
+            sweep_angle[i] = np.atan((local_LE - root_LE) / (blading_parameters[0]["radial_stations"][i]))
+        else:
+            sweep_angle[i] = 0
     blading_parameters[0]["sweep_angle"] = sweep_angle
     
     # Create plot of the propeller blade

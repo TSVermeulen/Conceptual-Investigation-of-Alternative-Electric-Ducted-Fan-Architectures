@@ -240,7 +240,8 @@ class MTSOL_call:
         # Define constants for the class
         self.ITER_STEP_SIZE = 2  # Step size in which iterations are performed in MTSOL
         self.SAMPLE_SIZE = 10  # Number of iterations to use to average over in case of non-convergence. 
-        self.ITER_LIMIT = 75  # Maximum number of iterations to perform before non-convergence is assumed.
+        self.ITER_LIMIT_INVISC = 50  # Maximum number of iterations to perform before non-convergence is assumed in an inviscid solution.
+        self.ITER_LIMIT_VISC = 50  # Maximum number of iterations to perform before non-convergence is assumed in a viscous solution
 
         # Define key paths/directories
         self.parent_dir = Path(__file__).resolve().parent.parent
@@ -510,6 +511,7 @@ class MTSOL_call:
             # Read the output from the output thread
             try:
                 line = self.output_queue.get(timeout=0.025)
+                print(line)
             except queue.Empty:
                 if self.process.poll() is not None:
                     return ExitFlag.CRASH
@@ -648,7 +650,7 @@ class MTSOL_call:
         exit_flag = ExitFlag.NOT_PERFORMED
 
         # Keep converging until the iteration count exceeds the limit
-        while (self.iter_counter < self.ITER_LIMIT) and (exit_flag not in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH)):
+        while (self.iter_counter <= self.ITER_LIMIT) and (exit_flag not in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH)):
             #Execute next iteration(s)
             self.StdinWrite(f"x {self.ITER_STEP_SIZE}")
              
@@ -815,6 +817,11 @@ class MTSOL_call:
     
         # Keep looping until iter_count exceeds the target value for number of iterations to average 
         while iter_counter < self.SAMPLE_SIZE:
+            # First check if subprocess is still alive. If the solver has crashed, restart and break the loop. 
+            if self.process.poll() is not None:
+                self.GenerateProcess()
+                break
+            
             #Execute iteration
             self.StdinWrite("x 1")
 
@@ -850,6 +857,8 @@ class MTSOL_call:
 
         # Remove the now unnecessary output files in the dump folder
         self.CleanupOutputFiles()
+
+        return ExitFlag.NON_CONVERGENCE
 
 
     def CleanupOutputFiles(self) -> None:
@@ -1072,7 +1081,8 @@ class MTSOL_call:
             self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
 
         # Execute inviscid solve
-        try:  
+        try:
+            self.ITER_LIMIT = self.ITER_LIMIT_INVISC  # Set the appropriate iteration limit  
             exit_flag_invisc = self.ExecuteSolver()
         except (OSError, BrokenPipeError):
             # If the inviscid solve crashes, we need to set the exit flag to crash
@@ -1099,6 +1109,9 @@ class MTSOL_call:
             # Toggle viscous on the centerbody and the inner and outer duct surfaces
             self.ToggleViscous()
             self.SetViscous([3, 4])
+
+            # Update the iteration limit
+            self.ITER_LIMIT = self.ITER_LIMIT_VISC
             
             # First we try to run a complete viscous case. Only if this doesn't work and causes a crash do we try to converge each surface individually
             try:

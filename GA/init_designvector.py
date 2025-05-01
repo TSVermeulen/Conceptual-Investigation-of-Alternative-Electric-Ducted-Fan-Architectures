@@ -103,7 +103,7 @@ class DesignVector():
         for i in range(cfg.NUM_STAGES):
             # If (any of) the rotor/stator stage(s) are to be optimised, initialise the variable types
             if cfg.OPTIMIZE_STAGE[i]:
-                for _ in range(cfg.NUM_RADIALSECTIONS):
+                for _ in range(cfg.NUM_RADIALSECTIONS[i]):
                     vars.append(Real(bounds=(0, 1)))  # b_0
                     vars.append(Real(bounds=(0, 0.5)))  # b_2
                     vars.append(Real(bounds=(0.05, 1)))  # mapping variable for b_8
@@ -127,11 +127,11 @@ class DesignVector():
                 vars.append(Real(bounds=(-np.pi/4, np.pi/4)))  # ref_blade_angle
                 vars.append(Real(bounds=(0, 1.5)))  # blade radius
 
-                for _ in range(cfg.NUM_RADIALSECTIONS): 
+                for _ in range(cfg.NUM_RADIALSECTIONS[i]): 
                     vars.append(Real(bounds=(0.05, 0.5)))  # chord length
-                for _ in range(cfg.NUM_RADIALSECTIONS): 
+                for _ in range(cfg.NUM_RADIALSECTIONS[i]): 
                     vars.append(Real(bounds=(0, np.pi/3)))  # sweep_angle
-                for _ in range(cfg.NUM_RADIALSECTIONS): 
+                for _ in range(cfg.NUM_RADIALSECTIONS[i]): 
                     vars.append(Real(bounds=(-np.pi/4, np.pi/4)))  # blade_angle
 
         # For a mixed-variable problem, PyMoo expects the vars to be a dictionary, so we convert vars to a dictionary.

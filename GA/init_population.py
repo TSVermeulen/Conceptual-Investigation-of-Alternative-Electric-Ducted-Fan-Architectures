@@ -114,7 +114,7 @@ class InitPopulation():
             # If the blade rows are to be optimised, read the reference values into the design vector
             if config.OPTIMIZE_STAGE[i]:
                 # Read the reference values into the design vector
-                for j in range(config.NUM_RADIALSECTIONS):
+                for j in range(config.NUM_RADIALSECTIONS[i]):
                     vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["b_0"])
                     vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["b_2"])
                     vars.append(config.STAGE_DESIGN_VARIABLES[i][j]["b_8"] / min(config.STAGE_DESIGN_VARIABLES[i][j]["y_t"], np.sqrt(-2 * config.STAGE_DESIGN_VARIABLES[i][j]["x_t"] * config.STAGE_DESIGN_VARIABLES[i][j]["r_LE"] / 3)) if min(config.STAGE_DESIGN_VARIABLES[i][j]["y_t"], np.sqrt(-2 * config.STAGE_DESIGN_VARIABLES[i][j]["x_t"] * config.STAGE_DESIGN_VARIABLES[i][j]["r_LE"] / 3)) > 0 else 0)
@@ -140,11 +140,11 @@ class InitPopulation():
                 vars.append(config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle"])
                 vars.append(np.max(config.STAGE_BLADING_PARAMETERS[i]["radial_stations"]))  # The interfaces uses the radial locations, but the design varable is the blade radius!
 
-                for j in range(config.NUM_RADIALSECTIONS):
+                for j in range(config.NUM_RADIALSECTIONS[i]):
                     vars.append(config.STAGE_BLADING_PARAMETERS[i]["chord_length"][j])
-                for j in range(config.NUM_RADIALSECTIONS):
+                for j in range(config.NUM_RADIALSECTIONS[i]):
                     vars.append(config.STAGE_BLADING_PARAMETERS[i]["sweep_angle"][j])
-                for j in range(config.NUM_RADIALSECTIONS):
+                for j in range(config.NUM_RADIALSECTIONS[i]):
                     vars.append(config.STAGE_BLADING_PARAMETERS[i]["blade_angle"][j])
 
         if config.OPTIMIZE_DUCT:

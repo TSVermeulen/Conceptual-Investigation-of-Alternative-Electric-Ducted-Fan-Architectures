@@ -77,41 +77,42 @@ if __name__ == "__main__":
         multiprocessing.set_start_method('spawn', force=True)
     
     """ Initialize the thread pool and create the runner """
-    n_processes = 1  
-    pool = multiprocessing.Pool(processes=n_processes,
+    total_threads = multiprocessing.cpu_count()
+    RESERVED_THREADS = min(1, total_threads // 5 ) # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
+    total_threads_avail = (total_threads - RESERVED_THREADS) // 2  # Divide by 2 as each MTFLOW evaluation uses 2 threads: one for running MTSET/MTSOL/MTFLO and one for polling outputs
+
+    n_processes = 1  # Use 1 worker
+    with multiprocessing.Manager() as manager:
+        shared_cache = manager.dict()  # Initialize shared cache
+
+        with multiprocessing.Pool(processes=n_processes,
                                 initializer=worker_init,
-                                initargs=(parent_dir, submodels_dir))
+                                initargs=(parent_dir, submodels_dir)) as pool:
 
-    # Create runner
-    runner = StarmapParallelization(pool.starmap)
+            # Create runner
+            runner = StarmapParallelization(pool.starmap)
 
-    """ Initialize the optimization problem and algorithm """
-    # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
-    problem = OptimizationProblem(elementwise_runner=runner,
-                                  seed=42)
+            """ Initialize the optimization problem and algorithm """
+            # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
+            problem = OptimizationProblem(elementwise_runner=runner,
+                                          seed=42,
+                                          cache=shared_cache)
 
-    # Initialize the algorithm
-    algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
-                                sampling=InitPopulation(population_type="biased").GeneratePopulation())
+            # Initialize the algorithm
+            algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
+                                        sampling=InitPopulation(population_type="biased").GeneratePopulation())
 
-    # Run the optimization
-    start_time = time.time()
-    res = minimize(problem,
-                   algorithm,
-                   termination=('n_gen', config.MAX_GENERATIONS),
-                   seed=42,
-                   verbose=True,
-                   save_history=False,  # If True, generates a very large history object, which is bad for memory usage. Only set to true for small cases!
-                   return_least_infeasible=True)
-    elapsed_time = time.time() - start_time
-
-    # Close the thread pool to free up resources
-    pool.close()
-    pool.join()
+            # Run the optimization
+            res = minimize(problem,
+                        algorithm,
+                        termination=('n_gen', config.MAX_GENERATIONS),
+                        seed=42,
+                        verbose=True,
+                        save_history=True,
+                        return_least_infeasible=True)
 
     # Print some performance metrics
-    print(f"Optimization completed in {elapsed_time:.2f} seconds")
-    print(f"Average time per generation: {elapsed_time/min(res.n_gen, config.MAX_GENERATIONS):.2f} seconds")
+    print(f"Optimization completed in {res.exec_time:.2f} seconds")
 
     """ Save the results to a dill file for future reference """
     # This avoids needing to re-run the optimization if the results are needed later.

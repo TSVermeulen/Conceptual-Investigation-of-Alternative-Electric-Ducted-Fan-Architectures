@@ -248,11 +248,13 @@ class MTSET_call:
         """
 
         # Control smoothing process, including detection when further smoothing is no longer needed
-        while True:
+        smoothing_pass = 0
+        while smoothing_pass <= 30:
             self.StdinWrite("e")  # Execute elliptic smoothing continue command
             
             # Collect console output from MTSET, stopping when the end of the menu is reached
             interface_output = self.WaitForMainMenu()
+            smoothing_pass += 1
             
             # Find the index of 'Pass 10' (i.e. the final pass of the smoothing process). Checks from the back of the list
             pass_10_index = next((i for i, s in reversed(list(enumerate(interface_output))) if 'Pass          10' in s), -1)
