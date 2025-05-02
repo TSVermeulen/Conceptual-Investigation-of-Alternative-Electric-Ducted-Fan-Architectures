@@ -298,19 +298,21 @@ class MTSOL_call:
         Python file. 
         """
 
-        # Add a shutdown event to signal thread termination
-        self.shutdown_event = threading.Event()
+        # Add a shutdown event to signal thread termination or reset the existing one
+        if not hasattr(self, "shutdown_event"):
+            self.shutdown_event = threading.Event()
+        else:
+            self.shutdown_event.clear()
 
         # Stop any orphaned reader threads if they exist before starting the new subprocess
         if getattr(self, "reader", None) and self.reader.is_alive():
             # Signal the thread to stop
             self.shutdown_event.set()
+            time.sleep(0.1)  # Give the thread some time to exit cleanly before force closing
             try:
-                if getattr(self, "process", None):  # As last resort, force-close stdout
+                if self.reader.is_alive() and getattr(self, "process", None):
                     self.process.stdout.close()
-                self.reader.join(timeout=5)
-                if self.reader.is_alive():
-                    print("Warning: Reader thread could not be joined within timeout")     
+                self.reader.join(timeout=5)  
             except Exception as e:
                 print(f"Error cleaning up reader thread: {e}")
 

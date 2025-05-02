@@ -215,18 +215,20 @@ class OptimizationProblem(ElementwiseProblem):
         for file_type in file_types:
             # Construct filepath
             file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
+
+            if not file_path.exists():
+                continue
             
-            if file_path.exists():
-                # Archive the state file if it exists
-                if file_type == "tdat": 
-                    copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-                    try:
-                        os.replace(file_path, copied_file)
-                    except OSError:
-                        shutil.move(file_path, copied_file)
-                else:
-                    # Cleanup all temporary files
-                    file_path.unlink(missing_ok=True)
+            # Archive the state file
+            if file_type == "tdat": 
+                copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
+                try:
+                    os.replace(file_path, copied_file)
+                except OSError:
+                    shutil.move(file_path, copied_file)
+            else:
+                # Cleanup all temporary files
+                file_path.unlink(missing_ok=True)
 
 
     def ComputeDuctRadialLocation(self) -> None:
