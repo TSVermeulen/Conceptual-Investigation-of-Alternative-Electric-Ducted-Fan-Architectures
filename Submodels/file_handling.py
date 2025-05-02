@@ -389,7 +389,7 @@ class fileHandling:
         def __init__(self, 
                      case_name: str,
                      ref_length: float,
-                     centerbody_rotor_thickness: float = 0.1,
+                     centerbody_rotor_thickness: float = 0.18,
                      ) -> None:
             """
             Initialize the fileHandlingMTFLO class.
@@ -439,7 +439,7 @@ class fileHandling:
             -------
             None
             """
-
+            
             thickness_limit = 2 * np.pi * local_radius / blade_count
             if local_thickness >= thickness_limit and local_radius > self.CENTERBODY_ROTOR_THICKNESS:
                 raise ValueError(f"The cumulative blade thickness exceeds the complete blockage limit of 2PIr at r={local_radius}")
