@@ -124,7 +124,7 @@ class FileCreatedHandling(FileSystemEventHandler):
         while (time.monotonic() - start_time) < timeout:
             if self.is_file_free(file_path):
                 return True
-            time.sleep(min(0.25, 0.01 * (1 + int((time.monotonic - start_time) // 5))))
+            time.sleep(min(0.1, 0.01 * (1 + int((time.monotonic - start_time) // 5))))
         return False
         
 
@@ -489,7 +489,7 @@ class MTSOL_call:
 
         # Define an exponential time_delay function to limit CPU usage while the solver is working
         def sleep_time(delta_t: float) -> float:
-            return min(0.25, 0.01 * (1 + int(delta_t // 5)))
+            return min(0.1, 0.01 * (1 + int(delta_t // 5)))
 
         # Check the console output to ensure that commands are completed
         timer_start = time.monotonic()
@@ -597,8 +597,13 @@ class MTSOL_call:
             self.GenerateProcess()
 
         # Dump the forces data
+        forces_path_str = self.FILE_TEMPLATES['forces'].format(self.analysis_name)
         self.StdinWrite("F")
-        self.StdinWrite(self.FILE_TEMPLATES['forces'].format(self.analysis_name)) 
+        if Path(forces_path_str).exists():
+            self.StdinWrite(forces_path_str) 
+            self.StdinWrite("Y")  # Overwrite existing file
+        else:
+            self.StdinWrite(forces_path_str) 
         
         # Check if the forces file is written successfully
         self.WaitForCompletion(completion_type=CompletionType.OUTPUT,
@@ -608,16 +613,26 @@ class MTSOL_call:
             return
 
         # Dump the flowfield data
+        flowfield_path_str = self.FILE_TEMPLATES['flowfield'].format(self.analysis_name)
         self.StdinWrite("D")
-        self.StdinWrite(self.FILE_TEMPLATES['flowfield'].format(self.analysis_name))
+        if Path(flowfield_path_str).exists():
+            self.StdinWrite(flowfield_path_str)
+            self.StdinWrite("Y")  # Overwrite existing file
+        else:
+            self.StdinWrite(flowfield_path_str)
 
         # Check if the flowfield file is written successfully
         self.WaitForCompletion(completion_type=CompletionType.OUTPUT,
                                output_file='flowfield')  
 
         # Dump the boundary layer data
+        boundary_layer_path_str = self.FILE_TEMPLATES['boundary_layer'].format(self.analysis_name)
         self.StdinWrite("B")
-        self.StdinWrite(self.FILE_TEMPLATES['boundary_layer'].format(self.analysis_name))
+        if Path(boundary_layer_path_str).exists():
+            self.StdinWrite(boundary_layer_path_str)
+            self.StdinWrite("Y")  # Overwrite existing file
+        else:
+            self.StdinWrite(boundary_layer_path_str)
 
         # Check if the boundary layer file is written successfully
         self.WaitForCompletion(completion_type=CompletionType.OUTPUT,
@@ -943,7 +958,7 @@ class MTSOL_call:
             # Reload the MTSOL statefile if MTSOL is still active, otherwise restart MTSOL
             if getattr(self, "process", None) and self.process.poll() is None:
                 # Return it to the main menu. Initial 0 is to exit iteration menu if relevant
-                self.StdinWrite("0 \n")
+                self.StdinWrite("\n 0 \n")
 
                 # Reload the state file 
                 self.StdinWrite("R")
@@ -1083,6 +1098,10 @@ class MTSOL_call:
                                 handle_type='Inviscid',
                                 update_statefile=generate_output)
             total_exit_flag = exit_flag_invisc
+
+            if generate_output:
+                # Generate the requested solver outputs based on output_type
+                self.GenerateSolverOutput(output_type=output_type)
         
         if not run_viscous: 
             # Using handle_type="inviscid" bypasses the handle non-convergence loop. 
@@ -1120,17 +1139,18 @@ class MTSOL_call:
                 self.HandleExitFlag(exit_flag_visc, 
                                     handle_type='Viscous',
                                     update_statefile=generate_output)
-
-        if generate_output:
-            # Generate the requested solver outputs based on output_type
-            self.GenerateSolverOutput(output_type=output_type)
+                
+                if generate_output:
+                    # Generate the requested solver outputs based on output_type
+                    self.GenerateSolverOutput(output_type=output_type)
         
         # Close the MTSOL tool
         # If no output is generated, need to write an additional white line to close MTSOL
-        self.StdinWrite("Q")
-        if not generate_output:
-            self.process.stdin.write("\n")
-        self.process.stdin.flush()
+        # Initial newline char to ensure MTSOL remains in main menu
+        if self.process.poll is None:
+            self.StdinWrite("\n Q")
+            if not generate_output:
+                self.StdinWrite("\n")
 
         # Check that MTSOL has closed successfully. If not, forcefully closes MTSOL
         if self.process.poll() is None:
@@ -1139,7 +1159,6 @@ class MTSOL_call:
             except subprocess.TimeoutExpired:
                 self.process.kill()
 
-              
         return total_exit_flag
 
 

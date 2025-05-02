@@ -186,16 +186,6 @@ class OptimizationProblem(ElementwiseProblem):
         # Multiplied by -1 to comply with sign convention in MTFLOW. 
         self.oper["Omega"] = float((-self.oper["RPS"] * np.pi * 2 * self.Lref) / (self.oper["Vinl"]))
 
-
-    def SetOmega(self) -> None:
-        """
-        A simple function to correctly set the rotational rate Omega in the blading list(s).
-
-        Returns
-        -------
-        None
-        """
-
         rotating = config.ROTATING
         for i, blading_params in enumerate(self.blade_blading_parameters):
             if rotating[i]:
@@ -225,17 +215,16 @@ class OptimizationProblem(ElementwiseProblem):
         for file_type in file_types:
             # Construct filepath
             file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-
-            # Archive the state file if it exists
-            if file_type == "tdat": 
-                if file_path.exists():
+            
+            if file_path.exists():
+                # Archive the state file if it exists
+                if file_type == "tdat": 
                     copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
                     try:
                         os.replace(file_path, copied_file)
                     except OSError:
                         shutil.move(file_path, copied_file)
-            else:
-                if file_path.exists():
+                else:
                     # Cleanup all temporary files
                     file_path.unlink(missing_ok=True)
 
@@ -305,42 +294,50 @@ class OptimizationProblem(ElementwiseProblem):
                 self.blade_blading_parameters[i]["radial_stations"] = self.blade_blading_parameters[i]["radial_stations"] / r_old * LE_coordinate_duct
 
 
-    def CheckBlades(self) -> None:
+    def GenerateMTFLOWInputs(self) -> bool:
         """
-        Function to check the validity of the blade geometry by evaluating the blade parameters at each radial section.
-        Simply constructs the blade profile x,y for each section of each stage. If there is any invalid section, it will throw an error, which will be catched by the try-except block in _evaluate.
+        Generates the input files required for the MTFLOW simulation.
+        This method creates the necessary input files for the MTFLOW simulation by utilizing the 
+        `fileHandling` class from the `Submodels.file_handling` module. It generates two input files:
+        - walls.analysis_name: The MTSET input file, which contains the axisymmetric geometries.
+        - tflow.analysis_name: The MTFLO blading input file, which contains the blading and design parameters.
 
         Returns
         -------
-        None
-        """
+        - output_generated: bool
+            - True if the input files were successfully generated, False if a ValueError occurred 
+              during the process (indicating potential interpolation issues or infeasible axisymmetric bodies).
+        
+        """   
 
-        for i in range(self.num_stages):
-            if config.OPTIMIZE_STAGE[i]:
-                for j in range(self.num_radial[i]):
-                    blade_section = self.blade_design_parameters[i][j]
-                    self.Parameterization.ComputeProfileCoordinates([blade_section["b_0"],
-                                                                     blade_section["b_2"],
-                                                                     blade_section["b_8"],
-                                                                     blade_section["b_15"],
-                                                                     blade_section["b_17"]],
-                                                                     blade_section)
+        # Lazy import the file_handling class
+        from Submodels.file_handling import fileHandling
 
+        # Create a file_handling parent-class instance
+        file_handler = fileHandling()
 
-    def CheckCenterbody(self) -> None:
-        """
-        Function to check the validity of the centerbody geometry by evaluating the profile x,y. If the design is invalid, it will throw a ValueError, 
-        which will be catched by the try-except block in _evaluate
-        """
+        # Generate the MTSET input file containing the axisymmetric geometries and the MTFLO blading input file
+        try:
+            self.ComputeDuctRadialLocation()  # First compute the duct radial location and update the duct variable dictionary
 
-        if config.OPTIMIZE_CENTERBODY:
-           self.Parameterization.ComputeProfileCoordinates([self.centerbody_variables["b_0"],
-                                                            self.centerbody_variables["b_2"],
-                                                            self.centerbody_variables["b_8"],
-                                                            self.centerbody_variables["b_15"],
-                                                            self.centerbody_variables["b_17"]],
-                                                            self.centerbody_variables)
-                  
+            file_handler.fileHandlingMTSET(params_CB=self.centerbody_variables,
+                                           params_duct=self.duct_variables,
+                                           case_name=self.analysis_name,
+                                           ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
+            
+            file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
+                                           ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
+                                                                                    design_params=self.blade_design_parameters)  # Generate the MTFLO input file
+            
+            output_generated =  True  # If both input generation routines succeeded, set output_generated to True
+
+        except ValueError:
+            # Any value error that might occur while generating the MTSET input file will be caused by interpolation issues arising from the input values, so 
+            # this is an efficient and simple method to check if the axisymmetric bodies are feasible. 
+            output_generated = False  # If any of the input generation routines raised an error, set output_generated to False
+        
+        return output_generated
+        
 
     def _evaluate(self, 
                   x:dict, 
@@ -377,31 +374,20 @@ class OptimizationProblem(ElementwiseProblem):
         self.oper = config.oper.copy()
         self.ComputeReynolds()
         self.ComputeOmega()
-        self.SetOmega()
         
-        # Check validity of the duct, centerbody and blades
-        design_okay = True
-        try:
-            self.ComputeDuctRadialLocation()
-            self.CheckBlades()
-            self.CheckCenterbody()
-        except ValueError:
-            # If a value error occurs with interpolation of the duct surface, this is an indication that the duct geometry is invalid. so we can set a crash flag and skip the MTFLOW analysis
-            design_okay = False
+        # Generate the MTFLOW input files.
+        # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector. 
+        design_okay = self.GenerateMTFLOWInputs()
 
         # Initialize the MTFLOW caller class
         if design_okay:
             MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
-                                            centrebody_params=self.centerbody_variables,
-                                            duct_params=self.duct_variables,
-                                            blading_parameters=self.blade_blading_parameters,
-                                            design_parameters=self.blade_design_parameters,
-                                            ref_length=self.Lref,
-                                            analysis_name=self.analysis_name,
-                                            **kwargs)
+                                             ref_length=self.Lref,
+                                             analysis_name=self.analysis_name,
+                                             **kwargs)
 
             # Run MTFLOW
-            MTFLOW_interface.caller(external_inputs=False,
+            MTFLOW_interface.caller(external_inputs=True,
                                     output_type=OutputType.FORCES_ONLY)
 
             # Extract outputs

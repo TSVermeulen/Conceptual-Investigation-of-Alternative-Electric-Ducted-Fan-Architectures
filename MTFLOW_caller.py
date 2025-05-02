@@ -121,10 +121,6 @@ class MTFLOW_caller:
 
     def __init__(self,
                  operating_conditions: dict,
-                 centrebody_params: dict,
-                 duct_params: dict,
-                 blading_parameters: list[dict],
-                 design_parameters: list[dict],
                  ref_length: float,
                  analysis_name: str,
                  **kwargs
@@ -137,39 +133,40 @@ class MTFLOW_caller:
         Parameters
         ----------
         - operating_conditions : dict
-            A dictionary containing at least the following entries: Inlet_Mach, Inlet_Reynolds, N_crit, i.e. the inlet Mach number, Reynolds number, and critical amplification factor N
-        - centrebody_params : dict
-                Dictionary containing parameters for the centerbody.
-        - duct_params : dict
-            Dictionary containing parameters for the duct.
-        - blading_parameters : list[dict]
-            List containing the blading parameters for each stage. Each dictionary should include the following keys:
-                - "root_LE_coordinate": The leading edge coordinate at the root of the blade.
-                - "rotational_rate": The rotational rate of the blade.
-                - "blade_count": The number of blades.
-                - "radial_stations": List of the radial stations along the blade span.
-                - "chord_length": List of the chord length distribution along the blade span.
-                - "sweep_angle": List of the sweep angle distribution along the blade span.
-                - "blade_angle": List of the blade angle distribution along the blade span.
-                - "ref_blade_angle": The measured set angle at the reference section (in radians).
-                - "reference_section_blade_angle": The actual reference blade angle at the reference section (in radians).
-        - design_parameters : list[list[dict]]
-            List containing an equal number of nested lists as there are stages. Each nested list contains an equal number of dictionaries as there are radial stations. 
-            Each dictionary must contain the following keys:
-                - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
-                - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
-                - "z_TE", "dz_TE": Trailing edge parameters.
-                - "r_LE": Leading edge radius.
-                - "trailing_wedge_angle": Trailing wedge angle.
-                - "trailing_camberline_angle": Trailing camberline angle.
-                - "leading_edge_direction": Leading edge direction.
-                - "Chord Length": The chord length of the blade.
+            A dictionary containing at least the following entries: Inlet_Mach, Inlet_Reynolds, N_crit, i.e. the inlet Mach number, Reynolds number, and critical amplification factor N       
         - ref_length : float
             Reference length used to non-dimensionalise all geometric parameters. By convention, this is equal to the fan diameter. 
         - analysis_name : str
             String of the casename
         - **kwargs : dict, optional
-            Additional keyword arguments. Currently only contains the seed for the random number generator.
+            Additional keyword arguments.
+            - seed
+            - centrebody_params : dict
+                Dictionary containing parameters for the centerbody.
+            - duct_params : dict
+                Dictionary containing parameters for the duct.
+            - blading_parameters : list[dict]
+                List containing the blading parameters for each stage. Each dictionary should include the following keys:
+                    - "root_LE_coordinate": The leading edge coordinate at the root of the blade.
+                    - "rotational_rate": The rotational rate of the blade.
+                    - "blade_count": The number of blades.
+                    - "radial_stations": List of the radial stations along the blade span.
+                    - "chord_length": List of the chord length distribution along the blade span.
+                    - "sweep_angle": List of the sweep angle distribution along the blade span.
+                    - "blade_angle": List of the blade angle distribution along the blade span.
+                    - "ref_blade_angle": The measured set angle at the reference section (in radians).
+                    - "reference_section_blade_angle": The actual reference blade angle at the reference section (in radians).
+            - design_parameters : list[list[dict]]
+                List containing an equal number of nested lists as there are stages. Each nested list contains an equal number of dictionaries as there are radial stations. 
+                Each dictionary must contain the following keys:
+                    - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
+                    - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
+                    - "z_TE", "dz_TE": Trailing edge parameters.
+                    - "r_LE": Leading edge radius.
+                    - "trailing_wedge_angle": Trailing wedge angle.
+                    - "trailing_camberline_angle": Trailing camberline angle.
+                    - "leading_edge_direction": Leading edge direction.
+                    - "Chord Length": The chord length of the blade.
 
         Returns
         -------
@@ -179,10 +176,6 @@ class MTFLOW_caller:
         # Unpack class inputs
         self.operating_conditions = operating_conditions
         self.analysis_name = analysis_name
-        self.blading_parameters = blading_parameters
-        self.design_parameters = design_parameters
-        self.centrebody_params = centrebody_params
-        self.duct_params = duct_params
         self.ref_length = ref_length
 
         # Set the seed for the random number generator to ensure repeatability. 
@@ -196,6 +189,7 @@ class MTFLOW_caller:
     def caller(self,
                external_inputs: bool = False,
                output_type: OutputType = OutputType.FORCES_ONLY,
+               **kwargs
                ) -> ExitFlag:
         """ 
         Executes a complete MTSET-MTFLO-MTSOL evaluation, while handling grid issues and choking issues. 
@@ -224,14 +218,16 @@ class MTFLOW_caller:
             # --------------------
             # First step is generating the MTSET input file - walls.analysis_name
             # --------------------
-
-            # Define filehandling class instance to enable reuse later on when generating the MTFLO input file
-            file_handler = fileHandling()
+            #            
             if not external_inputs:
-                file_handler.fileHandlingMTSET(params_CB=self.centrebody_params,
-                                               params_duct=self.duct_params,
-                                               case_name=self.analysis_name,
-                                               ref_length=self.ref_length).GenerateMTSETInput()
+                self.centrebody_params = kwargs.get('centrebody_params', None)
+                self.duct_params = kwargs.get('duct_params', None)
+                self.blading_parameters = kwargs.get('blading_parameters', None)
+                self.design_parameters = kwargs.get('design_parameters')
+                fileHandling().fileHandlingMTSET(params_CB=self.centrebody_params,
+                                                 params_duct=self.duct_params,
+                                                 case_name=self.analysis_name,
+                                                 ref_length=self.ref_length).GenerateMTSETInput()
                 
             # --------------------
             # Check the grid by running a simple, fan-less, inviscid low-Mach case. If there is an issue with the grid MTSOL will crash
@@ -286,9 +282,9 @@ class MTFLOW_caller:
             # Generate the MTFLO input file tflow.analysis_name
             # --------------------
             if not external_inputs and exit_flag != ExitFlag.CRASH:
-                file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
-                                               ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
-                                                                                              design_params=self.design_parameters)
+                fileHandling().fileHandlingMTFLO(case_name=self.analysis_name,
+                                                 ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
+                                                                                                design_params=self.design_parameters)
             
             # --------------------
             # Execute MTSOl solver
