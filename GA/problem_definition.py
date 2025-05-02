@@ -128,6 +128,9 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Initialize the AirfoilParameterization class for slightly better memory usage
         self.Parameterization = AirfoilParameterization()
+
+        # Initialize cache
+        self.cache = kwargs.pop('cache', None)
                 
 
     def GenerateAnalysisName(self) -> str:
@@ -353,9 +356,6 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Construct key for design vector in cache
         key = tuple(sorted(x.items()))
-
-        # Obtain current cache
-        self.cache = kwargs.pop('cache', None)
 
         # Check if key in cache
         if self.cache is not None and key in self.cache:
