@@ -248,9 +248,9 @@ class DesignVectorInterface:
             if self.optimize_stages[i]:
                 # If the stage is to be optimized, read in the design vector for the blading parameters
                 stage_blading_parameters["root_LE_coordinate"] = vget(idx)
-                stage_blading_parameters["ref_blade_angle"] = vget(idx, 2)
+                stage_blading_parameters["ref_blade_angle"] = vget(idx, 1)
                 stage_blading_parameters["reference_section_blade_angle"] = config.REFERENCE_BLADE_ANGLES[i]
-                stage_blading_parameters["blade_count"] = int(round(vget(idx, 1)))
+                stage_blading_parameters["blade_count"] = int(round(vget(idx, 2)))
                 stage_blading_parameters["radial_stations"] = np.linspace(0, 1, self.num_radial[i]) * vget(idx, 3)  # Radial stations are defined as fraction of blade radius * local radius
                 blade_diameters.append(vget(idx, 3) * 2)
 

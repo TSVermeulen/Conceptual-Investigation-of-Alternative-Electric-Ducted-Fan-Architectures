@@ -333,10 +333,11 @@ class OptimizationProblem(ElementwiseProblem):
             
             output_generated =  True  # If both input generation routines succeeded, set output_generated to True
 
-        except ValueError:
+        except ValueError as e:
             # Any value error that might occur while generating the MTSET input file will be caused by interpolation issues arising from the input values, so 
             # this is an efficient and simple method to check if the axisymmetric bodies are feasible. 
             output_generated = False  # If any of the input generation routines raised an error, set output_generated to False
+            print(f"Invalid design vector encountered: {e}")
         
         return output_generated
         

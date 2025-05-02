@@ -162,8 +162,8 @@ class InitPopulation():
             if config.OPTIMIZE_STAGE[i]:
                 # Read the reference values into the design vector
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["root_LE_coordinate"])
+                vector.append(config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle"]) 
                 vector.append(int(config.STAGE_BLADING_PARAMETERS[i]["blade_count"]))
-                vector.append(config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle"])
                 vector.append(np.max(config.STAGE_BLADING_PARAMETERS[i]["radial_stations"]))  # The interfaces uses the radial locations, but the design varable is the blade radius!
 
                 for j in range(config.NUM_RADIALSECTIONS[i]):

@@ -220,9 +220,9 @@ class MTFLOW_caller:
             # --------------------
             #            
             if not external_inputs:
-                self.centrebody_params = kwargs.get('centrebody_params', None)
-                self.duct_params = kwargs.get('duct_params', None)
-                self.blading_parameters = kwargs.get('blading_parameters', None)
+                self.centrebody_params = kwargs.get('centrebody_params')
+                self.duct_params = kwargs.get('duct_params')
+                self.blading_parameters = kwargs.get('blading_parameters')
                 self.design_parameters = kwargs.get('design_parameters')
                 fileHandling().fileHandlingMTSET(params_CB=self.centrebody_params,
                                                  params_duct=self.duct_params,
