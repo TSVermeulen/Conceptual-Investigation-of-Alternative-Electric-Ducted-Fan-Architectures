@@ -125,8 +125,6 @@ def GenerateMTFLOBlading(Omega: float,
         The non-dimensional rotational speed of the rotor, as defined in the MTFLOW documentation in units of Vinl/Lref
     - ref_blade_angle : float
         The blade set angle, in radians. 
-    - plot : bool
-        A control boolean to determine whether the propeller blade geometry is plotted.
     
     Returns
     -------
@@ -141,39 +139,37 @@ def GenerateMTFLOBlading(Omega: float,
     from Submodels.Parameterizations import AirfoilParameterization
 
     # Start defining the MTFLO blading inputs
-    propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, "reference_section_blade_angle": np.deg2rad(20), "blade_count": 3, "radial_stations": np.array([0., 
-                                                                                                                                                                                                                                    0.3, 
-                                                                                                                                                                                                                                    0.5,
-                                                                                                                                                                                                                                    0.7,
-                                                                                                                                                                                                                                    1]).astype(float) * BLADE_DIAMETERS[0] / 2, 
-                                                                                                                                                                                    "chord_length": np.array([0.3510,
-                                                                                                                                                                                                              0.3152, 
-                                                                                                                                                                                                              0.2528,
-                                                                                                                                                                                                              0.2367,
-                                                                                                                                                                                                              0.2205]).astype(float), 
-                                                                                                                                                                                    "blade_angle": np.array([np.deg2rad(53.6), 
-                                                                                                                                                                                                             np.deg2rad(46.8),
-                                                                                                                                                                                                             np.deg2rad(32.3),
-                                                                                                                                                                                                             np.deg2rad(22.3),
-                                                                                                                                                                                                             np.deg2rad(15.5)]).astype(float)}
+    radial_stations = np.array([0., 0.3, 0.5, 0.7, 1]).astype(float) * BLADE_DIAMETERS[0] / 2
+    chord_length = np.array([0.3510, 0.3152, 0.2528, 0.2367, 0.2205]).astype(float)
+    blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(46.8), np.deg2rad(32.3), np.deg2rad(22.3), np.deg2rad(15.5)]).astype(float)
+    propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
+                            "rotational_rate": Omega, 
+                            "ref_blade_angle": ref_blade_angle, 
+                            "reference_section_blade_angle": np.deg2rad(20), 
+                            "blade_count": 3, 
+                            "radial_stations": radial_stations, 
+                            "chord_length": chord_length, 
+                            "blade_angle": blade_angle}
     
-    horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 4, "radial_stations": np.array([0., 
-                                                                                                                                                                                    1]) * 1.15, 
-                                                                                                                                                                                    "chord_length": np.array([0.57658,
-                                                                                                                                                                                                              0.14224]), 
-                                                                                                                                                                                    "blade_angle": np.array([np.deg2rad(90),
-                                                                                                                                                                                                             np.deg2rad(90)]),
-                                                                                                                                                                                    "sweep_angle": np.array([0,
-                                                                                                                                                                                                             0])}
+    horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, 
+                                   "rotational_rate": 0, 
+                                   "ref_blade_angle": 0, 
+                                   "reference_section_blade_angle": 0, 
+                                   "blade_count": 4, 
+                                   "radial_stations": np.array([0., 1]) * 1.15, 
+                                   "chord_length": np.array([0.57658, 0.14224]), 
+                                   "blade_angle": np.array([np.deg2rad(90), np.deg2rad(90)]),
+                                   "sweep_angle": np.array([0, 0])}
     
-    diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 2, "radial_stations": np.array([0., 
-                                                                                                                                                                                    1]) * 1.15, 
-                                                                                                                                                                                    "chord_length": np.array([0.10287,
-                                                                                                                                                                                                              0.10287]), 
-                                                                                                                                                                                    "blade_angle": np.array([np.deg2rad(90),
-                                                                                                                                                                                                             np.deg2rad(90)]),
-                                                                                                                                                                                    "sweep_angle": np.array([0,
-                                                                                                                                                                                                             0])}
+    diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, 
+                                 "rotational_rate": 0, 
+                                 "ref_blade_angle": 0, 
+                                 "reference_section_blade_angle": 0, 
+                                 "blade_count": 2, 
+                                 "radial_stations": np.array([0., 1]) * 1.15, 
+                                 "chord_length": np.array([0.10287, 0.10287]), 
+                                 "blade_angle": np.array([np.deg2rad(90), np.deg2rad(90)]),
+                                 "sweep_angle": np.array([0, 0])}
     
     # Construct blading list
     blading_parameters = [propeller_parameters,
@@ -293,7 +289,7 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
 
 # Define the population size
 POPULATION_SIZE = 50
-INIT_POPULATION_SIZE = 50  # Initial population size for the first generation
+INIT_POPULATION_SIZE = 20  # Initial population size for the first generation
 MAX_GENERATIONS = 20
 
 

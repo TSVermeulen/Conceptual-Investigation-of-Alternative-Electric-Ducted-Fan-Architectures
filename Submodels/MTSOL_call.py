@@ -1149,7 +1149,7 @@ class MTSOL_call:
         # Close the MTSOL tool
         # If no output is generated, need to write an additional white line to close MTSOL
         # Initial newline char to ensure MTSOL remains in main menu
-        if self.process.poll is None:
+        if self.process.poll() is None:
             self.StdinWrite("\n Q")
             if not generate_output:
                 self.StdinWrite("\n")

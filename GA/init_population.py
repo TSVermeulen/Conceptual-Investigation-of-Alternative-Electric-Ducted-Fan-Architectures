@@ -83,8 +83,7 @@ class InitPopulation():
 
         # Set the seed for the random number generator to ensure reproducibility
         seed = kwargs.get("seed", 1)
-        random.seed(seed)
-        np.random.seed(seed)
+        self._rng = random.Random(seed)
 
 
     def DeconstructDictFromReferenceDesign(self) -> dict:
@@ -199,12 +198,12 @@ class InitPopulation():
             """ Apply perturbation while keeping values within bounds. """
             lower_spread = value * config.SPREAD_CONTINUOUS[0]
             upper_spread = value * config.SPREAD_CONTINUOUS[1]        
-            return max(bounds[0], min(bounds[1], value + random.uniform(-lower_spread, upper_spread)))
+            return max(bounds[0], min(bounds[1], value + self._rng.uniform(-lower_spread, upper_spread)))
 
         def apply_integer_spread(value: int,
                                  bounds: tuple[int, int]) -> int:
             """ Apply spread for the integer variable while keeping bounds. """
-            return max(bounds[0], min(bounds[1], value + random.randint(config.SPREAD_DISCRETE[0], config.SPREAD_DISCRETE[1])))
+            return max(bounds[0], min(bounds[1], value + self._rng.randint(config.SPREAD_DISCRETE[0], config.SPREAD_DISCRETE[1])))
         
         # Generate the initial population
         pop_dict = [None] * config.INIT_POPULATION_SIZE
