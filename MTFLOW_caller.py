@@ -123,6 +123,7 @@ class MTFLOW_caller:
                  operating_conditions: dict,
                  ref_length: float,
                  analysis_name: str,
+                 run_viscous: bool = True,
                  **kwargs
                  ) -> None:
         """
@@ -138,6 +139,8 @@ class MTFLOW_caller:
             Reference length used to non-dimensionalise all geometric parameters. By convention, this is equal to the fan diameter. 
         - analysis_name : str
             String of the casename
+        - run_viscous : bool, optional
+            Optional control boolean to determine if a viscous or inviscid analysis should be performed. Default is True.
         - **kwargs : dict, optional
             Additional keyword arguments.
             - seed
@@ -184,6 +187,9 @@ class MTFLOW_caller:
         # Define key paths/directories
         self.parent_dir = Path(__file__).resolve().parent
         self.submodels_path = self.parent_dir / "Submodels"
+
+        # Define control boolean for the viscous analysis
+        self.run_visc = run_viscous
 
 
     def caller(self,
@@ -295,9 +301,9 @@ class MTFLOW_caller:
 
                 # Execute MTSOL    
                 exit_flag = MTSOL_call(operating_conditions=self.operating_conditions,
-                                    analysis_name=self.analysis_name).caller(run_viscous=True,
-                                                                                generate_output=True,
-                                                                                output_type=output_type)
+                                    analysis_name=self.analysis_name).caller(run_viscous=self.run_visc,
+                                                                             generate_output=True,
+                                                                             output_type=output_type)
                 
         return exit_flag
 
