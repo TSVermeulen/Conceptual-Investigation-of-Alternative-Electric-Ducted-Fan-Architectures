@@ -74,6 +74,12 @@ class InitPopulation():
         - population_type : str
             A string indicating the type of population to generate. Either 'biased' or 'random'.
             "biased" will generate a population with perturbed individuals based on a reference design, while "random" will generate a random population.
+        - **kwargs : dict[str, Any]
+            Additional keyword arguments
+
+        Returns
+        -------
+        None
         """
 
         self.type = population_type
@@ -84,12 +90,17 @@ class InitPopulation():
         # Set the seed for the random number generator to ensure reproducibility
         seed = kwargs.get("seed", 1)
         self._rng = random.Random(seed)
+        np.random.seed(seed)
 
 
     def DeconstructDictFromReferenceDesign(self) -> dict:
         """
         Deconstruct the reference design vector dictionaries back into a pymoo design vector.
         This is used to create the initial population for the optimisation problem.
+
+        Parameters
+        ----------
+        None
 
         Returns
         -------
@@ -183,6 +194,10 @@ class InitPopulation():
         """
         Generate the initial population for the optimisation problem based on an existing solution.
 
+        Parameters
+        ----------
+        None
+
         Returns
         -------
         - pop : Population
@@ -196,8 +211,9 @@ class InitPopulation():
         def apply_real_spread(value: float, 
                               bounds: tuple[float, float]) -> float:
             """ Apply perturbation while keeping values within bounds. """
-            lower_spread = value * config.SPREAD_CONTINUOUS[0]
-            upper_spread = value * config.SPREAD_CONTINUOUS[1]        
+            span = bounds[1] - bounds[0]
+            lower_spread = span * config.SPREAD_CONTINUOUS[0]
+            upper_spread = span * config.SPREAD_CONTINUOUS[1]        
             return max(bounds[0], min(bounds[1], value + self._rng.uniform(-lower_spread, upper_spread)))
 
         def apply_integer_spread(value: int,
@@ -240,6 +256,10 @@ class InitPopulation():
         - A biased population where we introduce some perturbations around a known initial design vector
         - A random population where we sample the design vector uniformly across the bounds
 
+        Parameters
+        ----------
+        None
+        
         Returns
         -------
         - pop : Population|MixedVariableSampling

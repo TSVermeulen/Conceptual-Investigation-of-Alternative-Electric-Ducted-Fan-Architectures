@@ -46,6 +46,7 @@ if parent_path not in sys.path:
 if submodels_path not in sys.path:
     sys.path.append(submodels_path)
 
+from Submodels.Parameterizations import AirfoilParameterization
 
 # Define a context manager for GenerateMTFLOBlading to ensure the working directory is set correctly
 @contextmanager
@@ -146,8 +147,6 @@ def GenerateMTFLOBlading(Omega: float,
             A list containing dictionaries with the design parameters for each radial station.
     """
 
-    from Submodels.Parameterizations import AirfoilParameterization
-
     # Start defining the MTFLO blading inputs
     radial_stations = np.array([0., 1]).astype(float) * 1.0668
     chord_length = np.array([0.3510, 0.2205]).astype(float)
@@ -208,28 +207,23 @@ def GenerateMTFLOBlading(Omega: float,
 
     # Obtain the parameterizations for the profile sections. 
     local_dir_path = Path('Validation/Profiles')
-    R02_fpath = local_dir_path / 'X22_02R.dat'
+    R00_fpath = local_dir_path / 'X22_02R.dat'
     R03_fpath = local_dir_path / 'X22_03R.dat'
-    R04_fpath = local_dir_path / 'X22_04R.dat'
     R05_fpath = local_dir_path / 'X22_05R.dat'
-    R06_fpath = local_dir_path / 'X22_06R.dat'
     R07_fpath = local_dir_path / 'X22_07R.dat'
-    R08_fpath = local_dir_path / 'X22_08R.dat'
-    R09_fpath = local_dir_path / 'X22_09R.dat'
     R10_fpath = local_dir_path / 'X22_10R.dat'
     Hstrut_fpath = local_dir_path / 'Hstrut.dat'
     Dstrut_fpath = local_dir_path / 'Dstrut.dat'
 
-    filenames = [R02_fpath, R03_fpath, R04_fpath, R05_fpath, R06_fpath, R07_fpath, R08_fpath, R09_fpath, R10_fpath, Hstrut_fpath, Dstrut_fpath]
+    filenames = [R00_fpath, R03_fpath, R05_fpath, R07_fpath, R10_fpath, Hstrut_fpath, Dstrut_fpath]
 
     # First check if all files are present
     missing_files = [f for f in filenames if not f.exists()]
     if missing_files:
         raise FileNotFoundError(f"Missing files: {', '.join(map(str, missing_files))}")
 
-    # Compute parameterization for the airfoil section at r=0.2R
-    # Note that we keep this section constant for r=0.1R and r=0.15R and equal to that of r=0.2R
-    R01_section = AirfoilParameterization().FindInitialParameterization(reference_file=R02_fpath,
+    # Compute parameterization for the airfoil section at r=0R
+    R00_section = AirfoilParameterization().FindInitialParameterization(reference_file=R00_fpath,
                                                                         plot=False)
     # Compute parameterization for the airfoil section at r=0.3R
     R03_section = AirfoilParameterization().FindInitialParameterization(reference_file=R03_fpath,
@@ -251,7 +245,7 @@ def GenerateMTFLOBlading(Omega: float,
                                                                            plot=False)
 
     # Construct blading list
-    design_parameters = [[R01_section, R03_section, R05_section, R07_section, R10_section],
+    design_parameters = [[R00_section, R03_section, R05_section, R07_section, R10_section],
                          [Hstrut_section, Hstrut_section],
                          [Dstrut_section, Dstrut_section]]
 

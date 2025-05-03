@@ -58,13 +58,13 @@ class DesignVectorInterface:
     and to deconstruct the design vector dictionary x into the expected "sub"-dictionaries required to use the MTFLOW interface """
     
     def __init__(self,
-                 x_dict: dict[str, float|int]) -> None:
+                 x_dict: dict[str, float | int]) -> None:
         """
         Initialization of the DesignVectorInterface class
 
         Parameters
         ----------
-        - x_dict : dict[str, float|int]
+        - x_dict : dict[str, float | int]
             The Pymoo design vector dictionary
 
         Returns
@@ -87,7 +87,7 @@ class DesignVectorInterface:
     def GetValueFromVector(self,
             base_idx: int,
             offset: int = 0,
-            default=None) -> float|int:
+            default=None) -> float | int:
         """ 
         Simple function to extract the variable at base_idx + offset in the pymoo design vector dictionary.
 
@@ -154,8 +154,9 @@ class DesignVectorInterface:
         lower_x += duct_variables["Leading Edge Coordinates"][0]
 
         # Construct cubic spline interpolant of the duct surface
-        duct_interpolant = interpolate.CubicSpline(lower_x,
-                                                   np.abs(lower_y),  # Take absolute value of y-coordinates since we need the distance, not the actual coordinate
+        order = np.argsort(lower_x)  # Defensively sort the x coordinates to avoid a runtime failure
+        duct_interpolant = interpolate.CubicSpline(lower_x[order],
+                                                   np.abs(lower_y)[order],  # Take absolute value of y-coordinates since we need the distance, not the actual coordinate
                                                    extrapolate=False) 
 
         rot_flags = config.ROTATING
@@ -168,7 +169,6 @@ class DesignVectorInterface:
             # Extract blading and blade radius
             blading = blade_blading_parameters[i]
             y_tip = blading["radial_stations"][-1]
-            print(y_tip)
 
             # Compute the LE and TE x-coordinates of the tip section
             sweep = np.tan(blading["sweep_angle"][-1])
@@ -231,8 +231,8 @@ class DesignVectorInterface:
 
             term = -2 * r_le * x_t / 3
             sqrt_term = 0 if term <= 0 else np.sqrt(term)
-
-            return b_8_map * min(y_t, sqrt_term)
+            factor = min(y_t, sqrt_term)
+            return b_8_map * factor
 
         # Define a pointer to count the number of variable parameters
         idx = 0
@@ -367,11 +367,9 @@ class DesignVectorInterface:
             blade_blading_parameters.append(stage_blading_parameters)
 
         # Compute the updated duct and blading parameters
-        print(blade_blading_parameters)
         duct_variables, blade_blading_parameters = self.ComputeDuctRadialLocation(duct_variables=duct_variables,
                                                                                   blade_blading_parameters=blade_blading_parameters)
-        print(blade_blading_parameters)
-        print("=========================================================")
+
         # Write the reference length for MTFLOW
         Lref = blade_blading_parameters[0]["radial_stations"][-1]
 

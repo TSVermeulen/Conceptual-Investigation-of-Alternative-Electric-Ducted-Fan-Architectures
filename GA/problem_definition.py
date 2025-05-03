@@ -43,6 +43,7 @@ Changelog:
 - V1.2: Extracted design vector handling to separate file/class
 """
 
+# Import standard libraries
 import os
 import sys
 import numpy as np
@@ -50,6 +51,8 @@ import shutil
 import uuid
 from pathlib import Path
 import datetime
+
+# Import 3rd party libraries
 from pymoo.core.problem import ElementwiseProblem
 
 # Add the parent and submodels paths to the system path if they are not already in the path
@@ -90,6 +93,11 @@ class OptimizationProblem(ElementwiseProblem):
         """
         Initialization of the OptimizationProblem class. 
 
+        Parameters
+        ----------
+        - **kwargs : dict[str, Any]
+            Additional keyword arguments
+
         Returns
         -------
         None
@@ -128,7 +136,7 @@ class OptimizationProblem(ElementwiseProblem):
         self.cache = kwargs.pop('cache', None)
                 
 
-    def GenerateAnalysisName(self) -> str:
+    def GenerateAnalysisName(self) -> None:
         """
         Generate a unique analysis name with a length of 32 characters.
         This is required to enable multi-threading of the optimization problem, and log each state file,
@@ -136,8 +144,8 @@ class OptimizationProblem(ElementwiseProblem):
 
         Returns
         -------
-        - analysis_name : str
-            A unique analysis name based on the current date and time and a unique identifier.
+        - None
+            The analysis_name is written to self.
         """
 
         # Generate a timestamp string in the format MMDDHHMMSS
@@ -151,9 +159,7 @@ class OptimizationProblem(ElementwiseProblem):
         process_id = os.getpid() % 10000  # 4 chars max
 
         # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>. with a maximum total length of 32 characters
-        analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)[:32]
-        
-        return analysis_name
+        self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)[:32]
 
 
     def ComputeReynolds(self) -> None:
@@ -237,12 +243,14 @@ class OptimizationProblem(ElementwiseProblem):
         - walls.analysis_name: The MTSET input file, which contains the axisymmetric geometries.
         - tflow.analysis_name: The MTFLO blading input file, which contains the blading and design parameters.
 
+        By generating the input files, validation of the design vector is performed, since an infeasible design vector 
+        will raise a ValueError (somewhere) in the input generation method.
+
         Returns
         -------
         - output_generated: bool
             - True if the input files were successfully generated, False if a ValueError occurred 
               during the process (indicating potential interpolation issues or infeasible axisymmetric bodies).
-        
         """   
 
         # Lazy import the file_handling class
@@ -281,6 +289,22 @@ class OptimizationProblem(ElementwiseProblem):
                   **kwargs) -> None:
         """
         Element-wise evaluation function.
+
+        Parameters
+        ----------
+        - x : dict
+            The pymoo design vector dictionary.
+        - out : dict
+            The pymoo elementwise evaluation output dictionary.
+        - *args : tuple
+            Additional arguments
+        - **kwargs : dict[str, Any]
+            Additional keyword arguments
+
+        Returns
+        -------
+        - None
+            The output dictionary is modified in-place. 
         """
 
         # Construct key for design vector in cache
@@ -297,14 +321,14 @@ class OptimizationProblem(ElementwiseProblem):
         from Submodels.output_handling import output_processing
         
         # Generate a unique analysis name
-        self.analysis_name = self.GenerateAnalysisName()
+        self.GenerateAnalysisName()
         
         # Deconstruct the design vector
-        self.centerbody_variables, 
-        self.duct_variables, 
-        self.blade_design_parameters, 
-        self.blade_blading_parameters, 
-        self.Lref = DesignVectorInterface(x).DeconstructDesignVector()
+        (self.centerbody_variables, 
+         self.duct_variables, 
+         self.blade_design_parameters, 
+         self.blade_blading_parameters, 
+         self.Lref) = DesignVectorInterface(x).DeconstructDesignVector()
 
         # Compute the necessary inputs (Reynolds, Omega)
         self.oper = config.oper.copy()

@@ -35,9 +35,12 @@ Changelog:
 - V1.0: Initial implementation. Extracted from the problem_definition.py file for better modularity and readability.
 """
 
+# Import standard libraries
 import numpy as np
-from pymoo.core.variable import Real, Integer
 from types import ModuleType
+
+# Import 3rd party libraries
+from pymoo.core.variable import Real, Integer
 
 class DesignVector():
     """
@@ -91,10 +94,9 @@ class DesignVector():
         vector = []
         if cfg.OPTIMIZE_CENTERBODY:
             # If the centerbody is to be optimised, initialise the variable types
-            profile = profile_section_vars()
-            for n in reversed([0, 1, 4, 7, 8, 9, 13, 14]):
-                # For the centerbody, remove the unwanted variables
-                profile.pop(n)
+            complete_profile = profile_section_vars()
+            centerbody_var_indices = [2, 3, 5, 6, 10, 11, 12]
+            profile = [complete_profile[i] for i in centerbody_var_indices]
 
             vector.extend(profile)
             vector.append(Real(bounds=(0.25, 4)))  # Chord Length
