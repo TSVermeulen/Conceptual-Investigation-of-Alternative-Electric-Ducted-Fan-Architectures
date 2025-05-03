@@ -51,7 +51,6 @@ import uuid
 from pathlib import Path
 import datetime
 from pymoo.core.problem import ElementwiseProblem
-from scipy import interpolate
 
 # Add the parent and submodels paths to the system path if they are not already in the path
 parent_path = str(Path(__file__).resolve().parent.parent)
@@ -65,7 +64,6 @@ if submodels_path not in sys.path:
 
 # Import interface submodels and other dependencies
 from Submodels.MTSOL_call import OutputType
-from Submodels.Parameterizations import AirfoilParameterization
 from objectives import Objectives
 from constraints import Constraints
 from init_designvector import DesignVector
@@ -125,9 +123,6 @@ class OptimizationProblem(ElementwiseProblem):
         # Define analysisname template
         self.timestamp_format = "%m%d%H%M%S"
         self.analysis_name_template = "{}_{:04d}_{}"
-
-        # Initialize the AirfoilParameterization class for slightly better memory usage
-        self.Parameterization = AirfoilParameterization()
 
         # Initialize cache
         self.cache = kwargs.pop('cache', None)
@@ -234,71 +229,6 @@ class OptimizationProblem(ElementwiseProblem):
                 file_path.unlink(missing_ok=True)
 
 
-    def ComputeDuctRadialLocation(self) -> None:
-        """
-        Compute the y-coordinate of the LE of the duct based on the design variables. 
-
-        Returns
-        -------
-        None
-        """
-
-        # Initialize data array for the radial duct coordinates
-        radial_duct_coordinates = np.zeros_like(self.blade_diameters)
-
-        # Compute the duct x,y coordinates. Note that we are only interested in the lower surface.
-        _, _, lower_x, lower_y = self.Parameterization.ComputeProfileCoordinates([self.duct_variables["b_0"],
-                                                                                  self.duct_variables["b_2"],
-                                                                                  self.duct_variables["b_8"],
-                                                                                  self.duct_variables["b_15"],
-                                                                                  self.duct_variables["b_17"]],
-                                                                                  self.duct_variables)
-        lower_x = lower_x * self.duct_variables["Chord Length"]
-        lower_y = lower_y * self.duct_variables["Chord Length"]
-
-        # Shift the duct x coordinate to the correct location in space
-        lower_x += self.duct_variables["Leading Edge Coordinates"][0]
-
-        # Construct cubic spline interpolant of the duct surface
-        duct_interpolant = interpolate.CubicSpline(lower_x,
-                                                   np.abs(lower_y),  # Take absolute value of y-coordinates since we need the distance, not the actual coordinate
-                                                   extrapolate=False) 
-
-        rot_flags = config.ROTATING
-        x_min, x_max = lower_x[0], lower_x[-1]
-        tip_gap = config.tipGap
-        for i in range(self.num_stages):
-            blading = self.blade_blading_parameters[i]
-            y_tip = self.blade_diameters[i] / 2
-            if not rot_flags[i]:
-                continue
-        
-            sweep = np.tan(blading["sweep_angle"][-1])
-            x_tip_LE = blading["root_LE_coordinate"] + sweep * y_tip
-            projected_chord = blading["chord_length"][-1] * np.cos(np.pi/2 - 
-                                                                   (blading["blade_angle"][-1] + blading["ref_blade_angle"] - blading["reference_section_blade_angle"]))
-            
-            x_tip_TE = x_tip_LE + projected_chord
-
-            # Compute the offsets for the LE and TE of the blade tip
-            LE_offset = float(duct_interpolant(x_tip_LE)) if x_min <= x_tip_LE <= x_max else 0  # Set to 0 if duct does not lie above LE
-            TE_offset = float(duct_interpolant(x_tip_TE)) if x_min <= x_tip_TE <= x_max else 0  # Set to 0 if duct does not lie above TE
-
-            # Compute the radial location of the duct
-            radial_duct_coordinates[i] = y_tip + tip_gap + max(LE_offset, TE_offset)
-
-        LE_coordinate_duct = np.max(radial_duct_coordinates)
-        # Update the duct variables in self
-        self.duct_variables["Leading Edge Coordinates"] = (self.duct_variables["Leading Edge Coordinates"][0],
-                                                           LE_coordinate_duct)
-        
-        # Set the radius of all stators equal to this y coordinate
-        for i in range(self.num_stages):
-            if not rot_flags[i]:
-                r_old = np.max(self.blade_blading_parameters[i]["radial_stations"])
-                self.blade_blading_parameters[i]["radial_stations"] = self.blade_blading_parameters[i]["radial_stations"] / r_old * LE_coordinate_duct
-
-
     def GenerateMTFLOWInputs(self) -> bool:
         """
         Generates the input files required for the MTFLOW simulation.
@@ -323,8 +253,6 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Generate the MTSET input file containing the axisymmetric geometries and the MTFLO blading input file
         try:
-            self.ComputeDuctRadialLocation()  # First compute the duct radial location and update the duct variable dictionary
-
             file_handler.fileHandlingMTSET(params_CB=self.centerbody_variables,
                                            params_duct=self.duct_variables,
                                            case_name=self.analysis_name,
@@ -372,7 +300,11 @@ class OptimizationProblem(ElementwiseProblem):
         self.analysis_name = self.GenerateAnalysisName()
         
         # Deconstruct the design vector
-        self.centerbody_variables, self.duct_variables, self.blade_design_parameters, self.blade_blading_parameters, self.blade_diameters, self.Lref = DesignVectorInterface(x).DeconstructDesignVector()
+        self.centerbody_variables, 
+        self.duct_variables, 
+        self.blade_design_parameters, 
+        self.blade_blading_parameters, 
+        self.Lref = DesignVectorInterface(x).DeconstructDesignVector()
 
         # Compute the necessary inputs (Reynolds, Omega)
         self.oper = config.oper.copy()

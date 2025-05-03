@@ -92,6 +92,16 @@ oper = {"Inlet_Mach": 0.10285224,
         }
 oper["Vinl"] = atmosphere.speed_of_sound[0] * oper["Inlet_Mach"]
 
+# Define the multi-point operating conditions
+multi_oper = [{"Inlet_Mach": 0.10285225,
+               "N_crit": 9,
+               "RPS": 25.237,
+               "Omega": -9.667},
+               {"Inlet_Mach": 0.25,
+                "N_crit": 9,
+                "RPS": 20,
+                "Omega": -8}]
+
 # Controls for the optimisation vector - CENTERBODY
 OPTIMIZE_CENTERBODY = False  # Control boolean to determine if centerbody should be optimised. If false, code uses the default entry below.
 CENTERBODY_VALUES = {"b_0": 0., "b_2": 0., "b_8": 7.52387039e-02, "b_15": 7.46448823e-01, "b_17": 0., 'x_t': 0.29842005729819904, 'y_t': 0.12533559300869632, 'x_c': 0., 'y_c': 0., 'z_TE': 0., 'dz_TE': 0.00277173368735548, 'r_LE': -0.06946118699675888, 'trailing_wedge_angle': 0.27689037361278407, 'trailing_camberline_angle': 0., 'leading_edge_direction': 0., "Chord Length": 1.5, "Leading Edge Coordinates": (0., 0.)}
@@ -105,7 +115,7 @@ DUCT_VALUES = {'b_0': 0., 'b_2': 0., 'b_8': 0.004081758291374328, 'b_15': 0.735,
 # Controls for the optimisation vector - BLADES
 OPTIMIZE_STAGE = [True, False, False]
 ROTATING = [True, False, False]
-NUM_RADIALSECTIONS = [5, 2, 2]  # Define the number of radial sections at which the blade profiles for each stage will be defined. 
+NUM_RADIALSECTIONS = [2, 2, 2]  # Define the number of radial sections at which the blade profiles for each stage will be defined. 
 NUM_STAGES = 3  # Define the number of stages (i.e. total count of rotors + stators)
 REFERENCE_BLADE_ANGLES = [np.deg2rad(19), 0, 0]  # Reference angles at the reference section (typically 75% of blade span)
 BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
@@ -139,9 +149,9 @@ def GenerateMTFLOBlading(Omega: float,
     from Submodels.Parameterizations import AirfoilParameterization
 
     # Start defining the MTFLO blading inputs
-    radial_stations = np.array([0., 0.3, 0.5, 0.7, 1]).astype(float) * BLADE_DIAMETERS[0] / 2
-    chord_length = np.array([0.3510, 0.3152, 0.2528, 0.2367, 0.2205]).astype(float)
-    blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(46.8), np.deg2rad(32.3), np.deg2rad(22.3), np.deg2rad(15.5)]).astype(float)
+    radial_stations = np.array([0., 1]).astype(float) * 1.0668
+    chord_length = np.array([0.3510, 0.2205]).astype(float)
+    blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(15.5)]).astype(float)
     propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
                             "rotational_rate": Omega, 
                             "ref_blade_angle": ref_blade_angle, 
@@ -289,8 +299,8 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
 
 # Define the population size
 POPULATION_SIZE = 50
-INIT_POPULATION_SIZE = 20  # Initial population size for the first generation
-MAX_GENERATIONS = 20
+INIT_POPULATION_SIZE = 5  # Initial population size for the first generation
+MAX_GENERATIONS = 2
 
 
 # Define the initial population parameter spreads, used to construct a biased initial population 

@@ -37,6 +37,7 @@ Changelog:
 import sys
 import numpy as np
 from pathlib import Path
+from scipy import interpolate
 
 # Add the parent and submodels paths to the system path if they are not already in the path
 parent_path = str(Path(__file__).resolve().parent.parent)
@@ -49,6 +50,7 @@ if submodels_path not in sys.path:
     sys.path.append(submodels_path)
 
 import config
+from Submodels.Parameterizations import AirfoilParameterization
 
 class DesignVectorInterface:
     """ 
@@ -77,6 +79,9 @@ class DesignVectorInterface:
         self.num_radial = config.NUM_RADIALSECTIONS
         self.num_stages = config.NUM_STAGES
         self.optimize_stages = config.OPTIMIZE_STAGE
+
+        # Initialize the AirfoilParameterization class for slightly better memory usage
+        self.Parameterization = AirfoilParameterization()
 
     
     def GetValueFromVector(self,
@@ -108,13 +113,98 @@ class DesignVectorInterface:
             if default is not None:
                 return default
             raise KeyError(f"Design vector key at position {base_idx + offset} missing") from err
+
+
+    def ComputeDuctRadialLocation(self,
+                                  duct_variables: dict,
+                                  blade_blading_parameters: list[dict]) -> tuple[dict, list]:
+        """
+        Compute the y-coordinate of the LE of the duct based on the design variables. 
+
+        Parameters
+        ----------
+        - duct_variables : dict
+            A dictionary containing the duct variables.
+        - blade_blading_parameters : list[dict]
+            The blading parameters for the turbomachinery stage(s).
+
+        Returns
+        -------
+        - tuple:
+            - duct_variables : dict
+                The updated duct variables dictionary containing the updated LE y coordinate.
+            - blade_blading_parameters : list[dict]
+                THe updated blading parameters containing the updated radii of the stator stage(s).
+        """
+
+        # Initialize data array for the radial duct coordinates
+        radial_duct_coordinates = np.zeros(self.num_stages)
+
+        # Compute the duct x,y coordinates. Note that we are only interested in the lower surface.
+        _, _, lower_x, lower_y = self.Parameterization.ComputeProfileCoordinates([duct_variables["b_0"],
+                                                                                  duct_variables["b_2"],
+                                                                                  duct_variables["b_8"],
+                                                                                  duct_variables["b_15"],
+                                                                                  duct_variables["b_17"]],
+                                                                                  duct_variables)
+        lower_x = lower_x * duct_variables["Chord Length"]
+        lower_y = lower_y * duct_variables["Chord Length"]
+
+        # Shift the duct x coordinate to the correct location in space
+        lower_x += duct_variables["Leading Edge Coordinates"][0]
+
+        # Construct cubic spline interpolant of the duct surface
+        duct_interpolant = interpolate.CubicSpline(lower_x,
+                                                   np.abs(lower_y),  # Take absolute value of y-coordinates since we need the distance, not the actual coordinate
+                                                   extrapolate=False) 
+
+        rot_flags = config.ROTATING
+        x_min, x_max = lower_x[0], lower_x[-1]
+        tip_gap = config.tipGap
+        for i in range(self.num_stages):
+            if not rot_flags[i]:
+                continue
+            
+            # Extract blading and blade radius
+            blading = blade_blading_parameters[i]
+            y_tip = blading["radial_stations"][-1]
+            print(y_tip)
+
+            # Compute the LE and TE x-coordinates of the tip section
+            sweep = np.tan(blading["sweep_angle"][-1])
+            x_tip_LE = blading["root_LE_coordinate"] + sweep * y_tip
+            projected_chord = blading["chord_length"][-1] * np.cos(np.pi/2 - 
+                                                                   (blading["blade_angle"][-1] + blading["ref_blade_angle"] - blading["reference_section_blade_angle"]))
+            x_tip_TE = x_tip_LE + projected_chord
+
+            # Compute the offsets for the LE and TE of the blade tip
+            LE_offset = float(duct_interpolant(x_tip_LE)) if x_min <= x_tip_LE <= x_max else 0  # Set to 0 if duct does not lie above LE
+            TE_offset = float(duct_interpolant(x_tip_TE)) if x_min <= x_tip_TE <= x_max else 0  # Set to 0 if duct does not lie above TE
+
+            # Compute the radial location of the duct
+            radial_duct_coordinates[i] = y_tip + tip_gap + max(LE_offset, TE_offset)
+
+        # The LE y coordinate of the duct is then the maximum of the computed coordinates to enforce the minimum tip gap everywhere
+        LE_coordinate_duct = np.max(radial_duct_coordinates)
+
+        # Update the duct variables
+        duct_variables["Leading Edge Coordinates"] = (duct_variables["Leading Edge Coordinates"][0],
+                                                      LE_coordinate_duct)
         
+        # Set the radius of all stators equal to this y coordinate to avoid miss-matches in stator sizes. 
+        for i in range(self.num_stages):
+            if not rot_flags[i]:
+                r_old = np.max(blade_blading_parameters[i]["radial_stations"])
+                blade_blading_parameters[i]["radial_stations"] = blade_blading_parameters[i]["radial_stations"] / r_old * LE_coordinate_duct    
+    
+        # Return the updated data
+        return duct_variables, blade_blading_parameters
+    
     
     def DeconstructDesignVector(self) -> tuple:
         """
         Decompose the design vector x into dictionaries of all the design variables to match the expected input formats for 
         the MTFLOW code interface. 
-        The design vector has the standard format: [centerbody, duct, blades]
 
         Returns
         -------
@@ -124,7 +214,6 @@ class DesignVectorInterface:
             - duct_variables: dict
             - blade_design_parameters: list
             - blade_blading_parameters: list
-            - blade_diameters: list
             - Lref: float
         """
 
@@ -241,7 +330,6 @@ class DesignVectorInterface:
             blade_design_parameters.append(stage_design_parameters)
 
         blade_blading_parameters = []
-        blade_diameters = []
         for i in range(self.num_stages):
             # Initiate empty list for each stage
             stage_blading_parameters = {}
@@ -251,8 +339,7 @@ class DesignVectorInterface:
                 stage_blading_parameters["ref_blade_angle"] = vget(idx, 1)
                 stage_blading_parameters["reference_section_blade_angle"] = config.REFERENCE_BLADE_ANGLES[i]
                 stage_blading_parameters["blade_count"] = int(round(vget(idx, 2)))
-                stage_blading_parameters["radial_stations"] = np.linspace(0, 1, self.num_radial[i]) * vget(idx, 3)  # Radial stations are defined as fraction of blade radius * local radius
-                blade_diameters.append(vget(idx, 3) * 2)
+                stage_blading_parameters["radial_stations"] = np.linspace(0, 0.5 * vget(idx, 3), self.num_radial[i])  # Radial stations are defined as fraction of blade radius * local radius
 
                 # Initialize sectional blading parameter lists
                 stage_blading_parameters["chord_length"] = [None] * self.num_radial[i]
@@ -263,17 +350,29 @@ class DesignVectorInterface:
                 for j in range(self.num_radial[i]):
                     # Loop over the number of radial sections and write their data to the corresponding lists
                     stage_blading_parameters["chord_length"][j]= vget(base_idx, j)
-                    stage_blading_parameters["sweep_angle"][j] = vget(base_idx, self.num_radial[i] + j)
-                    stage_blading_parameters["blade_angle"][j] = vget(base_idx, self.num_radial[i] * 2 + j)
-                idx = base_idx + 3 * self.num_radial[i]               
+                base_idx += self.num_radial[i]
+                for j in range(self.num_radial[i]):
+                    stage_blading_parameters["sweep_angle"][j] = vget(base_idx, j)
+                base_idx += self.num_radial[i]
+                for j in range(self.num_radial[i]):    
+                    stage_blading_parameters["blade_angle"][j] = vget(base_idx, j)
+                base_idx += self.num_radial[i] 
+
+                # Update the index to correctly point to the next stage
+                idx = base_idx              
             else:
                 stage_blading_parameters = config.STAGE_BLADING_PARAMETERS[i]
-                blade_diameters.append(config.BLADE_DIAMETERS[i])
             
             # Append the stage blading parameters to the main list
             blade_blading_parameters.append(stage_blading_parameters)
-        
-        # Write the reference length for MTFLOW
-        Lref = blade_diameters[0]
 
-        return centerbody_variables, duct_variables, blade_design_parameters, blade_blading_parameters, blade_diameters, Lref
+        # Compute the updated duct and blading parameters
+        print(blade_blading_parameters)
+        duct_variables, blade_blading_parameters = self.ComputeDuctRadialLocation(duct_variables=duct_variables,
+                                                                                  blade_blading_parameters=blade_blading_parameters)
+        print(blade_blading_parameters)
+        print("=========================================================")
+        # Write the reference length for MTFLOW
+        Lref = blade_blading_parameters[0]["radial_stations"][-1]
+
+        return centerbody_variables, duct_variables, blade_design_parameters, blade_blading_parameters, Lref

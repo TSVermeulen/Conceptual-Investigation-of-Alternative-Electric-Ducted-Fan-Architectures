@@ -112,10 +112,10 @@ class DesignVector():
 
         for i in range(cfg.NUM_STAGES):
             if cfg.OPTIMIZE_STAGE[i]:
-                vector.append(Real(bounds=(0., 0.9)))  # root_LE_coordinate
+                vector.append(Real(bounds=(0., 0.4)))  # root_LE_coordinate
                 vector.append(Real(bounds=(-np.pi/4, np.pi/4)))  # ref_blade_angle
                 vector.append(Integer(bounds=(3, 20)))  # blade_count
-                vector.append(Real(bounds=(0.75, 1.5)))  # blade radius
+                vector.append(Real(bounds=(1.0, 3.0)))  # blade diameter
 
                 for _ in range(cfg.NUM_RADIALSECTIONS[i]): 
                     vector.append(Real(bounds=(0.1, 0.75)))  # chord length

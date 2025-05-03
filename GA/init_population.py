@@ -163,7 +163,7 @@ class InitPopulation():
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["root_LE_coordinate"])
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle"]) 
                 vector.append(int(config.STAGE_BLADING_PARAMETERS[i]["blade_count"]))
-                vector.append(np.max(config.STAGE_BLADING_PARAMETERS[i]["radial_stations"]))  # The interfaces uses the radial locations, but the design varable is the blade radius!
+                vector.append(np.max(config.STAGE_BLADING_PARAMETERS[i]["radial_stations"]) * 2)  # The interfaces uses the radial locations, but the design varable is the blade diameter!
 
                 for j in range(config.NUM_RADIALSECTIONS[i]):
                     vector.append(config.STAGE_BLADING_PARAMETERS[i]["chord_length"][j])
