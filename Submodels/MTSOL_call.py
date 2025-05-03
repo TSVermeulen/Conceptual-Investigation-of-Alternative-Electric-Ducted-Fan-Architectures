@@ -865,8 +865,6 @@ class MTSOL_call:
         # Remove the now unnecessary output files in the dump folder
         self.CleanupOutputFiles()
 
-        return ExitFlag.NON_CONVERGENCE
-
 
     def CleanupOutputFiles(self) -> None:
         """
