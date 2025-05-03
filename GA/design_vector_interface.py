@@ -34,10 +34,13 @@ Changelog:
 - V1.0: Initial implementation.
 """
 
+# Import standarde libraries
 import sys
-import numpy as np
 from pathlib import Path
+
+# Import 3rd party libraries
 from scipy import interpolate
+import numpy as np
 
 # Add the parent and submodels paths to the system path if they are not already in the path
 parent_path = str(Path(__file__).resolve().parent.parent)
@@ -49,6 +52,7 @@ if parent_path not in sys.path:
 if submodels_path not in sys.path:
     sys.path.append(submodels_path)
 
+# Import interfacing modules
 import config
 from Submodels.Parameterizations import AirfoilParameterization
 

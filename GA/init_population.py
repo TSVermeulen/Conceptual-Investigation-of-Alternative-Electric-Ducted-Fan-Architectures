@@ -40,10 +40,11 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.0
+Version: 1.1
 
 Changelog:
 - V1.0: Initial version with tested biased population generation and basic random population generation functionality.
+- V1.1: Added support for configurable random seed for reproducibility and improved documentation.
 """
 
 import numpy as np
