@@ -244,7 +244,7 @@ class OptimizationProblem(ElementwiseProblem):
         """
 
         # Initialize data array for the radial duct coordinates
-        radial_duct_coordinates = np.asarray(self.blade_diameters, dtype=float) / 2
+        radial_duct_coordinates = np.zeros_like(self.blade_diameters)
 
         # Compute the duct x,y coordinates. Note that we are only interested in the lower surface.
         _, _, lower_x, lower_y = self.Parameterization.ComputeProfileCoordinates([self.duct_variables["b_0"],
@@ -332,7 +332,8 @@ class OptimizationProblem(ElementwiseProblem):
             
             file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
                                            ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
-                                                                                    design_params=self.blade_design_parameters)  # Generate the MTFLO input file
+                                                                                    design_params=self.blade_design_parameters,
+                                                                                    plot=False)  # Generate the MTFLO input file
             
             output_generated =  True  # If both input generation routines succeeded, set output_generated to True
 

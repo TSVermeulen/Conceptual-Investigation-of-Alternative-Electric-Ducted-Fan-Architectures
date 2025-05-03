@@ -257,15 +257,15 @@ class MTFLOW_caller:
                     grid_e_coeff = 0.7  
                     grid_x_coeff = 0.5
                     streamwise_points = 141
-                elif check_count == 10: 
-                    exit_flag = ExitFlag.CRASH  # If the grid is still incorrect after 10 tries, we assume that the grid is not fixable and exit the loop
-                    break
-                else:
+                elif check_count == 3:
                     # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
                     grid_e_coeff = self._rng.uniform(0.6, 1.0)
                     grid_x_coeff = self._rng.uniform(0.2, 0.95)
                     streamwise_points= 141  # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid
-                
+                else: 
+                    exit_flag = ExitFlag.CRASH  # If the grid is still incorrect after 4 tries, we assume that the grid is not fixable and exit the loop
+                    break
+                                    
                 # Generate the grid
                 MTSET_call(analysis_name=self.analysis_name,
                            grid_e_coeff=grid_e_coeff,

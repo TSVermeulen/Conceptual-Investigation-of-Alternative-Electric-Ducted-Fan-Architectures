@@ -85,8 +85,8 @@ if __name__ == "__main__":
         shared_cache = manager.dict()  # Initialize shared cache
 
         with multiprocessing.Pool(processes=n_processes,
-                                initializer=worker_init,
-                                initargs=()) as pool:
+                                  initializer=worker_init,
+                                  initargs=()) as pool:
 
             # Create runner
             runner = StarmapParallelization(pool.starmap)
