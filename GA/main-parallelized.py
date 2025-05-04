@@ -77,7 +77,7 @@ if __name__ == "__main__":
     
     """ Initialize the thread pool and create the runner """
     total_threads = multiprocessing.cpu_count()
-    RESERVED_THREADS = 1 # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
+    RESERVED_THREADS = 2 # Number of threads reserved for the main process and any other non-python processes (OS, programs, etc.)
     total_threads_avail = (total_threads - RESERVED_THREADS) // 2  # Divide by 2 as each MTFLOW evaluation uses 2 threads: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
     n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used
@@ -111,19 +111,19 @@ if __name__ == "__main__":
                         save_history=True,
                         return_least_infeasible=True)
 
-    # Print some performance metrics
-    print(f"Optimization completed in {res.exec_time:.2f} seconds")
+        # Print some performance metrics
+        print(f"Optimization completed in {res.exec_time:.2f} seconds")
 
-    """ Save the results to a dill file for future reference """
-    # This avoids needing to re-run the optimization if the results are needed later.
-    # The filename is generated using the process ID and current timestamp to ensure uniqueness.
+        """ Save the results to a dill file for future reference """
+        # This avoids needing to re-run the optimization if the results are needed later.
+        # The filename is generated using the process ID and current timestamp to ensure uniqueness.
 
-    now = datetime.datetime.now()
-    timestamp = f"{now:%y%m%d%H%M%S%f}"	
-    output_name = f"res_pop{config.POPULATION_SIZE}_gen{config.MAX_GENERATIONS}_{timestamp}.dill"
-    try:
-        with open(output_name, 'wb') as f:
-            dill.dump(res, f)
-        print(f"Results saved to {output_name}")
-    except Exception as e:
-        print(f"Error saving results: {e}")
+        now = datetime.datetime.now()
+        timestamp = f"{now:%y%m%d%H%M%S%f}"	
+        output_name = f"res_pop{config.POPULATION_SIZE}_gen{config.MAX_GENERATIONS}_{timestamp}.dill"
+        try:
+            with open(output_name, 'wb') as f:
+                dill.dump(res, f)
+            print(f"Results saved to {output_name}")
+        except Exception as e:
+            print(f"Error saving results: {e}")

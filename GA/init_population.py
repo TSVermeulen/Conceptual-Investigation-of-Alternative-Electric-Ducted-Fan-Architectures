@@ -44,7 +44,7 @@ Version: 1.1
 
 Changelog:
 - V1.0: Initial version with tested biased population generation and basic random population generation functionality.
-- V1.1: Added support for configurable random seed for reproducibility and improved documentation.
+- V1.1: Added support for configurable random seed for reproducibility and improved documentation. Reworked GenerateBiasedPopulation to improve speed using NumPy.
 """
 
 import numpy as np
@@ -87,11 +87,12 @@ class InitPopulation():
 
         # Create a new design vector object
         self.design_vector = DesignVector()._construct_vector(config)
+        self.design_vector_keys = list(self.design_vector.keys())
 
         # Set the seed for the random number generator to ensure reproducibility
         seed = kwargs.get("seed", 1)
         self._rng = random.Random(seed)
-        np.random.seed(seed)
+        self.np_rng = np.random.default_rng(seed)
 
 
     def DeconstructDictFromReferenceDesign(self) -> dict:
@@ -175,7 +176,7 @@ class InitPopulation():
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["root_LE_coordinate"])
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle"]) 
                 vector.append(int(config.STAGE_BLADING_PARAMETERS[i]["blade_count"]))
-                vector.append(np.max(config.STAGE_BLADING_PARAMETERS[i]["radial_stations"]) * 2)  # The interfaces uses the radial locations, but the design varable is the blade diameter!
+                vector.append(config.STAGE_BLADING_PARAMETERS[i]["radial_stations"][-1] * 2)  # The interfaces uses the radial locations, but the design varable is the blade diameter!
 
                 for j in range(config.NUM_RADIALSECTIONS[i]):
                     vector.append(config.STAGE_BLADING_PARAMETERS[i]["chord_length"][j])
@@ -189,7 +190,7 @@ class InitPopulation():
         vector = {key: value for key, value in zip(keys, vector)}
 
         return vector
-                               
+                                   
 
     def GenerateBiasedPopulation(self) -> Population:
         """
@@ -207,44 +208,39 @@ class InitPopulation():
 
         # Get the invidivual corresponding to the reference design
         reference_individual = self.DeconstructDictFromReferenceDesign()
-
-        # Define helper functions to introduce spread in initial population
-        def apply_real_spread(value: float, 
-                              bounds: tuple[float, float]) -> float:
-            """ Apply perturbation while keeping values within bounds. """
-            span = bounds[1] - bounds[0]
-            lower_spread = span * config.SPREAD_CONTINUOUS[0]
-            upper_spread = span * config.SPREAD_CONTINUOUS[1]        
-            return max(bounds[0], min(bounds[1], value + self._rng.uniform(-lower_spread, upper_spread)))
-
-        def apply_integer_spread(value: int,
-                                 bounds: tuple[int, int]) -> int:
-            """ Apply spread for the integer variable while keeping bounds. """
-            return max(bounds[0], min(bounds[1], value + self._rng.randint(config.SPREAD_DISCRETE[0], config.SPREAD_DISCRETE[1])))
+        ref = np.array([reference_individual[k] for k in self.design_vector_keys])
         
-        # Generate the initial population
-        pop_dict = [None] * config.INIT_POPULATION_SIZE
+        # Generate the initial population equal to the INIT_POPULATION_SIZE reference_individuals
+        pop_dict = [reference_individual for _ in range(config.INIT_POPULATION_SIZE)]
 
-        # Create the first individual as the reference design
-        pop_dict[0] = reference_individual
+        # Extract the lower and upper bounds of the design variables
+        lower_bounds = np.array([self.design_vector[k].bounds[0] for k in self.design_vector_keys])
+        upper_bounds = np.array([self.design_vector[k].bounds[1] for k in self.design_vector_keys])
 
-        for i in range(1, config.INIT_POPULATION_SIZE):
-            individual = reference_individual.copy()
-            for key, value in reference_individual.items():
-                bounds = self.design_vector[key].bounds
-                # Apply spread based on the variable type
-                if isinstance(value, (float, np.floating)):
-                    individual[key] = apply_real_spread(value, bounds)
-                elif isinstance(value, numbers.Integral):
-                    individual[key] = apply_integer_spread(value, bounds)
-            # Add the perturbed individual to the population
-            pop_dict[i] = individual
+        for i in range(1, len(pop_dict)):
+            noise = self.np_rng.uniform(-1, 1, size=ref.shape)  # Generate some noise for the floating point variables
+
+            # Compute masks for the floating point and integer design variables
+            real_mask = np.array([isinstance(reference_individual[k], float) for k in self.design_vector_keys])
+            int_mask = ~real_mask
+
+            # Compute the variable span
+            span = upper_bounds - lower_bounds
+
+            # Apply perturbations
+            perturbed_individual = ref.copy()
+            perturbed_individual[real_mask] += noise[real_mask] * span[real_mask] * config.SPREAD_CONTINUOUS
+            perturbed_individual[int_mask] += self.np_rng.integers(*config.SPREAD_DISCRETE, size=int_mask.sum())
+
+            # Ensure perturbed individual still falls within the design variable bounds
+            perturbed_individual = np.clip(perturbed_individual, lower_bounds, upper_bounds)
+
+            # Convert to dicitonary while casting the discrete variable(s) back to int
+            pop_dict[i] = {key: (int(val) if isinstance(reference_individual[key], key) else val)
+                           for key, val in zip(self.design_vector_keys, perturbed_individual)}
 
         # Construct the population object
-        individuals = []
-        for pop in pop_dict:
-            individuals.append(Individual(X=pop))
-        pop = Population.create(*individuals)
+        pop = Population.create(*pop_dict)
 
         return pop
     

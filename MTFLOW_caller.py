@@ -249,8 +249,8 @@ class MTFLOW_caller:
                 # The updated e and x coefficients reduce the number of streamwise points on the airfoil elements (by 0.1 * Npoints), 
                 # while yielding a more "rounded/elliptic" grid due to the reduced x-coefficient.
                 if check_count == 0:
-                    # For the initial attempt, use the default values. 
-                    streamwise_points = 250
+                    # For the initial attempt, use the default values, but with an increased streamwise resolution
+                    streamwise_points = 300
                     grid_e_coeff = None
                     grid_x_coeff = None
                 elif check_count == 1:

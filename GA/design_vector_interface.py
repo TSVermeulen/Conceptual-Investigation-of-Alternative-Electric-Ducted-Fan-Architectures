@@ -8,15 +8,18 @@ This module provides utilities for efficient access and manipulation of design v
 
 Classes
 -------
-DesignVectorAccessor
-    Class to provide efficient access to design vector elements without repeated string formatting.
+DesignVectorInterface
+    Class to provide efficient access to design vector elements and decompose design vectors into sub-dictionaries.
 
 Examples
 --------
 >>> x_dict = {"var1": 10, "var2": 20, "var3": 30}
->>> x_keys = ["var1", "var2", "var3"]
->>> accessor = DesignVectorAccessor(x_dict, x_keys)
->>> accessor.get(1)  # Returns 20
+>>> interface = DesignVectorInterface(x_dict)
+>>> interface.GetValueFromVector(1)  # Returns 20
+
+>>> x_dict = {"var1": 10, "var2": 20, "var3": 30}
+>>> interface = DesignVectorInterface(x_dict)
+>>> interface.DeconstructDesignVector()  # Decomposes the design vector into sub-dictionaries
 
 Notes
 -----
@@ -28,10 +31,11 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.0
+Version: 1.1
 
 Changelog:
 - V1.0: Initial implementation.
+- V1.1: Updated documentation and added examples for clarity.
 """
 
 # Import standarde libraries
@@ -77,7 +81,7 @@ class DesignVectorInterface:
         """
 
         self.x_dict = x_dict
-        self.x_keys = list(x_dict.keys())
+        self.x_values = list(x_dict.values())
 
         # Import control variables
         self.num_radial = config.NUM_RADIALSECTIONS
@@ -111,8 +115,7 @@ class DesignVectorInterface:
         """
 
         try:
-            key = self.x_keys[base_idx + offset]
-            return self.x_dict[key]
+            return self.x_values[base_idx + offset]
         except (IndexError, KeyError) as err:
             if default is not None:
                 return default
@@ -198,7 +201,7 @@ class DesignVectorInterface:
         # Set the radius of all stators equal to this y coordinate to avoid miss-matches in stator sizes. 
         for i in range(self.num_stages):
             if not rot_flags[i]:
-                r_old = np.max(blade_blading_parameters[i]["radial_stations"])
+                r_old = blade_blading_parameters[i]["radial_stations"][-1]
                 blade_blading_parameters[i]["radial_stations"] = blade_blading_parameters[i]["radial_stations"] / r_old * LE_coordinate_duct    
     
         # Return the updated data
