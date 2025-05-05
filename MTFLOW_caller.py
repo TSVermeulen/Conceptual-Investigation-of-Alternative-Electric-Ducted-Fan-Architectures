@@ -224,8 +224,13 @@ class MTFLOW_caller:
             # --------------------
             # First step is generating the MTSET input file - walls.analysis_name
             # --------------------
-            #            
+                        
             if not external_inputs:
+                required_kwargs = ("centrebody_params","duct_params","blading_parameters","design_parameters")
+                missing = [k for k in required_kwargs if kwargs.get(k) is None]
+                if missing:
+                    raise ValueError(f"Missing mandatory kwargs for MTSET/MTFLO input: {', '.join(missing)}")
+                
                 self.centrebody_params = kwargs.get('centrebody_params')
                 self.duct_params = kwargs.get('duct_params')
                 self.blading_parameters = kwargs.get('blading_parameters')

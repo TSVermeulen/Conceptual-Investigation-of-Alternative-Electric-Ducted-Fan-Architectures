@@ -48,7 +48,6 @@ Changelog:
 """
 
 import numpy as np
-import numbers
 import random
 from pymoo.core.mixed import MixedVariableSampling
 from pymoo.core.population import Population
@@ -92,7 +91,7 @@ class InitPopulation():
         # Set the seed for the random number generator to ensure reproducibility
         seed = kwargs.get("seed", 1)
         self._rng = random.Random(seed)
-        self.np_rng = np.random.default_rng(seed)
+        self._np_rng = np.random.default_rng(seed)
 
 
     def DeconstructDictFromReferenceDesign(self) -> dict:
@@ -112,7 +111,12 @@ class InitPopulation():
 
         # Define a helper function to map the b_8 variable
         def map_b8_value(variable_dict: dict):
-            """ Compute a normalised b_8 mapping variables on [0, 1]"""
+            """ 
+            Compute a normalised b_8 mapping variables on [0, 1].
+            This normalisation ensures the b_8 variable always matches the constraint:
+                             0 <= b_8 <= min(y_t, sqrt(-2*r_LE*x_t/3))
+            """
+            
             denominator = min(variable_dict["y_t"], np.sqrt(-2 * variable_dict["x_t"] * variable_dict["r_LE"] / 3))
             return float(variable_dict["b_8"] / denominator) if denominator > 0 else 0.0
 
@@ -177,7 +181,7 @@ class InitPopulation():
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle"]) 
                 vector.append(int(config.STAGE_BLADING_PARAMETERS[i]["blade_count"]))
                 if config.ROTATING[i]:
-                    vector.append(config.RPS[i])  # Only include the rotational rate if the stage in question is a rotor. 
+                    vector.append(config.STAGE_BLADING_PARAMETERS[i]["RPS"])  # Only include the rotational rate if the stage in question is a rotor. 
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["radial_stations"][-1] * 2)  # The interfaces uses the radial locations, but the design varable is the blade diameter!
 
                 for j in range(config.NUM_RADIALSECTIONS[i]):
@@ -225,7 +229,7 @@ class InitPopulation():
         for i in range(1, len(pop_dict)):
             # Generate some noise for the floating point variables
             # Use uniform noise to ensure an equal sampling across the design space.
-            noise = self.np_rng.uniform(-1, 1, size=ref.shape)  
+            noise = self._np_rng.uniform(-1, 1, size=ref.shape)  
 
             # Compute masks for the floating point and integer design variables
             real_mask = np.array([isinstance(reference_individual[k], (float, np.floating)) for k in self.design_vector_keys])
@@ -234,7 +238,7 @@ class InitPopulation():
             # Apply perturbations
             perturbed_individual = ref.copy()
             perturbed_individual[real_mask] += noise[real_mask] * perturbed_individual[real_mask] * config.SPREAD_CONTINUOUS
-            perturbed_individual[int_mask] += self.np_rng.integers(*config.SPREAD_DISCRETE, size=int_mask.sum())
+            perturbed_individual[int_mask] += self._np_rng.integers(*config.SPREAD_DISCRETE, size=int_mask.sum())
 
             # Ensure perturbed individual still falls within the design variable bounds
             perturbed_individual = np.clip(perturbed_individual, lower_bounds, upper_bounds)

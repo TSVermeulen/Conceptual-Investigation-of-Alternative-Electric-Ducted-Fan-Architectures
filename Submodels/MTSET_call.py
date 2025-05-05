@@ -93,10 +93,10 @@ class MTSET_call:
             raise FileNotFoundError(f"MTSET executable not found at {self.process_path}")
         
         # Define filepath for the statefile
-        self.fpath = self.submodels_path / 'tdat.{}'.format(self.analysis_name)
+        self.fpath = self.submodels_path / f'tdat.{self.analysis_name}'
 
         # Define filepath for walls.xxx
-        self.wallspath = self.submodels_path / "walls.{}".format(self.analysis_name)
+        self.wallspath = self.submodels_path / f"walls.{self.analysis_name}"
     
 
     def StdinWrite(self,

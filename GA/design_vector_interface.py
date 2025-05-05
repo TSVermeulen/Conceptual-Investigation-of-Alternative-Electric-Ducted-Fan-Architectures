@@ -240,7 +240,10 @@ class DesignVectorInterface:
         # If the centerbody is constant, read in the centerbody values from config.
         # Note that if the centerbody is variable, we keep the LE coordinate fixed, as the LE coordinate of the duct would already be free to move. 
         if config.OPTIMIZE_CENTERBODY:
-            centerbody_vals = [next(it) for _ in range(centerbody_designvar_count)]
+            try:
+                centerbody_vals = [next(it) for _ in range(centerbody_designvar_count)]
+            except StopIteration:
+                raise ValueError("Design vector is too short for the expected centerbody variables.")
             centerbody_variables = {"b_0": 0,
                                     "b_2": 0, 
                                     "b_8": Getb8(centerbody_vals[0], centerbody_vals[5], centerbody_vals[2], centerbody_vals[3]),
@@ -259,12 +262,15 @@ class DesignVectorInterface:
                                     "Chord Length": centerbody_vals[7],
                                     "Leading Edge Coordinates": (0, 0)}
         else:
-            centerbody_variables = config.CENTERBODY_VALUES
+            centerbody_variables = config.CENTERBODY_VALUES.copy()
 
         # Deconstruct the duct values if it's variable.
         # If the duct is constant, read in the duct values from config.
         if config.OPTIMIZE_DUCT:
-            duct_vals = [next(it) for _ in range(duct_designvar_count)]
+            try:
+                duct_vals = [next(it) for _ in range(duct_designvar_count)]
+            except StopIteration:
+                raise ValueError("Design vector is too short for the expected duct variables.")
             duct_variables = {"b_0": duct_vals[0],
                               "b_2": duct_vals[1], 
                               "b_8": Getb8(duct_vals[2], duct_vals[11], duct_vals[5], duct_vals[6]),
@@ -283,7 +289,7 @@ class DesignVectorInterface:
                               "Chord Length": duct_vals[15],
                               "Leading Edge Coordinates": (duct_vals[16], 0)}
         else:
-            duct_variables = config.DUCT_VALUES
+            duct_variables = config.DUCT_VALUES.copy()
                 
         # Deconstruct the rotorblade parameters if they are variable.
         # If the rotorblade parameters are constant, read in the parameters from config.
@@ -295,7 +301,10 @@ class DesignVectorInterface:
                 # If the stage is to be optimized, read in the design vector for the blade profiles
                 for _ in range(self.num_radial[stage]):
                     # Loop over the number of radial sections and append each section to stage_design_parameters
-                    section_vals = [next(it) for _ in range(section_designvar_count)]
+                    try:
+                        section_vals = [next(it) for _ in range(section_designvar_count)]
+                    except StopIteration:
+                        raise ValueError("Design vector is too short for the expected blade radial section variables.")
                     section_parameters = {"b_0": section_vals[0],
                                         "b_2": section_vals[1], 
                                         "b_8": Getb8(section_vals[2], section_vals[11], section_vals[5], section_vals[6]), 
@@ -314,7 +323,7 @@ class DesignVectorInterface:
                     stage_design_parameters.append(section_parameters)
             else:
                 # If the stage is meant to be constant, read it in from config. 
-                stage_design_parameters = config.STAGE_DESIGN_VARIABLES[stage]
+                stage_design_parameters = config.STAGE_DESIGN_VARIABLES[stage].copy()
             # Write the stage nested list to blade_design_parameters
             blade_design_parameters.append(stage_design_parameters)
 
@@ -336,7 +345,7 @@ class DesignVectorInterface:
                 stage_blading_parameters["sweep_angle"] = [next(it) for _ in range(self.num_radial[stage])]
                 stage_blading_parameters["blade_angle"] = [next(it) for _ in range(self.num_radial[stage])]     
             else:
-                stage_blading_parameters = config.STAGE_BLADING_PARAMETERS[stage]
+                stage_blading_parameters = config.STAGE_BLADING_PARAMETERS[stage].copy()
             
             # Append the stage blading parameters to the main list
             blade_blading_parameters.append(stage_blading_parameters)

@@ -167,7 +167,7 @@ class OptimizationProblem(ElementwiseProblem):
 
     def GenerateAnalysisName(self) -> None:
         """
-        Generate a unique analysis name with a length of 32 characters.
+        Generate a unique analysis name with a length of 24 characters.
         This is required to enable multi-threading of the optimization problem, and log each state file,
         since each evaluation of MTFLOW requires a unique set of files. 
 
@@ -182,12 +182,12 @@ class OptimizationProblem(ElementwiseProblem):
         timestamp = now.strftime(self.timestamp_format)
 
         # Generate a unique identifier using UUID
-        unique_id = str(uuid.uuid4().hex)[:16]  # 16 chars max
+        unique_id = uuid.uuid4().hex[:8]  # 8 chars max
 
         # Add a process ID to the analysis name to ensure uniqueness in multi-threaded environments.
         process_id = os.getpid() % 10000  # 4 chars max
 
-        # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>. with a maximum total length of 32 characters
+        # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>. with a maximum total length of 24 characters
         self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)[:32]
 
 
@@ -217,7 +217,7 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Compute the non-dimensional rotational rate Omega for MTFLOW and write it to the blading parameters
         # Multiplied by -1 to comply with sign convention in MTFLOW. 
-        for i, blading_params in enumerate(self.blade_blading_parameters):
+        for blading_params in self.blade_blading_parameters:
             blading_params["rotational_rate"] = float((-blading_params["RPS"] * np.pi * 2 * self.Lref) / (self.oper["Vinl"]))
 
 
