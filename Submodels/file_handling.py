@@ -1001,7 +1001,7 @@ class fileHandling:
                     # Write the data types to be provided for the stage
                     file.write('DATYPE \n')
                     file.write('x    r    T    Sr\n')  # Use the x,r coordinates, together with thickness and blade slope
-                    multipliers = [1, 1, 1, 1]  # Add multipliers for each data type
+                    multipliers = [round(1 / self.ref_length, 6),  round(1 / self.ref_length, 6), round(1 / self.ref_length, 6), 1]  # Add multipliers for each data type
                     additions = [0, 0, 0, 0]  # Add additions for each data type
                     file.write('*' + '    '.join(map(str, multipliers)) + '\n')
                     file.write('+' + '    '.join(map(str, additions)) + '\n')
@@ -1109,9 +1109,9 @@ class fileHandling:
                         # Each data point consists of the data [x / Lref, r / Lref, T / Lref, Srel]
                         for j in range(n_points_axial):  
                             # Write data to row
-                            row = np.array([round((x_points[sampling_indices][j]) / self.ref_length, 5),
-                                            round(radial_points[i] / self.ref_length, 5),
-                                            round(circumferential_thickness[sampling_indices][j] / self.ref_length, 5),
+                            row = np.array([round((x_points[sampling_indices][j]), 5),
+                                            round(radial_points[i], 5),
+                                            round(circumferential_thickness[sampling_indices][j], 5),
                                             round(blade_slope[sampling_indices][j], 5),
                                             ])
                             

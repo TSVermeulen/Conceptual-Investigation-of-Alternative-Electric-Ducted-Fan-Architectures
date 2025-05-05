@@ -114,7 +114,7 @@ class InitPopulation():
         def map_b8_value(variable_dict: dict):
             """ Compute a normalised b_8 mapping variables on [0, 1]"""
             denominator = min(variable_dict["y_t"], np.sqrt(-2 * variable_dict["x_t"] * variable_dict["r_LE"] / 3))
-            return variable_dict["b_8"] / denominator if denominator > 0 else 0
+            return float(variable_dict["b_8"] / denominator) if denominator > 0 else 0.0
 
         vector = []
         if config.OPTIMIZE_CENTERBODY:
@@ -176,6 +176,8 @@ class InitPopulation():
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["root_LE_coordinate"])
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle"]) 
                 vector.append(int(config.STAGE_BLADING_PARAMETERS[i]["blade_count"]))
+                if config.ROTATING[i]:
+                    vector.append(config.RPS[i])  # Only include the rotational rate if the stage in question is a rotor. 
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["radial_stations"][-1] * 2)  # The interfaces uses the radial locations, but the design varable is the blade diameter!
 
                 for j in range(config.NUM_RADIALSECTIONS[i]):
@@ -208,39 +210,45 @@ class InitPopulation():
 
         # Get the invidivual corresponding to the reference design
         reference_individual = self.DeconstructDictFromReferenceDesign()
-        ref = np.array([reference_individual[k] for k in self.design_vector_keys])
+        ref = np.array([reference_individual[k] for k in self.design_vector_keys],
+                       dtype=object)
         
         # Generate the initial population equal to the INIT_POPULATION_SIZE reference_individuals
-        pop_dict = [reference_individual for _ in range(config.INIT_POPULATION_SIZE)]
+        pop_dict = [reference_individual.copy() for _ in range(config.INIT_POPULATION_SIZE)]
 
         # Extract the lower and upper bounds of the design variables
-        lower_bounds = np.array([self.design_vector[k].bounds[0] for k in self.design_vector_keys])
-        upper_bounds = np.array([self.design_vector[k].bounds[1] for k in self.design_vector_keys])
+        lower_bounds = np.array([self.design_vector[k].bounds[0] for k in self.design_vector_keys],
+                                dtype=object)
+        upper_bounds = np.array([self.design_vector[k].bounds[1] for k in self.design_vector_keys],
+                                dtype=object)
 
         for i in range(1, len(pop_dict)):
-            noise = self.np_rng.uniform(-1, 1, size=ref.shape)  # Generate some noise for the floating point variables
+            # Generate some noise for the floating point variables
+            # Use uniform noise to ensure an equal sampling across the design space.
+            noise = self.np_rng.uniform(-1, 1, size=ref.shape)  
 
             # Compute masks for the floating point and integer design variables
-            real_mask = np.array([isinstance(reference_individual[k], float) for k in self.design_vector_keys])
+            real_mask = np.array([isinstance(reference_individual[k], (float, np.floating)) for k in self.design_vector_keys])
             int_mask = ~real_mask
-
-            # Compute the variable span
-            span = upper_bounds - lower_bounds
 
             # Apply perturbations
             perturbed_individual = ref.copy()
-            perturbed_individual[real_mask] += noise[real_mask] * span[real_mask] * config.SPREAD_CONTINUOUS
+            perturbed_individual[real_mask] += noise[real_mask] * perturbed_individual[real_mask] * config.SPREAD_CONTINUOUS
             perturbed_individual[int_mask] += self.np_rng.integers(*config.SPREAD_DISCRETE, size=int_mask.sum())
 
             # Ensure perturbed individual still falls within the design variable bounds
             perturbed_individual = np.clip(perturbed_individual, lower_bounds, upper_bounds)
 
+            # print([type(param) for param in perturbed_individual])
             # Convert to dicitonary while casting the discrete variable(s) back to int
-            pop_dict[i] = {key: (int(val) if isinstance(reference_individual[key], key) else val)
+            pop_dict[i] = {key: (int(val) if isinstance(reference_individual[key], (int, np.int64)) else val)
                            for key, val in zip(self.design_vector_keys, perturbed_individual)}
 
         # Construct the population object
-        pop = Population.create(*pop_dict)
+        individuals = []
+        for pop in pop_dict:
+            individuals.append(Individual(X=pop))
+        pop = Population.create(*individuals)
 
         return pop
     
@@ -279,6 +287,7 @@ class InitPopulation():
     
 
 if __name__ == "__main__":
+    config.OPTIMIZE_DUCT = False
     test = InitPopulation("biased")
 
     biased_pop = test.GeneratePopulation()

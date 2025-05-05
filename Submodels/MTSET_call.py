@@ -215,11 +215,6 @@ class MTSET_call:
         # Set the number of streamwise points 
         self.StdinWrite(f"n {self.streamwise_points}")
 
-        # Change the streamline spacing to decrease the spacing at the centerbody
-        self.StdinWrite("w1 0.7")
-        self.StdinWrite("w2 0.3")
-        self.StdinWrite("t1 0.05")
-
         # Toggle quasi-normal lines fixed in x (This is only used when there is no duct, i.e. an open rotor/propeller. 
         # When there is a duct present, this option is disabled, so the input has no effect)
         self.StdinWrite("Q")

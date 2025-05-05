@@ -117,6 +117,8 @@ class DesignVector():
                 vector.append(Real(bounds=(0., 0.4)))  # root_LE_coordinate
                 vector.append(Real(bounds=(-np.pi/4, np.pi/4)))  # ref_blade_angle
                 vector.append(Integer(bounds=(3, 20)))  # blade_count
+                if cfg.ROTATING[i]:
+                    vector.append(Real(bounds=(20, 42)))  # blade RPS
                 vector.append(Real(bounds=(1.0, 3.0)))  # blade diameter
 
                 for _ in range(cfg.NUM_RADIALSECTIONS[i]): 
@@ -131,3 +133,11 @@ class DesignVector():
         vector = {f"x{i}": var for i, var in enumerate(vector)}
 
         return vector
+    
+
+if __name__ == "__main__":
+    import config
+    # config.OPTIMIZE_DUCT = False
+    test = DesignVector()
+    vector = test._construct_vector(config)
+    print(vector)

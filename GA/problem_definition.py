@@ -134,6 +134,9 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Initialize cache
         self.cache = kwargs.pop('cache', None)
+
+        # Initialize design vector interface
+        self.design_vector_interface = DesignVectorInterface()
                 
 
     def GenerateAnalysisName(self) -> None:
@@ -179,23 +182,17 @@ class OptimizationProblem(ElementwiseProblem):
     def ComputeOmega(self) -> None:
         """
         A simple function to compute the non-dimensional MTFLOW rotational rate Omega,
-        and write it to the oper dictionary.
+        and write it to the oper dictionary and the.
 
         Returns
         -------
         None
         """
 
-        # Compute the non-dimensional rotational rate Omega for MTFLOW and write it to self.oper
+        # Compute the non-dimensional rotational rate Omega for MTFLOW and write it to the blading parameters
         # Multiplied by -1 to comply with sign convention in MTFLOW. 
-        self.oper["Omega"] = float((-self.oper["RPS"] * np.pi * 2 * self.Lref) / (self.oper["Vinl"]))
-
-        rotating = config.ROTATING
         for i, blading_params in enumerate(self.blade_blading_parameters):
-            if rotating[i]:
-                blading_params["rotational_rate"] = self.oper["Omega"]
-            else:
-                blading_params["rotational_rate"] = 0
+            blading_params["rotational_rate"] = float((-blading_params["RPS"] * np.pi * 2 * self.Lref) / (self.oper["Vinl"]))
 
 
     def CleanUpFiles(self) -> None:
@@ -214,7 +211,7 @@ class OptimizationProblem(ElementwiseProblem):
         """
 
         # Files to be deleted directly
-        file_types = ["walls", "tflow", "forces", "flowfield", "boundary_layer", "tdat"]
+        file_types = ["walls", "forces", "flowfield", "boundary_layer", "tdat"]
 
         for file_type in file_types:
             # Construct filepath
@@ -328,7 +325,7 @@ class OptimizationProblem(ElementwiseProblem):
          self.duct_variables, 
          self.blade_design_parameters, 
          self.blade_blading_parameters, 
-         self.Lref) = DesignVectorInterface(x).DeconstructDesignVector()
+         self.Lref) = self.design_vector_interface.DeconstructDesignVector(x_dict=x)
 
         # Compute the necessary inputs (Reynolds, Omega)
         self.oper = config.oper.copy()
@@ -370,7 +367,7 @@ class OptimizationProblem(ElementwiseProblem):
         Constraints().ComputeConstraints(analysis_outputs=MTFLOW_outputs,
                                          Lref=self.Lref,
                                          out=out)
-
+        
         # Cleanup the generated files
         self.CleanUpFiles()
 
