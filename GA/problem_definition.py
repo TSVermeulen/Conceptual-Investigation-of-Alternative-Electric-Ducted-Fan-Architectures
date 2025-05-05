@@ -137,6 +137,32 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Initialize design vector interface
         self.design_vector_interface = DesignVectorInterface()
+
+        # Initialize output dictionary to use in case of an infeasible design. 
+        # This equals the outputs of the output_handling.output_processing.GetAllVariables(3) method, 
+        # but is quicker as it does not involve reading a file.
+        self.crash_outputs = {'data':
+                              {'Total power CP': 0.00000, 
+                               'EtaP': 0.00000, 
+                               'Total force CT': 0.00000, 
+                               'Element 2 top CTV': 0.00000, 
+                               'Element 2 bot CTV': 0.00000, 
+                               'Axis body CTV': 0.00000, 
+                               'Viscous CTv': 0.00000, 
+                               'Inviscid CTi': 0.00000, 
+                               'Friction CTf': 0.00000, 
+                               'Pressure CTp': 0.00000, 
+                               'Pressure Ratio': 0.00000}, 
+                              'grouped_data': 
+                              {'Element 2': 
+                               {'CTf': 0.00000, 
+                                'CTp': 0.00000, 
+                                'top Xtr': 0.00000, 
+                                'bot Xtr': 0.00000}, 
+                               'Axis Body': 
+                               {'CTf': 0.00000, 
+                                'CTp': 0.00000, 
+                                'Xtr': 0.00000}}}
                 
 
     def GenerateAnalysisName(self) -> None:
@@ -349,12 +375,11 @@ class OptimizationProblem(ElementwiseProblem):
 
             # Extract outputs
             output_handler = output_processing(analysis_name=self.analysis_name)
+            MTFLOW_outputs = output_handler.GetAllVariables(output_type=3)
         else:
             # If the design is infeasible, we load the crash outputs
-            # This is a predefined file with all outputs set to 0.
-            output_handler = output_processing(analysis_name="crash_outputs")
-        
-        MTFLOW_outputs = output_handler.GetAllVariables(output_type=3)
+            # This is a predefined dictionary with all outputs set to 0.
+            MTFLOW_outputs = self.crash_outputs
 
         # Obtain objective(s)
         # The out dictionary is updated in-place
