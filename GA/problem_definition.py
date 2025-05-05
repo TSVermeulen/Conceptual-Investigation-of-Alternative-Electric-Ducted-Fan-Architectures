@@ -211,7 +211,7 @@ class OptimizationProblem(ElementwiseProblem):
         """
 
         # Files to be deleted directly
-        file_types = ["walls", "forces", "flowfield", "boundary_layer", "tdat"]
+        file_types = ["walls", "tflow", "forces", "flowfield", "boundary_layer", "tdat"]
 
         for file_type in file_types:
             # Construct filepath
