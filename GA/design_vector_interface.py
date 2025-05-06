@@ -13,13 +13,8 @@ DesignVectorInterface
 
 Examples
 --------
->>> x_dict = {"var1": 10, "var2": 20, "var3": 30}
->>> interface = DesignVectorInterface(x_dict)
->>> interface.GetValueFromVector(1)  # Returns 20
-
->>> x_dict = {"var1": 10, "var2": 20, "var3": 30}
->>> interface = DesignVectorInterface(x_dict)
->>> interface.DeconstructDesignVector()  # Decomposes the design vector into sub-dictionaries
+>>> interface = DesignVectorInterface()
+>>> interface.DeconstructDesignVector(x_dict)  # Decomposes the design vector into sub-dictionaries
 
 Notes
 -----

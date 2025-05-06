@@ -13,13 +13,14 @@ if submodels_path not in sys.path:
     sys.path.append(submodels_path)
  
 
-def main(fname: str) -> object:
+def main(fname: Path,
+         base_dir: Path) -> object:
     """
     Load and return the optimization results from the specified .dill file.
 
     Parameters
     ----------
-    - fname : str
+    - fname : Path
         The filename or path of the .dill file to be loaded. 
         If not an absolute path, it will be relative to base_dir. 
     - base_dir : Path, optional
@@ -36,11 +37,10 @@ def main(fname: str) -> object:
         base_dir = Path(__file__).resolve().parent
 
     # Convert fname to Path and resolve it if it's not alredy absolute
-    fname_path = Path(fname)
-    if not fname_path.is_absolute():
-        results_path = base_dir / fname_path
+    if not fname.is_absolute():
+        results_path = base_dir / fname
     else:
-        results_path = fname_path
+        results_path = fname
     
     # Validate file extension
     if results_path.suffix.lower() != '.dill':
@@ -62,5 +62,5 @@ def main(fname: str) -> object:
 
 
 if __name__ == "__main__":
-    output = 'res_pop2_gen2_250506154138455301.dill'
+    output = Path('res_pop2_gen2_250506154138455301.dill')
     main(output)

@@ -81,31 +81,32 @@ if __name__ == "__main__":
     total_threads_avail = (total_threads - RESERVED_THREADS) // 2  # Divide by 2 as each MTFLOW evaluation uses 2 threads: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
     n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used
-    with multiprocessing.Pool(processes=n_processes,
-                              initializer=worker_init,
-                              initargs=()) as pool:
+    with multiprocessing.Manager() as manager:
+        with multiprocessing.Pool(processes=n_processes,
+                                initializer=worker_init,
+                                initargs=()) as pool:
 
-        # Create runner
-        runner = StarmapParallelization(pool.starmap)
+            # Create runner
+            runner = StarmapParallelization(pool.starmap)
 
-        """ Initialize the optimization problem and algorithm """
-        # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
-        problem = OptimizationProblem(elementwise_runner=runner,
-                                      seed=42)
+            """ Initialize the optimization problem and algorithm """
+            # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
+            problem = OptimizationProblem(elementwise_runner=runner,
+                                        seed=42)
 
-        # Initialize the algorithm
-        algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
-                                    sampling=InitPopulation(population_type="biased",
-                                                            seed=42).GeneratePopulation())
+            # Initialize the algorithm
+            algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
+                                        sampling=InitPopulation(population_type="biased",
+                                                                seed=42).GeneratePopulation())
 
-        # Run the optimization
-        res = minimize(problem,
-                       algorithm,
-                       termination=('n_gen', config.MAX_GENERATIONS),
-                       seed=42,
-                       verbose=True,
-                       save_history=True,
-                       return_least_infeasible=True)
+            # Run the optimization
+            res = minimize(problem,
+                        algorithm,
+                        termination=('n_gen', config.MAX_GENERATIONS),
+                        seed=42,
+                        verbose=True,
+                        save_history=True,
+                        return_least_infeasible=True)
 
     # Print some performance metrics
     print(f"Optimization completed in {res.exec_time:.2f} seconds")
