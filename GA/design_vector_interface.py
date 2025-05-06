@@ -86,6 +86,9 @@ class DesignVectorInterface:
         # Initialize the AirfoilParameterization class for slightly better memory usage
         self.Parameterization = _PARAMETERISATION
 
+        # Initialize empty ordered keys cache
+        self._ordered_keys_cache: list[str] | None = None
+
 
     def ComputeDuctRadialLocation(self,
                                   duct_variables: dict,
@@ -191,8 +194,9 @@ class DesignVectorInterface:
         - sorted_x: list[float | int]
             A list of the sorted design vector values.
         """
-        ordered_keys = sorted(x_dict.keys(), key=lambda k: int(k.lstrip("x")))
-        return [x_dict[k] for k in ordered_keys]
+        if self._ordered_keys_cache is None:
+            self._ordered_keys_cache = sorted(x_dict.keys(), key=lambda k: int(k.lstrip("x")))
+        return [x_dict[k] for k in self._ordered_keys_cache]
 
 
     def DeconstructDesignVector(self,
@@ -238,9 +242,9 @@ class DesignVectorInterface:
             return float(b_8_map * factor)
 
         # Define a pointer to count the number of variable parameters
-        centerbody_designvar_count = 8
-        duct_designvar_count = 17
-        section_designvar_count = 15
+        centerbody_designvar_count = len(config.CENTERBODY_VALUES)
+        duct_designvar_count = len(config.DUCT_VALUES)
+        section_designvar_count = duct_designvar_count - 2  # -2 since the sections do not use chord length or LE x-coordinate as variable. 
 
         # Deconstruct the centerbody values if it's variable.
         # If the centerbody is constant, read in the centerbody values from config.

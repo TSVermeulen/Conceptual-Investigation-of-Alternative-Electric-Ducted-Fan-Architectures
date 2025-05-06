@@ -216,7 +216,7 @@ class fileHandling:
             self.DEFAULT_Y_TOP = 1.0
             self.Y_TOP_MULTIPLIER = 2.5
             self.X_FRONT_OFFSET = 2
-            self.X_AFT_OFFSET = 2
+            self.X_AFT_OFFSET = 1.5
 
             # Define key paths/directories
             self.parent_dir = Path(__file__).resolve().parent.parent

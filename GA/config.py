@@ -226,26 +226,19 @@ def GenerateMTFLOBlading(Omega: float,
         raise FileNotFoundError(f"Missing files: {', '.join(map(str, missing_files))}")
 
     # Compute parameterization for the airfoil section at r=0R
-    R00_section = AirfoilParameterization().FindInitialParameterization(reference_file=R00_fpath,
-                                                                        plot=False)
+    R00_section = AirfoilParameterization().FindInitialParameterization(reference_file=R00_fpath)
     # Compute parameterization for the airfoil section at r=0.3R
-    R03_section = AirfoilParameterization().FindInitialParameterization(reference_file=R03_fpath,
-                                                                        plot=False)
+    R03_section = AirfoilParameterization().FindInitialParameterization(reference_file=R03_fpath)
     # Compute parameterization for the mid airfoil section
-    R05_section = AirfoilParameterization().FindInitialParameterization(reference_file=R05_fpath,
-                                                                        plot=False)
+    R05_section = AirfoilParameterization().FindInitialParameterization(reference_file=R05_fpath)
     # Compute parameterization for the airfoil section at r=0.7R
-    R07_section = AirfoilParameterization().FindInitialParameterization(reference_file=R07_fpath,
-                                                                        plot=False)
+    R07_section = AirfoilParameterization().FindInitialParameterization(reference_file=R07_fpath)
     # Compute parameterization for the tip airfoil section
-    R10_section = AirfoilParameterization().FindInitialParameterization(reference_file=R10_fpath,
-                                                                        plot=False)
+    R10_section = AirfoilParameterization().FindInitialParameterization(reference_file=R10_fpath)
     # Compute parameterization for the horizontal struts
-    Hstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Hstrut_fpath,
-                                                                           plot=False)
+    Hstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Hstrut_fpath)
     # Compute parameterization for the diagonal struts
-    Dstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Dstrut_fpath,
-                                                                           plot=False)
+    Dstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Dstrut_fpath)
 
     # Construct blading list
     design_parameters = [[R00_section, R05_section, R10_section],
@@ -302,6 +295,6 @@ MAX_GENERATIONS = 20
 
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
-SPREAD_CONTINUOUS = 0.2  # +/- % of the reference value
-ZERO_NOISE = 0.1  # %
-SPREAD_DISCRETE = (-3, 6)  # +/- of the reference value
+SPREAD_CONTINUOUS = 0.2  # Relative spread (+/- %) applied to continous variables around their reference values
+ZERO_NOISE = 0.1  # % noise added to zero values to avoid stagnation
+SPREAD_DISCRETE = (-3, 6)  # Absolute range for discrete variables (referene value -3 to reference value + 6)

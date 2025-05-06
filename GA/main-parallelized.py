@@ -104,7 +104,7 @@ if __name__ == "__main__":
                        termination=('n_gen', config.MAX_GENERATIONS),
                        seed=42,
                        verbose=True,
-                       save_history=True,  # Needs to be false to enable saving of the results object to a .dill file
+                       save_history=True,
                        return_least_infeasible=True)
 
     # Print some performance metrics

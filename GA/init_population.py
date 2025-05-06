@@ -134,24 +134,24 @@ class InitPopulation():
             vector.append(config.CENTERBODY_VALUES["Chord Length"])
         
         if config.OPTIMIZE_DUCT:
-                    # If the duct is to be optimised, read the reference values into the design vector
-                    vector.append(config.DUCT_VALUES["b_0"])
-                    vector.append(config.DUCT_VALUES["b_2"])
-                    vector.append(map_b8_value(config.DUCT_VALUES))
-                    vector.append(config.DUCT_VALUES["b_15"])
-                    vector.append(config.DUCT_VALUES["b_17"])
-                    vector.append(config.DUCT_VALUES["x_t"])
-                    vector.append(config.DUCT_VALUES["y_t"])
-                    vector.append(config.DUCT_VALUES["x_c"])
-                    vector.append(config.DUCT_VALUES["y_c"])
-                    vector.append(config.DUCT_VALUES["z_TE"])
-                    vector.append(config.DUCT_VALUES["dz_TE"])
-                    vector.append(config.DUCT_VALUES["r_LE"])
-                    vector.append(config.DUCT_VALUES["trailing_wedge_angle"])
-                    vector.append(config.DUCT_VALUES["trailing_camberline_angle"])
-                    vector.append(config.DUCT_VALUES["leading_edge_direction"])
-                    vector.append(config.DUCT_VALUES["Chord Length"])
-                    vector.append(config.DUCT_VALUES["Leading Edge Coordinates"][0])
+            # If the duct is to be optimised, read the reference values into the design vector
+            vector.append(config.DUCT_VALUES["b_0"])
+            vector.append(config.DUCT_VALUES["b_2"])
+            vector.append(map_b8_value(config.DUCT_VALUES))
+            vector.append(config.DUCT_VALUES["b_15"])
+            vector.append(config.DUCT_VALUES["b_17"])
+            vector.append(config.DUCT_VALUES["x_t"])
+            vector.append(config.DUCT_VALUES["y_t"])
+            vector.append(config.DUCT_VALUES["x_c"])
+            vector.append(config.DUCT_VALUES["y_c"])
+            vector.append(config.DUCT_VALUES["z_TE"])
+            vector.append(config.DUCT_VALUES["dz_TE"])
+            vector.append(config.DUCT_VALUES["r_LE"])
+            vector.append(config.DUCT_VALUES["trailing_wedge_angle"])
+            vector.append(config.DUCT_VALUES["trailing_camberline_angle"])
+            vector.append(config.DUCT_VALUES["leading_edge_direction"])
+            vector.append(config.DUCT_VALUES["Chord Length"])
+            vector.append(config.DUCT_VALUES["Leading Edge Coordinates"][0])
 
         for i in range(config.NUM_STAGES):
             # If the blade rows are to be optimised, read the reference values into the design vector

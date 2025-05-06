@@ -20,18 +20,36 @@ def main(fname: str) -> object:
     Parameters
     ----------
     - fname : str
-        The filename of the .dill file to be loaded. The file must be in the same directory as this file. 
+        The filename or path of the .dill file to be loaded. 
+        If not an absolute path, it will be relative to base_dir. 
+    - base_dir : Path, optional
+        The base directory to use if fname is not an absolute path.
+        Defaults to the directory containing this script. 
     
     Returns
     - res : object
         The reconstructed pymoo optimisation results object
     """
 
-    path = Path(__file__).resolve().parent
-    results_path = path / fname
+    # If base_dir is not provided, use the script's directory
+    if base_dir is None:
+        base_dir = Path(__file__).resolve().parent
+
+    # Convert fname to Path and resolve it if it's not alredy absolute
+    fname_path = Path(fname)
+    if not fname_path.is_absolute():
+        results_path = base_dir / fname_path
+    else:
+        results_path = fname_path
+    
+    # Validate file extension
+    if results_path.suffix.lower() != '.dill':
+        raise ValueError(f"File must have .dill extension. Got: {results_path.suffix}")
+
     try:
         # Open and load the results file
         with results_path.open('rb') as f:
+            # ignore=False ensures we get an error if the object cannot be reconstructed. 
             res = dill.load(f, ignore=False)
             
         return res
@@ -40,7 +58,7 @@ def main(fname: str) -> object:
         raise FileNotFoundError(f"Error: Results file not found. Ensure {fname} exists") from e
 
     except Exception as e:
-        raise Exception(f"Error loading results") from e
+        raise Exception(f"Error loading results: {e}") from e
 
 
 if __name__ == "__main__":
