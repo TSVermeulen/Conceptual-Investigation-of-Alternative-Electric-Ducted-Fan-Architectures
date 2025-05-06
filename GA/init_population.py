@@ -116,7 +116,7 @@ class InitPopulation():
             This normalisation ensures the b_8 variable always matches the constraint:
                              0 <= b_8 <= min(y_t, sqrt(-2*r_LE*x_t/3))
             """
-            
+
             denominator = min(variable_dict["y_t"], np.sqrt(-2 * variable_dict["x_t"] * variable_dict["r_LE"] / 3))
             return float(variable_dict["b_8"] / denominator) if denominator > 0 else 0.0
 
@@ -215,16 +215,16 @@ class InitPopulation():
         # Get the invidivual corresponding to the reference design
         reference_individual = self.DeconstructDictFromReferenceDesign()
         ref = np.array([reference_individual[k] for k in self.design_vector_keys],
-                       dtype=object)
+                       dtype=float)
         
         # Generate the initial population equal to the INIT_POPULATION_SIZE reference_individuals
         pop_dict = [reference_individual.copy() for _ in range(config.INIT_POPULATION_SIZE)]
 
         # Extract the lower and upper bounds of the design variables
         lower_bounds = np.array([self.design_vector[k].bounds[0] for k in self.design_vector_keys],
-                                dtype=object)
+                                dtype=float)
         upper_bounds = np.array([self.design_vector[k].bounds[1] for k in self.design_vector_keys],
-                                dtype=object)
+                                dtype=float)
 
         for i in range(1, len(pop_dict)):
             # Generate some noise for the floating point variables
@@ -245,7 +245,7 @@ class InitPopulation():
 
             # print([type(param) for param in perturbed_individual])
             # Convert to dicitonary while casting the discrete variable(s) back to int
-            pop_dict[i] = {key: (int(val) if isinstance(reference_individual[key], (int, np.int64)) else val)
+            pop_dict[i] = {key: (int(val) if isinstance(reference_individual[key], (int, np.integer)) else val)
                            for key, val in zip(self.design_vector_keys, perturbed_individual)}
 
         # Construct the population object

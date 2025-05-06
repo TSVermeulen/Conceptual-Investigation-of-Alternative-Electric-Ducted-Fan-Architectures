@@ -132,9 +132,6 @@ class OptimizationProblem(ElementwiseProblem):
         self.timestamp_format = "%m%d%H%M%S"
         self.analysis_name_template = "{}_{:04d}_{}"
 
-        # Initialize cache
-        self.cache = kwargs.pop('cache', None)
-
         # Initialize design vector interface
         self.design_vector_interface = DesignVectorInterface()
 
@@ -187,7 +184,8 @@ class OptimizationProblem(ElementwiseProblem):
         # Add a process ID to the analysis name to ensure uniqueness in multi-threaded environments.
         process_id = os.getpid() % 10000  # 4 chars max
 
-        # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>. with a maximum total length of 24 characters
+        # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>.
+        # Analysisw name is trucated to 32 characters as that is the maximum length accepted by MTFLOW. 
         self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)[:32]
 
 
@@ -330,14 +328,6 @@ class OptimizationProblem(ElementwiseProblem):
             The output dictionary is modified in-place. 
         """
 
-        # Construct key for design vector in cache
-        key = tuple(sorted(x.items()))
-
-        # Check if key in cache
-        if self.cache is not None and key in self.cache:
-            out.update(self.cache[key])
-            return
-
         # Lazy import the MTFLOW interface and output_handling interface
         # This helps to improve startup time and memory usage in parallel workers
         from MTFLOW_caller import MTFLOW_caller
@@ -395,10 +385,6 @@ class OptimizationProblem(ElementwiseProblem):
         
         # Cleanup the generated files
         self.CleanUpFiles()
-
-        # Add result to cache
-        if self.cache is not None:
-            self.cache[key] = out.copy()
     
 
 if __name__ == "__main__":

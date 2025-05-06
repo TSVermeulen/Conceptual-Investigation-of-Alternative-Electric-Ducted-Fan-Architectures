@@ -42,6 +42,7 @@ Changelog:
 # Import standarde libraries
 import sys
 from pathlib import Path
+import copy
 
 # Import 3rd party libraries
 from scipy import interpolate
@@ -130,7 +131,7 @@ class DesignVectorInterface:
                                                    np.abs(lower_y)[order],  # Take absolute value of y-coordinates since we need the distance, not the actual coordinate
                                                    extrapolate=False) 
 
-        x_min, x_max = lower_x[0], lower_x[-1]
+        x_min, x_max = lower_x[order[0]], lower_x[order[-1]]
         tip_gap = config.tipGap
         for i in range(self.num_stages):
             if not self.rotating[i]:
@@ -243,7 +244,7 @@ class DesignVectorInterface:
             try:
                 centerbody_vals = [next(it) for _ in range(centerbody_designvar_count)]
             except StopIteration:
-                raise ValueError("Design vector is too short for the expected centerbody variables.")
+                raise ValueError("Design vector is too short for the expected centerbody variables.") from None
             centerbody_variables = {"b_0": 0,
                                     "b_2": 0, 
                                     "b_8": Getb8(centerbody_vals[0], centerbody_vals[5], centerbody_vals[2], centerbody_vals[3]),
@@ -262,7 +263,7 @@ class DesignVectorInterface:
                                     "Chord Length": centerbody_vals[7],
                                     "Leading Edge Coordinates": (0, 0)}
         else:
-            centerbody_variables = config.CENTERBODY_VALUES.copy()
+            centerbody_variables = copy.deepcopy(config.CENTERBODY_VALUES)
 
         # Deconstruct the duct values if it's variable.
         # If the duct is constant, read in the duct values from config.
@@ -270,7 +271,7 @@ class DesignVectorInterface:
             try:
                 duct_vals = [next(it) for _ in range(duct_designvar_count)]
             except StopIteration:
-                raise ValueError("Design vector is too short for the expected duct variables.")
+                raise ValueError("Design vector is too short for the expected duct variables.") from None
             duct_variables = {"b_0": duct_vals[0],
                               "b_2": duct_vals[1], 
                               "b_8": Getb8(duct_vals[2], duct_vals[11], duct_vals[5], duct_vals[6]),
@@ -289,7 +290,7 @@ class DesignVectorInterface:
                               "Chord Length": duct_vals[15],
                               "Leading Edge Coordinates": (duct_vals[16], 0)}
         else:
-            duct_variables = config.DUCT_VALUES.copy()
+            duct_variables = copy.deepcopy(config.DUCT_VALUES)
                 
         # Deconstruct the rotorblade parameters if they are variable.
         # If the rotorblade parameters are constant, read in the parameters from config.
@@ -304,7 +305,7 @@ class DesignVectorInterface:
                     try:
                         section_vals = [next(it) for _ in range(section_designvar_count)]
                     except StopIteration:
-                        raise ValueError("Design vector is too short for the expected blade radial section variables.")
+                        raise ValueError("Design vector is too short for the expected blade radial section variables.") from None
                     section_parameters = {"b_0": section_vals[0],
                                         "b_2": section_vals[1], 
                                         "b_8": Getb8(section_vals[2], section_vals[11], section_vals[5], section_vals[6]), 
@@ -323,7 +324,7 @@ class DesignVectorInterface:
                     stage_design_parameters.append(section_parameters)
             else:
                 # If the stage is meant to be constant, read it in from config. 
-                stage_design_parameters = config.STAGE_DESIGN_VARIABLES[stage].copy()
+                stage_design_parameters = copy.deepcopy(config.STAGE_DESIGN_VARIABLES[stage])
             # Write the stage nested list to blade_design_parameters
             blade_design_parameters.append(stage_design_parameters)
 
@@ -345,7 +346,7 @@ class DesignVectorInterface:
                 stage_blading_parameters["sweep_angle"] = [next(it) for _ in range(self.num_radial[stage])]
                 stage_blading_parameters["blade_angle"] = [next(it) for _ in range(self.num_radial[stage])]     
             else:
-                stage_blading_parameters = config.STAGE_BLADING_PARAMETERS[stage].copy()
+                stage_blading_parameters = copy.deepcopy(config.STAGE_BLADING_PARAMETERS[stage])
             
             # Append the stage blading parameters to the main list
             blade_blading_parameters.append(stage_blading_parameters)
