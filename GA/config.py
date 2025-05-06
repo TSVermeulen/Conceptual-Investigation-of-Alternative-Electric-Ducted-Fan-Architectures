@@ -33,20 +33,14 @@ from ambiance import Atmosphere
 from contextlib import contextmanager
 from enum import IntEnum, auto
 import os
-import sys
 from pathlib import Path
 
-# Add the parent and submodels paths to the system path if they are not already in the path
-parent_path = str(Path(__file__).resolve().parent.parent)
-submodels_path = str(Path(__file__).resolve().parent.parent / "Submodels")
-
-if parent_path not in sys.path:
-    sys.path.append(parent_path)
-
-if submodels_path not in sys.path:
-    sys.path.append(submodels_path)
+# Ensure all paths are correctly setup
+from utils import ensure_repo_paths
+ensure_repo_paths()
 
 from Submodels.Parameterizations import AirfoilParameterization
+
 
 # Define a context manager for GenerateMTFLOBlading to ensure the working directory is set correctly
 @contextmanager

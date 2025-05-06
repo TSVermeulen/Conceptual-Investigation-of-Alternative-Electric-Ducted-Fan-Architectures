@@ -26,32 +26,24 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.1
+Version: 1.2
 
 Changelog:
 - V1.0: Initial implementation.
 - V1.1: Updated documentation and added examples for clarity.
-- V1
+- V1.2: Rework of design vector access. Inclusion of utils.ensure_repo_paths.
 """
 
 # Import standard libraries
-import sys
-from pathlib import Path
 import copy
 
 # Import 3rd party libraries
 from scipy import interpolate
 import numpy as np
 
-# Add the parent and submodels paths to the system path if they are not already in the path
-parent_path = str(Path(__file__).resolve().parent.parent)
-submodels_path = str(Path(__file__).resolve().parent.parent / "Submodels")
-
-if parent_path not in sys.path:
-    sys.path.append(parent_path)
-
-if submodels_path not in sys.path:
-    sys.path.append(submodels_path)
+# Ensure all paths are correctly setup
+from utils import ensure_repo_paths
+ensure_repo_paths()
 
 # Import interfacing modules
 import config

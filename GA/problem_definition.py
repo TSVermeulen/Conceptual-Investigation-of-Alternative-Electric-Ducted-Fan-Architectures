@@ -47,7 +47,6 @@ Changelog:
 
 # Import standard libraries
 import os
-import sys
 import numpy as np
 import shutil
 import uuid
@@ -57,15 +56,9 @@ import datetime
 # Import 3rd party libraries
 from pymoo.core.problem import ElementwiseProblem
 
-# Add the parent and submodels paths to the system path if they are not already in the path
-parent_path = str(Path(__file__).resolve().parent.parent)
-submodels_path = str(Path(__file__).resolve().parent.parent / "Submodels")
-
-if parent_path not in sys.path:
-    sys.path.append(parent_path)
-
-if submodels_path not in sys.path:
-    sys.path.append(submodels_path)
+# Ensure all paths are correctly setup
+from utils import ensure_repo_paths
+ensure_repo_paths()
 
 # Import interface submodels and other dependencies
 from Submodels.MTSOL_call import OutputType

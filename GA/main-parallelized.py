@@ -38,37 +38,21 @@ Changelog:
 - V1.0: Initial implementation. 
 - V1.1: Updated documentation to reflect changes in the main module structure and added examples for usage.
 - V1.2: Updated to include reserved thread for MTSOL output reader.
+- V1.3: Updated to use the utils.ensure_repo_paths function.
 """
 
 from pymoo.core.mixed import MixedVariableGA
 from pymoo.core.problem import StarmapParallelization
 from pymoo.optimize import minimize
 import multiprocessing
-from pathlib import Path
 import dill
 import config
 import datetime
 import os
-import sys
 
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
-
-# Define the parent and submodels paths
-parent_dir = str(Path(__file__).resolve().parent.parent)
-submodels_dir =  str(Path(__file__).resolve().parent.parent / "Submodels")
-
-def worker_init() -> None:
-    """
-    Initializer for each worker process in the pool. Ensures sys.path and environment variables are set up for imports.
-    """
-    # Add the parent and submodels paths to the system path if they are not already in the path
-    if parent_dir not in sys.path:
-        sys.path.append(parent_dir)
-
-    if submodels_dir not in sys.path:
-        sys.path.append(submodels_dir)
-
+from utils import ensure_repo_paths
 
 if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
@@ -81,32 +65,31 @@ if __name__ == "__main__":
     total_threads_avail = (total_threads - RESERVED_THREADS) // 2  # Divide by 2 as each MTFLOW evaluation uses 2 threads: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
     n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used
-    with multiprocessing.Manager() as manager:
-        with multiprocessing.Pool(processes=n_processes,
-                                initializer=worker_init,
-                                initargs=()) as pool:
+    with multiprocessing.Pool(processes=n_processes,
+                            initializer=ensure_repo_paths,
+                            initargs=()) as pool:
 
-            # Create runner
-            runner = StarmapParallelization(pool.starmap)
+        # Create runner
+        runner = StarmapParallelization(pool.starmap)
 
-            """ Initialize the optimization problem and algorithm """
-            # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
-            problem = OptimizationProblem(elementwise_runner=runner,
-                                        seed=42)
+        """ Initialize the optimization problem and algorithm """
+        # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
+        problem = OptimizationProblem(elementwise_runner=runner,
+                                      seed=42)
 
-            # Initialize the algorithm
-            algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
-                                        sampling=InitPopulation(population_type="biased",
-                                                                seed=42).GeneratePopulation())
+        # Initialize the algorithm
+        algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
+                                    sampling=InitPopulation(population_type="biased",
+                                                            seed=42).GeneratePopulation())
 
-            # Run the optimization
-            res = minimize(problem,
-                        algorithm,
-                        termination=('n_gen', config.MAX_GENERATIONS),
-                        seed=42,
-                        verbose=True,
-                        save_history=True,
-                        return_least_infeasible=True)
+        # Run the optimization
+        res = minimize(problem,
+                       algorithm,
+                       termination=('n_gen', config.MAX_GENERATIONS),
+                       seed=42,
+                       verbose=True,
+                       save_history=True,
+                       return_least_infeasible=True)
 
     # Print some performance metrics
     print(f"Optimization completed in {res.exec_time:.2f} seconds")

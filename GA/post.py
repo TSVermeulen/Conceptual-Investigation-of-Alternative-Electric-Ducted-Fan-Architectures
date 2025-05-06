@@ -1,20 +1,13 @@
 import dill
 from pathlib import Path
-import sys
 
-# Add the parent and submodels paths to the system path if they are not already in the path
-parent_path = str(Path(__file__).resolve().parent.parent)
-submodels_path = str(Path(__file__).resolve().parent.parent / "Submodels")
-
-if parent_path not in sys.path:
-    sys.path.append(parent_path)
-
-if submodels_path not in sys.path:
-    sys.path.append(submodels_path)
+# Ensure all paths are correctly setup
+from utils import ensure_repo_paths
+ensure_repo_paths()
  
 
 def main(fname: Path,
-         base_dir: Path) -> object:
+         base_dir: Path = None) -> object:
     """
     Load and return the optimization results from the specified .dill file.
 
@@ -57,8 +50,8 @@ def main(fname: Path,
     except FileNotFoundError as e:
         raise FileNotFoundError(f"Error: Results file not found. Ensure {fname} exists") from e
 
-    except Exception as e:
-        raise Exception(f"Error loading results: {e}") from e
+    except dill.UnpicklingError as e:
+        raise RuntimeError(f"Error loading results: {e}") from e
 
 
 if __name__ == "__main__":

@@ -43,30 +43,14 @@ from pymoo.core.mixed import MixedVariableGA
 from pymoo.core.problem import StarmapParallelization
 from pymoo.optimize import minimize
 import multiprocessing
-from pathlib import Path
 import dill
 import config
 import datetime
 import os
-import sys
 
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
-
-# Define the parent and submodels paths
-parent_dir = str(Path(__file__).resolve().parent.parent)
-submodels_dir =  str(Path(__file__).resolve().parent.parent / "Submodels")
-
-def worker_init() -> None:
-    """
-    Initializer for each worker process in the pool. Ensures sys.path and environment variables are set up for imports.
-    """
-    # Add the parent and submodels paths to the system path if they are not already in the path
-    if parent_dir not in sys.path:
-        sys.path.append(parent_dir)
-
-    if submodels_dir not in sys.path:
-        sys.path.append(submodels_dir)
+from utils import ensure_repo_paths
 
 
 if __name__ == "__main__":
@@ -80,7 +64,7 @@ if __name__ == "__main__":
         shared_cache = manager.dict()  # Initialize shared cache
 
         with multiprocessing.Pool(processes=n_processes,
-                                  initializer=worker_init,
+                                  initializer=ensure_repo_paths,
                                   initargs=()) as pool:
 
             # Create runner
