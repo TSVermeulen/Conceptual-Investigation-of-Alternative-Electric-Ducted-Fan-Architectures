@@ -40,19 +40,21 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.1
+Version: 1.2
 
 Changelog:
 - V1.0: Initial version with tested biased population generation and basic random population generation functionality.
 - V1.1: Added support for configurable random seed for reproducibility and improved documentation. Reworked GenerateBiasedPopulation to improve speed using NumPy.
+- V1.2: Implemented perturbation for zero-valued real design parameters.
 """
 
+# Import 3rd party libraries
 import numpy as np
-import random
 from pymoo.core.mixed import MixedVariableSampling
 from pymoo.core.population import Population
 from pymoo.core.individual import Individual
 
+# Import interfacing modules
 from init_designvector import DesignVector 
 import config
 
@@ -90,7 +92,6 @@ class InitPopulation():
 
         # Set the seed for the random number generator to ensure reproducibility
         seed = kwargs.get("seed", 1)
-        self._rng = random.Random(seed)
         self._np_rng = np.random.default_rng(seed)
 
 
@@ -235,9 +236,18 @@ class InitPopulation():
             real_mask = np.array([isinstance(reference_individual[k], (float, np.floating)) for k in self.design_vector_keys])
             int_mask = ~real_mask
 
-            # Apply perturbations
+            # Compute masks to check which values of the floating point variables are zero
             perturbed_individual = ref.copy()
-            perturbed_individual[real_mask] += noise[real_mask] * perturbed_individual[real_mask] * config.SPREAD_CONTINUOUS
+            zero_real_mask = real_mask & (perturbed_individual == 0)
+            nonzero_real_mask = real_mask & (perturbed_individual != 0)
+            span = upper_bounds - lower_bounds
+
+            # Apply perturbations
+            # For nonzero real values, we use a simple noise perturbation
+            perturbed_individual[nonzero_real_mask] += noise[nonzero_real_mask] * perturbed_individual[nonzero_real_mask] * config.SPREAD_CONTINUOUS
+            # For zero real values, we use a perturbation which is equal to some constant value times the design variable span
+            perturbed_individual[zero_real_mask] += noise[zero_real_mask] * span[zero_real_mask] * config.ZERO_NOISE * config.SPREAD_CONTINUOUS
+            # For integer values, we use an integer noise function
             perturbed_individual[int_mask] += self._np_rng.integers(*config.SPREAD_DISCRETE, size=int_mask.sum())
 
             # Ensure perturbed individual still falls within the design variable bounds

@@ -116,7 +116,7 @@ DUCT_VALUES = {'b_0': 0., 'b_2': 0., 'b_8': 0.004081758291374328, 'b_15': 0.735,
 # Controls for the optimisation vector - BLADES
 OPTIMIZE_STAGE = [True, False, False]
 ROTATING = [True, False, False]
-NUM_RADIALSECTIONS = [2, 2, 2]  # Define the number of radial sections at which the blade profiles for each stage will be defined. 
+NUM_RADIALSECTIONS = [3, 2, 2]  # Define the number of radial sections at which the blade profiles for each stage will be defined. 
 NUM_STAGES = 3  # Define the number of stages (i.e. total count of rotors + stators)
 REFERENCE_BLADE_ANGLES = [np.deg2rad(19), 0, 0]  # Reference angles at the reference section (typically 75% of blade span)
 BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
@@ -148,11 +148,12 @@ def GenerateMTFLOBlading(Omega: float,
     """
 
     # Start defining the MTFLO blading inputs
-    radial_stations = np.array([0., 1]).astype(float) * 1.0668
-    chord_length = np.array([0.3510, 0.2205]).astype(float)
-    blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(15.5)]).astype(float)
+    radial_stations = np.array([0.0, 0.5334, 1.0668])
+    chord_length = np.array([0.3510, 0.2528, 0.2205])
+    blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(32.3), np.deg2rad(15.5)])
     propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
                             "rotational_rate": Omega, 
+                            "RPS": 25.237,
                             "ref_blade_angle": ref_blade_angle, 
                             "reference_section_blade_angle": np.deg2rad(20), 
                             "blade_count": 3, 
@@ -162,20 +163,22 @@ def GenerateMTFLOBlading(Omega: float,
     
     horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, 
                                    "rotational_rate": 0, 
+                                   "RPS": 0,
                                    "ref_blade_angle": 0, 
                                    "reference_section_blade_angle": 0, 
                                    "blade_count": 4, 
-                                   "radial_stations": np.array([0., 1]) * 1.15, 
+                                   "radial_stations": np.array([0.0, 1.15]), 
                                    "chord_length": np.array([0.57658, 0.14224]), 
                                    "blade_angle": np.array([np.deg2rad(90), np.deg2rad(90)]),
                                    "sweep_angle": np.array([0, 0])}
     
     diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, 
                                  "rotational_rate": 0, 
+                                 "RPS": 0,
                                  "ref_blade_angle": 0, 
                                  "reference_section_blade_angle": 0, 
                                  "blade_count": 2, 
-                                 "radial_stations": np.array([0., 1]) * 1.15, 
+                                 "radial_stations": np.array([0.0, 1.15]), 
                                  "chord_length": np.array([0.10287, 0.10287]), 
                                  "blade_angle": np.array([np.deg2rad(90), np.deg2rad(90)]),
                                  "sweep_angle": np.array([0, 0])}
@@ -245,7 +248,7 @@ def GenerateMTFLOBlading(Omega: float,
                                                                            plot=False)
 
     # Construct blading list
-    design_parameters = [[R00_section, R03_section, R05_section, R07_section, R10_section],
+    design_parameters = [[R00_section, R05_section, R10_section],
                          [Hstrut_section, Hstrut_section],
                          [Dstrut_section, Dstrut_section]]
 
@@ -260,6 +263,7 @@ P_ref_constr = 0.16607 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 3 * BLAD
 T_ref_constr = 0.13288 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2) # Reference Thrust in Newtons derived from baseline analysis
 Eta_ref_constr = 0.80014  # Reference Propulsive efficiency derived from baseline analysis
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
+
 
 # Define the constraint IDs used to construct the constraint functions
 # constraint IDs are structured as a nested list, of the form:
@@ -292,11 +296,12 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
                   []]
 
 # Define the population size
-POPULATION_SIZE = 50
-INIT_POPULATION_SIZE = 5  # Initial population size for the first generation
-MAX_GENERATIONS = 2
+POPULATION_SIZE = 25
+INIT_POPULATION_SIZE = 25  # Initial population size for the first generation
+MAX_GENERATIONS = 20
 
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
-SPREAD_CONTINUOUS = (0.20, 0.20)  # +/- x% of the reference value
+SPREAD_CONTINUOUS = 0.2  # +/- % of the reference value
+ZERO_NOISE = 0.1  # %
 SPREAD_DISCRETE = (-3, 6)  # +/- of the reference value

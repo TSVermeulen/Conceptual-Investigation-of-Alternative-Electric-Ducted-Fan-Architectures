@@ -39,7 +39,7 @@ Changelog:
 - V1
 """
 
-# Import standarde libraries
+# Import standard libraries
 import sys
 from pathlib import Path
 import copy
@@ -166,7 +166,12 @@ class DesignVectorInterface:
         for i in range(self.num_stages):
             if not self.rotating[i]:
                 r_old = blade_blading_parameters[i]["radial_stations"][-1]
-                blade_blading_parameters[i]["radial_stations"] = blade_blading_parameters[i]["radial_stations"] / r_old * LE_coordinate_duct    
+                if r_old:
+                    # Simple guard against r=0
+                    blade_blading_parameters[i]["radial_stations"] = blade_blading_parameters[i]["radial_stations"] / r_old * LE_coordinate_duct 
+                else:
+                    # If the last entry of radial stations is 0, simply set it to the LE coordinate of the duct. This avoids a divide-by-zero error. 
+                    blade_blading_parameters[i]["radial_stations"][-1] = LE_coordinate_duct   
     
         # Return the updated data
         return duct_variables, blade_blading_parameters

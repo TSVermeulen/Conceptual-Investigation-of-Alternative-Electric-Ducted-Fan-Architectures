@@ -33,14 +33,16 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.2
+Version: 1.3
 
 Changelog:
 - V1.0: Initial implementation. 
 - V1.1: Improved documentation. Fixed issues with deconstruction of design vector. Fixed analysisname generator and switched to using datetime & evaluation counter for name generation. 
 - V1.1.5: Changed analysis name generation to only use datetime to simplify naming generation. 
-- V1.1.6: Updated to remove iter_count from MTFLOW_caller outputs
-- V1.2: Extracted design vector handling to separate file/class
+- V1.1.6: Updated to remove iter_count from MTFLOW_caller outputs.
+- V1.2: Extracted design vector handling to separate file/class.
+- V1.3: Removed troublesome cache implementation. Cleaned up _evaluate method. Created default crash output dictionary to avoid repeated reading of crash_outputs forces file. Adjusted GenerateAnalysisName method to use 8-char uuid.
+        Updated ComputeOmega method to write omega to the blading lists rather than to the oper dictionary.
 """
 
 # Import standard libraries
@@ -185,8 +187,8 @@ class OptimizationProblem(ElementwiseProblem):
         process_id = os.getpid() % 10000  # 4 chars max
 
         # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>.
-        # Analysisw name is trucated to 32 characters as that is the maximum length accepted by MTFLOW. 
-        self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)[:32]
+        # Analysis name has a length of 24 characters, satisfying the maximum length of 32 characters accepted by MTFLOW. 
+        self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)
 
 
     def ComputeReynolds(self) -> None:
