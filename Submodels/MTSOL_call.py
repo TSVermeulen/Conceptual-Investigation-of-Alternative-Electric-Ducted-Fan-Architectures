@@ -732,7 +732,7 @@ class MTSOL_call:
                         averaged_file.write(base_line)
                         continue
                     average_value = np.mean(values, axis=0)
-                    line_text = f'{key} = {average_value:.5E}\n'
+                    line_text = f'{key} = {float(average_value):.5E}\n'
                 
                 # Case 2: multiple key=value pairs in one line.
                 elif all(eq_flags):
@@ -750,7 +750,7 @@ class MTSOL_call:
                                 
                         # Compute average for each encountered key, preserving order from the first appearance.
                         avg_values = [
-                            f"{var} = {np.mean(vals):.5E}"
+                            f"{var} = {float(np.mean(vals)):.5E}"
                             for var, vals in var_values_dict.items()
                         ]
                         line_text = " ".join(avg_values) + "\n"
@@ -766,7 +766,7 @@ class MTSOL_call:
                         matrix = np.array([])
                     if matrix.size:
                         avg_values = np.mean(matrix, axis=0)
-                        line_text = text_part + '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
+                        line_text = text_part + '    '.join(f'{float(val):.5E}' for val in avg_values) + '\n'
                     else:
                         line_text = base_line
 
@@ -778,7 +778,7 @@ class MTSOL_call:
                         matrix = np.array([])
                     if matrix.size:
                         avg_values = np.mean(matrix, axis=0)
-                        line_text = '    '.join(f'{val:.5E}' for val in avg_values) + '\n'
+                        line_text = '    '.join(f'{float(val):.5E}' for val in avg_values) + '\n'
                     else:
                         line_text = base_line
                 
