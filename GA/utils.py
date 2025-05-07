@@ -24,4 +24,6 @@ def ensure_repo_paths() -> None:
     validation = repo_root / "Validation"
     ga = repo_root / "GA"
     for p in (repo_root, submodels, validation, ga):
-        sys.path.append(str(p)) if str(p) not in sys.path else None
+        path_str = str(p)
+        if path_str not in sys.path:
+            sys.path.append(path_str)

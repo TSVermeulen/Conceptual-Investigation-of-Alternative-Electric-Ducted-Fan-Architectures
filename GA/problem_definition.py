@@ -246,6 +246,9 @@ class OptimizationProblem(ElementwiseProblem):
                     os.replace(file_path, copied_file)
                 except OSError:
                     shutil.move(file_path, copied_file)
+                except FileNotFoundError:
+                    print(f"The tdat state file {file_path} could not be located for copying.")
+                    pass
             else:
                 # Cleanup all temporary files
                 file_path.unlink(missing_ok=True)
@@ -289,7 +292,7 @@ class OptimizationProblem(ElementwiseProblem):
             
             output_generated =  True  # If both input generation routines succeeded, set output_generated to True
 
-        except ValueError as e:
+        except Exception as e:
             # Any value error that might occur while generating the MTSET input file will be caused by interpolation issues arising from the input values, so 
             # this is an efficient and simple method to check if the axisymmetric bodies are feasible. 
             output_generated = False  # If any of the input generation routines raised an error, set output_generated to False

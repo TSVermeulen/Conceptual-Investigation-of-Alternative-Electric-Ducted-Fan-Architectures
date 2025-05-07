@@ -308,7 +308,7 @@ class MTSOL_call:
         if getattr(self, "reader", None) and self.reader.is_alive():
             # Signal the thread to stop
             self.shutdown_event.set()
-            time.sleep(0.1)  # Give the thread some time to exit cleanly before force closing
+            time.sleep(0.5)  # Give the thread some time to exit cleanly before force closing
             try:
                 if self.reader.is_alive() and getattr(self, "process", None):
                     self.process.stdout.close()
@@ -323,6 +323,10 @@ class MTSOL_call:
                 self.process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 self.process.kill()
+                try:
+                    self.process.wait(timeout=10)  # Wait for the process to terminate after killing
+                except subprocess.TimeoutExpired:
+                    print(f"Warning: process could not be terminated within timeout")
 
         self.process = subprocess.Popen([self.fpath, self.analysis_name], 
                                         stdin=subprocess.PIPE, 

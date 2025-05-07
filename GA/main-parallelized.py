@@ -11,7 +11,7 @@ Functionality
 -------------
 - Initializes an optimization problem with mixed-variable support.
 - Configures and runs a genetic algorithm (GA) for optimization.
-- Saves the results to a shelve database for future reference.
+- Saves the results to a dill database for future reference.
 
 Examples
 --------
@@ -75,18 +75,18 @@ if __name__ == "__main__":
         """ Initialize the optimization problem and algorithm """
         # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
         problem = OptimizationProblem(elementwise_runner=runner,
-                                      seed=42)
+                                      seed=config.GLOBAL_SEED)
 
         # Initialize the algorithm
         algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
                                     sampling=InitPopulation(population_type="biased",
-                                                            seed=42).GeneratePopulation())
+                                                            seed=config.GLOBAL_SEED).GeneratePopulation())
 
         # Run the optimization
         res = minimize(problem,
                        algorithm,
                        termination=('n_gen', config.MAX_GENERATIONS),
-                       seed=42,
+                       seed=config.GLOBAL_SEED,
                        verbose=True,
                        save_history=True,
                        return_least_infeasible=True)

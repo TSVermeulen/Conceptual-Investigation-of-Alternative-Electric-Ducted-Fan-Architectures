@@ -52,6 +52,9 @@ def pushd(path):
     finally:
         os.chdir(prev)
 
+# Define the seed used for randomisation
+GLOBAL_SEED = 42
+
 # Define the altitude for the analysis and construct an atmosphere object from which atmospheric properties can be extracted. 
 ALTITUDE = 0  # meters
 atmosphere = Atmosphere(ALTITUDE)
@@ -241,7 +244,7 @@ def GenerateMTFLOBlading(Omega: float,
 
     return blading_parameters, design_parameters
 
-with pushd(parent_path):
+with pushd(Path(__file__).resolve().parent.parent):
         STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = GenerateMTFLOBlading(oper["Omega"],
                                                                                 REFERENCE_BLADE_ANGLES[0])
 

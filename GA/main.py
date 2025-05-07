@@ -10,7 +10,7 @@ Functionality
 -------------
 - Initializes an optimization problem with mixed-variable support.
 - Configures and runs a genetic algorithm (GA) for optimization.
-- Saves the results to a shelve database for future reference.
+- Saves the results to a dill database for future reference.
 
 Examples
 --------
