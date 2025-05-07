@@ -124,7 +124,8 @@ class FileCreatedHandling(FileSystemEventHandler):
         while (time.monotonic() - start_time) < timeout:
             if self.is_file_free(file_path):
                 return True
-            time.sleep(min(0.1, 0.01 * (1 + int((time.monotonic() - start_time) // 5))))
+            elapsed_seconds = time.monotonic() - start_time
+            time.sleep(min(0.1, 0.01 * (1 + int((elapsed_seconds) // 5))))
         return False
         
 
@@ -308,7 +309,12 @@ class MTSOL_call:
         if getattr(self, "reader", None) and self.reader.is_alive():
             # Signal the thread to stop
             self.shutdown_event.set()
-            time.sleep(0.5)  # Give the thread some time to exit cleanly before force closing
+
+            # Give the thread some time to exit cleanly before force closing
+            for _ in range(10):
+                if not self.reader.is_alive():
+                    break
+                time.sleep(0.05)  
             try:
                 if self.reader.is_alive() and getattr(self, "process", None):
                     self.process.stdout.close()
@@ -326,7 +332,7 @@ class MTSOL_call:
                 try:
                     self.process.wait(timeout=10)  # Wait for the process to terminate after killing
                 except subprocess.TimeoutExpired:
-                    print(f"Warning: process could not be terminated within timeout")
+                    print("Warning: process could not be terminated within timeout")
 
         self.process = subprocess.Popen([self.fpath, self.analysis_name], 
                                         stdin=subprocess.PIPE, 

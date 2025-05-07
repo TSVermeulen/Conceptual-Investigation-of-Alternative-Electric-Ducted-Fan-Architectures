@@ -244,7 +244,8 @@ def GenerateMTFLOBlading(Omega: float,
 
     return blading_parameters, design_parameters
 
-with pushd(Path(__file__).resolve().parent.parent):
+parent_path = Path(__file__).resolve().parent.parent
+with pushd(parent_path):
         STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = GenerateMTFLOBlading(oper["Omega"],
                                                                                 REFERENCE_BLADE_ANGLES[0])
 
