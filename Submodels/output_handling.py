@@ -602,8 +602,10 @@ class output_processing:
         try:
             with open(self.forces_path, 'r') as file:
                 # Read the file contents, and replace the newline characters with empty strings.
+                # Also remove any empty lines from the list
                 forces_file_contents = file.readlines()
-                forces_file_contents = [s.replace('\n', '') for s in forces_file_contents]	
+                forces_file_contents = [s for s in forces_file_contents if s.strip()]	
+                forces_file_contents = [s.replace('\n', '') for s in forces_file_contents]
         except OSError as e:
             raise OSError(f"An error occurred opening the forces.{self.analysis_name} file: {e}") from e
 
@@ -625,49 +627,48 @@ class output_processing:
         oper = {}
         data = {}
         grouped_data = {}
-        idx = -1
 
         # Use regex to extract values from the line.
         # Only search for the data if desired based on the output_type integer provided.
-        for line in forces_file_contents: 
-            idx += 1
-
-            if idx == 3 and output_type == 0:
+        for idx, line in enumerate(forces_file_contents): 
+            if idx == 0:
+                continue
+            if idx == 1 and output_type == 0:
                 oper["Mach"] = re.search(Ma_pattern, line).group(1)
 
-            elif idx == 4 and output_type == 0:
+            elif idx == 2 and output_type == 0:
                 match = re.search(Re_Ncrit_pattern, line)
                 oper["Re"] = match.group(1)
                 oper["Ncrit"] = match.group(2)
 
-            elif idx == 6 and output_type in (0, 1, 3):
+            elif idx == 3 and output_type in (0, 1, 3):
                 match = re.search(total_CP_etaP_pattern, line)
                 data["Total power CP"] = match.group(1)
                 data["EtaP"] = match.group(2)
 
-            elif idx == 7 and output_type in (0, 1, 3):
+            elif idx == 4 and output_type in (0, 1, 3):
                 data["Total force CT"] = re.search(total_CT_pattern, line).group(1)
 
-            elif idx == 9 and output_type in (0, 1, 3):
+            elif idx == 5 and output_type in (0, 1, 3):
                 data["Element 2 top CTV"] = re.search(top_CTV_pattern, line).group(1)
 
-            elif idx == 10 and output_type in (0, 1, 3):
+            elif idx == 6 and output_type in (0, 1, 3):
                 data["Element 2 bot CTV"] = re.search(bot_CTV_pattern, line).group(1)
 
-            elif idx == 11 and output_type in (0, 1, 3):
+            elif idx == 7 and output_type in (0, 1, 3):
                 data["Axis body CTV"] = re.search(axis_body_CTV_pattern, line).group(1)
 
-            elif idx == 14 and output_type in (0, 1, 3):
+            elif idx == 9 and output_type in (0, 1, 3):
                 viscous_inviscid_math = re.search(viscous_inviscid_pattern, line)
                 data["Viscous CTv"] = viscous_inviscid_math.group(1)
                 data["Inviscid CTi"] = viscous_inviscid_math.group(2)
 
-            elif idx == 15 and output_type in (0, 1, 3):
+            elif idx == 10 and output_type in (0, 1, 3):
                 friction_pressure_math = re.search(friction_pressure_pattern, line)
                 data["Friction CTf"] = friction_pressure_math.group(1)
                 data["Pressure CTp"] = friction_pressure_math.group(2)
 
-            elif idx == 17 and output_type in (0, 2, 3):
+            elif idx == 11 and output_type in (0, 2, 3):
                 match = re.search(element_breakdown_pattern, line)
                 CTf = match.group(1)
                 CTp = match.group(2)
@@ -678,7 +679,7 @@ class output_processing:
                                              "top Xtr": top_Xtr,
                                              "bot Xtr": bot_Xtr}
                 
-            elif idx == 19 and output_type in (0, 2, 3):
+            elif idx == 12 and output_type in (0, 2, 3):
                 match = re.search(axis_body_breakdown_pattern, line)
                 CTf = match.group(1)
                 CTp = match.group(2)
@@ -687,7 +688,7 @@ class output_processing:
                                              "CTp": CTp,
                                              "Xtr": Xtr}
                 
-            elif idx == 23 and output_type in (0, 1, 3):
+            elif idx == 14 and output_type in (0, 1, 3):
                 data["Pressure Ratio"] = re.search(P_ratio_pattern, line).group(1)
 
         # Convert contents of all dictionaries to floats

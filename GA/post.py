@@ -51,6 +51,8 @@ from cycler import cycler
 # Import 3rd party libraries
 import matplotlib.pyplot as plt
 import numpy as np
+from pymoo.indicators.hv import HV
+from pymoo.visualization.scatter import Scatter
 
 # Ensure all paths are correctly setup
 from utils import ensure_repo_paths
@@ -151,12 +153,12 @@ class PostProcessing:
         vec_interface = DesignVectorInterface()
 
         # Loop over the population members and deconstruct their design vectors
-        for i in range(len(res.pop)):
+        for individual in res.pop:
             (centerbody_variables, 
              duct_variables, 
              blade_design_parameters, 
              blade_blading_parameters, 
-             _) = vec_interface.DeconstructDesignVector(res.pop[i].X)
+             _) = vec_interface.DeconstructDesignVector(individual.X)
             opt_CB_data.append(centerbody_variables)
             opt_duct_data.append(duct_variables)
             opt_blading_data.append(blade_blading_parameters)
@@ -209,11 +211,6 @@ class PostProcessing:
         grouped_fig, ax1 = plt.subplots()
         
         # First plot the original geometry
-        plt.plot(np.concatenate((original_upper_x, np.flip(original_lower_x)), axis=0),
-                np.concatenate((original_upper_y, np.flip(original_lower_y)), axis=0), 
-                "k-.", 
-                label="Original Geometry",
-                )
         ax1.plot(np.concatenate((original_upper_x, np.flip(original_lower_x)), axis=0),
                 np.concatenate((original_upper_y, np.flip(original_lower_y)), axis=0), 
                 "k-.", 
@@ -226,12 +223,12 @@ class PostProcessing:
             (opt_upper_x, 
             opt_upper_y, 
             opt_lower_x, 
-            opt_lower_y) = parameterization.ComputeProfileCoordinates([self.duct_data[i]["b_0"],
-                                                                       self.duct_data[i]["b_2"],
-                                                                       self.duct_data[i]["b_8"],
-                                                                       self.duct_data[i]["b_15"],
-                                                                       self.duct_data[i]["b_17"]],
-                                                                       self.duct_data[i])
+            opt_lower_y) = parameterization.ComputeProfileCoordinates([optimised[i]["b_0"],
+                                                                       optimised[i]["b_2"],
+                                                                       optimised[i]["b_8"],
+                                                                       optimised[i]["b_15"],
+                                                                       optimised[i]["b_17"]],
+                                                                       optimised[i])
 
             # Plot the optimised geometry
             ax1.plot(np.concatenate((opt_upper_x, np.flip(opt_lower_x)), axis=0),
@@ -263,9 +260,7 @@ class PostProcessing:
         ax1.minorticks_on()
         ax1.set_xlabel("Axial Coordinate [m]")
         ax1.set_ylabel("Radial Coordinate [m]")
-        handles, labels = grouped_fig.gca().get_legend_handles_labels()
-        by_label = dict(zip(labels, handles))
-        ax1.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
+        ax1.legend(loc='upper left', bbox_to_anchor=(1,1))
         grouped_fig.tight_layout()
 
 
@@ -487,7 +482,7 @@ class PostProcessing:
         """
 
         # Switching logic if we should compare against the specified individual by integer or against the optimum design
-        if type(individual) == str:
+        if isinstance(individual, str):
             optimum_vector = res.X
             (_, 
              _, 
@@ -554,6 +549,22 @@ class PostProcessing:
                     plt.tight_layout()
 
 
+    def ComputeHyperVolume(self)->float:
+        """
+        
+        """
+        raise NotImplementedError
+
+
+    def PlotObjectiveSpace(self,
+                           res: object) -> None:
+        """
+        
+        """
+
+        raise NotImplementedError
+    
+
     def main(self) -> None:
         """
         Main post-processing method. 
@@ -568,12 +579,14 @@ class PostProcessing:
             self.CompareAxisymmetricGeometry(config.CENTERBODY_VALUES,
                                              self.CB_data)
             plt.show()
+            plt.close('all')
 
         # Plot the duct designs
         if config.OPTIMIZE_DUCT:
             self.CompareAxisymmetricGeometry(config.DUCT_VALUES,
                                              self.duct_data)
             plt.show()
+            plt.close('all')
         
         # Plot the optimised stage designs
         for i in range(len(config.OPTIMIZE_STAGE)):
@@ -581,13 +594,14 @@ class PostProcessing:
                 self.CompareBladingData(config.STAGE_BLADING_PARAMETERS,
                                         self.blading_data)
                 plt.show()
+                plt.close('all')
 
                 self.CompareBladeDesignData(config.STAGE_DESIGN_VARIABLES,
                                             config.STAGE_BLADING_PARAMETERS,
                                             res,
                                             'opt')
-                
                 plt.show()
+                plt.close('all')
         
 
 if __name__ == "__main__":

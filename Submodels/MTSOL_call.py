@@ -125,7 +125,7 @@ class FileCreatedHandling(FileSystemEventHandler):
             if self.is_file_free(file_path):
                 return True
             elapsed_seconds = time.monotonic() - start_time
-            time.sleep(min(0.1, 0.01 * (1 + int((elapsed_seconds) // 5))))
+            time.sleep(min(0.1, 0.01 * (2 ** min(10, int(elapsed_seconds)))))
         return False
         
 
@@ -501,7 +501,7 @@ class MTSOL_call:
 
         # Define an exponential time_delay function to limit CPU usage while the solver is working
         def sleep_time(delta_t: float) -> float:
-            return min(0.1, 0.01 * (1 + int(delta_t // 5)))
+            return min(0.1, 0.01 * (2 ** min(10, int(delta_t))))
 
         # Check the console output to ensure that commands are completed
         timer_start = time.monotonic()

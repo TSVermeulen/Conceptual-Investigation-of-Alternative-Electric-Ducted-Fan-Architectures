@@ -32,7 +32,7 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.2
+Version: 1.3
 
 Changelog:
 - V1.0: Initial implementation. 
@@ -41,15 +41,19 @@ Changelog:
 - V1.3: Updated to use the utils.ensure_repo_paths function.
 """
 
+# Import standard libraries
+import dill
+import datetime
+import os
+import multiprocessing
+
+# Import 3rd party libraries
 from pymoo.core.mixed import MixedVariableGA
 from pymoo.core.problem import StarmapParallelization
 from pymoo.optimize import minimize
-import multiprocessing
-import dill
-import config
-import datetime
-import os
 
+# Import interface submodels and other dependencies
+import config
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
 from utils import ensure_repo_paths
@@ -93,6 +97,7 @@ if __name__ == "__main__":
 
     # Print some performance metrics
     print(f"Optimization completed in {res.exec_time:.2f} seconds")
+    print("Best solution found: \nX = %s\nF = %s" % (res.X, res.F))
 
     """ Save the results to a dill file for future reference """
     # This avoids needing to re-run the optimization if the results are needed later.

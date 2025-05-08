@@ -22,17 +22,16 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.0
+Version: 1.1
 
 Changelog:
 - V1.0: Initial implementation. 
+- V1.1: Removed need for context manager by using absolute paths. 
 """
 
 import numpy as np
 from ambiance import Atmosphere
-from contextlib import contextmanager
 from enum import IntEnum, auto
-import os
 from pathlib import Path
 
 # Ensure all paths are correctly setup
@@ -40,17 +39,6 @@ from utils import ensure_repo_paths
 ensure_repo_paths()
 
 from Submodels.Parameterizations import AirfoilParameterization
-
-
-# Define a context manager for GenerateMTFLOBlading to ensure the working directory is set correctly
-@contextmanager
-def pushd(path):
-    prev = os.getcwd()
-    os.chdir(path)
-    try:
-        yield
-    finally:
-        os.chdir(prev)
 
 # Define the seed used for randomisation
 GLOBAL_SEED = 42
@@ -206,14 +194,14 @@ def GenerateMTFLOBlading(Omega: float,
     blading_parameters[0]["sweep_angle"] = sweep_angle
 
     # Obtain the parameterizations for the profile sections. 
-    local_dir_path = Path('Validation/Profiles')
-    R00_fpath = local_dir_path / 'X22_02R.dat'
-    R03_fpath = local_dir_path / 'X22_03R.dat'
-    R05_fpath = local_dir_path / 'X22_05R.dat'
-    R07_fpath = local_dir_path / 'X22_07R.dat'
-    R10_fpath = local_dir_path / 'X22_10R.dat'
-    Hstrut_fpath = local_dir_path / 'Hstrut.dat'
-    Dstrut_fpath = local_dir_path / 'Dstrut.dat'
+    profile_dir_path = Path(__file__).parent.parent / 'Validation/Profiles'
+    R00_fpath = profile_dir_path / 'X22_02R.dat'
+    R03_fpath = profile_dir_path / 'X22_03R.dat'
+    R05_fpath = profile_dir_path / 'X22_05R.dat'
+    R07_fpath = profile_dir_path / 'X22_07R.dat'
+    R10_fpath = profile_dir_path / 'X22_10R.dat'
+    Hstrut_fpath = profile_dir_path / 'Hstrut.dat'
+    Dstrut_fpath = profile_dir_path / 'Dstrut.dat'
 
     filenames = [R00_fpath, R03_fpath, R05_fpath, R07_fpath, R10_fpath, Hstrut_fpath, Dstrut_fpath]
 
@@ -244,10 +232,9 @@ def GenerateMTFLOBlading(Omega: float,
 
     return blading_parameters, design_parameters
 
-parent_path = Path(__file__).resolve().parent.parent
-with pushd(parent_path):
-        STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = GenerateMTFLOBlading(oper["Omega"],
-                                                                                REFERENCE_BLADE_ANGLES[0])
+# Compute the blading and design parameters for the rotors/stators of the reference design
+STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = GenerateMTFLOBlading(oper["Omega"],
+                                                                        REFERENCE_BLADE_ANGLES[0])
 
 # Define the target thrust/power and efficiency for use in constraints
 P_ref_constr = 0.16607 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2)  # Reference Power in Watts derived from baseline analysis
@@ -288,11 +275,14 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
 
 # Define the population size
 POPULATION_SIZE = 20
-INIT_POPULATION_SIZE = 30  # Initial population size for the first generation
+INIT_POPULATION_SIZE = POPULATION_SIZE  # Initial population size for the first generation
 MAX_GENERATIONS = 20
+MAX_EVALUATIONS = 500
 
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
 SPREAD_CONTINUOUS = 0.2  # Relative spread (+/- %) applied to continous variables around their reference values
-ZERO_NOISE = 0  # % noise added to zero values to avoid stagnation
+ZERO_NOISE = 0.01  # % noise added to zero values to avoid stagnation
 SPREAD_DISCRETE = (-3, 6)  # Absolute range for discrete variables (referene value -3 to reference value + 6)
+
+RESERVED_THREADS = 2

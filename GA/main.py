@@ -92,6 +92,7 @@ if __name__ == "__main__":
 
     # Print some performance metrics
     print(f"Optimization completed in {res.exec_time:.2f} seconds")
+    print("Best solution found: \nX = %s\nF = %s" % (res.X, res.F))
 
     """ Save the results to a dill file for future reference """
     # This avoids needing to re-run the optimization if the results are needed later.
