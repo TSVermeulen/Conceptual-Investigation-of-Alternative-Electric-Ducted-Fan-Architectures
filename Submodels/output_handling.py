@@ -32,11 +32,12 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.1
+Version: 1.2
 
 Changelog:
 - V1.0: Initial working version, containing only the plotting capabilities based on the flowfield.analysis_name and boundary_layer.analysis_name files. The output_processing() class is still a placeholder.
 - V1.1: Added the output_processing() class to read the forces.analysis_name file and extract the thrust and power coefficients. 
+- V1.2: Updated GetAllVariables() method to remove empty strings to increase robustness and avoid runtime errors in case MTSOL.GetAvgValues() adds additional whitelines.
 """
 
 import re

@@ -275,14 +275,14 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
 
 # Define the population size
 POPULATION_SIZE = 20
-INIT_POPULATION_SIZE = POPULATION_SIZE  # Initial population size for the first generation
-MAX_GENERATIONS = 20
-MAX_EVALUATIONS = 500
+INIT_POPULATION_SIZE = 50  # Initial population size for the first generation
+MAX_GENERATIONS = 100
+MAX_EVALUATIONS = 2000
 
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
 SPREAD_CONTINUOUS = 0.2  # Relative spread (+/- %) applied to continous variables around their reference values
-ZERO_NOISE = 0.01  # % noise added to zero values to avoid stagnation
+ZERO_NOISE = 0.05  # % noise added to zero values to avoid stagnation
 SPREAD_DISCRETE = (-3, 6)  # Absolute range for discrete variables (referene value -3 to reference value + 6)
 
 RESERVED_THREADS = 2

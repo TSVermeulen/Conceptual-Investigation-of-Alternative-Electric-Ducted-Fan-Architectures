@@ -8,7 +8,7 @@ This module provides post-processing functionality for analyzing and visualizing
 It includes methods for loading optimization results, extracting population data, and generating comparative plots 
 for axisymmetric geometries, blading data, and blade design profiles.
 
-Classses
+Classes
 --------
 PostProcessing
     A class to handle post-processing of optimization results, including data extraction and visualization.
@@ -37,22 +37,22 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version 1.0
+Version 1.1
 
 Changelog:
-- V1.0: Initial implementation of plotting capabilities of outputs. 
+- V1.0: Initial implementation of plotting capabilities of outputs.
+- V1.1: Added convergence property plotter. Untested for multi-objective data.  
 """
 
 # Import standard libraries
 import dill
 from pathlib import Path
 from cycler import cycler
+from typing import Any
 
 # Import 3rd party libraries
 import matplotlib.pyplot as plt
 import numpy as np
-from pymoo.indicators.hv import HV
-from pymoo.visualization.scatter import Scatter
 
 # Ensure all paths are correctly setup
 from utils import ensure_repo_paths
@@ -99,7 +99,8 @@ class PostProcessing:
         else:
             self.base_dir = base_dir
 
-        # Convert fname to Path and resolve it if it's not alredy absolute
+        # Coerce fname to Path and resolve it if it's not already absolute
+        fname = Path(fname)
         self.results_path = self.base_dir / fname if not fname.is_absolute() else fname
         
         # Validate file extension
@@ -172,17 +173,17 @@ class PostProcessing:
 
     
     def CompareAxisymmetricGeometry(self,
-                                    reference: dict[str, any],
-                                    optimised: list[dict[str, any]],
+                                    reference: dict[str, Any],
+                                    optimised: list[dict[str, Any]],
                                     individual: bool = False) -> None:
         """
         Generate plots of the original and optimised (normalised) axisymmetric profiles.
 
         Parameters
         ----------
-        - reference : dict[str, any]
+        - reference : dict[str, Any]
             The reference geometry.
-        - optimised : list[dict[str, any]]
+        - optimised : list[dict[str, Any]]
             A list of the optimised geometry.
         - individual : bool, optional
             An optional bool to determine if individual comparison plots between each optimised individual and 
@@ -218,17 +219,17 @@ class PostProcessing:
                 )
         
         # Loop over all individuals in the final population and plot their geometries
-        for i in range(len(optimised)):                  
+        for i, geom in enumerate(optimised):                
             # Compute the optimised geometry
             (opt_upper_x, 
             opt_upper_y, 
             opt_lower_x, 
-            opt_lower_y) = parameterization.ComputeProfileCoordinates([optimised[i]["b_0"],
-                                                                       optimised[i]["b_2"],
-                                                                       optimised[i]["b_8"],
-                                                                       optimised[i]["b_15"],
-                                                                       optimised[i]["b_17"]],
-                                                                       optimised[i])
+            opt_lower_y) = parameterization.ComputeProfileCoordinates([geom["b_0"],
+                                                                       geom["b_2"],
+                                                                       geom["b_8"],
+                                                                       geom["b_15"],
+                                                                       geom["b_17"]],
+                                                                       geom)
 
             # Plot the optimised geometry
             ax1.plot(np.concatenate((opt_upper_x, np.flip(opt_lower_x)), axis=0),
@@ -265,16 +266,16 @@ class PostProcessing:
 
 
     def CompareBladingData(self,
-                         reference_blading: list[dict[str, any]],
-                         optimised_blading: list[list[dict[str, any]]]) -> None:
+                         reference_blading: list[dict[str, Any]],
+                         optimised_blading: list[list[dict[str, Any]]]) -> None:
         """
         Generate plots of the blading data for the final population members and the initial reference design. 
 
         Parameters
         ----------
-        - reference_blading : list[dict[str, any]]
+        - reference_blading : list[dict[str, Any]]
             The reference blading data. Each dictionary in the list corresponds to a stage. 
-        - optimised_blading : list[dict[str, any]]
+        - optimised_blading : list[dict[str, Any]]
             The optimised blading data. Each nested list corresponds to an individual in the final optimised population. 
         
         Returns
@@ -301,11 +302,12 @@ class PostProcessing:
         # Construct figure for bar chart
         for i in range(len(config.OPTIMIZE_STAGE)):
             if config.OPTIMIZE_STAGE[i]:
-                plt.figure("Bar Chart with blading parameters for stage {i}")
+                plt.figure(f"Bar Chart with blading parameters for stage {i}")
                 num_vars = len(keys)
                 num_indiv = len(optimised_blading)
                 x = np.arange(num_vars)
                 bar_width = 1 / (2 * num_indiv)
+                bar_width = 0.8 / num_indiv
 
                 # Plot the reference bars
                 reference_bar_data = [reference_blading[i][key] if key != "radial_stations" 
@@ -330,7 +332,7 @@ class PostProcessing:
                             label=f"Individual {j}")
         
                 # Labels and formatting
-                plt.xticks(x + bar_width, variables, rotation=90)
+                plt.xticks(x + (bar_width * num_indiv) / 2, variables, rotation=90)
                 plt.title("Comparison of Reference vs Optimized Design Variables")
                 handles, labels = plt.gca().get_legend_handles_labels()
                 by_label = dict(zip(labels, handles))
@@ -417,14 +419,14 @@ class PostProcessing:
 
 
     def ConstructBladeProfile(self,
-                              design:list[dict[str, any]],
+                              design:list[dict[str, Any]],
                               section_idx: int) -> tuple:
         """
         Function to compute the rotated upper and lower profile coordinates for a blade section.
 
         Parameters
         ----------
-        - design : list[dict[str, any]]
+        - design : list[dict[str, Any]]
             The list of the design dictionaries for each blade profile in the stage. 
         - section_idx : int
             The index of the radial section being constructed. 
@@ -453,17 +455,17 @@ class PostProcessing:
     
     
     def CompareBladeDesignData(self,
-                               reference_design: list[list[dict[str, any]]],
+                               reference_design: list[list[dict[str, Any]]],
                                res: object,
                                individual: int | str = "opt",
-                               optimised_design: list[list[dict[str, any]]] = None) -> None:
+                               optimised_design: list[list[dict[str, Any]]] = None) -> None:
         """
         Compares the blade design data of a reference design with an optimized design 
         and generates plots for visual comparison at various radial sections.
 
         Parameters
         ----------
-        - reference_design : list[list[dict[str, any]]] 
+        - reference_design : list[list[dict[str, Any]]] 
             The reference blade design data, structured as a list of stages, 
             where each stage contains a list of dictionaries representing radial sections.
         - res : object 
@@ -472,7 +474,7 @@ class PostProcessing:
             Specifies which individual design to compare against. If "opt", the optimum design 
             from the optimization result is used. If an integer, the corresponding individual 
             from the `optimised_design` list is used. Defaults to "opt".
-        - optimised_design list[list[dict[str, any]]], optional 
+        - optimised_design list[list[dict[str, Any]]], optional 
             The optimized blade design data, structured similarly to `reference_design`. 
             Required if `individual` is an integer. Defaults to None.
                             
@@ -482,7 +484,7 @@ class PostProcessing:
         """
 
         # Switching logic if we should compare against the specified individual by integer or against the optimum design
-        if isinstance(individual, str):
+        if individual == "opt":
             optimum_vector = res.X
             (_, 
              _, 
@@ -490,7 +492,8 @@ class PostProcessing:
              _, 
              _) = DesignVectorInterface().DeconstructDesignVector(optimum_vector)
         else:
-            optimised_design = optimised_design[individual]
+            print(individual)
+            optimised_design = optimised_design[individual].copy()
 
         # Loop over all stages and compare against the reference design if the stage is optimised:
         for i in range(len(config.OPTIMIZE_STAGE)):
@@ -548,6 +551,121 @@ class PostProcessing:
                     plt.ylabel('Normalised perpendicular coordinate $y/c$ [-]')
                     plt.tight_layout()
 
+    
+    def GenerateConvergenceStatistics(self,
+                                      res : object) -> None:
+        """
+        Generate some graphs to analyse the convergence behaviour of the optimisation. 
+        Analyses:
+            - The convergence of the best and average objective values.
+            - Diversity of the design vectors
+            - Maximum successive change in design vectors
+            - Constraint violation
+        """ 
+
+        # First visualise the convergence of the objective values
+        n_evals = [e.evaluator.n_eval for e in res.history]
+        generational_optimum = [e.opt[0].F for e in res.history]
+        
+        avg_objectives = []
+        std_objectives = []
+        for e in res.history:
+            F_data = e.pop.get("F")
+            avg_objectives.append(np.mean(F_data, axis=0))
+            std_objectives.append(np.std(F_data, axis=0))
+
+        avg_objectives = np.array(avg_objectives)
+        std_objectives = np.array(std_objectives)
+
+        plt.figure()
+        plt.title("Optimum and average objective values and diversity over generations")
+
+        # For multi-objective probems, we plot each objective separately.
+        if avg_objectives.ndim > 1 and avg_objectives.shape[1] >1:
+            n_obj = avg_objectives.shape[1]
+            for i in range(n_obj):
+                plt.plot(n_evals, generational_optimum[i], "-x", label=f'Generational optimum for objective {i}')
+                plt.errorbar(n_evals, avg_objectives[:,i], yerr=3*std_objectives[:,i], fmt="-*", label=f"Generational average for objective {i}", capsize=4, capthick=1.5)      
+        else:
+            avg_objectives = avg_objectives.squeeze()
+            std_objectives = std_objectives.squeeze()
+            plt.plot(n_evals, generational_optimum, "-x", label='Generational optimum')
+            plt.errorbar(n_evals, avg_objectives, yerr=std_objectives, fmt="-*", label=f"Generational average", capsize=4, capthick=1.5)
+
+        plt.grid(which='both')
+        plt.yscale('log')
+        plt.xlabel("Total number of function evaluations [-]")
+        plt.ylabel("Generational best objective value [-]")
+        plt.legend()
+        plt.minorticks_on()
+        plt.tight_layout()
+
+        # Visualise diversity of the design vectors, measured through the averaged standard deviation of all variables of the generation
+        diversity = []
+        for e in res.history:
+            X = e.pop.get("X")
+            X = [list(design_dict.values()) for design_dict in X]
+            std_dev = np.mean(np.std(X, axis=0))
+            diversity.append(std_dev)
+
+        plt.figure()
+        plt.title("Population diversity (average std dev of design vectors)")
+        plt.plot(n_evals, diversity, "-x")
+        plt.grid(which='both')
+        plt.minorticks_on()
+        plt.xlabel("Total number of function evaluations [-]")
+        plt.ylabel("Average std deviation of the design variables [-]")
+        plt.yscale('log')
+        plt.tight_layout()
+
+        # Visualise the maximum change in design vectors from one generation to the next
+        max_change = [0]  # First generation has no predecessor so change is zero. 
+        for i in range(1, len(res.history)):
+            # Get current and previous populations' design vectors
+            X_current = res.history[i].pop.get("X")
+            X_current = np.array([list(design_dict.values()) for design_dict in X_current])
+            X_prev = res.history[i - 1].pop.get("X")
+            X_prev = np.array([list(design_dict.values()) for design_dict in X_prev])
+
+            # For each design vector in the current generation, find the minimum Euclidean distance to any design vector in the previous generation.
+            # This enables us to compute the maximum change even if the population size changes with generations. 
+            distance_matrix = np.linalg.norm(X_current[:, None, :] - X_prev[None, : :], axis=2)
+            min_distance = np.min(distance_matrix, axis=1)
+
+            # The maximum change is then the maximum of the minimm Euclidean distances
+            max_change_value = np.max(min_distance)
+            max_change.append(max_change_value)
+
+        plt.figure()
+        plt.title("Maximum change in design vectors between generations")
+        plt.plot(n_evals, max_change, "-x")
+        plt.grid(which='both')
+        plt.minorticks_on()
+        plt.xlabel("Total number of function evaluations [-]")
+        plt.ylabel("Maximum design change (Euclidean norm) [-]")
+        plt.yscale("log")
+        plt.tight_layout()
+
+        # Visualise the constraint violation 
+        CV = []
+        for e in res.history:
+            constraints = e.pop.get("CV")
+            max_violation = np.max(constraints)
+            CV.append(max_violation)
+        
+        plt.figure()
+        plt.title("Maximum constraint violation between generations")
+        plt.plot(n_evals, CV, "-x")
+        plt.grid(which='both')
+        plt.minorticks_on()
+        plt.xlabel("Total number of function evaluations [-]")
+        plt.ylabel("Maximum normalised constraint violation [-]")
+        plt.tight_layout()
+
+
+
+
+
 
     def ComputeHyperVolume(self)->float:
         """
@@ -574,6 +692,12 @@ class PostProcessing:
         res = self.load_res()
         self.ExtractPopulationData(res)
 
+        # Visualise the convergence behavior of the solution
+        self.GenerateConvergenceStatistics(res)
+        plt.show()
+        plt.close('all')
+
+
         # Plot the centerbody designs
         if config.OPTIMIZE_CENTERBODY:
             self.CompareAxisymmetricGeometry(config.CENTERBODY_VALUES,
@@ -596,10 +720,9 @@ class PostProcessing:
                 plt.show()
                 plt.close('all')
 
-                self.CompareBladeDesignData(config.STAGE_DESIGN_VARIABLES,
-                                            config.STAGE_BLADING_PARAMETERS,
-                                            res,
-                                            'opt')
+                self.CompareBladeDesignData(reference_design=config.STAGE_DESIGN_VARIABLES,
+                                            res=res,
+                                            individual="opt")
                 plt.show()
                 plt.close('all')
         

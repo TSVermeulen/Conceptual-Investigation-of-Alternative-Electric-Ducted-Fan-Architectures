@@ -343,7 +343,7 @@ class MTSOL_call:
                                         )
         
         # Initialize output reader thread
-        self.output_queue = queue.Queue(maxsize=1000)
+        self.output_queue = queue.Queue()
 
         def output_reader(out, q):
             """ Helper function to read the output on a separate thread """
@@ -662,6 +662,10 @@ class MTSOL_call:
             Exit flag indicating the status of the solver execution.
         """
 
+        # Ensure an iteration limit is defined - fall back to the inviscid iteration count as default
+        if not hasattr(self, "ITER_LIMIT"):
+            self.ITER_LIMIT = self.ITER_LIMIT_INVISC
+        
         # Initialize iteration count and exit flag
         self.iter_counter = 0 
         exit_flag = ExitFlag.NOT_PERFORMED
