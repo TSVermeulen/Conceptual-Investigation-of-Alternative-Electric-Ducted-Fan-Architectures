@@ -595,7 +595,7 @@ class PostProcessing:
         plt.grid(which='both')
         plt.yscale('log')
         plt.xlabel("Total number of function evaluations [-]")
-        plt.ylabel("Generational best objective value [-]")
+        plt.ylabel("Objective value [-]")
         plt.legend()
         plt.minorticks_on()
         plt.tight_layout()
