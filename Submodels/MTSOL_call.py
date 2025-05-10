@@ -343,7 +343,7 @@ class MTSOL_call:
                                         )
         
         # Initialize output reader thread
-        self.output_queue = queue.Queue()
+        self.output_queue = queue.Queue(maxsize=10_000)
 
         def output_reader(out, q):
             """ Helper function to read the output on a separate thread """
@@ -352,6 +352,9 @@ class MTSOL_call:
                     line = out.readline()
                     if not line:
                         break
+                    if q.full():
+                        # If the queue is full, remove the oldest item to store the new item into
+                        q.get()
                     q.put(line)
             except Exception as e:
                 print(e)

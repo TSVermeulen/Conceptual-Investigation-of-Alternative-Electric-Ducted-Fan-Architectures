@@ -45,6 +45,7 @@ Changelog:
 import dill
 import config
 import datetime
+from pathlib import Path
 
 # Import 3rd party libraries
 from pymoo.core.mixed import MixedVariableMating, MixedVariableDuplicateElimination
@@ -117,7 +118,7 @@ if __name__ == "__main__":
     # Run the optimization
     res = minimize(problem,
                    algorithm,
-                   termination=('n_gen', config.MAX_GENERATIONS),
+                   termination=term_conditions,
                    seed=config.GLOBAL_SEED,
                    verbose=True,
                    save_history=True,
@@ -131,9 +132,13 @@ if __name__ == "__main__":
     # This avoids needing to re-run the optimization if the results are needed later.
     # The filename is generated using the process ID and current timestamp to ensure uniqueness.
 
+    # First generate the results folder if it does not exist already
+    results_dir = Path(__file__).resolve().parent / "results"
+    results_dir.mkdir(exist_ok=True)
+
     now = datetime.datetime.now()
     timestamp = f"{now:%y%m%d%H%M%S%f}"	
-    output_name = f"res_pop{config.POPULATION_SIZE}_gen{config.MAX_GENERATIONS}_{timestamp}.dill"
+    output_name = results_dir / f"res_pop{config.POPULATION_SIZE}_gen{config.MAX_GENERATIONS}_{timestamp}.dill"
     try:
         with open(output_name, 'wb') as f:
             dill.dump(res, f)

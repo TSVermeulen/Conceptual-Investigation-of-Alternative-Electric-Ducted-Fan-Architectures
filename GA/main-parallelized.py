@@ -46,11 +46,18 @@ import dill
 import datetime
 import os
 import multiprocessing
+from pathlib import Path
 
 # Import 3rd party libraries
 from pymoo.core.mixed import MixedVariableGA
 from pymoo.core.problem import StarmapParallelization
 from pymoo.optimize import minimize
+from pymoo.termination.robust import RobustTermination
+from pymoo.termination.ftol import SingleObjectiveSpaceTermination, MultiObjectiveSpaceTermination
+from pymoo.termination.cv import ConstraintViolationTermination
+from pymoo.termination.xtol import DesignSpaceTermination
+from pymoo.termination import get_termination
+from pymoo.termination.collection import TerminationCollection
 
 # Import interface submodels and other dependencies
 import config
@@ -86,10 +93,35 @@ if __name__ == "__main__":
                                     sampling=InitPopulation(population_type="biased",
                                                             seed=config.GLOBAL_SEED).GeneratePopulation())
 
+        # Set the termination conditions
+        if len(config.objective_IDs) == 1:
+            # Set termination conditions for a single objective optimisation
+            term_conditions = TerminationCollection(RobustTermination(SingleObjectiveSpaceTermination(tol=1E-6, 
+                                                                                                    only_feas=True), 
+                                                                                                    period=10),  # Chance in objective value termination condition
+                                                    get_termination("n_gen", config.MAX_GENERATIONS),  # Maximum generation count termination condition
+                                                    get_termination("n_evals", config.MAX_EVALUATIONS),  # Maximum evaluation count termination condition
+                                                    RobustTermination(DesignSpaceTermination(tol=1E-8), 
+                                                                    period=10),  # Maximum change in design vector termination condition
+                                                    RobustTermination(ConstraintViolationTermination(tol=1E-8, terminate_when_feasible=False), 
+                                                                    period=10)  # Maximum change in constriant violation termination condition
+                                                    )
+        else:
+            # Set termination conditions for a multiobjective optimisation
+            term_conditions = TerminationCollection(RobustTermination(MultiObjectiveSpaceTermination(tol=1E-6, 
+                                                                                                    only_feas=True), 
+                                                                                                    period=10),  # Chance in objective value termination condition
+                                                    get_termination("n_gen", config.MAX_GENERATIONS),  # Maximum generation count termination condition
+                                                    get_termination("n_evals", config.MAX_EVALUATIONS),  # Maximum evaluation count termination condition
+                                                    RobustTermination(DesignSpaceTermination(tol=1E-8), 
+                                                                    period=10),  # Maximum change in design vector termination condition
+                                                    RobustTermination(ConstraintViolationTermination(tol=1E-8, terminate_when_feasible=False), 
+                                                                    period=10)  # Maximum change in constraint violation termination condition
+                                                    )
         # Run the optimization
         res = minimize(problem,
                        algorithm,
-                       termination=('n_gen', config.MAX_GENERATIONS),
+                       termination=term_conditions,
                        seed=config.GLOBAL_SEED,
                        verbose=True,
                        save_history=True,
@@ -103,9 +135,13 @@ if __name__ == "__main__":
     # This avoids needing to re-run the optimization if the results are needed later.
     # The filename is generated using the process ID and current timestamp to ensure uniqueness.
 
+    # First generate the results folder if it does not exist already
+    results_dir = Path(__file__).resolve().parent / "results"
+    results_dir.mkdir(exist_ok=True)
+
     now = datetime.datetime.now()
     timestamp = f"{now:%y%m%d%H%M%S%f}"	
-    output_name = f"res_pop{config.POPULATION_SIZE}_gen{config.MAX_GENERATIONS}_{timestamp}.dill"
+    output_name = results_dir / f"res_pop{config.POPULATION_SIZE}_gen{config.MAX_GENERATIONS}_{timestamp}.dill"
     try:
         with open(output_name, 'wb') as f:
             dill.dump(res, f)

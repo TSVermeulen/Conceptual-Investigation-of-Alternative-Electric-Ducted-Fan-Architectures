@@ -22,14 +22,17 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.1
+Version: 1.2
 
 Changelog:
 - V1.0: Initial implementation. 
 - V1.1: Removed need for context manager by using absolute paths. 
+- V1.2: Wrapped blading generation routine in LRU cache to avoid 
+        re-running the function at every GA worker import. 
 """
 
 import numpy as np
+import functools
 from ambiance import Atmosphere
 from enum import IntEnum, auto
 from pathlib import Path
@@ -107,10 +110,9 @@ REFERENCE_BLADE_ANGLES = [np.deg2rad(19), 0, 0]  # Reference angles at the refer
 BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
 tipGap = 0.01016  # 1.016 cm tip gap
 
-
-def GenerateMTFLOBlading(Omega: float,                        
-                         ref_blade_angle: float,
-                         ) -> tuple[list, list]:
+@functools.lru_cache()
+def _load_blading(Omega: float,                        
+                  ref_blade_angle: float) -> tuple[list, list]:
     """
     Generate MTFLO blading.
     The blading parameters are based on Figure 3 in [1].
@@ -181,16 +183,10 @@ def GenerateMTFLOBlading(Omega: float,
 
     root_LE = blading_parameters[0]["root_LE_coordinate"] # The location of the root LE is arbitrary for computing the sweep angles.
     root_mid_chord = root_LE + (0.3510 / 2) * np.cos(root_rotation_angle)
-    for i in range(len(blading_parameters[0]["chord_length"])):
-        blade_angle = (blading_parameters[0]["blade_angle"][i] + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0]["reference_section_blade_angle"])
-        rotation_angle = np.pi / 2 - blade_angle
-
-        # Compute sweep such that the midchord line is constant.
-        local_LE = root_mid_chord - (blading_parameters[0]["chord_length"][i] / 2) * np.cos(rotation_angle)
-        if blading_parameters[0]["radial_stations"][i] != 0:
-            sweep_angle[i] = np.atan((local_LE - root_LE) / (blading_parameters[0]["radial_stations"][i]))
-        else:
-            sweep_angle[i] = 0
+    rotation_angle = np.pi / 2 - (blade_angle + ref_blade_angle - propeller_parameters["reference_section_blade_angle"])
+    local_LE = root_mid_chord - (chord_length / 2) * np.cos(rotation_angle)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        sweep_angle = np.where(radial_stations != 0, np.arctan((local_LE - root_LE) / radial_stations), 0)
     blading_parameters[0]["sweep_angle"] = sweep_angle
 
     # Obtain the parameterizations for the profile sections. 
@@ -233,8 +229,8 @@ def GenerateMTFLOBlading(Omega: float,
     return blading_parameters, design_parameters
 
 # Compute the blading and design parameters for the rotors/stators of the reference design
-STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = GenerateMTFLOBlading(oper["Omega"],
-                                                                        REFERENCE_BLADE_ANGLES[0])
+STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(oper["Omega"],
+                                                                 REFERENCE_BLADE_ANGLES[0])
 
 # Define the target thrust/power and efficiency for use in constraints
 P_ref_constr = 0.16607 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2)  # Reference Power in Watts derived from baseline analysis
@@ -275,7 +271,7 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
 
 # Define the population size
 POPULATION_SIZE = 20
-INIT_POPULATION_SIZE = 50  # Initial population size for the first generation
+INIT_POPULATION_SIZE = 50  # Initial population size for the first generation. We may wish a larger initial population to ensure a diverse initial solution set is obtained since we cannot, a-priori, know how many of the randomly perturbed population members will be feasible
 MAX_GENERATIONS = 100
 MAX_EVALUATIONS = 2000
 

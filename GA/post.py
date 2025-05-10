@@ -46,9 +46,10 @@ Changelog:
 
 # Import standard libraries
 import dill
+import copy
 from pathlib import Path
 from cycler import cycler
-from typing import Any
+from typing import Any, Optional
 
 # Import 3rd party libraries
 import matplotlib.pyplot as plt
@@ -75,7 +76,7 @@ class PostProcessing:
 
     def __init__(self,
                  fname: Path,
-                 base_dir: Path = None) -> None:
+                 base_dir: Optional[Path] = None) -> None:
         """
         Initialization of the PostProcessing class.
 
@@ -306,7 +307,6 @@ class PostProcessing:
                 num_vars = len(keys)
                 num_indiv = len(optimised_blading)
                 x = np.arange(num_vars)
-                bar_width = 1 / (2 * num_indiv)
                 bar_width = 0.8 / num_indiv
 
                 # Plot the reference bars
@@ -492,8 +492,9 @@ class PostProcessing:
              _, 
              _) = DesignVectorInterface().DeconstructDesignVector(optimum_vector)
         else:
-            print(individual)
-            optimised_design = optimised_design[individual].copy()
+            if optimised_design is None:
+                raise ValueError("'optimised_design' must be supplied when 'individual' is an int.")
+            optimised_design = copy.deepcopy(optimised_design[individual])
 
         # Loop over all stages and compare against the reference design if the stage is optimised:
         for i in range(len(config.OPTIMIZE_STAGE)):
@@ -565,7 +566,7 @@ class PostProcessing:
 
         # First visualise the convergence of the objective values
         n_evals = [e.evaluator.n_eval for e in res.history]
-        generational_optimum = [e.opt[0].F for e in res.history]
+        generational_optimum = np.array([e.opt[0].F for e in res.history])
         
         avg_objectives = []
         std_objectives = []
@@ -584,7 +585,7 @@ class PostProcessing:
         if avg_objectives.ndim > 1 and avg_objectives.shape[1] >1:
             n_obj = avg_objectives.shape[1]
             for i in range(n_obj):
-                plt.plot(n_evals, generational_optimum[i], "-x", label=f'Generational optimum for objective {i}')
+                plt.plot(n_evals, generational_optimum[:, i], "-x", label=f'Generational optimum for objective {i}')
                 plt.errorbar(n_evals, avg_objectives[:,i], yerr=3*std_objectives[:,i], fmt="-*", label=f"Generational average for objective {i}", capsize=4, capthick=1.5)      
         else:
             avg_objectives = avg_objectives.squeeze()
@@ -602,9 +603,14 @@ class PostProcessing:
 
         # Visualise diversity of the design vectors, measured through the averaged standard deviation of all variables of the generation
         diversity = []
+
+        # Extract the key ordering of the first optimum individual and use it to ensure all individuals are ordered the same
+        x_keys = list(res.opt.get("X")[0].keys())
+
+        # Compute the mean standard deviation of each population
         for e in res.history:
             X = e.pop.get("X")
-            X = [list(design_dict.values()) for design_dict in X]
+            X = np.array([[d[k] for k in x_keys] for d in e.pop.get("X")])
             std_dev = np.mean(np.std(X, axis=0))
             diversity.append(std_dev)
 
@@ -629,11 +635,14 @@ class PostProcessing:
 
             # For each design vector in the current generation, find the minimum Euclidean distance to any design vector in the previous generation.
             # This enables us to compute the maximum change even if the population size changes with generations. 
-            distance_matrix = np.linalg.norm(X_current[:, None, :] - X_prev[None, : :], axis=2)
-            min_distance = np.min(distance_matrix, axis=1)
-
-            # The maximum change is then the maximum of the minimm Euclidean distances
-            max_change_value = np.max(min_distance)
+            # Process the design vectors in chunks to improve memory efficiency.
+            max_change_value = 0
+            for x in X_current:
+                min_d = np.inf
+                for chunk in np.array_split(X_prev, 8):
+                    diff = np.linalg.norm(chunk - x, axis=1)
+                    min_d = min(min_d, diff.min())
+                max_change_value = max(max_change_value, min_d)
             max_change.append(max_change_value)
 
         plt.figure()
@@ -728,7 +737,7 @@ class PostProcessing:
         
 
 if __name__ == "__main__":
-    output = Path('res_pop20_gen20_250506220150593712.dill')
+    output = Path('Results/res_pop20_eval2000_250509080533803576.dill')
 
     processing_class = PostProcessing(fname=output)
     processing_class.main()
