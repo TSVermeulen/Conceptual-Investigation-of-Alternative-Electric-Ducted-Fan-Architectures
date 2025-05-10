@@ -47,13 +47,13 @@ Changelog:
 
 # Import standard libraries
 import os
-import numpy as np
 import shutil
 import uuid
 from pathlib import Path
 import datetime
 
 # Import 3rd party libraries
+import numpy as np
 from pymoo.core.problem import ElementwiseProblem
 
 # Ensure all paths are correctly setup

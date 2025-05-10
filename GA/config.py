@@ -127,7 +127,7 @@ def _load_blading(Omega: float,
     Returns
     -------
     - (list, list):
-        A tuple of two lists:
+        A tuple containing two lists:
         - blading_parameters : list
             A list containing dictionaries with the blading parameters.
         - design_parameters : list
@@ -179,10 +179,9 @@ def _load_blading(Omega: float,
     # Note that this is approximate, since the rotation of the chord line is not completely accurate when rotating a complete profile
     sweep_angle = np.zeros_like(blading_parameters[0]["chord_length"])
     root_blade_angle = (np.deg2rad(53.6) + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0]["reference_section_blade_angle"])
-    root_rotation_angle = np.pi / 2 - root_blade_angle
 
     root_LE = blading_parameters[0]["root_LE_coordinate"] # The location of the root LE is arbitrary for computing the sweep angles.
-    root_mid_chord = root_LE + (0.3510 / 2) * np.cos(root_rotation_angle)
+    root_mid_chord = root_LE + (0.3510 / 2) * np.cos(np.pi / 2 - root_blade_angle)
     rotation_angle = np.pi / 2 - (blade_angle + ref_blade_angle - propeller_parameters["reference_section_blade_angle"])
     local_LE = root_mid_chord - (chord_length / 2) * np.cos(rotation_angle)
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -270,8 +269,8 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
                   []]
 
 # Define the population size
-POPULATION_SIZE = 20
-INIT_POPULATION_SIZE = 50  # Initial population size for the first generation. We may wish a larger initial population to ensure a diverse initial solution set is obtained since we cannot, a-priori, know how many of the randomly perturbed population members will be feasible
+POPULATION_SIZE = 30
+INIT_POPULATION_SIZE = 30  # Initial population size for the first generation. We may wish a larger initial population to ensure a diverse initial solution set is obtained since we cannot, a-priori, know how many of the randomly perturbed population members will be feasible
 MAX_GENERATIONS = 100
 MAX_EVALUATIONS = 2000
 

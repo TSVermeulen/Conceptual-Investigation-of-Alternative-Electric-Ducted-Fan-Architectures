@@ -52,18 +52,13 @@ from pathlib import Path
 from pymoo.core.mixed import MixedVariableGA
 from pymoo.core.problem import StarmapParallelization
 from pymoo.optimize import minimize
-from pymoo.termination.robust import RobustTermination
-from pymoo.termination.ftol import SingleObjectiveSpaceTermination, MultiObjectiveSpaceTermination
-from pymoo.termination.cv import ConstraintViolationTermination
-from pymoo.termination.xtol import DesignSpaceTermination
-from pymoo.termination import get_termination
-from pymoo.termination.collection import TerminationCollection
 
 # Import interface submodels and other dependencies
 import config
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
 from utils import ensure_repo_paths
+from termination_conditions import GetTerminationConditions
 
 if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
@@ -92,36 +87,11 @@ if __name__ == "__main__":
         algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
                                     sampling=InitPopulation(population_type="biased",
                                                             seed=config.GLOBAL_SEED).GeneratePopulation())
-
-        # Set the termination conditions
-        if len(config.objective_IDs) == 1:
-            # Set termination conditions for a single objective optimisation
-            term_conditions = TerminationCollection(RobustTermination(SingleObjectiveSpaceTermination(tol=1E-6, 
-                                                                                                    only_feas=True), 
-                                                                                                    period=10),  # Chance in objective value termination condition
-                                                    get_termination("n_gen", config.MAX_GENERATIONS),  # Maximum generation count termination condition
-                                                    get_termination("n_evals", config.MAX_EVALUATIONS),  # Maximum evaluation count termination condition
-                                                    RobustTermination(DesignSpaceTermination(tol=1E-8), 
-                                                                    period=10),  # Maximum change in design vector termination condition
-                                                    RobustTermination(ConstraintViolationTermination(tol=1E-8, terminate_when_feasible=False), 
-                                                                    period=10)  # Maximum change in constriant violation termination condition
-                                                    )
-        else:
-            # Set termination conditions for a multiobjective optimisation
-            term_conditions = TerminationCollection(RobustTermination(MultiObjectiveSpaceTermination(tol=1E-6, 
-                                                                                                    only_feas=True), 
-                                                                                                    period=10),  # Chance in objective value termination condition
-                                                    get_termination("n_gen", config.MAX_GENERATIONS),  # Maximum generation count termination condition
-                                                    get_termination("n_evals", config.MAX_EVALUATIONS),  # Maximum evaluation count termination condition
-                                                    RobustTermination(DesignSpaceTermination(tol=1E-8), 
-                                                                    period=10),  # Maximum change in design vector termination condition
-                                                    RobustTermination(ConstraintViolationTermination(tol=1E-8, terminate_when_feasible=False), 
-                                                                    period=10)  # Maximum change in constraint violation termination condition
-                                                    )
+        
         # Run the optimization
         res = minimize(problem,
                        algorithm,
-                       termination=term_conditions,
+                       termination=GetTerminationConditions(),
                        seed=config.GLOBAL_SEED,
                        verbose=True,
                        save_history=True,

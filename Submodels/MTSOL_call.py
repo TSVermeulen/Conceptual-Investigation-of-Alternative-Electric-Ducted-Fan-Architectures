@@ -121,11 +121,13 @@ class FileCreatedHandling(FileSystemEventHandler):
                              timeout: float = 5) -> bool:
         """ Helper function to wait until the file_path has finished being written to, and is available. """
         start_time = time.monotonic()
+        backoff = 0.01
+        max_backoff = 0.1
         while (time.monotonic() - start_time) < timeout:
             if self.is_file_free(file_path):
                 return True
-            elapsed_seconds = time.monotonic() - start_time
-            time.sleep(min(0.1, 0.01 * (2 ** min(10, int(elapsed_seconds)))))
+            time.sleep(backoff)
+            backoff = min(max_backoff, backoff * 2)
         return False
         
 
@@ -342,8 +344,9 @@ class MTSOL_call:
                                         bufsize=1,
                                         )
         
-        # Initialize output reader thread
-        self.output_queue = queue.Queue(maxsize=10_000)
+        # Initialize output reader thread.
+        # Uses an unbounded queue to prevent deadlocks if output accumulates faster than processed
+        self.output_queue = queue.Queue()
 
         def output_reader(out, q):
             """ Helper function to read the output on a separate thread """

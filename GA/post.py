@@ -102,7 +102,7 @@ class PostProcessing:
 
         # Coerce fname to Path and resolve it if it's not already absolute
         fname = Path(fname)
-        self.results_path = self.base_dir / fname if not fname.is_absolute() else fname
+        self.results_path = fname if fname.is_absolute() else (self.base_dir / fname).resolve()
         
         # Validate file extension
         if self.results_path.suffix.lower() != '.dill':
@@ -591,7 +591,7 @@ class PostProcessing:
             avg_objectives = avg_objectives.squeeze()
             std_objectives = std_objectives.squeeze()
             plt.plot(n_evals, generational_optimum, "-x", label='Generational optimum')
-            plt.errorbar(n_evals, avg_objectives, yerr=std_objectives, fmt="-*", label=f"Generational average", capsize=4, capthick=1.5)
+            plt.errorbar(n_evals, avg_objectives, yerr=std_objectives, fmt="-*", label="Generational average", capsize=4, capthick=1.5)
 
         plt.grid(which='both')
         plt.yscale('log')
@@ -628,11 +628,12 @@ class PostProcessing:
         max_change = [0]  # First generation has no predecessor so change is zero. 
         for i in range(1, len(res.history)):
             # Get current and previous populations' design vectors
+            # Sorts X_current and X_prev based on the x_keys list derived earlier
             X_current = res.history[i].pop.get("X")
-            X_current = np.array([list(design_dict.values()) for design_dict in X_current])
+            X_current = np.array([[design_dict[k] for k in x_keys] for design_dict in X_current])
             X_prev = res.history[i - 1].pop.get("X")
-            X_prev = np.array([list(design_dict.values()) for design_dict in X_prev])
-
+            X_prev = np.array([[design_dict[k] for k in x_keys] for design_dict in X_prev])
+            
             # For each design vector in the current generation, find the minimum Euclidean distance to any design vector in the previous generation.
             # This enables us to compute the maximum change even if the population size changes with generations. 
             # Process the design vectors in chunks to improve memory efficiency.
