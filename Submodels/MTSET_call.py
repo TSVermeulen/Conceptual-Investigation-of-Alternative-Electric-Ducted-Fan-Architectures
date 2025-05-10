@@ -46,8 +46,9 @@ Changelog:
 """
 
 import subprocess
-import os
 import time
+from pathlib import Path
+
 
 class MTSET_call:
     """
@@ -72,20 +73,30 @@ class MTSET_call:
         - grid_x_coeff : float, optional
             The X spacing parameter within MTSET. Larger values yield a more rectangular grid. If None, uses the default MTSET value of 0.8.
         - streamwise_points : int, optional
-            The number of streamwise points. If None, uses the default MTSET value of 141. 
+            The number of streamwise points. If None, uses the default value of 200. 
         """
 
         self.analysis_name = analysis_name
 
-        # Grid definition parameters need to either take the user-defined input or the default MTSET inputs
+        # Grid definition parameters need to either take the user-defined input or the default inputs
         self.grid_e_coeff = grid_e_coeff if grid_e_coeff is not None else 0.8
         self.grid_x_coeff = grid_x_coeff if grid_x_coeff is not None else 0.8
-        self.streamwise_points = streamwise_points if (streamwise_points is not None and streamwise_points > 141) else 141
+        self.streamwise_points = streamwise_points if (streamwise_points is not None and streamwise_points > 141) else 200
 
-        # Define constant filepath 
-        self.fpath: str = os.getenv('MTSET_PATH', 'mtset.exe')
-        if not os.path.exists(self.fpath):
-            raise FileNotFoundError(f"MTSET executable not found at {self.fpath}")
+        # Define key paths/directories
+        self.parent_dir = Path(__file__).resolve().parent.parent
+        self.submodels_path = self.parent_dir / "Submodels"
+        
+        # Define constant filepath for the MTSET executable 
+        self.process_path = self.submodels_path / 'mtset.exe'
+        if not self.process_path.exists():
+            raise FileNotFoundError(f"MTSET executable not found at {self.process_path}")
+        
+        # Define filepath for the statefile
+        self.fpath = self.submodels_path / f'tdat.{self.analysis_name}'
+
+        # Define filepath for walls.xxx
+        self.wallspath = self.submodels_path / f"walls.{self.analysis_name}"
     
 
     def StdinWrite(self,
@@ -118,26 +129,40 @@ class MTSET_call:
         handles sent to PIPE for direct interaction within the Python code.  
         """
 
-        # Get the directory where the current Python file is located
-        current_file_directory = os.path.dirname(os.path.abspath(__file__))
-
-        # Change the working directory to the directory of the current Python file
-        os.chdir(current_file_directory)
-
         # Generate subprocess
-        self.process = subprocess.Popen([self.fpath, self.analysis_name], 
+        self.process = subprocess.Popen([self.process_path, self.analysis_name], 
                                  stdin=subprocess.PIPE, 
                                  stdout=subprocess.PIPE, 
-                                 stderr=subprocess.PIPE,
-                                 shell=True, 
+                                 stderr=subprocess.DEVNULL,
                                  text=True,
                                  bufsize=1,
                                  )
         
         # Check if subprocess is started successfully
         if self.process.poll() is not None:
-            raise ImportError(f"MTSET or walls.{self.analysis_name} not found in {self.fpath}") from None
+            raise ImportError(f"MTSET or walls.{self.analysis_name} not found") from None
     
+
+    def WaitForMainMenu(self) -> list[str]:
+        """
+        Wait for MTSET to return to the main menu.
+
+        Returns
+        -------
+        None
+        """
+
+        interface_output = []
+        while True:
+            next_line = self.process.stdout.readline()  # Collect output and add to list
+            interface_output.append(next_line)                
+            if next_line == "" and self.process.poll() is not None:  #Handle (unexpected) quitting of program
+               break
+            if next_line.strip().startswith('Q uit'):  # Stop collecting once end of MTSET menu is reached
+               break
+        
+        return interface_output
+        
 
     def GridGenerator(self, 
                       ) -> None:
@@ -154,8 +179,8 @@ class MTSET_call:
         # Load the walls.xxx file and count number of elements to be loaded
         # The second(+) elements are preceded by line containing [999. 999.], 
         # which can be used to count the number of elements to be loaded in by MTSET
-        element_count = 1  # There is a minimum of 1 element present
-        with open(r'walls.' + self.analysis_name, 'r') as file: 
+        element_count = 1  # There is a minimum of 1 element present 
+        with open(self.wallspath, 'r') as file: 
             for index, line in enumerate(file): 
                 if index < 2:  # Skip the first two lines (0 and 1) - these contain the analysis name and grid size. 
                     continue 
@@ -167,7 +192,10 @@ class MTSET_call:
             self.StdinWrite("")  # Send return command to MTSET
 
         # Exit grid spacing definition routine
-        self.StdinWrite("")
+        self.StdinWrite("\n")
+
+        # Wait for MTSET to be in the main menu before modifying the grid
+        self.WaitForMainMenu()
 
         # Enter grid modification menu and set grid parameters
         self.StdinWrite("m")
@@ -186,11 +214,6 @@ class MTSET_call:
 
         # Set the number of streamwise points 
         self.StdinWrite(f"n {self.streamwise_points}")
-
-        # Change the streamline spacing to decrease the spacing at the centerbody
-        self.StdinWrite("w1 0.7")
-        self.StdinWrite("w2 0.3")
-        self.StdinWrite("t1 0.05")
 
         # Toggle quasi-normal lines fixed in x (This is only used when there is no duct, i.e. an open rotor/propeller. 
         # When there is a duct present, this option is disabled, so the input has no effect)
@@ -220,19 +243,13 @@ class MTSET_call:
         """
 
         # Control smoothing process, including detection when further smoothing is no longer needed
-        while True:
+        smoothing_pass = 0
+        while smoothing_pass <= 30:
             self.StdinWrite("e")  # Execute elliptic smoothing continue command
             
             # Collect console output from MTSET, stopping when the end of the menu is reached
-            interface_output = []
-            while True:
-                next_line = self.process.stdout.readline()  # Collect output and add to list
-                interface_output.append(next_line)
-                
-                if next_line == "" and self.process.poll() is not None:  #Handle (unexpected) quitting of program
-                    break
-                if next_line == '   Q uit\n':  # Stop collecting once end of MTSET menu is reached
-                    break
+            interface_output = self.WaitForMainMenu()
+            smoothing_pass += 1
             
             # Find the index of 'Pass 10' (i.e. the final pass of the smoothing process). Checks from the back of the list
             pass_10_index = next((i for i, s in reversed(list(enumerate(interface_output))) if 'Pass          10' in s), -1)
@@ -259,14 +276,12 @@ class MTSET_call:
         # Note that MTSET automatically closes after writing the tdat file!
         self.StdinWrite("w")
 
-        # Check that MTSET has closed successfully 
-        if self.process.poll() is not None:
+        # Check that MTSET has closed successfully. If not, forcefully closes MTSOL
+        if self.process.poll() is None:
             try:
-                self.process.wait(timeout=5)
-            
+                self.process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 self.process.kill()
-                raise OSError("MTSET did not close after file generation. Process was killed.") from None
 
 
     def caller(self,
@@ -282,7 +297,7 @@ class MTSET_call:
         """
 
         # Delete the tdat file, if it already existed. 
-        os.remove(f"tdat.{self.analysis_name}") if os.path.exists(f"tdat.{self.analysis_name}") else None 
+        self.fpath.unlink() if self.fpath.exists() else None 
         
         # Create subprocess for the MTSET tool
         self.GenerateProcess()  
@@ -297,7 +312,7 @@ class MTSET_call:
         self.FileGenerator()   
 
         # Check that the tdat file writing was successful
-        while not os.path.exists(f'tdat.{self.analysis_name}'):
+        while not self.fpath.exists():
             time.sleep(0.01)  # Wait for the file to be created
 
         

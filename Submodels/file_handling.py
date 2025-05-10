@@ -99,11 +99,9 @@ Changelog
 """
 
 import numpy as np
-import os
 from scipy import interpolate
 from pathlib import Path
 from typing import Optional
-
 
 # Handle local versus global execution of the file with imports
 if __name__ == "__main__":
@@ -217,8 +215,12 @@ class fileHandling:
             # Define the Grid size calculation constants
             self.DEFAULT_Y_TOP = 1.0
             self.Y_TOP_MULTIPLIER = 2.5
-            self.X_FRONT_OFFSET = 2
-            self.X_AFT_OFFSET = 2
+            self.X_FRONT_OFFSET = 1.5
+            self.X_AFT_OFFSET = 1.5
+
+            # Define key paths/directories
+            self.parent_dir = Path(__file__).resolve().parent.parent
+            self.submodels_path = self.parent_dir / "Submodels"
                         
 
         def GetGridSize(self) -> list[float, float, float, float]:
@@ -352,9 +354,8 @@ class fileHandling:
             xy_centerbody = xy_centerbody / self.ref_length
 
             # Generate walls.xxx input data structure
-            output_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-            file_path = output_dir / f"walls.{self.case_name}"
-            with file_path.open("w") as file:
+            file_path = self.submodels_path / "walls.{}".format(self.case_name)
+            with open(file_path, "w") as file:
                 # Write opening lines of the file
                 file.write(self.case_name + '\n')
                 file.write('    '.join(map(str, domain_boundaries)) + '\n')
@@ -388,7 +389,7 @@ class fileHandling:
         def __init__(self, 
                      case_name: str,
                      ref_length: float,
-                     centerbody_rotor_thickness: float = 0.1,
+                     centerbody_rotor_thickness: float = 0.18,
                      ) -> None:
             """
             Initialize the fileHandlingMTFLO class.
@@ -412,6 +413,10 @@ class fileHandling:
             self.ref_length = ref_length
             self.CENTERBODY_ROTOR_THICKNESS = centerbody_rotor_thickness
 
+            # Define key paths/directories
+            self.parent_dir = Path(__file__).resolve().parent.parent
+            self.submodels_path = self.parent_dir / "Submodels"
+
 
         def ValidateBladeThickness(self, 
                                    local_thickness: float, 
@@ -434,7 +439,7 @@ class fileHandling:
             -------
             None
             """
-
+            
             thickness_limit = 2 * np.pi * local_radius / blade_count
             if local_thickness >= thickness_limit and local_radius > self.CENTERBODY_ROTOR_THICKNESS:
                 raise ValueError(f"The cumulative blade thickness exceeds the complete blockage limit of 2PIr at r={local_radius}")
@@ -967,9 +972,8 @@ class fileHandling:
             """
 
             # Open the tflow.xxx file and start writing the required input data to it
-            output_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-            file_path = output_dir / f"tflow.{self.case_name}"
-            with file_path.open("w") as file:
+            file_path = self.submodels_path / "tflow.{}".format(self.case_name)
+            with open(file_path, "w") as file:
                 # Write the case name to the file
                 file.write('NAME\n')
                 file.write(f"{str(self.case_name)}\n")
@@ -997,7 +1001,7 @@ class fileHandling:
                     # Write the data types to be provided for the stage
                     file.write('DATYPE \n')
                     file.write('x    r    T    Sr\n')  # Use the x,r coordinates, together with thickness and blade slope
-                    multipliers = [1, 1, 1, 1]  # Add multipliers for each data type
+                    multipliers = [round(1 / self.ref_length, 6),  round(1 / self.ref_length, 6), round(1 / self.ref_length, 6), 1]  # Add multipliers for each data type
                     additions = [0, 0, 0, 0]  # Add additions for each data type
                     file.write('*' + '    '.join(map(str, multipliers)) + '\n')
                     file.write('+' + '    '.join(map(str, additions)) + '\n')
@@ -1105,9 +1109,9 @@ class fileHandling:
                         # Each data point consists of the data [x / Lref, r / Lref, T / Lref, Srel]
                         for j in range(n_points_axial):  
                             # Write data to row
-                            row = np.array([round((x_points[sampling_indices][j]) / self.ref_length, 5),
-                                            round(radial_points[i] / self.ref_length, 5),
-                                            round(circumferential_thickness[sampling_indices][j] / self.ref_length, 5),
+                            row = np.array([round((x_points[sampling_indices][j]), 5),
+                                            round(radial_points[i], 5),
+                                            round(circumferential_thickness[sampling_indices][j], 5),
                                             round(blade_slope[sampling_indices][j], 5),
                                             ])
                             

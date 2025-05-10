@@ -32,14 +32,14 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.1
+Version: 1.2
 
 Changelog:
 - V1.0: Initial working version, containing only the plotting capabilities based on the flowfield.analysis_name and boundary_layer.analysis_name files. The output_processing() class is still a placeholder.
 - V1.1: Added the output_processing() class to read the forces.analysis_name file and extract the thrust and power coefficients. 
+- V1.2: Updated GetAllVariables() method to remove empty strings to increase robustness and avoid runtime errors in case MTSOL.GetAvgValues() adds additional whitelines.
 """
 
-import os
 import re
 from pathlib import Path
 
@@ -109,28 +109,36 @@ class output_visualisation:
         None
         """ 
 
-        
-
         # Simple input validation
         if analysis_name is None:
             raise IOError("The variable 'analysis_name' cannot be none in output_visualisation!")
 
         self.analysis_name = analysis_name
 
-        # Write the local directory to self
-        self.local_dir = Path(__file__).parent.resolve()
+        # Define key paths/directories
+        self.parent_dir = Path(__file__).resolve().parent.parent
+        self.submodels_path = self.parent_dir / "Submodels"
 
         # Validate if the required files exist
-        self.flowfield_path = self.local_dir / f"flowfield.{self.analysis_name}"
-        self.walls_path = self.local_dir / f"walls.{self.analysis_name}"
-        self.tflow_path = self.local_dir / f"tflow.{self.analysis_name}"
+        self.flowfield_path = self.submodels_path / f"flowfield.{self.analysis_name}"
+        self.walls_path = self.submodels_path / f"walls.{self.analysis_name}"
+        self.tflow_path = self.submodels_path / f"tflow.{self.analysis_name}"
+        self.boundary_layer_path = self.submodels_path / f"boundary_layer.{self.analysis_name}"
 
-        if not os.path.exists(self.flowfield_path) or not os.path.exists(self.walls_path) or not os.path.exists(self.tflow_path):
-            raise FileNotFoundError(f"One of the required files flowfield.{self.analysis_name}, walls.{self.analysis_name}, or tflow.{self.analysis_name} was not found.")
+        if not self.flowfield_path.exists():
+            raise FileNotFoundError(f"The required file flowfield.{self.analysis_name} was not found.")
+        
+        if self.walls_path.exists():
+            self.walls = True
+        else:
+            self.walls = False
+        if self.tflow_path.exists():
+            self.tflow = True
+        else:
+            self.tflow = False
 
         # Check if the boundary layer file exists, and if so, set viscous_exists to True
-        boundary_layer_path = self.local_dir / f"boundary_layer.{self.analysis_name}"
-        if os.path.exists(boundary_layer_path):
+        if self.boundary_layer_path.exists():
             self.viscous_exists = True
         else:
             self.viscous_exists = False
@@ -152,10 +160,8 @@ class output_visualisation:
                 A Pandas DataFrame containing the flowfield values across all streamlines.
         """
 
-        # Get the path for the flowfield.analysis_name file and read data
-        flowfield_path = self.local_dir / f"flowfield.{self.analysis_name}"
         try:
-            with open(flowfield_path, 'r') as file:
+            with open(self.flowfield_path, 'r') as file:
                 data = file.read()
         except IOError as e:
             raise IOError(f"Failed to read the flowfield data: {e}") from e
@@ -193,10 +199,8 @@ class output_visualisation:
             A list of nested DataFrames with the viscous variables for each boundary layer. 
         """
 
-        # Get the path for the boundary_layer.analysis_name file and read data
-        flowfield_path = self.local_dir / f"boundary_layer.{self.analysis_name}"
         try:
-            with open(flowfield_path, 'r') as file:
+            with open(self.boundary_layer_path, 'r') as file:
                 data = file.read()
         except IOError as e:
             raise IOError(f"Failed to read the boundary layer data: {e}") from e
@@ -231,10 +235,8 @@ class output_visualisation:
             A list of nested arrays, where each array contains the geometry of one of the axisymmetric bodies. 
         """
 
-        # Get the path for the walls.analysis_name file and read the data
-        walls_path = self.local_dir / f"walls.{self.analysis_name}"
         try:
-            with open(walls_path, 'r') as file:
+            with open(self.walls_path, 'r') as file:
                 lines = file.readlines()
         except IOError as e:
             raise IOError(f"Failed to read the geometry data: {e}") from e
@@ -268,9 +270,8 @@ class output_visualisation:
             containing the leading and trailing points.
         """
 
-        tflow_fpath = self.local_dir / f"tflow.{self.analysis_name}"
         try:
-            with open(tflow_fpath, 'r') as file:
+            with open(self.tflow_path, 'r') as file:
                 lines = file.readlines()
         except IOError as e:
             raise IOError(f"Failed to read the tflow file: {e}") from e
@@ -513,13 +514,16 @@ class output_visualisation:
         blocks, df = self.GetFlowfield()
 
         # Read in the axi-symmetric geometry
-        bodies = self.ReadGeometry()
+        if self.walls:
+            bodies = self.ReadGeometry()
 
         # Read in the blade outlines
-        blades = self.ReadBlades()
+        if self.tflow:
+            blades = self.ReadBlades()
 
         # Create contour plots from the flowfield
-        self.CreateContours(df, bodies, blades)
+        if self.walls and self.tflow:
+            self.CreateContours(df, bodies, blades)
 
         # Create the streamline plots
         self.CreateStreamlinePlots(blocks,
@@ -557,19 +561,160 @@ class output_processing:
 
         # Simple input validation
         if analysis_name is None:
-            raise IOError("The variable 'analysis_name' cannot be none in output_visualisation!")
+            raise IOError("The variable 'analysis_name' cannot be none in output_processing()!")
 
         self.analysis_name = analysis_name
 
-        # Write the local directory to self
-        self.local_dir = Path(__file__).parent.resolve()
+        # Define key paths/directories
+        self.parent_dir = Path(__file__).resolve().parent.parent
+        self.submodels_path = self.parent_dir / "Submodels"
 
         # Validate if the required forces file exist
-        self.forces_path = self.local_dir / f"forces.{self.analysis_name}"
+        self.forces_path = self.submodels_path / f"forces.{self.analysis_name}"
 
-        if not os.path.exists(self.forces_path):
+        if not self.forces_path.exists():
             raise FileNotFoundError(f"The required file forces.{self.analysis_name} was not found.")
-        
+    
+
+    def GetAllVariables(self,
+                        output_type : int = 0,
+                        ) -> dict[str, dict[str, float]]:
+        """
+        Read the forces.analysis_name file and return the variables and their values.
+
+        Parameters
+        ----------
+        - output_type : int
+            An integer indicating the type of output desired from the method:
+            - '0' : All outputs
+            - '1' : General Output data only
+            - '2' : Element output data only
+            - '3' : Optimization output only (equal to 1 and 2 together)
+
+        Returns
+        -------
+        - output : dict[str, dict[str, float]]
+            A nested dictionary containing:
+            - oper : A dictionary containing the operating conditions
+            - data : A dictionary containing the general output data
+            - grouped_data : A dictionary containing the element breakdowns for the duct and centerbody 
+        """
+
+        try:
+            with open(self.forces_path, 'r') as file:
+                # Read the file contents, and replace the newline characters with empty strings.
+                # Also remove any empty lines from the list
+                forces_file_contents = file.readlines()
+                forces_file_contents = [s for s in forces_file_contents if s.strip()]	
+                forces_file_contents = [s.replace('\n', '') for s in forces_file_contents]
+        except OSError as e:
+            raise OSError(f"An error occurred opening the forces.{self.analysis_name} file: {e}") from e
+
+        # Define regex patterns.
+        Ma_pattern = r"Ma\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+        Re_Ncrit_pattern = r'Re\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+Ncrit\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
+        total_CP_etaP_pattern = r'CP\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+EtaP\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
+        total_CT_pattern = r"Total force    CT\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+        top_CTV_pattern = r"top CTV\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+        bot_CTV_pattern = r"bot CTv\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+        axis_body_CTV_pattern = r"Axis body      CTv\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+        viscous_inviscid_pattern = r'CTv\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTi\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
+        friction_pressure_pattern = r'CTf\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTp\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
+        element_breakdown_pattern = r'CTf\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTp\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+top Xtr\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+bot Xtr\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
+        axis_body_breakdown_pattern = r'CTf\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTp\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+Xtr\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
+        P_ratio_pattern = r"Pexit/Po\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+
+        # Initialise output dictionaries and index counter.
+        oper = {}
+        data = {}
+        grouped_data = {}
+
+        # Use regex to extract values from the line.
+        # Only search for the data if desired based on the output_type integer provided.
+        for idx, line in enumerate(forces_file_contents): 
+            if idx == 0:
+                continue
+            if idx == 1 and output_type == 0:
+                oper["Mach"] = re.search(Ma_pattern, line).group(1)
+
+            elif idx == 2 and output_type == 0:
+                match = re.search(Re_Ncrit_pattern, line)
+                oper["Re"] = match.group(1)
+                oper["Ncrit"] = match.group(2)
+
+            elif idx == 3 and output_type in (0, 1, 3):
+                match = re.search(total_CP_etaP_pattern, line)
+                data["Total power CP"] = match.group(1)
+                data["EtaP"] = match.group(2)
+
+            elif idx == 4 and output_type in (0, 1, 3):
+                data["Total force CT"] = re.search(total_CT_pattern, line).group(1)
+
+            elif idx == 5 and output_type in (0, 1, 3):
+                data["Element 2 top CTV"] = re.search(top_CTV_pattern, line).group(1)
+
+            elif idx == 6 and output_type in (0, 1, 3):
+                data["Element 2 bot CTV"] = re.search(bot_CTV_pattern, line).group(1)
+
+            elif idx == 7 and output_type in (0, 1, 3):
+                data["Axis body CTV"] = re.search(axis_body_CTV_pattern, line).group(1)
+
+            elif idx == 9 and output_type in (0, 1, 3):
+                viscous_inviscid_math = re.search(viscous_inviscid_pattern, line)
+                data["Viscous CTv"] = viscous_inviscid_math.group(1)
+                data["Inviscid CTi"] = viscous_inviscid_math.group(2)
+
+            elif idx == 10 and output_type in (0, 1, 3):
+                friction_pressure_math = re.search(friction_pressure_pattern, line)
+                data["Friction CTf"] = friction_pressure_math.group(1)
+                data["Pressure CTp"] = friction_pressure_math.group(2)
+
+            elif idx == 11 and output_type in (0, 2, 3):
+                match = re.search(element_breakdown_pattern, line)
+                CTf = match.group(1)
+                CTp = match.group(2)
+                top_Xtr = match.group(3)
+                bot_Xtr = match.group(4)
+                grouped_data["Element 2"] = {"CTf": CTf,
+                                             "CTp": CTp,
+                                             "top Xtr": top_Xtr,
+                                             "bot Xtr": bot_Xtr}
+                
+            elif idx == 12 and output_type in (0, 2, 3):
+                match = re.search(axis_body_breakdown_pattern, line)
+                CTf = match.group(1)
+                CTp = match.group(2)
+                Xtr = match.group(3)
+                grouped_data["Axis Body"] = {"CTf": CTf,
+                                             "CTp": CTp,
+                                             "Xtr": Xtr}
+                
+            elif idx == 14 and output_type in (0, 1, 3):
+                data["Pressure Ratio"] = re.search(P_ratio_pattern, line).group(1)
+
+        # Convert contents of all dictionaries to floats
+        oper = {key: float(value) for key, value in oper.items()}
+        data = {key: float(value) for key, value in data.items()}
+        grouped_data = {key: {k: float(v) for k, v in value.items()} for key, value in grouped_data.items()}
+
+        # Construct output dictionary
+        output = {}
+        if output_type == 0:
+            output["oper"] = oper
+            output["data"] = data
+            output["grouped_data"] = grouped_data
+        elif output_type == 1:
+            output = data
+        elif output_type == 2:
+            output = grouped_data
+        elif output_type == 3:
+            output["data"] = data
+            output["grouped_data"] = grouped_data
+        else:
+            raise ValueError(f"Invalid output type passed to GetAllVariables: {output_type}. output type should be 0-3.")
+
+        return output
+    
 
     def GetCTCPEtaP(self) -> tuple[float, float, float]:
         """
@@ -585,25 +730,11 @@ class output_processing:
             A tuple of the form (CT, CP, EtaP) containing the thrust and power coefficients, together with the propulsive efficiency for the analysed case
         """
 
-        try:
-            with open(self.forces_path, 'r') as file:
-                forces_file_contents = file.readlines()
-                forces_file_contents = ''.join(forces_file_contents)
-        except OSError as e:
-            raise OSError(f"An error occurred opening the forces.{self.analysis_name} file: {e}") from e
+        data = self.GetAllVariables(1)
         
-        # Define regex pattern to extract CP, CT, and EtaP
-        # pattern accepts both scientific notation and regular float notation. 
-        pattern = r"Total power\s+CP\s+=\s+([-\d.]+(?:E[-+]?\d+)?)\s+EtaP\s+=\s+([-\d.]+(?:E[-+]?\d+)?)\s+Total force\s+CT\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
-
-        # Search for the pattern and extract the data
-        match = re.search(pattern, forces_file_contents)
-        if match is None:
-            raise ValueError(f"Failed to extract the CP, CT, and EtaP values from the forces.{self.analysis_name} file.")
-        
-        total_CP = float(match.group(1))
-        EtaP = float(match.group(2))
-        total_CT = float(match.group(3))
+        total_CP = data["Total power CP"]
+        EtaP = data["EtaP"]
+        total_CT = data["Total force CT"]
 
         return total_CT, total_CP, EtaP
        

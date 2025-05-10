@@ -45,8 +45,9 @@ Changelog:
 """
 
 import subprocess
-import os
 import time
+from pathlib import Path
+
 
 class MTFLO_call:
     """
@@ -55,6 +56,7 @@ class MTFLO_call:
 
     def __init__(self, 
                  analysis_name: str,
+                 **kwargs : dict,
                  ) -> None:
         """
         Initialize the MTFLO_call class with the file path and analysis name.
@@ -63,14 +65,21 @@ class MTFLO_call:
         ----------
         - analysis_name : str
             The name of the analysis case.
+        - kwargs : dict
+            Additional keyword arguments.
         """
 
         self.analysis_name = analysis_name
 
+        # Define key paths/directories
+        self.parent_dir = Path(__file__).resolve().parent.parent
+        self.submodels_path = self.parent_dir / "Submodels"
+
         # Define filepath of MTFLO as being in the same folder as this Python file
-        self.fpath: str = os.getenv('MTFLO_PATH', 'mtflo.exe')
-        if not os.path.exists(self.fpath):
-            raise FileNotFoundError(f"MTFLO executable not found at {self.fpath}")
+        self.process_path = self.submodels_path / 'mtflo.exe'
+        if not self.process_path.exists():
+            raise FileNotFoundError(f"MTFLO executable not found at {self.process_path}")
+        
         
     def StdinWrite(self,
                    command: str) -> None:
@@ -100,25 +109,18 @@ class MTFLO_call:
         Python file. 
         """
 
-        # Get the directory where the current Python file is located
-        current_file_directory = os.path.dirname(os.path.abspath(__file__))
-
-        # Change the working directory to the directory of the current Python file
-        os.chdir(current_file_directory)
-
         # Generate the subprocess and write it to self
-        self.process = subprocess.Popen([self.fpath, self.analysis_name], 
+        self.process = subprocess.Popen([self.process_path, self.analysis_name], 
                                         stdin=subprocess.PIPE, 
                                         stdout=subprocess.PIPE, 
-                                        stderr=subprocess.PIPE,
-                                        shell=True, 
+                                        stderr=subprocess.DEVNULL,
                                         text=True,
                                         bufsize=1,
                                         )
         
         # Check if subprocess is started successfully
         if self.process.poll() is not None:
-            raise ImportError(f"MTFLO or tdat.{self.analysis_name} not found in {self.fpath}") from None
+            raise ImportError(f"MTFLO or tdat.{self.analysis_name} not found in {self.process_path}") from None
         
     
     def LoadForcingField(self,
@@ -147,21 +149,17 @@ class MTFLO_call:
 
         # Write to the flowfield file tdat.xxx and check if writing was successful 
         self.StdinWrite("W")
-
-        if self.process.poll() is not None:
-            raise OSError(f"Issue writing parameters to tdat.{self.analysis_name}, MTFLO crashed") from None
         
         # Close the MTFLO program
         self.StdinWrite("Q")
 
-         # Check that MTFLO has closed successfully 
+        # Check that MTFLO has closed successfully. If not, forcefully closes MTSOL
         if self.process.poll() is None:
             try:
-                self.process.wait(timeout=5)
-            
+                self.process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 self.process.kill()
-                raise OSError("MTFLO did not close after file generation. Process was killed.") from None
+
 
     def FileStatus(self,
                    fpath: str,
@@ -170,7 +168,7 @@ class MTFLO_call:
         Simple function to check if the file update/write has finished
         """
         try:
-            with open(fpath, "a"):
+            with open(fpath, "rb"):
                 return True
         except IOError:
             return False
@@ -196,8 +194,14 @@ class MTFLO_call:
         self.LoadForcingField()
 
         # Wait until file has been processed
-        while not self.FileStatus(f"tdat.{self.analysis_name}"):
-            time.sleep(0.01)
+        fpath = self.submodels_path / "tdat.{}".format(self.analysis_name)
+        start_time = time.time()
+        timeout = 10
+        while (time.time() - start_time) <= timeout:
+            if self.FileStatus(fpath):
+                break
+            else:
+                time.sleep(0.01)
 
         return self.process.returncode      
 

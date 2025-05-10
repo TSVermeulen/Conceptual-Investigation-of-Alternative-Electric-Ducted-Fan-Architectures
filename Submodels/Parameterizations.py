@@ -53,6 +53,8 @@ Changelog:
 - V1.0: Adapted version of a parameterization using only the bezier coefficients to give an improved fit to the reference data. 
 - V1.1: Updated docstring, and working implementation for symmetric profiles (i.e. zero camber)
 - V1.2: Updated FindInitialParameterization method to use SLSQP optimization rather than least squares to enable correct constraint handling. 
+- V1.2.1: Previously increased the number of points in the u-vectors for the bezier curves to 200. This yields too many in the walls.xxx input file for MTSET to handle, causing a crash. 
+          Number of points has been reduced to 100.
 """
 
 import numpy as np
@@ -91,7 +93,7 @@ class AirfoilParameterization:
     """
 
     def __init__(self,
-                 symmetric_limit: float = 1E-3) -> None:
+                 symmetric_limit: float = 5E-3) -> None:
         """
         Initialize the AirfoilParameterization class.
         
@@ -100,7 +102,7 @@ class AirfoilParameterization:
         Parameters
         ----------
         - symmetric_limit : float, optional
-            The triggering value of camber below which an airfoil is treated as being symmetric. Default is 1E-3. This is needed to avoid issues with cotangent calculations. 
+            The triggering value of camber below which an airfoil is treated as being symmetric. Default is 5E-3. This is needed to avoid issues with cotangent calculations. 
 
         Returns
         -------
@@ -552,7 +554,7 @@ class AirfoilParameterization:
     def GenerateBezierUVectors(self,
                                ) -> tuple[np.ndarray[float], np.ndarray[float]]:
         """
-        Create u-vectors for Bezier curve generation. Uses 200 points for the leading and trailing edges.
+        Create u-vectors for Bezier curve generation. Uses 100 points for the leading and trailing edge curves, to give 200 points in total.
 
         Returns
         -------
@@ -563,8 +565,8 @@ class AirfoilParameterization:
         """
 
         # Create u-vectors for Bezier curve generation
-        # Use 200 points
-        n_points = 200
+        # Use 100 points for the leading and trailing edge curves, to give 200 points in total.
+        n_points = 100
         u_leading_edge = np.zeros(n_points)
         u_trailing_edge = np.zeros(n_points)
 
@@ -976,7 +978,7 @@ class AirfoilParameterization:
                                  method="SLSQP",
                                  bounds=GetBounds(),
                                  constraints=cons,
-                                 options={'maxiter': 100,
+                                 options={'maxiter': 300,
                                           'disp': False},
                                           jac='3-point')
         
