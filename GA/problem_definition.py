@@ -202,7 +202,7 @@ class OptimizationProblem(ElementwiseProblem):
     def ComputeOmega(self) -> None:
         """
         A simple function to compute the non-dimensional MTFLOW rotational rate Omega,
-        and write it to the oper dictionary and the.
+        and write it to the blading parameters.
 
         Returns
         -------
@@ -230,10 +230,7 @@ class OptimizationProblem(ElementwiseProblem):
         None
         """
 
-        # Files to be deleted directly
-        file_types = ["walls", "tflow", "forces", "flowfield", "boundary_layer", "tdat"]
-
-        for file_type in file_types:
+        for file_type in self.FILE_TEMPLATES.keys():
             # Construct filepath
             file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
 

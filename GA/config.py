@@ -61,6 +61,7 @@ class ObjectiveID(IntEnum):
 
     EFFICIENCY = auto()
     FRONTAL_AREA = auto()
+    WETTED_AREA = auto()
     PRESSURE_RATIO = auto()
     MULTIPOINT_TO_CRUISE = auto()
     # CENTERBODY_TRANSITION_LOCATION = auto()
@@ -110,7 +111,8 @@ BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
 tipGap = 0.01016  # 1.016 cm tip gap
 
 @functools.lru_cache(typed=True)
-def _load_blading(Omega: float,                        
+def _load_blading(Omega: float,  
+                  RPS: float,                      
                   ref_blade_angle: float) -> tuple[list, list]:
     """
     Generate MTFLO blading.
@@ -120,6 +122,8 @@ def _load_blading(Omega: float,
     ----------
     - Omega : float
         The non-dimensional rotational speed of the rotor, as defined in the MTFLOW documentation in units of Vinl/Lref
+    - RPS : float
+        The rotational rate of the rotor in rotations per second. 
     - ref_blade_angle : float
         The blade set angle, in radians. 
     
@@ -139,7 +143,7 @@ def _load_blading(Omega: float,
     blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(32.3), np.deg2rad(15.5)])
     propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
                             "rotational_rate": Omega, 
-                            "RPS": oper["RPS"],
+                            "RPS": RPS,
                             "ref_blade_angle": ref_blade_angle, 
                             "reference_section_blade_angle": np.deg2rad(20), 
                             "blade_count": 3, 
@@ -205,20 +209,21 @@ def _load_blading(Omega: float,
     if missing_files:
         raise FileNotFoundError(f"Missing files: {', '.join(map(str, missing_files))}")
 
+    param = AirfoilParameterization()
     # Compute parameterization for the airfoil section at r=0R
-    R00_section = AirfoilParameterization().FindInitialParameterization(reference_file=R00_fpath)
+    R00_section = param.FindInitialParameterization(reference_file=R00_fpath)
     # Compute parameterization for the airfoil section at r=0.3R
-    # R03_section = AirfoilParameterization().FindInitialParameterization(reference_file=R03_fpath)
+    # R03_section = param.FindInitialParameterization(reference_file=R03_fpath)
     # Compute parameterization for the mid airfoil section
-    R05_section = AirfoilParameterization().FindInitialParameterization(reference_file=R05_fpath)
+    R05_section = param.FindInitialParameterization(reference_file=R05_fpath)
     # Compute parameterization for the airfoil section at r=0.7R
-    # R07_section = AirfoilParameterization().FindInitialParameterization(reference_file=R07_fpath)
+    # R07_section = param.FindInitialParameterization(reference_file=R07_fpath)
     # Compute parameterization for the tip airfoil section
-    R10_section = AirfoilParameterization().FindInitialParameterization(reference_file=R10_fpath)
+    R10_section = param.FindInitialParameterization(reference_file=R10_fpath)
     # Compute parameterization for the horizontal struts
-    Hstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Hstrut_fpath)
+    Hstrut_section = param.FindInitialParameterization(reference_file=Hstrut_fpath)
     # Compute parameterization for the diagonal struts
-    Dstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Dstrut_fpath)
+    Dstrut_section = param.FindInitialParameterization(reference_file=Dstrut_fpath)
 
     # Construct blading list
     design_parameters = [[R00_section, R05_section, R10_section],
@@ -229,6 +234,7 @@ def _load_blading(Omega: float,
 
 # Compute the blading and design parameters for the rotors/stators of the reference design
 STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(oper["Omega"],
+                                                                 oper["RPS"],
                                                                  REFERENCE_BLADE_ANGLES[0])
 
 # Define the target thrust/power and efficiency for use in constraints

@@ -87,21 +87,22 @@ class Objectives:
         Returns
         -------
         - Propulsive Efficiency: float
-            A float of the propulsive efficiency, defined as CT/CP.
+            A float of the propulsive efficiency objective, defined as 1 - CT/CP.
         """
 
         return 1 - outputs['data']['EtaP']
 
 
     def FrontalArea(self,
-                    outputs: dict) -> None:
+                    outputs: dict) -> float:
         """
         Define the frontal area (sub-)objective.
         This sub-objective has identifier 2.
 
         Returns
         -------
-        None
+        - normalised_frontal_area : float
+            The frontal area normalised by the reference frontal area.
         """
 
         # To comput the frontal area, we need the maximum radius of the ducted propeller/fan.
@@ -132,13 +133,28 @@ class Objectives:
         # Return the frontal area normalised by the reference frontal area in config
         # This is needed to ensure all objectives are of the same order of magnitude and thus have equal weight to the GA optimiser. 
         return frontal_area / config.REF_FRONTAL_AREA
+    
+
+    def WettedArea(self,
+                    outputs: dict) -> float:
+        """
+        Define the wetted area (sub-)objective.
+        This sub-objective has identifier 3.
+
+        Returns
+        -------
+        - wetted_area : float
+            The wetted area as taken from the output file forces.analysis_name.
+        """
+
+        return outputs["data"]["Wetted Area"]
 
 
     def PressureRatio(self,
                       outputs: dict) -> float:
         """
         Define the pressure ratio (sub-)objective.
-        This sub-objective has identifier 3.
+        This sub-objective has identifier 4.
 
         Parameters
         ----------
@@ -156,10 +172,10 @@ class Objectives:
 
 
     def MultiPointTOCruise(self,
-                           outputs: dict) -> None:
+                           outputs: dict) -> float:
         """
         Define the multi-point take-off to cruise (sub-)objective.
-        This sub-objective has identifier 4.
+        This sub-objective has identifier 5.
 
         Returns
         -------
@@ -193,15 +209,15 @@ class Objectives:
         None, the out dictionary is updated in place with the computed objectives.                
         """
 
-        objectives_list = [self.Efficiency, self.FrontalArea, self.PressureRatio, self.MultiPointTOCruise]
+        objectives_list = [self.Efficiency, self.FrontalArea, self.WettedArea, self.PressureRatio, self.MultiPointTOCruise]
 
         objectives = [objectives_list[i] for i in objective_IDs]
 
-        computed_objectives = []
+        computed_objectives = np.empty_like(objectives)
 
         for i in range(len(objectives)):
             # Rounds the objective values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
-            computed_objectives.append(round(objectives[i](analysis_outputs), 5))
+            computed_objectives[i] = round(objectives[i](analysis_outputs), 5)
 
         out["F"] = np.column_stack(computed_objectives)
         
@@ -219,9 +235,9 @@ if __name__ == "__main__":
     from Submodels.output_handling import output_processing
     import config
 
-    objectives_class = Objectives()
+    objectives_class = Objectives(config.DUCT_VALUES)
     output = {}
-    objectives_class.ComputeObjective(output_processing('test_case').GetAllVariables(3),
+    objectives_class.ComputeObjective(output_processing('initial_analysis').GetAllVariables(3),
                                       config.objective_IDs,
                                       output) 
     print(output)       

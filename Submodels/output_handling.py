@@ -623,6 +623,7 @@ class output_processing:
         element_breakdown_pattern = r'CTf\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTp\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+top Xtr\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+bot Xtr\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
         axis_body_breakdown_pattern = r'CTf\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTp\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+Xtr\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
         P_ratio_pattern = r"Pexit/Po\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
+        wetted_area_pattern = r"Total\s*:\s*([-+]?\d*\.\d+|\d+)"
 
         # Initialise output dictionaries and index counter.
         oper = {}
@@ -632,6 +633,7 @@ class output_processing:
         # Use regex to extract values from the line.
         # Only search for the data if desired based on the output_type integer provided.
         for idx, line in enumerate(forces_file_contents): 
+            
             if idx == 0:
                 continue
             if idx == 1 and output_type == 0:
@@ -691,6 +693,9 @@ class output_processing:
                 
             elif idx == 14 and output_type in (0, 1, 3):
                 data["Pressure Ratio"] = re.search(P_ratio_pattern, line).group(1)
+            
+            elif idx == 21 and output_type in (0, 1, 3):
+                data["Wetted Area"] = re.search(wetted_area_pattern, line).group(1)
 
         # Convert contents of all dictionaries to floats
         oper = {key: float(value) for key, value in oper.items()}

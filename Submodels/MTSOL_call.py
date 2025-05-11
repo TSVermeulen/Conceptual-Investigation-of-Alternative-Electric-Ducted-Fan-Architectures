@@ -287,7 +287,7 @@ class MTSOL_call:
         -------
         None
         """
-
+        
         self.process.stdin.write(f"{command} \n")
         self.process.stdin.flush()
 
@@ -1168,7 +1168,8 @@ class MTSOL_call:
         # If no output is generated, need to write an additional white line to close MTSOL
         # Initial newline char to ensure MTSOL remains in main menu
         if self.process.poll() is None:
-            self.StdinWrite("\n Q")
+            self.StdinWrite("\n")
+            self.StdinWrite("Q")
             if not generate_output:
                 self.StdinWrite("\n")
 
