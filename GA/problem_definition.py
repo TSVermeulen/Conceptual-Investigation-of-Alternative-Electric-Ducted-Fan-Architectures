@@ -159,7 +159,7 @@ class OptimizationProblem(ElementwiseProblem):
 
     def GenerateAnalysisName(self) -> None:
         """
-        Generate a unique analysis name with a length of 24 characters.
+        Generate a unique analysis name.
         This is required to enable multi-threading of the optimization problem, and log each state file,
         since each evaluation of MTFLOW requires a unique set of files. 
 
@@ -292,11 +292,15 @@ class OptimizationProblem(ElementwiseProblem):
             
             output_generated =  True  # If both input generation routines succeeded, set output_generated to True
 
-        except Exception as e:
+        except ValueError as e:
             # Any value error that might occur while generating the MTSET input file will be caused by interpolation issues arising from the input values, so 
             # this is an efficient and simple method to check if the axisymmetric bodies are feasible. 
             output_generated = False  # If any of the input generation routines raised an error, set output_generated to False
             print(f"Invalid design vector encountered: {e}")
+        except Exception as e:
+            # If any unexpected errors occur, log them as well
+            output_generated = False
+            print(f"Unexpected error in input generation: {type(e).__name__}: {e}")
         
         return output_generated
         

@@ -110,7 +110,7 @@ REFERENCE_BLADE_ANGLES = [np.deg2rad(19), 0, 0]  # Reference angles at the refer
 BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
 tipGap = 0.01016  # 1.016 cm tip gap
 
-@functools.lru_cache()
+@functools.lru_cache(typed=True)
 def _load_blading(Omega: float,                        
                   ref_blade_angle: float) -> tuple[list, list]:
     """
@@ -140,7 +140,7 @@ def _load_blading(Omega: float,
     blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(32.3), np.deg2rad(15.5)])
     propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
                             "rotational_rate": Omega, 
-                            "RPS": 25.237,
+                            "RPS": oper["RPS"],
                             "ref_blade_angle": ref_blade_angle, 
                             "reference_section_blade_angle": np.deg2rad(20), 
                             "blade_count": 3, 

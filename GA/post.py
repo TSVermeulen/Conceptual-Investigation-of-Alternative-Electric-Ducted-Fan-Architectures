@@ -257,6 +257,8 @@ class PostProcessing:
                 plt.tight_layout()
                 plt.xlabel("Axial Coordinate [m]")
                 plt.ylabel("Radial Coordinate [m]")
+                plt.show()
+                plt.close()
         
         ax1.grid(which='both')
         ax1.minorticks_on()
