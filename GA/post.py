@@ -73,6 +73,8 @@ class PostProcessing:
     Class to analyse all output data from the Pymoo optimisation.
     """
 
+    _airfoil_param = AirfoilParameterization()  # shared, read-only
+
 
     def __init__(self,
                  fname: Path,
@@ -446,12 +448,12 @@ class PostProcessing:
         (upper_x, 
          upper_y, 
          lower_x,
-         lower_y) = AirfoilParameterization().ComputeProfileCoordinates([design[section_idx]["b_0"],
-                                                                         design[section_idx]["b_2"],
-                                                                         design[section_idx]["b_8"],
-                                                                         design[section_idx]["b_15"],
-                                                                         design[section_idx]["b_17"]],
-                                                                         design[section_idx])
+         lower_y) = self._airfoil_param.ComputeProfileCoordinates([design[section_idx]["b_0"],
+                                                                   design[section_idx]["b_2"],
+                                                                   design[section_idx]["b_8"],
+                                                                   design[section_idx]["b_15"],
+                                                                   design[section_idx]["b_17"]],
+                                                                   design[section_idx])
 
         return upper_x, upper_y, lower_x, lower_y
     
@@ -611,8 +613,8 @@ class PostProcessing:
 
         # Compute the mean standard deviation of each population
         for e in res.history:
-            X = e.pop.get("X")
-            X = np.array([[d[k] for k in x_keys] for d in e.pop.get("X")])
+            X_dicts = e.pop.get("X")
+            X = np.array([[d[k] for k in x_keys] for d in X_dicts])
             std_dev = np.mean(np.std(X, axis=0))
             diversity.append(std_dev)
 

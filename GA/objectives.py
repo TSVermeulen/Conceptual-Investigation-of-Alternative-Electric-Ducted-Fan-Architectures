@@ -40,7 +40,12 @@ Changelog:
 - V2.0: Refactored code for better modularity and maintainability. Updated examples and notes.
 """
 
+# Import 3rd party libraries
 import numpy as np
+
+# Import config module
+import config
+
 
 class Objectives:
     """
@@ -48,22 +53,24 @@ class Objectives:
     """
 
     def __init__(self,
-                x: np.ndarray = None) -> None:
+                 duct_variables : dict[str, any],
+                 **kwargs) -> None:
         """
         Initialisation of the Objectives class.
 
         Parameters
         ----------
-        - x : np.ndarray
-            The PyMoo design vector. 
+        - duct_variables: dict[str, any]
+            The duct design varaible dictionary.
         
         Returns
         -------
         None
         """
 
-        # Initialize the design vector
-        self.x = x 
+        # Write the inputs to self
+        self.duct_variables = duct_variables
+
 
     def Efficiency(self,
                    outputs: dict) -> float:
@@ -86,20 +93,6 @@ class Objectives:
         return 1 - outputs['data']['EtaP']
 
 
-    def Weight(self,
-               outputs: dict) -> None:
-        """
-        Define the weight (sub-)objective.
-        This sub-objective has identifier 1.
-
-        Returns
-        -------
-        None
-        """
-        #TODO: Implement weight calculation based on design variables
-        raise NotImplementedError("Weight calculation is not implemented yet.")
-
-    
     def FrontalArea(self,
                     outputs: dict) -> None:
         """
@@ -110,8 +103,35 @@ class Objectives:
         -------
         None
         """
-        #TODO: Implement frontal area calculation/extraction based on forces.xxx file or design variables
-        raise NotImplementedError("Frontal area calculation is not implemented yet.")
+
+        # To comput the frontal area, we need the maximum radius of the ducted propeller/fan.
+        # This can be computed based on the radial LE coordinate of the duct, 
+        # together with the maximum y-coordinate of the duct profile.
+
+        # Lazy import the airfoil parameterization class to construct the x,y coordinates of the duct geometry
+        from Submodels.Parameterizations import AirfoilParameterization
+
+        # Compute the airfoil coordinates
+        # We only care about the upper y coordinates so they are the only ones we store
+        _, upper_y, _, _ = AirfoilParameterization().ComputeProfileCoordinates([self.duct_variables["b_0"],
+                                                                                self.duct_variables["b_2"],
+                                                                                self.duct_variables["b_8"],
+                                                                                self.duct_variables["b_15"],
+                                                                                self.duct_variables["b_17"]],
+                                                                                self.duct_variables)
+
+        # Dimensionalise the y coordinates using the chord length
+        upper_y *= self.duct_variables["Chord Length"]
+
+        # Compute the maximum radius
+        max_radius = self.duct_variables["Leading Edge Coordinates"][1] + np.max(upper_y)
+
+        # Since we deal with axisymmetric geometry, the frontal area is then simply the area of a circle
+        frontal_area = np.pi * max_radius ** 2
+
+        # Return the frontal area normalised by the reference frontal area in config
+        # This is needed to ensure all objectives are of the same order of magnitude and thus have equal weight to the GA optimiser. 
+        return frontal_area / config.REF_FRONTAL_AREA
 
 
     def PressureRatio(self,
@@ -132,7 +152,7 @@ class Objectives:
             A float of the exit pressure ratio.
         """
 
-        return outputs["data"]["Pressure Ratio"]
+        return 1 - outputs["data"]["Pressure Ratio"]
 
 
     def MultiPointTOCruise(self,
@@ -173,7 +193,7 @@ class Objectives:
         None, the out dictionary is updated in place with the computed objectives.                
         """
 
-        objectives_list = [self.Efficiency, self.FrontalArea, self.Weight, self.PressureRatio, self.MultiPointTOCruise]
+        objectives_list = [self.Efficiency, self.FrontalArea, self.PressureRatio, self.MultiPointTOCruise]
 
         objectives = [objectives_list[i] for i in objective_IDs]
 

@@ -116,7 +116,7 @@ class DesignVector():
             if cfg.OPTIMIZE_STAGE[i]:
                 vector.append(Real(bounds=(0., 0.4)))  # root_LE_coordinate
                 vector.append(Real(bounds=(-np.pi/4, np.pi/4)))  # ref_blade_angle
-                vector.append(Integer(bounds=(3, 20)))  # blade_count
+                vector.append(Integer(bounds=(2, 20)))  # blade_count
                 if cfg.ROTATING[i]:
                     vector.append(Real(bounds=(20, 42)))  # blade RPS
                 vector.append(Real(bounds=(1.0, 3.0)))  # blade diameter

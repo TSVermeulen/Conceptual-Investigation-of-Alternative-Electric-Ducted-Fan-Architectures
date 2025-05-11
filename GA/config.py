@@ -60,17 +60,16 @@ class ObjectiveID(IntEnum):
         return count  # This makes the first member 0 rather than the default 1.
 
     EFFICIENCY = auto()
-    WEIGHT = auto()
     FRONTAL_AREA = auto()
     PRESSURE_RATIO = auto()
     MULTIPOINT_TO_CRUISE = auto()
-    CENTERBODY_TRANSITION_LOCATION = auto()
-    DUCT_INNER_TRANSITION_LOCATION = auto()
-    DUCT_OUTER_TRANSITION_LOCATION = auto()
-    DUCT_THRUST_CONTRIBUTION = auto()
-    CENTERBODY_THRUST_CONTRIBUTION = auto()
+    # CENTERBODY_TRANSITION_LOCATION = auto()
+    # DUCT_INNER_TRANSITION_LOCATION = auto()
+    # DUCT_OUTER_TRANSITION_LOCATION = auto()
+    # DUCT_THRUST_CONTRIBUTION = auto()
+    # CENTERBODY_THRUST_CONTRIBUTION = auto()
      
-objective_IDs = [ObjectiveID.EFFICIENCY]
+objective_IDs = [ObjectiveID.EFFICIENCY, ObjectiveID.FRONTAL_AREA]
 
 
 # Define the operating conditions dictionary
@@ -99,7 +98,7 @@ CENTERBODY_VALUES = {"b_0": 0., "b_2": 0., "b_8": 7.52387039e-02, "b_15": 7.4644
 # Controls for the optimisation vector - DUCT
 OPTIMIZE_DUCT = True
 DUCT_VALUES = {'b_0': 0., 'b_2': 0., 'b_8': 0.004081758291374328, 'b_15': 0.735, 'b_17': 0.8, 'x_t': 0.2691129541223092, 'y_t': 0.084601317961794, 'x_c': 0.5, 'y_c': 0., 'z_TE': -0.015685, 'dz_TE': 0.0005638524603968335, 'r_LE': -0.06953901280141099, 'trailing_wedge_angle': 0.16670974950670672, 'trailing_camberline_angle': 0.003666809042006104, 'leading_edge_direction': -0.811232599724247, 'Chord Length': 1.2446, "Leading Edge Coordinates": (0.093, 1.20968)}
-
+REF_FRONTAL_AREA = 5.22640  # m^2
 
 # Controls for the optimisation vector - BLADES
 OPTIMIZE_STAGE = [True, False, False]
@@ -191,14 +190,15 @@ def _load_blading(Omega: float,
     # Obtain the parameterizations for the profile sections. 
     profile_dir_path = Path(__file__).parent.parent / 'Validation/Profiles'
     R00_fpath = profile_dir_path / 'X22_02R.dat'
-    R03_fpath = profile_dir_path / 'X22_03R.dat'
+    # R03_fpath = profile_dir_path / 'X22_03R.dat'
     R05_fpath = profile_dir_path / 'X22_05R.dat'
-    R07_fpath = profile_dir_path / 'X22_07R.dat'
+    # R07_fpath = profile_dir_path / 'X22_07R.dat'
     R10_fpath = profile_dir_path / 'X22_10R.dat'
     Hstrut_fpath = profile_dir_path / 'Hstrut.dat'
     Dstrut_fpath = profile_dir_path / 'Dstrut.dat'
 
-    filenames = [R00_fpath, R03_fpath, R05_fpath, R07_fpath, R10_fpath, Hstrut_fpath, Dstrut_fpath]
+    # filenames = [R00_fpath, R03_fpath, R05_fpath, R07_fpath, R10_fpath, Hstrut_fpath, Dstrut_fpath]
+    filenames = [R00_fpath, R05_fpath, R10_fpath, Hstrut_fpath, Dstrut_fpath]
 
     # First check if all files are present
     missing_files = [f for f in filenames if not f.exists()]
@@ -208,11 +208,11 @@ def _load_blading(Omega: float,
     # Compute parameterization for the airfoil section at r=0R
     R00_section = AirfoilParameterization().FindInitialParameterization(reference_file=R00_fpath)
     # Compute parameterization for the airfoil section at r=0.3R
-    R03_section = AirfoilParameterization().FindInitialParameterization(reference_file=R03_fpath)
+    # R03_section = AirfoilParameterization().FindInitialParameterization(reference_file=R03_fpath)
     # Compute parameterization for the mid airfoil section
     R05_section = AirfoilParameterization().FindInitialParameterization(reference_file=R05_fpath)
     # Compute parameterization for the airfoil section at r=0.7R
-    R07_section = AirfoilParameterization().FindInitialParameterization(reference_file=R07_fpath)
+    # R07_section = AirfoilParameterization().FindInitialParameterization(reference_file=R07_fpath)
     # Compute parameterization for the tip airfoil section
     R10_section = AirfoilParameterization().FindInitialParameterization(reference_file=R10_fpath)
     # Compute parameterization for the horizontal struts
@@ -269,15 +269,15 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
                   []]
 
 # Define the population size
-POPULATION_SIZE = 30
-INIT_POPULATION_SIZE = 30  # Initial population size for the first generation. We may wish a larger initial population to ensure a diverse initial solution set is obtained since we cannot, a-priori, know how many of the randomly perturbed population members will be feasible
+POPULATION_SIZE = 40
+INIT_POPULATION_SIZE = POPULATION_SIZE  # Initial population size for the first generation. We may wish a larger initial population to ensure a diverse initial solution set is obtained since we cannot, a-priori, know how many of the randomly perturbed population members will be feasible
 MAX_GENERATIONS = 100
-MAX_EVALUATIONS = 2000
+MAX_EVALUATIONS = 4000
 
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
 SPREAD_CONTINUOUS = 0.2  # Relative spread (+/- %) applied to continous variables around their reference values
-ZERO_NOISE = 0.05  # % noise added to zero values to avoid stagnation
+ZERO_NOISE = 0.2  # % noise added to zero values to avoid stagnation
 SPREAD_DISCRETE = (-3, 6)  # Absolute range for discrete variables (referene value -3 to reference value + 6)
 
 RESERVED_THREADS = 2

@@ -195,6 +195,7 @@ class OptimizationProblem(ElementwiseProblem):
         """
 
         # Compute the inlet Reynolds number and write it to self.oper
+        # Uses Vinl [m/s], Lref [m], and kinematic_viscosity [m^2/s]
         self.oper["Inlet_Reynolds"] = round(float((self.oper["Vinl"] * self.Lref) / config.atmosphere.kinematic_viscosity[0]), 3)
 
 
@@ -296,11 +297,13 @@ class OptimizationProblem(ElementwiseProblem):
             # Any value error that might occur while generating the MTSET input file will be caused by interpolation issues arising from the input values, so 
             # this is an efficient and simple method to check if the axisymmetric bodies are feasible. 
             output_generated = False  # If any of the input generation routines raised an error, set output_generated to False
-            print(f"Invalid design vector encountered: {e}")
+            error_code = "INVALID_DESIGN"
+            print(f"[{error_code}] Invalid design vector encountered: {e}")
         except Exception as e:
             # If any unexpected errors occur, log them as well
             output_generated = False
-            print(f"Unexpected error in input generation: {type(e).__name__}: {e}")
+            error_code = f"UNEXPECTED_{type(e).__name__}"
+            print(f"[{error_code}] Unexpected error in input generation: {e}")
         
         return output_generated
         
@@ -375,9 +378,9 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Obtain objective(s)
         # The out dictionary is updated in-place
-        Objectives().ComputeObjective(analysis_outputs=MTFLOW_outputs,
-                                      objective_IDs = config.objective_IDs,
-                                      out=out)
+        Objectives(self.duct_variables).ComputeObjective(analysis_outputs=MTFLOW_outputs,
+                                                         objective_IDs=config.objective_IDs,
+                                                         out=out)
 
         # Compute constraints
         # The out dictionary is updated in-place
@@ -386,7 +389,10 @@ class OptimizationProblem(ElementwiseProblem):
                                          out=out)
         
         # Cleanup the generated files
-        self.CleanUpFiles()
+        try:
+            self.CleanUpFiles()
+        except Exception as e:
+            print(f"Warning: Failed to clean up files for {self.analysis_name}: {e}")
     
 
 if __name__ == "__main__":
