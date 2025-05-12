@@ -80,7 +80,7 @@ class Constraints:
         - Power : float
             A float of the power in Watts
         """
-        return analysis_outputs['data']['Total power CP'] * (0.5 * config.atmosphere.density[0] * config.oper["Vinl"] ** 3 * Lref ** 2)
+        return analysis_outputs['data']['Total power CP'] * (0.5 * config.atmosphere.density[0] * self.oper["Vinl"] ** 3 * Lref ** 2)
 
 
     def _calculate_thrust(self,
@@ -101,7 +101,7 @@ class Constraints:
         - Thrust : float
             A float of the thrust in Newtons
         """
-        return analysis_outputs['data']['Total force CT'] * (0.5 * config.atmosphere.density[0] * config.oper["Vinl"] ** 2 * Lref ** 2)
+        return analysis_outputs['data']['Total force CT'] * (0.5 * config.atmosphere.density[0] * self.oper["Vinl"] ** 2 * Lref ** 2)
 
 
     def ConstantPower(self, 
@@ -131,7 +131,7 @@ class Constraints:
             The computed normalised power constraint. This is a scalar value representing the power of the system.
         """
 
-        return (power - config.P_ref_constr) / config.P_ref_constr  # Normalized power constraint 
+        return (power - self.ref_power) / self.ref_power  # Normalized power constraint 
     
 
     def KeepEfficiencyFeasibleUpper(self,
@@ -227,7 +227,7 @@ class Constraints:
         - float 
             The computed normalised thrust constraint. 
         """
-        return (thrust - (1 - config.deviation_range) * config.T_ref_constr) / config.T_ref_constr  # Normalized thrust constraint
+        return (thrust - (1 - config.deviation_range) * self.ref_thrust) / self.ref_thrust  # Normalized thrust constraint
     
 
     def MaximumThrust(self,
@@ -258,12 +258,13 @@ class Constraints:
         - float
             The computed normalised thrust constraint.
         """
-        return (config.deviation_range * config.T_ref_constr - thrust) / config.T_ref_constr  # Normalized thrust constraint
+        return (config.deviation_range * self.ref_thrust - thrust) / self.ref_thrust  # Normalized thrust constraint
 
 
     def ComputeConstraints(self,
                            analysis_outputs: dict,
                            Lref: float,
+                           oper: dict,
                            out: dict) -> None:              
         """
         Compute the inequality and equality constraints based on the provided analysis outputs
@@ -276,6 +277,8 @@ class Constraints:
             which are used as inputs to the constraint functions.
         - Lref : float
             A reference length used in the computation of constraints.
+        - oper : dict
+            The operating conditions dictionary.
         - out : dict
             A dictionary to store the computed constraints. The keys "G" and "H"
             will be populated with the inequality and equality constraints, respectively.
@@ -293,6 +296,9 @@ class Constraints:
               will be empty 2D numpy arrays.                 
         """
 
+        # Copy the operating conditions
+        self.oper = oper.copy()
+
         # Define lists of all inequality and equality constraints, and filter them based on the constraint IDs
         ineq_constraints_list = [self.KeepEfficiencyFeasibleLower, self.KeepEfficiencyFeasibleUpper, self.MinimumThrust, self.MaximumThrust]
         eq_constraints_list = [self.ConstantPower]
@@ -302,6 +308,10 @@ class Constraints:
         # Compute thrust and power
         thrust = self._calculate_thrust(analysis_outputs, Lref)
         power = self._calculate_power(analysis_outputs, Lref)
+
+        # Set the reference values to self
+        self.ref_power = config.P_ref_constr[0]
+        self.ref_thrust = config.T_ref_constr[0]
         
         # Compute the inequality constraints and write them to out["G"]
         # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
@@ -326,6 +336,99 @@ class Constraints:
                                                                        Lref,
                                                                        thrust,
                                                                        power), 5))
+        
+            out["H"] = np.column_stack(computed_eq_constraints)
+        else: 
+            out["H"] = [[]]
+
+
+    def ComputeMultiPointConstraints(self,
+                                     analysis_outputs: list[dict],
+                                     Lref: float,
+                                     oper: list[dict],
+                                     out: dict) -> None:              
+        """
+        Compute the inequality and equality constraints for a multi-point analysis based on the provided analysis outputs
+        and configuration, and store the results in the output dictionary.
+
+        Parameters
+        ----------
+        - analysis_outputs: list[dict] 
+            A list of the output dictionaries containing the results of the analyses,
+            which are used as inputs to the constraint functions.
+        - Lref : float
+            A reference length used in the computation of constraints.
+        - out : dict
+            A dictionary to store the computed constraints. The keys "G" and "H"
+            will be populated with the inequality and equality constraints, respectively.
+        
+        Returns
+        -------
+        None, the out dictionary is updated in place with the computed constraints.
+
+        Notes
+        -----
+            - The function uses `config.constraint_IDs` to determine which constraints to compute.
+            - `config.constraint_IDs[0]` specifies the indices of inequality constraints.
+            - `config.constraint_IDs[1]` specifies the indices of equality constraints.
+            - If no constraints are specified, the corresponding output arrays ("G" or "H")
+              will be empty 2D numpy arrays.                 
+        """
+
+        # Copy the operating conditions
+        self.multi_oper = oper.copy()
+
+        # Define lists of all inequality and equality constraints, and filter them based on the constraint IDs
+        ineq_constraints_list = [self.KeepEfficiencyFeasibleLower, self.KeepEfficiencyFeasibleUpper, self.MinimumThrust, self.MaximumThrust]
+        eq_constraints_list = [self.ConstantPower]
+        ineq_constraints = [ineq_constraints_list[i] for i in config.constraint_IDs[0]]
+        eq_constraints = [eq_constraints_list[i] for i in config.constraint_IDs[1]]
+
+        num_outputs = len(analysis_outputs)
+
+        # Compute thrust and power
+        thrust = []
+        power = []
+        for i in range(num_outputs):
+            self.oper = self.multi_oper[i]
+            thrust.append(self._calculate_thrust(analysis_outputs[i], Lref))
+            power.append(self._calculate_power(analysis_outputs[i], Lref))
+        
+
+        # Compute the inequality constraints and write them to out["G"]
+        # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
+        if ineq_constraints:
+            num_ineq = len(ineq_constraints)
+            computed_ineq_constraints = np.empty(num_outputs * num_ineq)
+            for i, outputs in enumerate(analysis_outputs):
+                self.ref_thrust = config.T_ref_constr[i]
+                self.ref_power = config.P_ref_constr[i]
+                self.oper = self.multi_oper[i]
+                for j, constraint in enumerate(ineq_constraints):
+                    computed_ineq_constraints[i * num_ineq + j] = round(constraint(outputs,
+                                                                                   Lref,
+                                                                                   thrust[i],
+                                                                                   power[i]), 5)
+            
+            out["G"] = np.column_stack(computed_ineq_constraints)
+        else:
+            out["G"] = [[]]
+
+        # Compute the equality constraints and write them to out["H"]
+        # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
+        if eq_constraints:
+            num_eq = len(eq_constraints)
+            computed_eq_constraints = np.empty(num_outputs * num_eq)
+
+            for i, outputs in enumerate(analysis_outputs):
+                self.oper = self.multi_oper[i]
+                self.ref_thrust = config.T_ref_constr[i]
+                self.ref_power = config.P_ref_constr[i]
+                for j, constraint in enumerate(eq_constraints):
+                    computed_eq_constraints[i * num_eq + j] = round(constraint(outputs,
+                                                                               Lref,
+                                                                               thrust[i],
+                                                                               power[i]), 5)
         
             out["H"] = np.column_stack(computed_eq_constraints)
         else: 
@@ -361,6 +464,15 @@ if __name__ == "__main__":
     output = {}
     test.ComputeConstraints(outputs, 
                             Lref=config.BLADE_DIAMETERS[0],
+                            oper=config.multi_oper[0],
                             out=output)
+    
+    print(output)
+
+    output = {}
+    test.ComputeMultiPointConstraints([outputs, outputs], 
+                                      Lref=config.BLADE_DIAMETERS[0],
+                                      oper=config.multi_oper,
+                                      out=output)
     
     print(output)

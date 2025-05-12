@@ -1,19 +1,20 @@
 """
-problem_definition
+problem_definition-multistage
 ==================
 
 Description
 -----------
-This module defines an optimization problem for the pymoo framework, based on the ElementwiseProblem parent class. 
+This module defines an optimization problem for a multi-point optimisation at n operating points for the pymoo framework, based on the ElementwiseProblem parent class. 
+The model is based on the single-point optimisation routine in the problem_definition.py file
 
 Classes
 -------
-OptimizationProblem(ElementwiseProblem)
+MultiPointOptimizationProblem(ElementwiseProblem)
     Class defining the optimization problem with mixed-variable support.
 
 Examples
 --------
->>> problem = OptimizationProblem()
+>>> problem = MultiPointOptimizationProblem()
 >>> out = {}
 >>> problem._evaluate(1, out)
 
@@ -33,16 +34,10 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.3
+Version: 1.0
 
 Changelog:
 - V1.0: Initial implementation. 
-- V1.1: Improved documentation. Fixed issues with deconstruction of design vector. Fixed analysisname generator and switched to using datetime & evaluation counter for name generation. 
-- V1.1.5: Changed analysis name generation to only use datetime to simplify naming generation. 
-- V1.1.6: Updated to remove iter_count from MTFLOW_caller outputs.
-- V1.2: Extracted design vector handling to separate file/class.
-- V1.3: Removed troublesome cache implementation. Cleaned up _evaluate method. Created default crash output dictionary to avoid repeated reading of crash_outputs forces file. Adjusted GenerateAnalysisName method to use 8-char uuid.
-        Updated ComputeOmega method to write omega to the blading lists rather than to the oper dictionary.
 """
 
 # Import standard libraries
@@ -68,7 +63,8 @@ from init_designvector import DesignVector
 from design_vector_interface import DesignVectorInterface
 import config
 
-class OptimizationProblem(ElementwiseProblem):
+
+class MultiPointOptimizationProblem(ElementwiseProblem):
     """
     Class definition of the optimization problem to be solved using the genetic algorithm. 
     Inherits from the ElementwiseProblem class from pymoo.core.problem.
@@ -82,16 +78,13 @@ class OptimizationProblem(ElementwiseProblem):
                       "boundary_layer": "boundary_layer.{}",
                       "tdat": "tdat.{}"}
     
+    # Define the path for the tflow file
+    _tflow_file_path = Path(__file__).parents[1] / "Submodels"
 
     def __init__(self,
                  **kwargs) -> None:
         """
         Initialization of the OptimizationProblem class. 
-
-        Parameters
-        ----------
-        - **kwargs : dict[str, Any]
-            Additional keyword arguments
 
         Returns
         -------
@@ -183,6 +176,9 @@ class OptimizationProblem(ElementwiseProblem):
         # Analysis name has a length of 24 characters, satisfying the maximum length of 32 characters accepted by MTFLOW. 
         self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)
 
+        # Additionally update the tflow file path
+        self._tflow_file_path = self._tflow_file_path / f"tflow.{self.analysis_name}"
+
 
     def ComputeReynolds(self) -> None:
         """
@@ -199,10 +195,17 @@ class OptimizationProblem(ElementwiseProblem):
         self.oper["Inlet_Reynolds"] = round(float((self.oper["Vinl"] * self.Lref) / config.atmosphere.kinematic_viscosity[0]), 3)
 
 
-    def ComputeOmega(self) -> None:
+    def ComputeOmega(self,
+                     idx : int) -> None:
         """
         A simple function to compute the non-dimensional MTFLOW rotational rate Omega,
-        and write it to the blading parameters.
+        and write it to the oper dictionary.
+
+        Parameters
+        ----------
+        - idx : int
+            The index of the operating condition in the multi_oper dictionary. 
+            This is used to extract the correct RPS from the blading dictionary.
 
         Returns
         -------
@@ -212,8 +215,43 @@ class OptimizationProblem(ElementwiseProblem):
         # Compute the non-dimensional rotational rate Omega for MTFLOW and write it to the blading parameters
         # Multiplied by -1 to comply with sign convention in MTFLOW. 
         for blading_params in self.blade_blading_parameters:
-            blading_params["RPS"] = blading_params["RPS_lst"][0]  # For a single point analysis, the RPS_lst in the dictionary has length 1, so we simply extract the value. 
+            blading_params["RPS"] = blading_params["RPS_lst"][idx]
             blading_params["rotational_rate"] = float((-blading_params["RPS"] * np.pi * 2 * self.Lref) / (self.oper["Vinl"]))
+
+
+    def SetOmega(self,
+                 oper_idx) -> None:
+        """
+        A simple function to correctly set the rotational rate Omega in the tflow.analysis_name file.
+        This is used in a multi-point analysis to update the tflow file for each analysis rather than regenerating the full tflow file.
+
+        Parameters
+        ----------
+        - oper_idx : int
+            The index of the operating condition in the multi_oper dictionary. 
+            This is used to extract the correct RPS from the blading dictionary.
+
+        Returns
+        -------
+        None
+        """
+
+        # Compute / update the rotational rates in the blading dictionaries
+        self.ComputeOmega(idx=oper_idx)
+
+        # Open the tflow.analysis_name file
+        with open(self._tflow_file_path, "r") as file:
+            lines = file.readlines()
+
+        match_counter = 0
+        for idx, line in enumerate(lines):
+            if line.startswith("OMEGA"):
+                lines[idx + 1] = f"{self.blade_blading_parameters[match_counter]["rotational_rate"]} \n"
+                match_counter += 1
+        
+        # Write the updated tflow data back to the file
+        with open(self._tflow_file_path, "w") as file:
+            file.writelines(lines)
 
 
     def CleanUpFiles(self) -> None:
@@ -231,26 +269,25 @@ class OptimizationProblem(ElementwiseProblem):
         None
         """
 
-        for file_type in self.FILE_TEMPLATES:
+        # Files to be deleted directly
+        file_types = ["walls", "tflow", "forces", "flowfield", "boundary_layer", "tdat"]
+
+        for file_type in file_types:
             # Construct filepath
             file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
 
-            if not file_path.exists():
-                continue
-            
-            # Archive the state file
+            # Archive the state file if it exists
             if file_type == "tdat": 
-                copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-                try:
-                    os.replace(file_path, copied_file)
-                except OSError:
-                    shutil.move(file_path, copied_file)
-                except FileNotFoundError:
-                    print(f"The tdat state file {file_path} could not be located for copying.")
-                    pass
+                if file_path.exists():
+                    copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
+                    try:
+                        os.replace(file_path, copied_file)
+                    except OSError:
+                        shutil.move(file_path, copied_file)
             else:
-                # Cleanup all temporary files
-                file_path.unlink(missing_ok=True)
+                if file_path.exists():
+                    # Cleanup all temporary files
+                    file_path.unlink(missing_ok=True)
 
 
     def GenerateMTFLOWInputs(self) -> bool:
@@ -291,6 +328,8 @@ class OptimizationProblem(ElementwiseProblem):
             
             output_generated =  True  # If both input generation routines succeeded, set output_generated to True
 
+            
+
         except ValueError as e:
             # Any value error that might occur while generating the MTSET input file will be caused by interpolation issues arising from the input values, so 
             # this is an efficient and simple method to check if the axisymmetric bodies are feasible. 
@@ -304,7 +343,7 @@ class OptimizationProblem(ElementwiseProblem):
             print(f"[{error_code}] Unexpected error in input generation: {e}")
         
         return output_generated
-        
+                  
 
     def _evaluate(self, 
                   x:dict, 
@@ -313,22 +352,6 @@ class OptimizationProblem(ElementwiseProblem):
                   **kwargs) -> None:
         """
         Element-wise evaluation function.
-
-        Parameters
-        ----------
-        - x : dict
-            The pymoo design vector dictionary.
-        - out : dict
-            The pymoo elementwise evaluation output dictionary.
-        - *args : tuple
-            Additional arguments
-        - **kwargs : dict[str, Any]
-            Additional keyword arguments
-
-        Returns
-        -------
-        - None
-            The output dictionary is modified in-place. 
         """
 
         # Lazy import the MTFLOW interface and output_handling interface
@@ -352,11 +375,6 @@ class OptimizationProblem(ElementwiseProblem):
             error_code = "INVALID_DESIGN"
             print(f"[{error_code}] Invalid design vector encountered: {e}")
 
-        # Compute the necessary inputs (Reynolds, Omega)
-        self.oper = config.multi_oper[0].copy()
-        self.ComputeReynolds()
-        self.ComputeOmega()
-        
         # Generate the MTFLOW input files.
         # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector. 
         if deconstruction_okay:
@@ -364,38 +382,44 @@ class OptimizationProblem(ElementwiseProblem):
         else:
             design_okay = deconstruction_okay
 
-        # Initialize the MTFLOW caller class
+        # Only perform the MTFLOW analyses if the input generation has succeeded.
+        # Initialise the MTFLOW output list of dictionaries. Use the crash outputs in 
+        # initialisation to pre-populate them in case of a crash or infeasible design vector
+        self.multi_oper = config.multi_oper.copy()
+        MTFLOW_outputs = [self.crash_outputs] * len(self.multi_oper) 
         if design_okay:
-            MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
+            for idx, operating_point in enumerate(self.multi_oper):
+                # Compute the necessary inputs
+                self.oper = operating_point.copy()  # Copy the appropriate operating condition dictionary
+                self.ComputeReynolds()
+                self.SetOmega(oper_idx=idx)
+
+                MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
                                              ref_length=self.Lref,
                                              analysis_name=self.analysis_name,
                                              **kwargs)
 
-            # Run MTFLOW
-            MTFLOW_interface.caller(external_inputs=True,
-                                    output_type=OutputType.FORCES_ONLY)
+                # Run MTFLOW
+                MTFLOW_interface.caller(external_inputs=True,
+                                        output_type=OutputType.FORCES_ONLY)
 
-            # Extract outputs
-            output_handler = output_processing(analysis_name=self.analysis_name)
-            MTFLOW_outputs = output_handler.GetAllVariables(output_type=3)
-        else:
-            # If the design is infeasible, we load the crash outputs
-            # This is a predefined dictionary with all outputs set to 0.
-            MTFLOW_outputs = self.crash_outputs
+                # Extract outputs
+                output_handler = output_processing(analysis_name=self.analysis_name)
+                MTFLOW_outputs[idx] = output_handler.GetAllVariables(output_type=3)
 
         # Obtain objective(s)
         # The out dictionary is updated in-place
-        Objectives(self.duct_variables).ComputeObjective(analysis_outputs=MTFLOW_outputs,
-                                                         objective_IDs=config.objective_IDs,
-                                                         out=out)
+        Objectives(self.duct_variables).ComputeMultiPointObjectives(analysis_outputs=MTFLOW_outputs,
+                                                                    objective_IDs=config.objective_IDs,
+                                                                    out=out)
 
         # Compute constraints
         # The out dictionary is updated in-place
-        Constraints().ComputeConstraints(analysis_outputs=MTFLOW_outputs,
-                                         Lref=self.Lref,
-                                         oper=self.oper,
-                                         out=out)
-        
+        Constraints().ComputeMultiPointConstraints(analysis_outputs=MTFLOW_outputs,
+                                                   Lref=self.Lref,
+                                                   oper=self.multi_oper,
+                                                   out=out)
+
         # Cleanup the generated files
         try:
             self.CleanUpFiles()
@@ -409,7 +433,7 @@ if __name__ == "__main__":
     config.OPTIMIZE_DUCT = False
     config.OPTIMIZE_STAGE = [False] * len(config.OPTIMIZE_STAGE)
 
-    test = OptimizationProblem()
+    test = MultiPointOptimizationProblem()
 
     output = {}
     test._evaluate({}, output)

@@ -567,12 +567,9 @@ class AirfoilParameterization:
         # Create u-vectors for Bezier curve generation
         # Use 100 points for the leading and trailing edge curves, to give 200 points in total.
         n_points = 100
-        u_leading_edge = np.zeros(n_points)
-        u_trailing_edge = np.zeros(n_points)
-
-        for i in range(n_points):
-            u_leading_edge[i] = np.abs(1 - np.cos((i * np.pi) / (2 * (n_points - 1))))  # Space points using a cosine spacing for increased resolution at LE
-            u_trailing_edge[i] = np.abs(np.sin((i * np.pi) / (2 * (n_points - 1))))  # Space points using a sine spacing for increased resolution at TE
+        i = np.arange(n_points)
+        u_leading_edge = 1 - np.cos((i * np.pi) / (2 * (n_points - 1)))  # Space points using a cosine spacing for increased resolution at LE 
+        u_trailing_edge = np.sin((i * np.pi) / (2 * (n_points - 1)))  # Space points using a sine spacing for increased resolution at TE
 
         return u_leading_edge, u_trailing_edge
 
@@ -636,11 +633,9 @@ class AirfoilParameterization:
         bezier_thickness_x = np.concatenate((x_LE_thickness, x_TE_thickness), 
                                             axis = 0)  # Construct complete array of x-coordinates over length of profile
         
-        # Check the sorting of the thickness curve - if the arrays are not sorted sort them to attempt to fix the profile
-        if not np.all(np.diff(bezier_thickness_x >= 0)):
-            sorted_idx = np.argsort(bezier_thickness_x)
-            bezier_thickness_x = bezier_thickness_x[sorted_idx]
-            bezier_thickness = bezier_thickness[sorted_idx]
+        # Check the sorting of the thickness curve - if the arrays are not sorted we raise a valueerror as it indicates an infeasible parameterization
+        if not np.all(np.diff(bezier_thickness_x) >= 0):
+            raise ValueError("The thickness parameterization for the profile is infeasible.")
         
         # Calculate the camber distributions only if the camber is nonzero
         if airfoil_params["y_c"] >= self.symmetric_limit:
@@ -668,10 +663,8 @@ class AirfoilParameterization:
                                              axis = 0)  # Construct complete array of x-coordinates over length of profile
             
             # Check the sorting of the camber curve - if the arrays are not sorted sort them to attempt to fix the profile
-            if not np.all(np.diff(bezier_camber_x >= 0)):
-                sorted_idx = np.argsort(bezier_camber_x)
-                bezier_camber_x = bezier_camber_x[sorted_idx]
-                bezier_camber = bezier_camber[sorted_idx]
+            if not np.all(np.diff(bezier_camber_x) >= 0):
+                raise ValueError("The camber distribution for the profile is infeasible.")
             
         else:
             # If camber is zero, handle appropriately

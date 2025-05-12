@@ -325,6 +325,7 @@ class DesignVectorInterface:
             blade_design_parameters.append(stage_design_parameters)
 
         blade_blading_parameters = []
+        num_operating_conditions = len(config.multi_oper)
         for stage in range(self.num_stages):
             # Initiate empty list for each stage
             stage_blading_parameters = {}
@@ -334,7 +335,9 @@ class DesignVectorInterface:
                 stage_blading_parameters["ref_blade_angle"] = next(it)
                 stage_blading_parameters["reference_section_blade_angle"] = config.REFERENCE_BLADE_ANGLES[stage]
                 stage_blading_parameters["blade_count"] = int(next(it))
-                stage_blading_parameters["RPS"] = next(it) if self.rotating[stage] else 0
+                stage_blading_parameters["RPS_lst"] = [next(it) if self.rotating[stage] else 0 for _ in range(num_operating_conditions)]
+                stage_blading_parameters["RPS"] = 0  # Initialize the RPS at zero - this will be overwritten later by the appropriate RPS for the operating condition. 
+                stage_blading_parameters["rotation_rate"] = 0  # Initialize the MTFLOW non-dimensional rotational rate to zero - this will be overwritten later by the appropriate Omega within the problem definition.
                 stage_blading_parameters["radial_stations"] = np.linspace(0, 0.5 * next(it), self.num_radial[stage])  # Radial stations are defined as fraction of blade radius * local radius
 
                 # Extract sectional blading parameter lists

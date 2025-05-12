@@ -171,20 +171,6 @@ class Objectives:
         return 1 - outputs["data"]["Pressure Ratio"]
 
 
-    def MultiPointTOCruise(self,
-                           outputs: dict) -> float:
-        """
-        Define the multi-point take-off to cruise (sub-)objective.
-        This sub-objective has identifier 5.
-
-        Returns
-        -------
-        None
-        """
-        #TODO: Implement multi-point objective function calculation.,
-        raise NotImplementedError("Multi-point objective function is not implemented yet.")
-
-
     def ComputeObjective(self,
                          analysis_outputs: dict,
                          objective_IDs: list[int],
@@ -209,7 +195,7 @@ class Objectives:
         None, the out dictionary is updated in place with the computed objectives.                
         """
 
-        objectives_list = [self.Efficiency, self.FrontalArea, self.WettedArea, self.PressureRatio, self.MultiPointTOCruise]
+        objectives_list = [self.Efficiency, self.FrontalArea, self.WettedArea, self.PressureRatio]
 
         objectives = [objectives_list[i] for i in objective_IDs]
 
@@ -218,6 +204,46 @@ class Objectives:
         for i in range(len(objectives)):
             # Rounds the objective values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
             computed_objectives[i] = round(objectives[i](analysis_outputs), 5)
+
+        out["F"] = np.column_stack(computed_objectives)
+
+    
+    def ComputeMultiPointObjectives(self,
+                                    analysis_outputs: list[dict],
+                                    objective_IDs: list[int],
+                                    out: dict) -> None:
+        """
+        Computes the objectives for a multi-point optimization based on the provided analysis outputs.
+        This method evaluates a list of objective functions, specified by their IDs in the 
+        configuration, and returns their computed values. The objectives are negated to 
+        convert maximization objectives (e.g., maximize efficiency) into minimization 
+        objectives, as required by the PyMoo optimization framework.
+                        
+        Parameters
+        ----------
+        - analysis_outputs : list[dict]
+            A list of dictionaries containing the outputs of the analysis 
+            required for computing the objectives.
+        - out : dict
+            A dictionary to store the computed objectives. 
+
+        Returns
+        -------
+        None, the out dictionary is updated in place with the computed objectives.                
+        """
+
+        objectives_list = [self.Efficiency, self.FrontalArea, self.WettedArea, self.PressureRatio]
+
+        objectives = [objectives_list[i] for i in objective_IDs]
+
+        num_outputs = len(analysis_outputs)
+        num_objectives = len(objectives)
+        computed_objectives = np.empty(num_outputs * num_objectives)
+
+        for i, outputs in enumerate(analysis_outputs):
+            for j, objective in enumerate(objectives):
+                # Rounds the objective values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
+                computed_objectives[i * num_objectives + j] =  round(objective(outputs), 5)
 
         out["F"] = np.column_stack(computed_objectives)
         

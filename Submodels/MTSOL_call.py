@@ -123,11 +123,13 @@ class FileCreatedHandling(FileSystemEventHandler):
         start_time = time.monotonic()
         backoff = 0.01
         max_backoff = 0.1
-        while (time.monotonic() - start_time) < timeout:
+        elapsed = 0
+        while elapsed < timeout:
             if self.is_file_free(file_path):
                 return True
             time.sleep(backoff)
-            backoff = min(max_backoff, backoff * 2)
+            # Adjust the backoff based on remaining time to avoid overshooting the timeout
+            backoff = min(max_backoff, backoff * 2, timeout-elapsed)
         return False
         
 
@@ -518,7 +520,8 @@ class MTSOL_call:
             
             # Read the output from the output thread
             try:
-                line = self.output_queue.get(timeout=0.025)
+                adaptive_timeout = min(0.025 * (1 + int((time.monotonic() - timer_start) / 5)), 0.25)
+                line = self.output_queue.get(timeout=adaptive_timeout)
             except queue.Empty:
                 if self.process.poll() is not None:
                     return ExitFlag.CRASH
@@ -684,14 +687,13 @@ class MTSOL_call:
             # If the solution has converged, break out of the iteration loop
             exit_flag = self.WaitForCompletion(completion_type=CompletionType.ITERATION)
 
-            if exit_flag in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH):
-                if exit_flag != ExitFlag.CRASH:
-                    # Increase iteration counter by step size only if the solver did not crash
-                    self.iter_counter += self.ITER_STEP_SIZE
-                break 
-            else:
-                # For non-terminal states, increase the iteration counter
+            if exit_flag != ExitFlag.CRASH:
+                # Increase the iteration counter for all non-crash states
                 self.iter_counter += self.ITER_STEP_SIZE
+            
+            # Break on terminal states
+            if exit_flag in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH):
+                break 
 
         # If the solver has not converged within self.ITER_LIMIT iterations, set the exit flag to non-convergence
         if exit_flag not in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH):

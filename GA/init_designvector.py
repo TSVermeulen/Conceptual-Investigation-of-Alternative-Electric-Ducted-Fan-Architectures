@@ -118,7 +118,8 @@ class DesignVector():
                 vector.append(Real(bounds=(-np.pi/4, np.pi/4)))  # ref_blade_angle
                 vector.append(Integer(bounds=(3, 20)))  # blade_count
                 if cfg.ROTATING[i]:
-                    vector.append(Real(bounds=(20, 42)))  # blade RPS
+                    for _ in range(len(cfg.multi_oper)):
+                        vector.append(Real(bounds=(20, 80)))  # blade RPS
                 vector.append(Real(bounds=(1.0, 3.0)))  # blade diameter
 
                 for _ in range(cfg.NUM_RADIALSECTIONS[i]): 

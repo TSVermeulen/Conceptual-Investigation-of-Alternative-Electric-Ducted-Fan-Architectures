@@ -57,6 +57,7 @@ from pymoo.operators.selection.tournament import TournamentSelection
 # Import interface submodels and other dependencies
 import config
 from problem_definition import OptimizationProblem
+from multi_point_problem_definition import MultiPointOptimizationProblem
 from init_population import InitPopulation
 from termination_conditions import GetTerminationConditions
 from utils import ensure_repo_paths
@@ -81,6 +82,9 @@ if __name__ == "__main__":
         # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
         problem = OptimizationProblem(elementwise_runner=runner,
                                       seed=config.GLOBAL_SEED)
+        
+        # problem = MultiPointOptimizationProblem(elementwise_runner=runner,
+        #                                         seed=config.GLOBAL_SEED)
         
         # Create the reference directions to be used for the optimisation
         ref_dirs = get_reference_directions("energy",

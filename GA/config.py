@@ -72,24 +72,21 @@ class ObjectiveID(IntEnum):
      
 objective_IDs = [ObjectiveID.EFFICIENCY, ObjectiveID.FRONTAL_AREA]
 
-
-# Define the operating conditions dictionary
-oper = {"Inlet_Mach": 0.10285224,
-        "N_crit": 9,
-        "RPS": 25.237,
-        "Omega": -9.667
-        }
-oper["Vinl"] = atmosphere.speed_of_sound[0] * oper["Inlet_Mach"]
-
 # Define the multi-point operating conditions
 multi_oper = [{"Inlet_Mach": 0.10285225,
                "N_crit": 9,
-               "RPS": 25.237,
-               "Omega": -9.667},
-               {"Inlet_Mach": 0.25,
+               "atmos": Atmosphere(0),
+               "Omega": -9.667,
+               "RPS": 25.237},
+               {"Inlet_Mach": 0.20,
                 "N_crit": 9,
-                "RPS": 20,
-                "Omega": -8}]
+                "atmos": Atmosphere(0),
+                "Omega": -20,
+                "RPS": 0}]
+
+# Compute the inlet velocities and write them to the multi-point oper dict
+for oper_dict in multi_oper:
+    oper_dict["Vinl"] = oper_dict["atmos"].speed_of_sound[0] * oper_dict["Inlet_Mach"]
 
 # Controls for the optimisation vector - CENTERBODY
 OPTIMIZE_CENTERBODY = False  # Control boolean to determine if centerbody should be optimised. If false, code uses the default entry below.
@@ -99,7 +96,7 @@ CENTERBODY_VALUES = {"b_0": 0., "b_2": 0., "b_8": 7.52387039e-02, "b_15": 7.4644
 # Controls for the optimisation vector - DUCT
 OPTIMIZE_DUCT = True
 DUCT_VALUES = {'b_0': 0., 'b_2': 0., 'b_8': 0.004081758291374328, 'b_15': 0.735, 'b_17': 0.8, 'x_t': 0.2691129541223092, 'y_t': 0.084601317961794, 'x_c': 0.5, 'y_c': 0., 'z_TE': -0.015685, 'dz_TE': 0.0005638524603968335, 'r_LE': -0.06953901280141099, 'trailing_wedge_angle': 0.16670974950670672, 'trailing_camberline_angle': 0.003666809042006104, 'leading_edge_direction': -0.811232599724247, 'Chord Length': 1.2446, "Leading Edge Coordinates": (0.093, 1.20968)}
-REF_FRONTAL_AREA = 5.22640  # m^2
+REF_FRONTAL_AREA = 5.1726  # m^2
 
 # Controls for the optimisation vector - BLADES
 OPTIMIZE_STAGE = [True, False, False]
@@ -144,6 +141,7 @@ def _load_blading(Omega: float,
     propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
                             "rotational_rate": Omega, 
                             "RPS": RPS,
+                            "RPS_lst": [RPS, RPS * 3],
                             "ref_blade_angle": ref_blade_angle, 
                             "reference_section_blade_angle": np.deg2rad(20), 
                             "blade_count": 3, 
@@ -154,6 +152,7 @@ def _load_blading(Omega: float,
     horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, 
                                    "rotational_rate": 0, 
                                    "RPS": 0,
+                                   "RPS_lst": [0, 0],
                                    "ref_blade_angle": 0, 
                                    "reference_section_blade_angle": 0, 
                                    "blade_count": 4, 
@@ -165,6 +164,7 @@ def _load_blading(Omega: float,
     diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, 
                                  "rotational_rate": 0, 
                                  "RPS": 0,
+                                 "RPS_lst": [0, 0],
                                  "ref_blade_angle": 0, 
                                  "reference_section_blade_angle": 0, 
                                  "blade_count": 2, 
@@ -232,14 +232,16 @@ def _load_blading(Omega: float,
     return blading_parameters, design_parameters
 
 # Compute the blading and design parameters for the rotors/stators of the reference design
-STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(oper["Omega"],
-                                                                 oper["RPS"],
+STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["Omega"],
+                                                                 multi_oper[0]["RPS"],
                                                                  REFERENCE_BLADE_ANGLES[0])
 
 # Define the target thrust/power and efficiency for use in constraints
-P_ref_constr = 0.16607 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2)  # Reference Power in Watts derived from baseline analysis
-T_ref_constr = 0.13288 * (0.5 * atmosphere.density[0] * oper["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2) # Reference Thrust in Newtons derived from baseline analysis
-Eta_ref_constr = 0.80014  # Reference Propulsive efficiency derived from baseline analysis
+P_ref_constr = [0.18673 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
+                1.5592 * (0.5 * atmosphere.density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2)]  # Reference Power in Watts derived from baseline analysis
+T_ref_constr = [0.15061 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
+                1.2002 * (0.5 * atmosphere.density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2)] # Reference Thrust in Newtons derived from baseline analysis
+
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
 
 
@@ -280,7 +282,7 @@ MAX_EVALUATIONS = 4000
 
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
-SPREAD_CONTINUOUS = 0.5  # Relative spread (+/- %) applied to continous variables around their reference values
+SPREAD_CONTINUOUS = 0.25  # Relative spread (+/- %) applied to continous variables around their reference values
 ZERO_NOISE = 0.1  # % noise added to zero values to avoid stagnation
 SPREAD_DISCRETE = (-3, 6)  # Absolute range for discrete variables (referene value -3 to reference value + 6)
 

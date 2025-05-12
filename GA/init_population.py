@@ -182,6 +182,7 @@ class InitPopulation():
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle"]) 
                 vector.append(int(config.STAGE_BLADING_PARAMETERS[i]["blade_count"]))
                 if config.ROTATING[i]:
+                    vector.append([RPS for RPS in config.STAGE_BLADING_PARAMETERS[i]["RPS_lst"]])
                     vector.append(config.STAGE_BLADING_PARAMETERS[i]["RPS"])  # Only include the rotational rate if the stage in question is a rotor. 
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["radial_stations"][-1] * 2)  # The interfaces uses the radial locations, but the design varable is the blade diameter!
 
