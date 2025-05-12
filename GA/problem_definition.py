@@ -230,7 +230,7 @@ class OptimizationProblem(ElementwiseProblem):
         None
         """
 
-        for file_type in self.FILE_TEMPLATES.keys():
+        for file_type in self.FILE_TEMPLATES:
             # Construct filepath
             file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
 

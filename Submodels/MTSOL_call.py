@@ -313,10 +313,12 @@ class MTSOL_call:
             self.shutdown_event.set()
 
             # Give the thread some time to exit cleanly before force closing
-            for _ in range(10):
-                if not self.reader.is_alive():
-                    break
-                time.sleep(0.05)  
+            wait_time = 0.01
+            max_wait = 0.5
+            start = time.monotonic()
+            while self.reader.is_alive() and time.monotonic() - start < 1.0:
+                time.sleep(wait_time)
+                wait_time = min(max_wait, wait_time * 2)      
             try:
                 if self.reader.is_alive() and getattr(self, "process", None):
                     self.process.stdout.close()
@@ -355,9 +357,6 @@ class MTSOL_call:
                     line = out.readline()
                     if not line:
                         break
-                    if q.full():
-                        # If the queue is full, remove the oldest item to store the new item into
-                        q.get()
                     q.put(line)
             except Exception as e:
                 print(e)

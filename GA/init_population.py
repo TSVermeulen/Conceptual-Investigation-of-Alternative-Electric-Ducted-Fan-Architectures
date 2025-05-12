@@ -218,8 +218,8 @@ class InitPopulation():
         ref = np.array([reference_individual[k] for k in self.design_vector_keys],
                        dtype=float)
         
-        # Generate the initial population equal to the INIT_POPULATION_SIZE reference_individuals
-        pop_dict = [reference_individual.copy() for _ in range(config.INIT_POPULATION_SIZE)]
+        # Generate the initial population equal to the POPULATION_SIZE reference_individuals
+        pop_dict = [reference_individual.copy() for _ in range(config.POPULATION_SIZE)]
 
         # Extract the lower and upper bounds of the design variables
         lower_bounds = np.array([self.design_vector[k].bounds[0] for k in self.design_vector_keys],

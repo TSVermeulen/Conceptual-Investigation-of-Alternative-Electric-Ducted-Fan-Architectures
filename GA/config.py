@@ -104,13 +104,13 @@ REF_FRONTAL_AREA = 5.22640  # m^2
 # Controls for the optimisation vector - BLADES
 OPTIMIZE_STAGE = [True, False, False]
 ROTATING = [True, False, False]
-NUM_RADIALSECTIONS = [3, 2, 2]  # Define the number of radial sections at which the blade profiles for each stage will be defined. 
+NUM_RADIALSECTIONS = [5, 2, 2]  # Define the number of radial sections at which the blade profiles for each stage will be defined. 
 NUM_STAGES = 3  # Define the number of stages (i.e. total count of rotors + stators)
 REFERENCE_BLADE_ANGLES = [np.deg2rad(19), 0, 0]  # Reference angles at the reference section (typically 75% of blade span)
 BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
 tipGap = 0.01016  # 1.016 cm tip gap
 
-@functools.lru_cache(typed=True)
+@functools.lru_cache(maxsize=len(multi_oper), typed=True)
 def _load_blading(Omega: float,  
                   RPS: float,                      
                   ref_blade_angle: float) -> tuple[list, list]:
@@ -194,16 +194,15 @@ def _load_blading(Omega: float,
     # Obtain the parameterizations for the profile sections. 
     profile_dir_path = Path(__file__).parent.parent / 'Validation/Profiles'
     R00_fpath = profile_dir_path / 'X22_02R.dat'
-    # R03_fpath = profile_dir_path / 'X22_03R.dat'
+    R03_fpath = profile_dir_path / 'X22_03R.dat'
     R05_fpath = profile_dir_path / 'X22_05R.dat'
-    # R07_fpath = profile_dir_path / 'X22_07R.dat'
+    R07_fpath = profile_dir_path / 'X22_07R.dat'
     R10_fpath = profile_dir_path / 'X22_10R.dat'
     Hstrut_fpath = profile_dir_path / 'Hstrut.dat'
     Dstrut_fpath = profile_dir_path / 'Dstrut.dat'
 
-    # filenames = [R00_fpath, R03_fpath, R05_fpath, R07_fpath, R10_fpath, Hstrut_fpath, Dstrut_fpath]
-    filenames = [R00_fpath, R05_fpath, R10_fpath, Hstrut_fpath, Dstrut_fpath]
-
+    filenames = [R00_fpath, R03_fpath, R05_fpath, R07_fpath, R10_fpath, Hstrut_fpath, Dstrut_fpath]
+    
     # First check if all files are present
     missing_files = [f for f in filenames if not f.exists()]
     if missing_files:
@@ -213,11 +212,11 @@ def _load_blading(Omega: float,
     # Compute parameterization for the airfoil section at r=0R
     R00_section = param.FindInitialParameterization(reference_file=R00_fpath)
     # Compute parameterization for the airfoil section at r=0.3R
-    # R03_section = param.FindInitialParameterization(reference_file=R03_fpath)
+    R03_section = param.FindInitialParameterization(reference_file=R03_fpath)
     # Compute parameterization for the mid airfoil section
     R05_section = param.FindInitialParameterization(reference_file=R05_fpath)
     # Compute parameterization for the airfoil section at r=0.7R
-    # R07_section = param.FindInitialParameterization(reference_file=R07_fpath)
+    R07_section = param.FindInitialParameterization(reference_file=R07_fpath)
     # Compute parameterization for the tip airfoil section
     R10_section = param.FindInitialParameterization(reference_file=R10_fpath)
     # Compute parameterization for the horizontal struts
@@ -226,7 +225,7 @@ def _load_blading(Omega: float,
     Dstrut_section = param.FindInitialParameterization(reference_file=Dstrut_fpath)
 
     # Construct blading list
-    design_parameters = [[R00_section, R05_section, R10_section],
+    design_parameters = [[R00_section, R03_section, R05_section, R07_section, R10_section],
                          [Hstrut_section, Hstrut_section],
                          [Dstrut_section, Dstrut_section]]
 
@@ -275,15 +274,14 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
                   []]
 
 # Define the population size
-POPULATION_SIZE = 40
-INIT_POPULATION_SIZE = POPULATION_SIZE  # Initial population size for the first generation. We may wish a larger initial population to ensure a diverse initial solution set is obtained since we cannot, a-priori, know how many of the randomly perturbed population members will be feasible
+POPULATION_SIZE = 30
 MAX_GENERATIONS = 100
 MAX_EVALUATIONS = 4000
 
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
-SPREAD_CONTINUOUS = 0.2  # Relative spread (+/- %) applied to continous variables around their reference values
-ZERO_NOISE = 0.2  # % noise added to zero values to avoid stagnation
+SPREAD_CONTINUOUS = 0.5  # Relative spread (+/- %) applied to continous variables around their reference values
+ZERO_NOISE = 0.1  # % noise added to zero values to avoid stagnation
 SPREAD_DISCRETE = (-3, 6)  # Absolute range for discrete variables (referene value -3 to reference value + 6)
 
 RESERVED_THREADS = 2

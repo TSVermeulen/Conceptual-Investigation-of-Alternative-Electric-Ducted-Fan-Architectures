@@ -636,6 +636,12 @@ class AirfoilParameterization:
         bezier_thickness_x = np.concatenate((x_LE_thickness, x_TE_thickness), 
                                             axis = 0)  # Construct complete array of x-coordinates over length of profile
         
+        # Check the sorting of the thickness curve - if the arrays are not sorted sort them to attempt to fix the profile
+        if not np.all(np.diff(bezier_thickness_x >= 0)):
+            sorted_idx = np.argsort(bezier_thickness_x)
+            bezier_thickness_x = bezier_thickness_x[sorted_idx]
+            bezier_thickness = bezier_thickness[sorted_idx]
+        
         # Calculate the camber distributions only if the camber is nonzero
         if airfoil_params["y_c"] >= self.symmetric_limit:
             # Calculate the Bezier curve coefficients for the camber curves
@@ -660,7 +666,13 @@ class AirfoilParameterization:
                                            axis = 0)  # Construct complete camber curve over length of profile
             bezier_camber_x = np.concatenate((x_LE_camber, x_TE_camber),
                                              axis = 0)  # Construct complete array of x-coordinates over length of profile
-        
+            
+            # Check the sorting of the camber curve - if the arrays are not sorted sort them to attempt to fix the profile
+            if not np.all(np.diff(bezier_camber_x >= 0)):
+                sorted_idx = np.argsort(bezier_camber_x)
+                bezier_camber_x = bezier_camber_x[sorted_idx]
+                bezier_camber = bezier_camber[sorted_idx]
+            
         else:
             # If camber is zero, handle appropriately
             bezier_camber = np.zeros_like(bezier_thickness)
