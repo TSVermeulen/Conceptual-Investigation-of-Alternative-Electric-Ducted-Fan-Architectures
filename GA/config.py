@@ -138,9 +138,9 @@ def _load_blading(Omega: float,
     """
 
     # Start defining the MTFLO blading inputs
-    radial_stations = np.array([0.0, 0.5334, 1.0668])
-    chord_length = np.array([0.3510, 0.2528, 0.2205])
-    blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(32.3), np.deg2rad(15.5)])
+    radial_stations = np.array([0.0, 0.32004, 0.5334, 0.74676, 1.0668])
+    chord_length = np.array([0.3510, 0.3152, 0.2528, 0.2367, 0.2205])
+    blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(46.8), np.deg2rad(32.3), np.deg2rad(22.3), np.deg2rad(15.5)])
     propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
                             "rotational_rate": Omega, 
                             "RPS": RPS,
