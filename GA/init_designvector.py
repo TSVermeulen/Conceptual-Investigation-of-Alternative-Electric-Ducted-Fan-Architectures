@@ -132,7 +132,7 @@ class DesignVector():
         # For a mixed-variable problem, PyMoo expects the vector to be a dictionary, so we convert vector to a dictionary.
         # Note that all variables are given a name xi.
         vector = {f"x{i}": var for i, var in enumerate(vector)}
-
+        
         return vector
     
 

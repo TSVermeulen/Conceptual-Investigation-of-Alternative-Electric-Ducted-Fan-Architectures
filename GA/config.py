@@ -78,11 +78,12 @@ multi_oper = [{"Inlet_Mach": 0.10285225,
                "atmos": Atmosphere(0),
                "Omega": -9.667,
                "RPS": 25.237},
-               {"Inlet_Mach": 0.20,
-                "N_crit": 9,
-                "atmos": Atmosphere(0),
-                "Omega": -20,
-                "RPS": 0}]
+            #    {"Inlet_Mach": 0.20,
+            #     "N_crit": 9,
+            #     "atmos": Atmosphere(0),
+            #     "Omega": -20,
+            #     "RPS": 0},
+                ]
 
 # Compute the inlet velocities and write them to the multi-point oper dict
 for oper_dict in multi_oper:
@@ -141,7 +142,8 @@ def _load_blading(Omega: float,
     propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
                             "rotational_rate": Omega, 
                             "RPS": RPS,
-                            "RPS_lst": [RPS, RPS * 3],
+                            # "RPS_lst": [RPS, RPS * 3],
+                            "RPS_lst": [RPS],
                             "ref_blade_angle": ref_blade_angle, 
                             "reference_section_blade_angle": np.deg2rad(20), 
                             "blade_count": 3, 
@@ -152,7 +154,8 @@ def _load_blading(Omega: float,
     horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, 
                                    "rotational_rate": 0, 
                                    "RPS": 0,
-                                   "RPS_lst": [0, 0],
+                                #    "RPS_lst": [0, 0],
+                                   "RPS_lst": [0],
                                    "ref_blade_angle": 0, 
                                    "reference_section_blade_angle": 0, 
                                    "blade_count": 4, 
@@ -164,7 +167,8 @@ def _load_blading(Omega: float,
     diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, 
                                  "rotational_rate": 0, 
                                  "RPS": 0,
-                                 "RPS_lst": [0, 0],
+                                #  "RPS_lst": [0, 0],
+                                 "RPS_lst": [0],
                                  "ref_blade_angle": 0, 
                                  "reference_section_blade_angle": 0, 
                                  "blade_count": 2, 
@@ -238,9 +242,11 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
 
 # Define the target thrust/power and efficiency for use in constraints
 P_ref_constr = [0.18673 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
-                1.5592 * (0.5 * atmosphere.density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2)]  # Reference Power in Watts derived from baseline analysis
+                # 1.5592 * (0.5 * atmosphere.density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
+                ]  # Reference Power in Watts derived from baseline analysis
 T_ref_constr = [0.15061 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
-                1.2002 * (0.5 * atmosphere.density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2)] # Reference Thrust in Newtons derived from baseline analysis
+                # 1.2002 * (0.5 * atmosphere.density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
+                ] # Reference Thrust in Newtons derived from baseline analysis
 
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
 
