@@ -130,7 +130,7 @@ class OptimizationProblem(ElementwiseProblem):
         # Initialize design vector interface
         self.design_vector_interface = DesignVectorInterface()
 
-        # Initialize output dictionary and Lref to use in case of an infeasible design. 
+        # Initialize output dictionary to use in case of an infeasible design. 
         # This equals the outputs of the output_handling.output_processing.GetAllVariables(3) method, 
         # but is quicker as it does not involve reading a file.
         self.crash_outputs = {'data':
@@ -155,7 +155,6 @@ class OptimizationProblem(ElementwiseProblem):
                                {'CTf': 0.00000, 
                                 'CTp': 0.00000, 
                                 'Xtr': 0.00000}}}
-        self.Lref = config.BLADE_DIAMETERS[0]
                 
 
     def GenerateAnalysisName(self) -> None:
@@ -313,6 +312,13 @@ class OptimizationProblem(ElementwiseProblem):
             output_generated = False
             error_code = f"UNEXPECTED_{type(e).__name__}"
             print(f"[{error_code}] Unexpected error in input generation: {e}")
+        
+        if not output_generated:
+            self.Lref = config.BLADE_DIAMETERS[0]
+            self.duct_variables = config.DUCT_VALUES
+            self.centerbody_variables = config.CENTERBODY_VALUES
+            self.blade_blading_parameters = config.STAGE_BLADING_PARAMETERS
+            self.blade_design_parameters = config.STAGE_DESIGN_VARIABLES
         
         return output_generated
         

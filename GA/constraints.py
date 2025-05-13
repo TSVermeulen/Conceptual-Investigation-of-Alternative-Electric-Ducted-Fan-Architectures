@@ -61,6 +61,10 @@ class Constraints:
         None
         """
 
+        # Define lists of all inequality and equality constraints
+        self.ineq_constraints_list = [self.KeepEfficiencyFeasibleLower, self.KeepEfficiencyFeasibleUpper, self.MinimumThrust, self.MaximumThrust]
+        self.eq_constraints_list = [self.ConstantPower]
+
     
     def _calculate_power(self,
                          analysis_outputs: dict,
@@ -182,11 +186,10 @@ class Constraints:
             output_handling.output_processing().GetAllVariables(3).
         - Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter.
-            Not used in this method, but required for a uniform constraint function signature.
         - thrust : float
-            The thrust in Newtons. Not used here but included to force constant signature.
+            The thrust in Newtons.
         - power : float
-            The power in Watts. Not used here but included to force constant signature.
+            The power in Watts.
 
         Returns
         -------
@@ -213,10 +216,8 @@ class Constraints:
             A dictionary containing the outputs from the MTFLOW forces output file. 
             Must contain all entries corresponding to an execution of 
             output_handling.output_processing().GetAllVariables(3). 
-            Not used here but included to force constant signature.
         - Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter. 
-            Not used here but included to force constant signature.
         - thrust : float
             The thrust in Newtons. 
         - power : float
@@ -299,11 +300,9 @@ class Constraints:
         # Copy the operating conditions
         self.oper = oper.copy()
 
-        # Define lists of all inequality and equality constraints, and filter them based on the constraint IDs
-        ineq_constraints_list = [self.KeepEfficiencyFeasibleLower, self.KeepEfficiencyFeasibleUpper, self.MinimumThrust, self.MaximumThrust]
-        eq_constraints_list = [self.ConstantPower]
-        ineq_constraints = [ineq_constraints_list[i] for i in config.constraint_IDs[0]]
-        eq_constraints = [eq_constraints_list[i] for i in config.constraint_IDs[1]]
+        # Filter all inequality and equality constraints based on the constraint IDs
+        ineq_constraints = [self.ineq_constraints_list[i] for i in config.constraint_IDs[0]]
+        eq_constraints = [self.eq_constraints_list[i] for i in config.constraint_IDs[1]]
 
         # Compute thrust and power
         thrust = self._calculate_thrust(analysis_outputs, Lref)
@@ -378,11 +377,9 @@ class Constraints:
         # Copy the operating conditions
         self.multi_oper = oper.copy()
 
-        # Define lists of all inequality and equality constraints, and filter them based on the constraint IDs
-        ineq_constraints_list = [self.KeepEfficiencyFeasibleLower, self.KeepEfficiencyFeasibleUpper, self.MinimumThrust, self.MaximumThrust]
-        eq_constraints_list = [self.ConstantPower]
-        ineq_constraints = [ineq_constraints_list[i] for i in config.constraint_IDs[0]]
-        eq_constraints = [eq_constraints_list[i] for i in config.constraint_IDs[1]]
+        # Filter all inequality and equality constraints based on the constraint IDs
+        ineq_constraints = [self.ineq_constraints_list[i] for i in config.constraint_IDs[0]]
+        eq_constraints = [self.eq_constraints_list[i] for i in config.constraint_IDs[1]]
 
         num_outputs = len(analysis_outputs)
 
@@ -390,7 +387,7 @@ class Constraints:
         thrust = []
         power = []
         for i in range(num_outputs):
-            self.oper = self.multi_oper[i]
+            self.oper = self.multi_oper[i]  # Set the correct operating condition to compute the thrust/power
             thrust.append(self._calculate_thrust(analysis_outputs[i], Lref))
             power.append(self._calculate_power(analysis_outputs[i], Lref))
         

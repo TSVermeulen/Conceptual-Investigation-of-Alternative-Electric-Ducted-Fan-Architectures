@@ -108,7 +108,7 @@ REFERENCE_BLADE_ANGLES = [np.deg2rad(19), 0, 0]  # Reference angles at the refer
 BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
 tipGap = 0.01016  # 1.016 cm tip gap
 
-@functools.lru_cache(maxsize=len(multi_oper), typed=True)
+@functools.lru_cache(maxsize=None, typed=True)  # Unlimited - adjust if memory becomes a concern. 
 def _load_blading(Omega: float,  
                   RPS: float,                      
                   ref_blade_angle: float) -> tuple[list, list]:
@@ -292,4 +292,6 @@ SPREAD_CONTINUOUS = 0.25  # Relative spread (+/- %) applied to continous variabl
 ZERO_NOISE = 0.1  # % noise added to zero values to avoid stagnation
 SPREAD_DISCRETE = (-3, 6)  # Absolute range for discrete variables (referene value -3 to reference value + 6)
 
+PROBLEM_TYPE = "single_point"  # Either "single_point" or "multi_point"
 RESERVED_THREADS = 2
+THREADS_PER_EVALUATION = 2  # Number of threads per MTFLOW evaluation: one for running MTSET/MTSOL/MTFLO and one for polling outputs

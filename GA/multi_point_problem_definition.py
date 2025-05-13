@@ -78,9 +78,6 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                       "boundary_layer": "boundary_layer.{}",
                       "tdat": "tdat.{}"}
     
-    # Define the path for the tflow file
-    _tflow_file_path = Path(__file__).parents[1] / "Submodels"
-
     def __init__(self,
                  **kwargs) -> None:
         """
@@ -101,7 +98,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Initialize the parent class
         super().__init__(vars=design_vars,
-                         n_obj=len(config.objective_IDs),
+                         n_obj=len(config.objective_IDs) * len(config.multi_oper),
                          n_ieq_constr=len(config.constraint_IDs[0]),
                          n_eq_constr=len(config.constraint_IDs[1]),
                          **kwargs)
@@ -176,8 +173,8 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Analysis name has a length of 24 characters, satisfying the maximum length of 32 characters accepted by MTFLOW. 
         self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)
 
-        # Additionally update the tflow file path
-        self._tflow_file_path = self._tflow_file_path / f"tflow.{self.analysis_name}"
+        # Additionally set the tflow file path
+        self._tflow_file_path = self.submodels_path / f"tflow.{self.analysis_name}"
 
 
     def ComputeReynolds(self) -> None:
@@ -238,20 +235,25 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Compute / update the rotational rates in the blading dictionaries
         self.ComputeOmega(idx=oper_idx)
-
-        # Open the tflow.analysis_name file
-        with open(self._tflow_file_path, "r") as file:
+        
+        with open(self._tflow_file_path, "r+") as file:
             lines = file.readlines()
 
-        match_counter = 0
-        for idx, line in enumerate(lines):
-            if line.startswith("OMEGA"):
-                rate = self.blade_blading_parameters[match_counter]["rotational_rate"]
-                lines[idx + 1] = f"{rate} \n"
-                match_counter += 1
-        
-        # Write the updated tflow data back to the file
-        with open(self._tflow_file_path, "w") as file:
+            # Cache the omega line indices if not already computed.
+            if not hasattr(self, "_omega_line_ids"):
+                # We assume that the line directly after the one starting with "OMEGA" is the one to update.
+                self._omega_line_ids = [i for i, line in enumerate(lines) if line.startswith("OMEGA")]
+    
+            # Use a local alias to avoid repeated attribute lookups in the loop.
+            blade_params = self.blade_blading_parameters
+
+            # Update the omega lines with the correct rotational rates.
+            for i, line_idx in enumerate(self._omega_line_ids):
+                rate = blade_params[i]["rotational_rate"]
+                lines[line_idx] = f"{rate}\n"
+
+            # Write the updated lines back to the file.
+            file.seek(0)
             file.writelines(lines)
 
 
@@ -387,7 +389,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Initialise the MTFLOW output list of dictionaries. Use the crash outputs in 
         # initialisation to pre-populate them in case of a crash or infeasible design vector
         self.multi_oper = config.multi_oper.copy()
-        MTFLOW_outputs = [self.crash_outputs] * len(self.multi_oper) 
+        MTFLOW_outputs = [self.crash_outputs.copy()] * len(self.multi_oper)
         if design_okay:
             for idx, operating_point in enumerate(self.multi_oper):
                 # Compute the necessary inputs

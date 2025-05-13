@@ -117,6 +117,8 @@ class DesignVectorInterface:
 
         # Construct cubic spline interpolant of the duct surface
         order = np.argsort(lower_x)  # Defensively sort the x coordinates to avoid a runtime failure
+        mask = np.diff(lower_x[order], prepend=-np.inf) > 1e-12  # keep first of the duplicates
+        order = order[mask]
         duct_interpolant = interpolate.CubicSpline(lower_x[order],
                                                    np.abs(lower_y)[order],  # Take absolute value of y-coordinates since we need the distance, not the actual coordinate
                                                    extrapolate=False) 
@@ -146,7 +148,11 @@ class DesignVectorInterface:
             radial_duct_coordinates[i] = y_tip + tip_gap + max(LE_offset, TE_offset)
 
         # The LE y coordinate of the duct is then the maximum of the computed coordinates to enforce the minimum tip gap everywhere
-        LE_coordinate_duct = np.max(radial_duct_coordinates)
+        if radial_duct_coordinates.any():
+            # Only update the LE coordinate if there is a non-rotating stage. 
+            LE_coordinate_duct = float(radial_duct_coordinates.max())
+        else:
+            LE_coordinate_duct = duct_variables["Leading Edge Coordinates"][1]
 
         # Update the duct variables
         duct_variables["Leading Edge Coordinates"] = (duct_variables["Leading Edge Coordinates"][0],

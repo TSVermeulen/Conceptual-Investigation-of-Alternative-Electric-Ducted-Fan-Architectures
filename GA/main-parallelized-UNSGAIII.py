@@ -57,7 +57,6 @@ from pymoo.operators.selection.tournament import TournamentSelection
 # Import interface submodels and other dependencies
 import config
 from problem_definition import OptimizationProblem
-from multi_point_problem_definition import MultiPointOptimizationProblem
 from init_population import InitPopulation
 from termination_conditions import GetTerminationConditions
 from utils import ensure_repo_paths
@@ -69,8 +68,9 @@ if __name__ == "__main__":
     
     """ Initialize the thread pool and create the runner """
     total_threads = multiprocessing.cpu_count()
-    total_threads_avail = (total_threads - config.RESERVED_THREADS) // 2  # Divide by 2 as each MTFLOW evaluation uses 2 threads: one for running MTSET/MTSOL/MTFLO and one for polling outputs
+    total_threads_avail = (total_threads - config.RESERVED_THREADS) // config.THREADS_PER_EVALUATION
     n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used
+
     with multiprocessing.Pool(processes=n_processes,
                               initializer=ensure_repo_paths,
                               initargs=()) as pool:
@@ -80,12 +80,14 @@ if __name__ == "__main__":
 
         """ Initialize the optimization problem and algorithm """
         # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
-        problem = OptimizationProblem(elementwise_runner=runner,
-                                      seed=config.GLOBAL_SEED)
-        
-        # problem = MultiPointOptimizationProblem(elementwise_runner=runner,
-        #                                         seed=config.GLOBAL_SEED)
-        
+        if getattr(config, "PROBLEM_TYPE", "single_point") == "multi_point":
+            from multi_point_problem_definition import MultiPointOptimizationProblem
+            problem = MultiPointOptimizationProblem(elementwise_runner=runner,
+                                                    seed=config.GLOBAL_SEED)
+        else:        
+            problem = OptimizationProblem(elementwise_runner=runner,
+                                          seed=config.GLOBAL_SEED)
+                
         # Create the reference directions to be used for the optimisation
         ref_dirs = get_reference_directions("energy",
                                             n_dim=len(config.objective_IDs),

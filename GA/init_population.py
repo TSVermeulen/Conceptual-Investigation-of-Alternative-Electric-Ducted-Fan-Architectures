@@ -93,6 +93,7 @@ class InitPopulation():
         # Set the seed for the random number generator to ensure reproducibility
         seed = kwargs.get("seed", 1)
         self._np_rng = np.random.default_rng(seed)
+        np.random.seed(seed)
 
 
     def DeconstructDictFromReferenceDesign(self) -> dict:

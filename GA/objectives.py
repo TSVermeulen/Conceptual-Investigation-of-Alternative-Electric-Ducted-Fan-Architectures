@@ -71,6 +71,10 @@ class Objectives:
         # Write the inputs to self
         self.duct_variables = duct_variables
 
+        # Lazy import and cache the AirfoilParameterization class
+        from Submodels.Parameterizations import AirfoilParameterization
+        self._airfoil_parameterization = AirfoilParameterization()
+
 
     def Efficiency(self,
                    outputs: dict) -> float:
@@ -109,17 +113,14 @@ class Objectives:
         # This can be computed based on the radial LE coordinate of the duct, 
         # together with the maximum y-coordinate of the duct profile.
 
-        # Lazy import the airfoil parameterization class to construct the x,y coordinates of the duct geometry
-        from Submodels.Parameterizations import AirfoilParameterization
-
         # Compute the airfoil coordinates
         # We only care about the upper y coordinates so they are the only ones we store
-        _, upper_y, _, _ = AirfoilParameterization().ComputeProfileCoordinates([self.duct_variables["b_0"],
-                                                                                self.duct_variables["b_2"],
-                                                                                self.duct_variables["b_8"],
-                                                                                self.duct_variables["b_15"],
-                                                                                self.duct_variables["b_17"]],
-                                                                                self.duct_variables)
+        _, upper_y, _, _ = self._airfoil_parameterization.ComputeProfileCoordinates([self.duct_variables["b_0"],
+                                                                                     self.duct_variables["b_2"],
+                                                                                     self.duct_variables["b_8"],
+                                                                                     self.duct_variables["b_15"],
+                                                                                     self.duct_variables["b_17"]],
+                                                                                     self.duct_variables)
 
         # Dimensionalise the y coordinates using the chord length
         upper_y *= self.duct_variables["Chord Length"]
