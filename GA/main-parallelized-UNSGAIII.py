@@ -61,6 +61,9 @@ from init_population import InitPopulation
 from termination_conditions import GetTerminationConditions
 from utils import ensure_repo_paths
 
+# Ensure parent process has the correct import paths
+ensure_repo_paths()
+
 if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
     if os.name == 'nt':
@@ -68,8 +71,13 @@ if __name__ == "__main__":
     
     """ Initialize the thread pool and create the runner """
     total_threads = multiprocessing.cpu_count()
-    total_threads_avail = (total_threads - config.RESERVED_THREADS) // config.THREADS_PER_EVALUATION
-    n_processes = max(1, total_threads_avail)  # Ensure at least one worker is used
+    threads_per_eval = max(1, getattr(config, "THREADS_PER_EVALUATION"))
+    total_threads_avail = max(0, total_threads - config.RESERVED_THREADS)
+
+    # Never let integer division explode or produce zero workers
+    n_processes = max(1, total_threads_avail // threads_per_eval)
+    # Do not spawn more processes than the GA can effectively use
+    n_processes = min(n_processes, config.POPULATION_SIZE)
 
     with multiprocessing.Pool(processes=n_processes,
                               initializer=ensure_repo_paths,
@@ -94,14 +102,16 @@ if __name__ == "__main__":
                                             n_points=config.POPULATION_SIZE)
 
         # Initialize the algorithm
+        duplicate_elimination = MixedVariableDuplicateElimination()
+        selection_operator = TournamentSelection(func_comp=comp_by_rank_and_ref_line_dist)
         algorithm = UNSGA3(ref_dirs=ref_dirs,
                            pop_size=config.POPULATION_SIZE,
-                           mating=MixedVariableMating(selection=TournamentSelection(func_comp=comp_by_rank_and_ref_line_dist),
-                                                      eliminate_duplicates=MixedVariableDuplicateElimination()),
+                           mating=MixedVariableMating(selection=selection_operator,
+                                                      eliminate_duplicates=duplicate_elimination),
                            sampling=InitPopulation(population_type="biased",
                                                    seed=config.GLOBAL_SEED).GeneratePopulation(),
-                           eliminate_duplicates=MixedVariableDuplicateElimination(),
-                           selection=TournamentSelection(func_comp=comp_by_rank_and_ref_line_dist)
+                           eliminate_duplicates=duplicate_elimination,
+                           selection=selection_operator
                            )
         
         # Run the optimization

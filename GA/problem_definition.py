@@ -106,11 +106,16 @@ class OptimizationProblem(ElementwiseProblem):
         # Initialize variable list with variable types.
         design_vars = DesignVector()._construct_vector(config)
 
+        # Calculate the number of objectives and constraints of the optimization problem
+        n_objectives = len(config.objective_IDs) * len(config.multi_oper)
+        n_inequality_constraints = len(config.constraint_IDs[0])
+        n_equality_constraints = len(config.constraint_IDs[1])
+
         # Initialize the parent class
         super().__init__(vars=design_vars,
-                         n_obj=len(config.objective_IDs),
-                         n_ieq_constr=len(config.constraint_IDs[0]),
-                         n_eq_constr=len(config.constraint_IDs[1]),
+                         n_obj=n_objectives,
+                         n_ieq_constr=n_inequality_constraints,
+                         n_eq_constr=n_equality_constraints,
                          **kwargs)
         
         # Define key paths/directories
@@ -254,7 +259,7 @@ class OptimizationProblem(ElementwiseProblem):
 
 
     def GenerateMTFLOWInputs(self,
-                             x) -> bool:
+                             x: dict[str, any]) -> bool:
         """
         Generates the input files required for the MTFLOW simulation.
         This method creates the necessary input files for the MTFLOW simulation by utilizing the 
@@ -264,6 +269,11 @@ class OptimizationProblem(ElementwiseProblem):
 
         By generating the input files, validation of the design vector is performed, since an infeasible design vector 
         will raise a ValueError (somewhere) in the input generation method.
+
+        Parameters
+        ----------
+        - x : dict[str, any]
+            The pymoo design vector dictionary.
 
         Returns
         -------
@@ -314,6 +324,7 @@ class OptimizationProblem(ElementwiseProblem):
             print(f"[{error_code}] Unexpected error in input generation: {e}")
         
         if not output_generated:
+            # Set parameters equal to the config values in case of a crash so that the constraint/objective value calculations do not crash
             self.Lref = config.BLADE_DIAMETERS[0]
             self.duct_variables = config.DUCT_VALUES
             self.centerbody_variables = config.CENTERBODY_VALUES

@@ -31,16 +31,21 @@ Changelog:
         re-running the function at every GA worker import. 
 """
 
-import numpy as np
+# Import standard libraries
+import copy
 import functools
-from ambiance import Atmosphere
 from enum import IntEnum, auto
 from pathlib import Path
+
+# Import 3rd party libraries
+import numpy as np
+from ambiance import Atmosphere
 
 # Ensure all paths are correctly setup
 from utils import ensure_repo_paths
 ensure_repo_paths()
 
+# Import airfoil parameterization class
 from Submodels.Parameterizations import AirfoilParameterization
 
 # Define the seed used for randomisation
@@ -197,15 +202,10 @@ def _load_blading(Omega: float,
 
     # Obtain the parameterizations for the profile sections. 
     profile_dir_path = Path(__file__).parent.parent / 'Validation/Profiles'
-    R00_fpath = profile_dir_path / 'X22_02R.dat'
-    R03_fpath = profile_dir_path / 'X22_03R.dat'
-    R05_fpath = profile_dir_path / 'X22_05R.dat'
-    R07_fpath = profile_dir_path / 'X22_07R.dat'
-    R10_fpath = profile_dir_path / 'X22_10R.dat'
-    Hstrut_fpath = profile_dir_path / 'Hstrut.dat'
-    Dstrut_fpath = profile_dir_path / 'Dstrut.dat'
+    file_names = ['X22_02R.dat', 'X22_03R.dat', 'X22_05R.dat', 'X22_07R.dat', 'X22_10R.dat', 'Hstrut.dat', 'Dstrut.dat']
+    files = {stem: profile_dir_path / stem for stem in file_names}
+    filenames = list(files.values())
 
-    filenames = [R00_fpath, R03_fpath, R05_fpath, R07_fpath, R10_fpath, Hstrut_fpath, Dstrut_fpath]
     
     # First check if all files are present
     missing_files = [f for f in filenames if not f.exists()]
@@ -214,26 +214,26 @@ def _load_blading(Omega: float,
 
     param = AirfoilParameterization()
     # Compute parameterization for the airfoil section at r=0R
-    R00_section = param.FindInitialParameterization(reference_file=R00_fpath)
+    R00_section = param.FindInitialParameterization(reference_file=filenames[0])
     # Compute parameterization for the airfoil section at r=0.3R
-    R03_section = param.FindInitialParameterization(reference_file=R03_fpath)
+    R03_section = param.FindInitialParameterization(reference_file=filenames[1])
     # Compute parameterization for the mid airfoil section
-    R05_section = param.FindInitialParameterization(reference_file=R05_fpath)
+    R05_section = param.FindInitialParameterization(reference_file=filenames[2])
     # Compute parameterization for the airfoil section at r=0.7R
-    R07_section = param.FindInitialParameterization(reference_file=R07_fpath)
+    R07_section = param.FindInitialParameterization(reference_file=filenames[3])
     # Compute parameterization for the tip airfoil section
-    R10_section = param.FindInitialParameterization(reference_file=R10_fpath)
+    R10_section = param.FindInitialParameterization(reference_file=filenames[4])
     # Compute parameterization for the horizontal struts
-    Hstrut_section = param.FindInitialParameterization(reference_file=Hstrut_fpath)
+    Hstrut_section = param.FindInitialParameterization(reference_file=filenames[5])
     # Compute parameterization for the diagonal struts
-    Dstrut_section = param.FindInitialParameterization(reference_file=Dstrut_fpath)
+    Dstrut_section = param.FindInitialParameterization(reference_file=filenames[6])
 
     # Construct blading list
     design_parameters = [[R00_section, R03_section, R05_section, R07_section, R10_section],
                          [Hstrut_section, Hstrut_section],
                          [Dstrut_section, Dstrut_section]]
 
-    return blading_parameters, design_parameters
+    return copy.deepcopy(blading_parameters), copy.deepcopy(design_parameters)
 
 # Compute the blading and design parameters for the rotors/stators of the reference design
 STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["Omega"],

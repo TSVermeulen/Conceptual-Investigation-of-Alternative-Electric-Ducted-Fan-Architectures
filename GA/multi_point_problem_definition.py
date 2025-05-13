@@ -44,8 +44,9 @@ Changelog:
 import os
 import shutil
 import uuid
-from pathlib import Path
 import datetime
+import copy
+from pathlib import Path
 
 # Import 3rd party libraries
 import numpy as np
@@ -96,11 +97,16 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Initialize variable list with variable types.
         design_vars = DesignVector()._construct_vector(config)
 
+        # Calculate the number of objectives and constraints of the optimization problem
+        n_objectives = len(config.objective_IDs) * len(config.multi_oper)
+        n_inequality_constraints = len(config.constraint_IDs[0])
+        n_equality_constraints = len(config.constraint_IDs[1])
+
         # Initialize the parent class
         super().__init__(vars=design_vars,
-                         n_obj=len(config.objective_IDs) * len(config.multi_oper),
-                         n_ieq_constr=len(config.constraint_IDs[0]),
-                         n_eq_constr=len(config.constraint_IDs[1]),
+                         n_obj=n_objectives,
+                         n_ieq_constr=n_inequality_constraints,
+                         n_eq_constr=n_equality_constraints,
                          **kwargs)
         
         # Define key paths/directories
@@ -272,28 +278,27 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         None
         """
 
-        # Files to be deleted directly
-        file_types = ["walls", "tflow", "forces", "flowfield", "boundary_layer", "tdat"]
-
-        for file_type in file_types:
+        for file_type in self.FILE_TEMPLATES:
             # Construct filepath
             file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
 
-            # Archive the state file if it exists
+            # Archive the state file
             if file_type == "tdat": 
-                if file_path.exists():
-                    copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-                    try:
-                        os.replace(file_path, copied_file)
-                    except OSError:
-                        shutil.move(file_path, copied_file)
+                copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
+                try:
+                    os.replace(file_path, copied_file)
+                except OSError:
+                    shutil.move(file_path, copied_file)
+                except FileNotFoundError:
+                    print(f"The tdat state file {file_path} could not be located for copying.")
+                    pass
             else:
-                if file_path.exists():
-                    # Cleanup all temporary files
-                    file_path.unlink(missing_ok=True)
+                # Cleanup all temporary files
+                file_path.unlink(missing_ok=True)
 
 
-    def GenerateMTFLOWInputs(self) -> bool:
+    def GenerateMTFLOWInputs(self,
+                             x: dict[str, any]) -> bool:
         """
         Generates the input files required for the MTFLOW simulation.
         This method creates the necessary input files for the MTFLOW simulation by utilizing the 
@@ -303,6 +308,11 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         By generating the input files, validation of the design vector is performed, since an infeasible design vector 
         will raise a ValueError (somewhere) in the input generation method.
+
+        Parameters
+        ----------
+        - x : dict[str, any]
+            The pymoo design vector dictionary.
 
         Returns
         -------
@@ -319,6 +329,13 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Generate the MTSET input file containing the axisymmetric geometries and the MTFLO blading input file
         try:
+            # Deconstruct the design vector
+            (self.centerbody_variables, 
+            self.duct_variables, 
+            self.blade_design_parameters, 
+            self.blade_blading_parameters, 
+            self.Lref) = self.design_vector_interface.DeconstructDesignVector(x_dict=x)
+
             file_handler.fileHandlingMTSET(params_CB=self.centerbody_variables,
                                            params_duct=self.duct_variables,
                                            case_name=self.analysis_name,
@@ -330,8 +347,6 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                                                                                     plot=False)  # Generate the MTFLO input file
             
             output_generated =  True  # If both input generation routines succeeded, set output_generated to True
-
-            
 
         except ValueError as e:
             # Any value error that might occur while generating the MTSET input file will be caused by interpolation issues arising from the input values, so 
@@ -345,6 +360,14 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             error_code = f"UNEXPECTED_{type(e).__name__}"
             print(f"[{error_code}] Unexpected error in input generation: {e}")
         
+        if not output_generated:
+            # Set parameters equal to the config values in case of a crash so that the constraint/objective value calculations do not crash
+            self.Lref = config.BLADE_DIAMETERS[0]
+            self.duct_variables = config.DUCT_VALUES
+            self.centerbody_variables = config.CENTERBODY_VALUES
+            self.blade_blading_parameters = config.STAGE_BLADING_PARAMETERS
+            self.blade_design_parameters = config.STAGE_DESIGN_VARIABLES
+
         return output_generated
                   
 
@@ -380,16 +403,14 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Generate the MTFLOW input files.
         # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector. 
-        if deconstruction_okay:
-            design_okay = self.GenerateMTFLOWInputs()
-        else:
-            design_okay = deconstruction_okay
+        design_okay = self.GenerateMTFLOWInputs()
 
         # Only perform the MTFLOW analyses if the input generation has succeeded.
         # Initialise the MTFLOW output list of dictionaries. Use the crash outputs in 
         # initialisation to pre-populate them in case of a crash or infeasible design vector
         self.multi_oper = config.multi_oper.copy()
-        MTFLOW_outputs = [self.crash_outputs.copy()] * len(self.multi_oper)
+        MTFLOW_outputs = [copy.deepcopy(self.crash_outputs) for _ in range(len(self.multi_oper))]
+
         if design_okay:
             for idx, operating_point in enumerate(self.multi_oper):
                 # Compute the necessary inputs

@@ -141,8 +141,8 @@ class DesignVectorInterface:
             x_tip_TE = x_tip_LE + projected_chord
 
             # Compute the offsets for the LE and TE of the blade tip
-            LE_offset = float(duct_interpolant(x_tip_LE)) if x_min <= x_tip_LE <= x_max else 0  # Set to 0 if duct does not lie above LE
-            TE_offset = float(duct_interpolant(x_tip_TE)) if x_min <= x_tip_TE <= x_max else 0  # Set to 0 if duct does not lie above TE
+            LE_offset = 0 if not (x_min <= x_tip_LE <= x_max) else float(duct_interpolant(x_tip_LE))  # Set to 0 if duct does not lie above LE
+            TE_offset = 0 if not (x_min <= x_tip_TE <= x_max) else float(duct_interpolant(x_tip_TE))  # Set to 0 if duct does not lie above TE
 
             # Compute the radial location of the duct
             radial_duct_coordinates[i] = y_tip + tip_gap + max(LE_offset, TE_offset)
@@ -191,6 +191,20 @@ class DesignVectorInterface:
             self._ordered_keys_cache = sorted(x_dict.keys(), key=lambda k: int(k.lstrip("x")))
         return [x_dict[k] for k in self._ordered_keys_cache]
 
+    @staticmethod
+    def Getb8(b_8_map: float, 
+              r_le: float, 
+              x_t: float, 
+              y_t: float) -> float:
+        """
+        Helper function to compute the bezier parameter b_8 using the mapping parameter 0 <= b_8_map <= 1
+        """
+
+        term = -2 * r_le * x_t / 3
+        sqrt_term = 0 if term <= 0 else np.sqrt(term)
+        factor = min(y_t, sqrt_term)
+        return float(b_8_map * factor)
+
 
     def DeconstructDesignVector(self,
                                 x_dict: dict[str, float | int]) -> tuple:
@@ -220,20 +234,6 @@ class DesignVectorInterface:
         # Create an iterator over the design vector values
         it = iter(ordered_values)
 
-        # Define a helper function to compute parameter b_8 using the mapping design variable
-        def Getb8(b_8_map: float, 
-                  r_le: float, 
-                  x_t: float, 
-                  y_t: float) -> float:
-            """
-            Helper function to compute the bezier parameter b_8 using the mapping parameter 0 <= b_8_map <= 1
-            """
-
-            term = -2 * r_le * x_t / 3
-            sqrt_term = 0 if term <= 0 else np.sqrt(term)
-            factor = min(y_t, sqrt_term)
-            return float(b_8_map * factor)
-
         # Define a pointer to count the number of variable parameters
         centerbody_designvar_count = len(config.CENTERBODY_VALUES)
         duct_designvar_count = len(config.DUCT_VALUES)
@@ -249,7 +249,7 @@ class DesignVectorInterface:
                 raise ValueError("Design vector is too short for the expected centerbody variables.") from None
             centerbody_variables = {"b_0": 0,
                                     "b_2": 0, 
-                                    "b_8": Getb8(centerbody_vals[0], centerbody_vals[5], centerbody_vals[2], centerbody_vals[3]),
+                                    "b_8": self.Getb8(centerbody_vals[0], centerbody_vals[5], centerbody_vals[2], centerbody_vals[3]),
                                     "b_15": centerbody_vals[1],
                                     "b_17": 0,
                                     "x_t": centerbody_vals[2],
@@ -276,7 +276,7 @@ class DesignVectorInterface:
                 raise ValueError("Design vector is too short for the expected duct variables.") from None
             duct_variables = {"b_0": duct_vals[0],
                               "b_2": duct_vals[1], 
-                              "b_8": Getb8(duct_vals[2], duct_vals[11], duct_vals[5], duct_vals[6]),
+                              "b_8": self.Getb8(duct_vals[2], duct_vals[11], duct_vals[5], duct_vals[6]),
                               "b_15": duct_vals[3],
                               "b_17": duct_vals[4],
                               "x_t": duct_vals[5],
@@ -310,7 +310,7 @@ class DesignVectorInterface:
                         raise ValueError("Design vector is too short for the expected blade radial section variables.") from None
                     section_parameters = {"b_0": section_vals[0],
                                         "b_2": section_vals[1], 
-                                        "b_8": Getb8(section_vals[2], section_vals[11], section_vals[5], section_vals[6]), 
+                                        "b_8": self.Getb8(section_vals[2], section_vals[11], section_vals[5], section_vals[6]), 
                                         "b_15": section_vals[3],
                                         "b_17": section_vals[4],
                                         "x_t": section_vals[5],
@@ -357,6 +357,8 @@ class DesignVectorInterface:
             blade_blading_parameters.append(stage_blading_parameters)
 
         # Compute the updated duct and blading parameters
+        # This must happen after all blade parameters and duct parameters are constructed,
+        # since the radial duct location affects the stator blade "diameter" 
         duct_variables, blade_blading_parameters = self.ComputeDuctRadialLocation(duct_variables=duct_variables,
                                                                                   blade_blading_parameters=blade_blading_parameters)
 
