@@ -243,7 +243,7 @@ class OptimizationProblem(ElementwiseProblem):
             if not file_path.exists():
                 continue
             
-            # Archive the state file
+            # Move the state file to the dump folder
             if file_type == "tdat": 
                 copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
                 try:

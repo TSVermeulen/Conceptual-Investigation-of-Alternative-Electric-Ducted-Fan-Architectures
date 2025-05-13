@@ -78,7 +78,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                       "boundary_layer": "boundary_layer.{}",
                       "tdat": "tdat.{}"}
     
-    
+
     def __init__(self,
                  **kwargs) -> None:
         """
@@ -99,7 +99,6 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Calculate the number of objectives and constraints of the optimization problem
         n_objectives = len(config.objective_IDs) * len(config.multi_oper) - sum([1 for ID in config.objective_IDs if ID in (1, 2)]) * (len(config.multi_oper) - 1)
-        n_objectives = len(config.objective_IDs) * len(config.multi_oper)
         n_inequality_constraints = len(config.constraint_IDs[0]) * len(config.multi_oper)
         n_equality_constraints = len(config.constraint_IDs[1]) * len(config.multi_oper)
 
@@ -288,7 +287,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             # Construct filepath
             file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
 
-            # Archive the state file
+            # Move the state file to the dump folder
             if file_type == "tdat": 
                 copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
                 try:
@@ -416,19 +415,24 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                     # Only update tflow file for the second-onward point, since the initial point is written when first generating the input files
                     self.SetOmega(oper_idx=idx)
 
-                exit_flag = MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
-                                                             ref_length=self.Lref,
-                                                             analysis_name=self.analysis_name,
-                                                             grid_checked=valid_grid,
-                                                             **kwargs)
+                MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
+                                                 ref_length=self.Lref,
+                                                 analysis_name=self.analysis_name,
+                                                 grid_checked=valid_grid,
+                                                 **kwargs)
+                
+                try:
+                    # Run MTFLOW
+                    exit_flag = MTFLOW_interface.caller(external_inputs=True,
+                                                        output_type=OutputType.FORCES_ONLY)
 
-                # Run MTFLOW
-                MTFLOW_interface.caller(external_inputs=True,
-                                        output_type=OutputType.FORCES_ONLY)
-
-                # Extract outputs
-                output_handler = output_processing(analysis_name=self.analysis_name)
-                MTFLOW_outputs[idx] = output_handler.GetAllVariables(output_type=3)
+                    # Extract outputs
+                    output_handler = output_processing(analysis_name=self.analysis_name)
+                    MTFLOW_outputs[idx] = output_handler.GetAllVariables(output_type=3)
+                except Exception as e:
+                    exit_flag = ExitFlag.CRASH
+                    print(f"[MTFLOW_ERROR] OP={idx}, case={self.analysis_name}: {e}")
+                    MTFLOW_outputs[idx] = copy.deepcopy(self.crash_outputs)
 
                 # Set valid_grid to true to skip the grid checking routines for the next operating point if the solver exited with a converged/non-converged solution.
                 if exit_flag in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE, ExitFlag.CHOKING):

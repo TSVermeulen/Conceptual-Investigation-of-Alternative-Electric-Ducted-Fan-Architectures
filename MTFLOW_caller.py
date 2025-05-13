@@ -127,7 +127,7 @@ class MTFLOW_caller:
                  **kwargs
                  ) -> None:
         """
-        Initialize the MTSOL_call class.
+        Initialize the MTFLOW_caller class.
 
         This method sets up the initial state of the class.
 
@@ -307,14 +307,19 @@ class MTFLOW_caller:
             # Execute MTSOl solver
             # Passes the exit flag to determine if any issues have occurred. 
             # --------------------
-            if exit_flag != ExitFlag.CRASH:       
-                MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
+            if exit_flag != ExitFlag.CRASH:   
+                try:    
+                    MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
+                except:
+                    # If MTFLO fails, set the exit flag to crash so that we don't execute the MTSOL evaluation.
+                    exit_flag = ExitFlag.CRASH
 
-                # Execute MTSOL    
-                exit_flag = MTSOL_call(operating_conditions=self.operating_conditions,
-                                    analysis_name=self.analysis_name).caller(run_viscous=self.run_visc,
-                                                                             generate_output=True,
-                                                                             output_type=output_type)
+                if exit_flag != ExitFlag.CRASH:
+                    # Execute MTSOL    
+                    exit_flag = MTSOL_call(operating_conditions=self.operating_conditions,
+                                        analysis_name=self.analysis_name).caller(run_viscous=self.run_visc,
+                                                                                generate_output=True,
+                                                                                output_type=output_type)
                 
         return exit_flag
 
@@ -361,14 +366,15 @@ if __name__ == "__main__":
     centrebody_parameters = {"b_0": 0., "b_2": 0., "b_8": 7.52387039e-02, "b_15": 7.46448823e-01, "b_17": 0, 'x_t': 0.29842005729819904, 'y_t': 0.12533559300869632, 'x_c': 0, 'y_c': 0, 'z_TE': 0, 'dz_TE': 0.00277173368735548, 'r_LE': -0.06946118699675888, 'trailing_wedge_angle': np.float64(0.27689037361278407), 'trailing_camberline_angle': 0.0, 'leading_edge_direction': 0.0, "Chord Length": 4, "Leading Edge Coordinates": (0.3, 0)}
 
     start_time = time.time()
-    class_call = MTFLOW_caller(operating_conditions=oper,
-                               centrebody_params=centrebody_parameters,
-                               duct_params=duct_parameters,
-                               blading_parameters=blading_parameters,
-                               design_parameters=design_parameters,
-                               ref_length=fan_diameter,
-                               analysis_name=analysisName,
-                               ).caller(external_inputs=False)
+    solver = MTFLOW_caller(operating_conditions=oper,
+                           ref_length=fan_diameter,
+                           analysis_name=analysisName)
+
+    exit_flag = solver.caller(external_inputs=False,
+                              centrebody_params=centrebody_parameters,
+                              duct_params=duct_parameters,
+                              blading_parameters=blading_parameters,
+                              design_parameters=design_parameters)
     end_time = time.time()
 
     print(f"Execution of MTFLOW_call.caller() took {end_time - start_time} second")
