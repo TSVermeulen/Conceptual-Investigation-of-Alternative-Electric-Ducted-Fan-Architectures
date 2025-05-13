@@ -118,7 +118,8 @@ class InitPopulation():
                              0 <= b_8 <= min(y_t, sqrt(-2*r_LE*x_t/3))
             """
 
-            denominator = min(variable_dict["y_t"], np.sqrt(-2 * variable_dict["x_t"] * variable_dict["r_LE"] / 3))
+            denominator = min(variable_dict["y_t"], 
+                              np.sqrt(max(0.0, -2 * variable_dict["x_t"] * variable_dict["r_LE"] / 3)))
             return float(variable_dict["b_8"] / denominator) if denominator > 0 else 0.0
 
         vector = []
@@ -234,8 +235,14 @@ class InitPopulation():
             noise = self._np_rng.uniform(-1, 1, size=ref.shape)  
 
             # Compute masks for the floating point and integer design variables
-            real_mask = np.array([isinstance(reference_individual[k], (float, np.floating)) for k in self.design_vector_keys])
-            int_mask = ~real_mask
+            real_mask = np.array([np.issubdtype(type(v), np.floating) for v in reference_individual.values()])
+            int_mask  = np.array([np.issubdtype(type(v), np.integer)  for v in reference_individual.values()])
+            other_mask = ~(real_mask | int_mask)
+            if other_mask.any():
+                raise TypeError("Non-scalar design variables detected: update initial-population logic.")
+            
+            # real_mask = np.array([isinstance(reference_individual[k], (float, np.floating)) for k in self.design_vector_keys])
+            # int_mask = ~real_mask
 
             # Compute masks to check which values of the floating point variables are zero
             perturbed_individual = ref.copy()

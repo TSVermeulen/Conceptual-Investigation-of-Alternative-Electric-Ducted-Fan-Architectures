@@ -359,7 +359,7 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Initialize the MTFLOW caller class
         if design_okay:
-            self.ComputeReynolds()  # Comptute the Reynolds number
+            self.ComputeReynolds()  # Compute the Reynolds number
 
             MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
                                              ref_length=self.Lref,

@@ -130,6 +130,7 @@ class FileCreatedHandling(FileSystemEventHandler):
             time.sleep(backoff)
             # Adjust the backoff based on remaining time to avoid overshooting the timeout
             backoff = min(max_backoff, backoff * 2, timeout-elapsed)
+            elapsed = time.monotonic() - start_time
         return False
         
 

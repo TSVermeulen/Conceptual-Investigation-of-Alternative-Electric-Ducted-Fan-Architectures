@@ -246,7 +246,8 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         match_counter = 0
         for idx, line in enumerate(lines):
             if line.startswith("OMEGA"):
-                lines[idx + 1] = f"{self.blade_blading_parameters[match_counter]["rotational_rate"]} \n"
+                rate = self.blade_blading_parameters[match_counter]["rotational_rate"]
+                lines[idx + 1] = f"{rate} \n"
                 match_counter += 1
         
         # Write the updated tflow data back to the file
