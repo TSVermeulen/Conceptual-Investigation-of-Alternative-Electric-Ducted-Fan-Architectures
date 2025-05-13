@@ -352,16 +352,18 @@ class OptimizationProblem(ElementwiseProblem):
             error_code = "INVALID_DESIGN"
             print(f"[{error_code}] Invalid design vector encountered: {e}")
 
-        # Compute the necessary inputs (Reynolds, Omega)
+         # Compute the necessary inputs (Reynolds, Omega)
         self.oper = config.multi_oper[0].copy()
-        self.ComputeReynolds()
-        self.ComputeOmega()
         
         # Generate the MTFLOW input files.
         # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector. 
         if deconstruction_okay:
+            self.ComputeReynolds()
+            self.ComputeOmega()
+
             design_okay = self.GenerateMTFLOWInputs()
         else:
+            self.Lref = config.BLADE_DIAMETERS[0]
             design_okay = deconstruction_okay
 
         # Initialize the MTFLOW caller class
