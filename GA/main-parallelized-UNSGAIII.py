@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
         """ Initialize the optimization problem and algorithm """
         # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
-        if getattr(config, "PROBLEM_TYPE", "single_point") == "multi_point":
+        if hasattr(config, "PROBLEM_TYPE") and config.PROBLEM_TYPE == "multi_point":
             from multi_point_problem_definition import MultiPointOptimizationProblem
             problem = MultiPointOptimizationProblem(elementwise_runner=runner,
                                                     seed=config.GLOBAL_SEED)

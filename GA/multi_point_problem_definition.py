@@ -99,8 +99,8 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Calculate the number of objectives and constraints of the optimization problem
         n_objectives = len(config.objective_IDs) * len(config.multi_oper)
-        n_inequality_constraints = len(config.constraint_IDs[0])
-        n_equality_constraints = len(config.constraint_IDs[1])
+        n_inequality_constraints = len(config.constraint_IDs[0]) * len(config.multi_oper)
+        n_equality_constraints = len(config.constraint_IDs[1]) * len(config.multi_oper)
 
         # Initialize the parent class
         super().__init__(vars=design_vars,
@@ -248,7 +248,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             # Cache the omega line indices if not already computed.
             if not hasattr(self, "_omega_line_ids"):
                 # We assume that the line directly after the one starting with "OMEGA" is the one to update.
-                self._omega_line_ids = [i for i, line in enumerate(lines) if line.startswith("OMEGA")]
+                self._omega_line_ids = [i for i, line in enumerate(lines) if line.lstrip().startswith("OMEGA")]
     
             # Use a local alias to avoid repeated attribute lookups in the loop.
             blade_params = self.blade_blading_parameters
@@ -256,7 +256,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             # Update the omega lines with the correct rotational rates.
             for i, line_idx in enumerate(self._omega_line_ids):
                 rate = blade_params[i]["rotational_rate"]
-                lines[line_idx] = f"{rate}\n"
+                lines[line_idx + 1] = f"{rate}\n"
 
             # Write the updated lines back to the file.
             file.seek(0)
@@ -388,22 +388,9 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Generate a unique analysis name
         self.GenerateAnalysisName()
         
-        # Deconstruct the design vector
-        try:
-            (self.centerbody_variables, 
-            self.duct_variables, 
-            self.blade_design_parameters, 
-            self.blade_blading_parameters, 
-            self.Lref) = self.design_vector_interface.DeconstructDesignVector(x_dict=x)
-            deconstruction_okay = True
-        except ValueError as e:
-            deconstruction_okay = False
-            error_code = "INVALID_DESIGN"
-            print(f"[{error_code}] Invalid design vector encountered: {e}")
-
         # Generate the MTFLOW input files.
         # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector. 
-        design_okay = self.GenerateMTFLOWInputs()
+        design_okay = self.GenerateMTFLOWInputs(x)
 
         # Only perform the MTFLOW analyses if the input generation has succeeded.
         # Initialise the MTFLOW output list of dictionaries. Use the crash outputs in 

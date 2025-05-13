@@ -55,6 +55,7 @@ class DesignVectorInterface:
     Simple class to provide efficient access to design vector elements without repeated string formatting, 
     and to deconstruct the design vector dictionary x into the expected "sub"-dictionaries required to use the MTFLOW interface """
     
+    
     def __init__(self) -> None:
         """
         Initialization of the DesignVectorInterface class
@@ -117,7 +118,8 @@ class DesignVectorInterface:
 
         # Construct cubic spline interpolant of the duct surface
         order = np.argsort(lower_x)  # Defensively sort the x coordinates to avoid a runtime failure
-        mask = np.diff(lower_x[order], prepend=-np.inf) > 1e-12  # keep first of the duplicates
+        dx = np.diff(lower_x[order])
+        mask = np.hstack([True, dx > 1e-12]) # keep first point, drop exact duplicates
         order = order[mask]
         duct_interpolant = interpolate.CubicSpline(lower_x[order],
                                                    np.abs(lower_y)[order],  # Take absolute value of y-coordinates since we need the distance, not the actual coordinate
@@ -149,7 +151,6 @@ class DesignVectorInterface:
 
         # The LE y coordinate of the duct is then the maximum of the computed coordinates to enforce the minimum tip gap everywhere
         if radial_duct_coordinates.any():
-            # Only update the LE coordinate if there is a non-rotating stage. 
             LE_coordinate_duct = float(radial_duct_coordinates.max())
         else:
             LE_coordinate_duct = duct_variables["Leading Edge Coordinates"][1]
@@ -167,7 +168,9 @@ class DesignVectorInterface:
                     blade_blading_parameters[i]["radial_stations"] = blade_blading_parameters[i]["radial_stations"] / r_old * LE_coordinate_duct 
                 else:
                     # If the last entry of radial stations is 0, simply set it to the LE coordinate of the duct. This avoids a divide-by-zero error. 
-                    blade_blading_parameters[i]["radial_stations"][-1] = LE_coordinate_duct   
+                    blade_blading_parameters[i]["radial_stations"][-1] = np.full_like(blade_blading_parameters[i]["radial_stations"],
+                                                                                      LE_coordinate_duct,
+                                                                                      dtype=float)
     
         # Return the updated data
         return duct_variables, blade_blading_parameters
@@ -187,9 +190,16 @@ class DesignVectorInterface:
         - sorted_x: list[float | int]
             A list of the sorted design vector values.
         """
+
+        current_order = sorted(x_dict.keys(), key=lambda k: int(k.lstrip("x")))
+
         if self._ordered_keys_cache is None:
-            self._ordered_keys_cache = sorted(x_dict.keys(), key=lambda k: int(k.lstrip("x")))
+            self._ordered_keys_cache = current_order
+
+        if self._ordered_keys_cache != current_order:
+            self._ordered_keys_cache = current_order
         return [x_dict[k] for k in self._ordered_keys_cache]
+
 
     @staticmethod
     def Getb8(b_8_map: float, 

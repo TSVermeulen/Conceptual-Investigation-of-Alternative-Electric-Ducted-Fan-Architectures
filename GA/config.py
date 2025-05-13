@@ -203,29 +203,21 @@ def _load_blading(Omega: float,
     # Obtain the parameterizations for the profile sections. 
     profile_dir_path = Path(__file__).parent.parent / 'Validation/Profiles'
     file_names = ['X22_02R.dat', 'X22_03R.dat', 'X22_05R.dat', 'X22_07R.dat', 'X22_10R.dat', 'Hstrut.dat', 'Dstrut.dat']
-    files = {stem: profile_dir_path / stem for stem in file_names}
-    filenames = list(files.values())
-
+    filenames = [profile_dir_path / stem for stem in file_names]
     
     # First check if all files are present
     missing_files = [f for f in filenames if not f.exists()]
     if missing_files:
         raise FileNotFoundError(f"Missing files: {', '.join(map(str, missing_files))}")
 
+    # Instantiate the AirfoilParameterization class and compute the parameterisations for the profile sections
     param = AirfoilParameterization()
-    # Compute parameterization for the airfoil section at r=0R
     R00_section = param.FindInitialParameterization(reference_file=filenames[0])
-    # Compute parameterization for the airfoil section at r=0.3R
     R03_section = param.FindInitialParameterization(reference_file=filenames[1])
-    # Compute parameterization for the mid airfoil section
     R05_section = param.FindInitialParameterization(reference_file=filenames[2])
-    # Compute parameterization for the airfoil section at r=0.7R
     R07_section = param.FindInitialParameterization(reference_file=filenames[3])
-    # Compute parameterization for the tip airfoil section
     R10_section = param.FindInitialParameterization(reference_file=filenames[4])
-    # Compute parameterization for the horizontal struts
     Hstrut_section = param.FindInitialParameterization(reference_file=filenames[5])
-    # Compute parameterization for the diagonal struts
     Dstrut_section = param.FindInitialParameterization(reference_file=filenames[6])
 
     # Construct blading list
