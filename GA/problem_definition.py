@@ -130,7 +130,7 @@ class OptimizationProblem(ElementwiseProblem):
         # Initialize design vector interface
         self.design_vector_interface = DesignVectorInterface()
 
-        # Initialize output dictionary to use in case of an infeasible design. 
+        # Initialize output dictionary and Lref to use in case of an infeasible design. 
         # This equals the outputs of the output_handling.output_processing.GetAllVariables(3) method, 
         # but is quicker as it does not involve reading a file.
         self.crash_outputs = {'data':
@@ -155,6 +155,7 @@ class OptimizationProblem(ElementwiseProblem):
                                {'CTf': 0.00000, 
                                 'CTp': 0.00000, 
                                 'Xtr': 0.00000}}}
+        self.Lref = config.BLADE_DIAMETERS[0]
                 
 
     def GenerateAnalysisName(self) -> None:
@@ -253,7 +254,8 @@ class OptimizationProblem(ElementwiseProblem):
                 file_path.unlink(missing_ok=True)
 
 
-    def GenerateMTFLOWInputs(self) -> bool:
+    def GenerateMTFLOWInputs(self,
+                             x) -> bool:
         """
         Generates the input files required for the MTFLOW simulation.
         This method creates the necessary input files for the MTFLOW simulation by utilizing the 
@@ -279,6 +281,15 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Generate the MTSET input file containing the axisymmetric geometries and the MTFLO blading input file
         try:
+            # Deconstruct the design vector
+            (self.centerbody_variables, 
+            self.duct_variables, 
+            self.blade_design_parameters, 
+            self.blade_blading_parameters, 
+            self.Lref) = self.design_vector_interface.DeconstructDesignVector(x_dict=x)
+
+            self.ComputeOmega()
+
             file_handler.fileHandlingMTSET(params_CB=self.centerbody_variables,
                                            params_duct=self.duct_variables,
                                            case_name=self.analysis_name,
@@ -338,36 +349,18 @@ class OptimizationProblem(ElementwiseProblem):
         
         # Generate a unique analysis name
         self.GenerateAnalysisName()
-        
-        # Deconstruct the design vector
-        try:
-            (self.centerbody_variables, 
-            self.duct_variables, 
-            self.blade_design_parameters, 
-            self.blade_blading_parameters, 
-            self.Lref) = self.design_vector_interface.DeconstructDesignVector(x_dict=x)
-            deconstruction_okay = True
-        except ValueError as e:
-            deconstruction_okay = False
-            error_code = "INVALID_DESIGN"
-            print(f"[{error_code}] Invalid design vector encountered: {e}")
 
-         # Compute the necessary inputs (Reynolds, Omega)
+        # Copy the operational conditions
         self.oper = config.multi_oper[0].copy()
         
         # Generate the MTFLOW input files.
         # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector. 
-        if deconstruction_okay:
-            self.ComputeReynolds()
-            self.ComputeOmega()
-
-            design_okay = self.GenerateMTFLOWInputs()
-        else:
-            self.Lref = config.BLADE_DIAMETERS[0]
-            design_okay = deconstruction_okay
+        design_okay = self.GenerateMTFLOWInputs()
 
         # Initialize the MTFLOW caller class
         if design_okay:
+            self.ComputeReynolds()  # Comptute the Reynolds number
+
             MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
                                              ref_length=self.Lref,
                                              analysis_name=self.analysis_name,
