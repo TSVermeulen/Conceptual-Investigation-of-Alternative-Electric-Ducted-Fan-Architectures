@@ -338,6 +338,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self.Lref) = self.design_vector_interface.DeconstructDesignVector(x_dict=x)
 
             # Set the initial non-dimensional omega rates
+            self.oper = self.multi_oper[0]
             self.ComputeOmega(idx=0)
 
             fileHandling().fileHandlingMTSET(params_CB=self.centerbody_variables,
@@ -391,6 +392,9 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         
         # Generate a unique analysis name
         self.GenerateAnalysisName()
+
+        # Copy the multi-point operating conditions
+        self.multi_oper = copy.deepcopy(config.multi_oper)
         
         # Generate the MTFLOW input files.
         # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector. 
@@ -399,7 +403,6 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Only perform the MTFLOW analyses if the input generation has succeeded.
         # Initialise the MTFLOW output list of dictionaries. Use the crash outputs in 
         # initialisation to pre-populate them in case of a crash or infeasible design vector
-        self.multi_oper = copy.deepcopy(config.multi_oper)
         MTFLOW_outputs = [copy.deepcopy(self.crash_outputs) for _ in range(len(self.multi_oper))]
 
         if design_okay:

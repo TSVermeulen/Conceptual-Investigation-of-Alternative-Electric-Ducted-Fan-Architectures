@@ -242,9 +242,6 @@ class InitPopulation():
             if other_mask.any():
                 raise TypeError("Non-scalar design variables detected: update initial-population logic.")
             
-            # real_mask = np.array([isinstance(reference_individual[k], (float, np.floating)) for k in self.design_vector_keys])
-            # int_mask = ~real_mask
-
             # Compute masks to check which values of the floating point variables are zero
             perturbed_individual = ref.copy()
             zero_real_mask = real_mask & (perturbed_individual == 0)
@@ -262,7 +259,6 @@ class InitPopulation():
             # Ensure perturbed individual still falls within the design variable bounds
             perturbed_individual = np.clip(perturbed_individual, lower_bounds, upper_bounds)
 
-            # print([type(param) for param in perturbed_individual])
             # Convert to dicitonary while casting the discrete variable(s) back to int
             pop_dict[i] = {key: (int(val) if isinstance(reference_individual[key], (int, np.integer)) else val)
                            for key, val in zip(self.design_vector_keys, perturbed_individual)}
