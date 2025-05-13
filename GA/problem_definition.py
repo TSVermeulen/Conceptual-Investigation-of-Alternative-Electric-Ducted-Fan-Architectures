@@ -361,7 +361,7 @@ class OptimizationProblem(ElementwiseProblem):
         
         # Generate the MTFLOW input files.
         # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector. 
-        design_okay = self.GenerateMTFLOWInputs()
+        design_okay = self.GenerateMTFLOWInputs(x)
 
         # Initialize the MTFLOW caller class
         if design_okay:
