@@ -56,7 +56,7 @@ from utils import ensure_repo_paths
 ensure_repo_paths()
 
 # Import interface submodels and other dependencies
-from Submodels.MTSOL_call import OutputType
+from Submodels.MTSOL_call import OutputType, ExitFlag
 from objectives import Objectives
 from constraints import Constraints
 from init_designvector import DesignVector
@@ -77,6 +77,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                       "flowfield": "flowfield.{}",
                       "boundary_layer": "boundary_layer.{}",
                       "tdat": "tdat.{}"}
+    
     
     def __init__(self,
                  **kwargs) -> None:
@@ -405,6 +406,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         MTFLOW_outputs = [copy.deepcopy(self.crash_outputs) for _ in range(len(self.multi_oper))]
 
         if design_okay:
+            valid_grid = False
             for idx, operating_point in enumerate(self.multi_oper):
                 # Compute the necessary inputs
                 self.oper = copy.deepcopy(operating_point)  # Copy the appropriate operating condition dictionary
@@ -414,10 +416,11 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                     # Only update tflow file for the second-onward point, since the initial point is written when first generating the input files
                     self.SetOmega(oper_idx=idx)
 
-                MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
-                                             ref_length=self.Lref,
-                                             analysis_name=self.analysis_name,
-                                             **kwargs)
+                exit_flag = MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
+                                                             ref_length=self.Lref,
+                                                             analysis_name=self.analysis_name,
+                                                             grid_checked=valid_grid,
+                                                             **kwargs)
 
                 # Run MTFLOW
                 MTFLOW_interface.caller(external_inputs=True,
@@ -426,6 +429,10 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                 # Extract outputs
                 output_handler = output_processing(analysis_name=self.analysis_name)
                 MTFLOW_outputs[idx] = output_handler.GetAllVariables(output_type=3)
+
+                # Set valid_grid to true to skip the grid checking routines for the next operating point if the solver exited with a converged/non-converged solution.
+                if exit_flag in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE, ExitFlag.CHOKING):
+                    valid_grid = True
 
         # Obtain objective(s)
         # The out dictionary is updated in-place

@@ -195,6 +195,7 @@ class MTFLOW_caller:
     def caller(self,
                external_inputs: bool = False,
                output_type: OutputType = OutputType.FORCES_ONLY,
+               grid_checked: bool = False,
                **kwargs
                ) -> ExitFlag:
         """ 
@@ -207,6 +208,8 @@ class MTFLOW_caller:
             This is useful for debugging or validation against existing, external data. 
         - output_type : OutputType, optional
             An enum to determine which output files to generate. OutputType.FORCES_ONLY generates only the forces file, while OutputType.ALL_FILES generates all files.
+        - grid_checked : bool, optional
+            A boolean to indicate if the grid for the case being run has been checked already. This speeds up batch analyses as it skips the grid checking routine. 
 
         Returns
         -------
@@ -282,6 +285,9 @@ class MTFLOW_caller:
                            grid_e_coeff=grid_e_coeff,
                            grid_x_coeff=grid_x_coeff,
                            streamwise_points=streamwise_points).caller()
+                
+                if grid_checked:
+                    break
                 
                 exit_flag  = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},
                                                  analysis_name=self.analysis_name).caller(run_viscous=False,
