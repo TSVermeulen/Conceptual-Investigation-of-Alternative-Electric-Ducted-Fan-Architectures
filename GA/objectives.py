@@ -75,6 +75,10 @@ class Objectives:
         from Submodels.Parameterizations import AirfoilParameterization
         self._airfoil_parameterization = AirfoilParameterization()
 
+        # Define the objective list, and the subset of objectives which are independent of operating condition
+        self.objectivelist = [self.Efficiency, self.FrontalArea, self.WettedArea, self.PressureRatio]
+        self.constant_objectiveIDs = {1, 2}
+
 
     def Efficiency(self,
                    outputs: dict) -> float:
@@ -196,9 +200,7 @@ class Objectives:
         None, the out dictionary is updated in place with the computed objectives.                
         """
 
-        objectives_list = [self.Efficiency, self.FrontalArea, self.WettedArea, self.PressureRatio]
-
-        objectives = [objectives_list[i] for i in objective_IDs]
+        objectives = [self.objectivelist[i] for i in objective_IDs]
 
         computed_objectives = np.empty_like(objectives)
 
@@ -233,18 +235,28 @@ class Objectives:
         None, the out dictionary is updated in place with the computed objectives.                
         """
 
-        objectives_list = [self.Efficiency, self.FrontalArea, self.WettedArea, self.PressureRatio]
+        variable_IDs = [oid for oid in objective_IDs if oid not in self.constant_objectiveIDs]  # Identifiers for the variable objective functions
+        constant_IDs = [oid for oid in objective_IDs if oid in self.constant_objectiveIDs]  # Identifiers for the constant variable objective functions
 
-        objectives = [objectives_list[i] for i in objective_IDs]
+        variable_objectives = [self.objectivelist[i] for i in variable_IDs]  # The variable objectives
+        constant_objectives = [self.objectivelist[i] for i in constant_IDs]  # The constant objectives
 
+        # Compute the relevant dimensions and construct the empty objectives output array
         num_outputs = len(analysis_outputs)
-        num_objectives = len(objectives)
-        computed_objectives = np.empty(num_outputs * num_objectives)
+        num_varobjectives = len(variable_objectives)
+        num_constobjectives = len(constant_objectives)
+        computed_objectives = np.empty(num_varobjectives * num_outputs + num_constobjectives)
 
+        # First compute the outputs which are a function of operating condition
         for i, outputs in enumerate(analysis_outputs):
-            for j, objective in enumerate(objectives):
+            for j, objective in enumerate(variable_objectives):
                 # Rounds the objective values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
-                computed_objectives[i * num_objectives + j] =  round(objective(outputs), 5)
+                computed_objectives[i * num_varobjectives + j] =  round(objective(outputs), 5)
+        
+        # Now compute the constant objectives
+        # Since the objectives are independent of analysis condition, we simply use the first analysis to compute the objectives. 
+        for i, objective in enumerate(constant_objectives):
+            computed_objectives[num_varobjectives * num_outputs + i] = round(objective(analysis_outputs[0]), 5)
 
         out["F"] = np.column_stack(computed_objectives)
         

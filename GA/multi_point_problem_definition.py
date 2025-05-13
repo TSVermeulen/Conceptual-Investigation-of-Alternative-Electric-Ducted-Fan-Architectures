@@ -97,6 +97,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         design_vars = DesignVector()._construct_vector(config)
 
         # Calculate the number of objectives and constraints of the optimization problem
+        n_objectives = len(config.objective_IDs) * len(config.multi_oper) - sum([1 for ID in config.objective_IDs if ID in (1, 2)]) * (len(config.multi_oper) - 1)
         n_objectives = len(config.objective_IDs) * len(config.multi_oper)
         n_inequality_constraints = len(config.constraint_IDs[0]) * len(config.multi_oper)
         n_equality_constraints = len(config.constraint_IDs[1]) * len(config.multi_oper)
