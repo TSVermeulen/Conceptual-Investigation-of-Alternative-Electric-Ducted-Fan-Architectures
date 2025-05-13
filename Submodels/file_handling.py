@@ -215,8 +215,8 @@ class fileHandling:
             # Define the Grid size calculation constants
             self.DEFAULT_Y_TOP = 1.0
             self.Y_TOP_MULTIPLIER = 2.5
-            self.X_FRONT_OFFSET = 1.5
-            self.X_AFT_OFFSET = 1.5
+            self.X_FRONT_OFFSET = 1.0
+            self.X_AFT_OFFSET = 1.0
 
             # Define key paths/directories
             self.parent_dir = Path(__file__).resolve().parent.parent
@@ -247,12 +247,12 @@ class fileHandling:
             if X_FRONT is None:
                 # Calculate X-domain front boundary
                 X_FRONT = round((min(self.duct_params["Leading Edge Coordinates"][0], 
-                                self.centerbody_params["Leading Edge Coordinates"][0]) - self.X_FRONT_OFFSET) / self.ref_length,
+                                self.centerbody_params["Leading Edge Coordinates"][0]) - self.X_FRONT_OFFSET * self.ref_length) / self.ref_length,
                                 3)
             if X_AFT is None:
                 # Calculate X-domain aft boundary
                 X_AFT = round((max(self.duct_params["Leading Edge Coordinates"][0] + self.duct_params["Chord Length"], 
-                              self.centerbody_params["Leading Edge Coordinates"][0] + self.centerbody_params["Chord Length"]) + self.X_AFT_OFFSET) / self.ref_length,
+                              self.centerbody_params["Leading Edge Coordinates"][0] + self.centerbody_params["Chord Length"]) + self.X_AFT_OFFSET * self.ref_length) / self.ref_length,
                               3)
             if Y_TOP is None:
                 # Calculate upper Y-domain boundary
