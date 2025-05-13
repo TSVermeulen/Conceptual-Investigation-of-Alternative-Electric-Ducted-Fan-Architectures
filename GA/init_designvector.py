@@ -102,7 +102,21 @@ class DesignVector():
             vector.append(Real(bounds=(0.25, 4)))  # Chord Length
         if cfg.OPTIMIZE_DUCT:
             # If the duct is to be optimised, intialise the variable types
-            vector.extend(profile_section_vars())
+            vector.append(Real(bounds=(0, 1)))  # b_0
+            vector.append(Real(bounds=(0, 0.5)))  # b_2
+            vector.append(Real(bounds=(0.05, 1)))  # mapping variable for b_8
+            vector.append(Real(bounds=(0, 1)))  # b_15
+            vector.append(Real(bounds=(0, 1)))  # b_17
+            vector.append(Real(bounds=(0.1, 0.9)))  # x_t
+            vector.append(Real(bounds=(0.025, 0.25)))  # y_t
+            vector.append(Real(bounds=(0.05, 1)))  # x_c
+            vector.append(Real(bounds=(0, 0.1)))  # y_c
+            vector.append(Real(bounds=(0, 0.2)))  # z_TE
+            vector.append(Real(bounds=(0, 0.02)))  # dz_TE
+            vector.append(Real(bounds=(-0.1, -0.001)))  # r_LE
+            vector.append(Real(bounds=(0.01, np.pi/3)))  # trailing_wedge_angle
+            vector.append(Real(bounds=(0.01, np.pi/3)))  # trailing_camberline_angle
+            vector.append(Real(bounds=(0.01, np.pi/3)))  # leading_edge_direction
             vector.append(Real(bounds=(0.25, 2.5)))  # Chord Length
             vector.append(Real(bounds=(-0.5, 0.5)))  # Leading Edge X-Coordinate
 
