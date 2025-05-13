@@ -585,7 +585,7 @@ class fileHandling:
                         
             # Construct the thickness and camber bivariate spline interpolations
             # First determine the appropriate interpolation method based on the number of datapoints provided. 
-            if len(blading_params["radial_stations"]) < 4:
+            if len(blading_params["radial_stations"]) <= 4:
                 method = 'slinear'
             else:
                 method = 'cubic'
