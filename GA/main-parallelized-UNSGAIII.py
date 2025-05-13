@@ -98,7 +98,7 @@ if __name__ == "__main__":
                 
         # Create the reference directions to be used for the optimisation
         ref_dirs = get_reference_directions("energy",
-                                            n_dim=len(config.objective_IDs),
+                                            n_dim=len(config.objective_IDs) * len(config.multi_oper),
                                             n_points=config.POPULATION_SIZE)
 
         # Initialize the algorithm
