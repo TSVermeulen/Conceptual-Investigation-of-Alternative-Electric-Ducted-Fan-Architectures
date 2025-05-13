@@ -328,9 +328,6 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Lazy import the file_handling class
         from Submodels.file_handling import fileHandling
 
-        # Create a file_handling parent-class instance
-        file_handler = fileHandling()
-
         # Generate the MTSET input file containing the axisymmetric geometries and the MTFLO blading input file
         try:
             # Deconstruct the design vector
@@ -340,15 +337,18 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self.blade_blading_parameters, 
             self.Lref) = self.design_vector_interface.DeconstructDesignVector(x_dict=x)
 
-            file_handler.fileHandlingMTSET(params_CB=self.centerbody_variables,
-                                           params_duct=self.duct_variables,
-                                           case_name=self.analysis_name,
-                                           ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
+            # Set the initial non-dimensional omega rates
+            self.ComputeOmega(idx=0)
+
+            fileHandling().fileHandlingMTSET(params_CB=self.centerbody_variables,
+                                             params_duct=self.duct_variables,
+                                             case_name=self.analysis_name,
+                                             ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
             
-            file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
-                                           ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
-                                                                                    design_params=self.blade_design_parameters,
-                                                                                    plot=False)  # Generate the MTFLO input file
+            fileHandling().fileHandlingMTFLO(case_name=self.analysis_name,
+                                             ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
+                                                                                      design_params=self.blade_design_parameters,
+                                                                                      plot=False)  # Generate the MTFLO input file
             
             output_generated =  True  # If both input generation routines succeeded, set output_generated to True
 
@@ -407,7 +407,10 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                 # Compute the necessary inputs
                 self.oper = copy.deepcopy(operating_point)  # Copy the appropriate operating condition dictionary
                 self.ComputeReynolds()
-                self.SetOmega(oper_idx=idx)
+
+                if idx != 0:
+                    # Only update tflow file for the second-onward point, since the initial point is written when first generating the input files
+                    self.SetOmega(oper_idx=idx)
 
                 MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
                                              ref_length=self.Lref,
