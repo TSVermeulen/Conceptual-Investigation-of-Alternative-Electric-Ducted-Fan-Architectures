@@ -49,8 +49,9 @@ Changelog:
 import os
 import shutil
 import uuid
-from pathlib import Path
+import copy
 import datetime
+from pathlib import Path
 
 # Import 3rd party libraries
 import numpy as np
@@ -325,11 +326,11 @@ class OptimizationProblem(ElementwiseProblem):
         
         if not output_generated:
             # Set parameters equal to the config values in case of a crash so that the constraint/objective value calculations do not crash
-            self.Lref = config.BLADE_DIAMETERS[0]
-            self.duct_variables = config.DUCT_VALUES
-            self.centerbody_variables = config.CENTERBODY_VALUES
-            self.blade_blading_parameters = config.STAGE_BLADING_PARAMETERS
-            self.blade_design_parameters = config.STAGE_DESIGN_VARIABLES
+            self.Lref = copy.deepcopy(config.BLADE_DIAMETERS[0])
+            self.duct_variables = copy.deepcopy(config.DUCT_VALUES)
+            self.centerbody_variables = copy.deepcopy(config.CENTERBODY_VALUES)
+            self.blade_blading_parameters = copy.deepcopy(config.STAGE_BLADING_PARAMETERS)
+            self.blade_design_parameters = copy.deepcopy(config.STAGE_DESIGN_VARIABLES)
         
         return output_generated
         
@@ -368,7 +369,7 @@ class OptimizationProblem(ElementwiseProblem):
         self.GenerateAnalysisName()
 
         # Copy the operational conditions
-        self.oper = config.multi_oper[0].copy()
+        self.oper = copy.deepcopy(config.multi_oper[0])
         
         # Generate the MTFLOW input files.
         # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector. 

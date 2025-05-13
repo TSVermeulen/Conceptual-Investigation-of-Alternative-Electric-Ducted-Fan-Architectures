@@ -54,15 +54,16 @@ from pymoo.util.ref_dirs import get_reference_directions
 from pymoo.algorithms.moo.unsga3 import UNSGA3, comp_by_rank_and_ref_line_dist
 from pymoo.operators.selection.tournament import TournamentSelection
 
+# Ensure parent process has the correct import paths
+from utils import ensure_repo_paths
+ensure_repo_paths()
+
 # Import interface submodels and other dependencies
 import config
 from problem_definition import OptimizationProblem
 from init_population import InitPopulation
 from termination_conditions import GetTerminationConditions
-from utils import ensure_repo_paths
 
-# Ensure parent process has the correct import paths
-ensure_repo_paths()
 
 if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
@@ -71,7 +72,7 @@ if __name__ == "__main__":
     
     """ Initialize the thread pool and create the runner """
     total_threads = multiprocessing.cpu_count()
-    threads_per_eval = max(1, getattr(config, "THREADS_PER_EVALUATION"))
+    threads_per_eval = max(1, getattr(config, "THREADS_PER_EVALUATION", 2))
     total_threads_avail = max(0, total_threads - config.RESERVED_THREADS)
 
     # Never let integer division explode or produce zero workers

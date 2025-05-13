@@ -151,7 +151,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                                {'CTf': 0.00000, 
                                 'CTp': 0.00000, 
                                 'Xtr': 0.00000}}}
-                
+                        
 
     def GenerateAnalysisName(self) -> None:
         """
@@ -181,6 +181,10 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Additionally set the tflow file path
         self._tflow_file_path = self.submodels_path / f"tflow.{self.analysis_name}"
+
+        # Invalidate the cached omega-line indices for the new file
+        if hasattr(self, "_omega_line_ids"):
+            del self._omega_line_ids
 
 
     def ComputeReynolds(self) -> None:
@@ -362,11 +366,11 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         
         if not output_generated:
             # Set parameters equal to the config values in case of a crash so that the constraint/objective value calculations do not crash
-            self.Lref = config.BLADE_DIAMETERS[0]
-            self.duct_variables = config.DUCT_VALUES
-            self.centerbody_variables = config.CENTERBODY_VALUES
-            self.blade_blading_parameters = config.STAGE_BLADING_PARAMETERS
-            self.blade_design_parameters = config.STAGE_DESIGN_VARIABLES
+            self.Lref = copy.deepcopy(config.BLADE_DIAMETERS[0])
+            self.duct_variables = copy.deepcopy(config.DUCT_VALUES)
+            self.centerbody_variables = copy.deepcopy(config.CENTERBODY_VALUES)
+            self.blade_blading_parameters = copy.deepcopy(config.STAGE_BLADING_PARAMETERS)
+            self.blade_design_parameters = copy.deepcopy(config.STAGE_DESIGN_VARIABLES)
 
         return output_generated
                   
@@ -395,13 +399,13 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Only perform the MTFLOW analyses if the input generation has succeeded.
         # Initialise the MTFLOW output list of dictionaries. Use the crash outputs in 
         # initialisation to pre-populate them in case of a crash or infeasible design vector
-        self.multi_oper = config.multi_oper.copy()
+        self.multi_oper = copy.deepcopy(config.multi_oper)
         MTFLOW_outputs = [copy.deepcopy(self.crash_outputs) for _ in range(len(self.multi_oper))]
 
         if design_okay:
             for idx, operating_point in enumerate(self.multi_oper):
                 # Compute the necessary inputs
-                self.oper = operating_point.copy()  # Copy the appropriate operating condition dictionary
+                self.oper = copy.deepcopy(operating_point)  # Copy the appropriate operating condition dictionary
                 self.ComputeReynolds()
                 self.SetOmega(oper_idx=idx)
 
