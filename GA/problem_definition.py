@@ -47,7 +47,6 @@ Changelog:
 
 # Import standard libraries
 import os
-import shutil
 import uuid
 import copy
 import datetime
@@ -139,28 +138,28 @@ class OptimizationProblem(ElementwiseProblem):
         # Initialize output dictionary to use in case of an infeasible design. 
         # This equals the outputs of the output_handling.output_processing.GetAllVariables(3) method, 
         # but is quicker as it does not involve reading a file.
-        self.crash_outputs = {'data':
-                              {'Total power CP': 0.00000, 
-                               'EtaP': 0.00000, 
-                               'Total force CT': 0.00000, 
-                               'Element 2 top CTV': 0.00000, 
-                               'Element 2 bot CTV': 0.00000, 
-                               'Axis body CTV': 0.00000, 
-                               'Viscous CTv': 0.00000, 
-                               'Inviscid CTi': 0.00000, 
-                               'Friction CTf': 0.00000, 
-                               'Pressure CTp': 0.00000, 
-                               'Pressure Ratio': 0.00000}, 
-                              'grouped_data': 
-                              {'Element 2': 
-                               {'CTf': 0.00000, 
-                                'CTp': 0.00000, 
-                                'top Xtr': 0.00000, 
-                                'bot Xtr': 0.00000}, 
-                               'Axis Body': 
-                               {'CTf': 0.00000, 
-                                'CTp': 0.00000, 
-                                'Xtr': 0.00000}}}
+        self.crash_outputs: dict[str, dict[str, float]] = {'data':
+                                                           {'Total power CP': 0.00000, 
+                                                            'EtaP': 0.00000, 
+                                                            'Total force CT': 0.00000, 
+                                                            'Element 2 top CTV': 0.00000, 
+                                                            'Element 2 bot CTV': 0.00000, 
+                                                            'Axis body CTV': 0.00000, 
+                                                            'Viscous CTv': 0.00000, 
+                                                            'Inviscid CTi': 0.00000, 
+                                                            'Friction CTf': 0.00000, 
+                                                            'Pressure CTp': 0.00000, 
+                                                            'Pressure Ratio': 0.00000}, 
+                                                           'grouped_data': 
+                                                           {'Element 2': 
+                                                            {'CTf': 0.00000, 
+                                                             'CTp': 0.00000, 
+                                                             'top Xtr': 0.00000, 
+                                                             'bot Xtr': 0.00000}, 
+                                                            'Axis Body': 
+                                                            {'CTf': 0.00000, 
+                                                             'CTp': 0.00000, 
+                                                             'Xtr': 0.00000}}}
                 
 
     def GenerateAnalysisName(self) -> None:
@@ -248,9 +247,7 @@ class OptimizationProblem(ElementwiseProblem):
             if file_type == "tdat": 
                 copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
                 try:
-                    os.replace(file_path, copied_file)
-                except OSError:
-                    shutil.move(file_path, copied_file)
+                    file_path.replace(copied_file)
                 except FileNotFoundError:
                     print(f"The tdat state file {file_path} could not be located for copying.")
                     pass
