@@ -289,7 +289,7 @@ class OptimizationProblem(ElementwiseProblem):
         """   
 
         # Lazy import the file_handling class
-        from Submodels.file_handling import fileHandling        
+        from Submodels.file_handling import fileHandlingMTSET, fileHandlingMTFLO       
 
         # Generate the MTSET input file containing the axisymmetric geometries and the MTFLO blading input file
         try:
@@ -303,16 +303,15 @@ class OptimizationProblem(ElementwiseProblem):
             # Set the non-dimensional omega rates
             self.ComputeOmega()
 
-            file_handler = fileHandling()
-            file_handler.fileHandlingMTSET(params_CB=self.centerbody_variables,
-                                           params_duct=self.duct_variables,
-                                           case_name=self.analysis_name,
-                                           ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
+            fileHandlingMTSET(params_CB=self.centerbody_variables,
+                              params_duct=self.duct_variables,
+                              case_name=self.analysis_name,
+                              ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
             
-            file_handler.fileHandlingMTFLO(case_name=self.analysis_name,
-                                           ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
-                                                                                    design_params=self.blade_design_parameters,
-                                                                                    plot=False)  # Generate the MTFLO input file
+            fileHandlingMTFLO(case_name=self.analysis_name,
+                              ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
+                                                                       design_params=self.blade_design_parameters,
+                                                                       plot=False)  # Generate the MTFLO input file
             
             output_generated =  True  # If both input generation routines succeeded, set output_generated to True
 

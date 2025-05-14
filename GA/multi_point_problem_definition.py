@@ -317,7 +317,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         """
         Generates the input files required for the MTFLOW simulation.
         This method creates the necessary input files for the MTFLOW simulation by utilizing the 
-        `fileHandling` class from the `Submodels.file_handling` module. It generates two input files:
+        `fileHandlingMTSET/MTFLO` classes from the `Submodels.file_handling` module. It generates two input files:
         - walls.analysis_name: The MTSET input file, which contains the axisymmetric geometries.
         - tflow.analysis_name: The MTFLO blading input file, which contains the blading and design parameters.
 
@@ -337,7 +337,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         """   
 
         # Lazy import the file_handling class
-        from Submodels.file_handling import fileHandling
+        from Submodels.file_handling import fileHandlingMTSET, fileHandlingMTFLO
 
         # Generate the MTSET input file containing the axisymmetric geometries and the MTFLO blading input file
         try:
@@ -352,16 +352,15 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self.oper = self.multi_oper[0]
             self.ComputeOmega(idx=0)
 
-            fh = fileHandling()
-            fh.fileHandlingMTSET(params_CB=self.centerbody_variables,
+            fileHandlingMTSET(params_CB=self.centerbody_variables,
                                  params_duct=self.duct_variables,
                                  case_name=self.analysis_name,
                                  ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
             
-            fh.fileHandlingMTFLO(case_name=self.analysis_name,
-                                 ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
-                                                                          design_params=self.blade_design_parameters,
-                                                                          plot=False)  # Generate the MTFLO input file
+            fileHandlingMTFLO(case_name=self.analysis_name,
+                              ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
+                                                                       design_params=self.blade_design_parameters,
+                                                                       plot=False)  # Generate the MTFLO input file
             
             output_generated =  True  # If both input generation routines succeeded, set output_generated to True
 

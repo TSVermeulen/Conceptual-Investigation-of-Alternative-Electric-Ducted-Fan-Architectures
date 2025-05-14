@@ -91,7 +91,7 @@ from pathlib import Path
 from Submodels.MTSET_call import MTSET_call
 from Submodels.MTFLO_call import MTFLO_call
 from Submodels.MTSOL_call import MTSOL_call, ExitFlag, OutputType
-from Submodels.file_handling import fileHandling
+from Submodels.file_handling import fileHandlingMTSET, fileHandlingMTFLO
 
 @contextmanager
 def change_working_directory(dir: Path):
@@ -238,10 +238,10 @@ class MTFLOW_caller:
                 self.duct_params = kwargs.get('duct_params')
                 self.blading_parameters = kwargs.get('blading_parameters')
                 self.design_parameters = kwargs.get('design_parameters')
-                fileHandling().fileHandlingMTSET(params_CB=self.centrebody_params,
-                                                 params_duct=self.duct_params,
-                                                 case_name=self.analysis_name,
-                                                 ref_length=self.ref_length).GenerateMTSETInput()
+                fileHandlingMTSET(params_CB=self.centrebody_params,
+                                  params_duct=self.duct_params,
+                                  case_name=self.analysis_name,
+                                  ref_length=self.ref_length).GenerateMTSETInput()
                 
             # --------------------
             # Check the grid by running a simple, fan-less, inviscid low-Mach case. If there is an issue with the grid MTSOL will crash
@@ -299,9 +299,9 @@ class MTFLOW_caller:
             # Generate the MTFLO input file tflow.analysis_name
             # --------------------
             if not external_inputs and exit_flag != ExitFlag.CRASH:
-                fileHandling().fileHandlingMTFLO(case_name=self.analysis_name,
-                                                 ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
-                                                                                                design_params=self.design_parameters)
+                fileHandlingMTFLO(case_name=self.analysis_name,
+                                  ref_length=self.ref_length).GenerateMTFLOInput(blading_params=self.blading_parameters,
+                                                                                 design_params=self.design_parameters)
             
             # --------------------
             # Execute MTSOl solver

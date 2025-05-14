@@ -27,7 +27,7 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parent))
 
 from Submodels.Parameterizations import AirfoilParameterization
-from Submodels.file_handling import fileHandling
+from Submodels.file_handling import fileHandlingMTFLO, fileHandlingMTSET
 from Submodels.output_handling import output_processing
 from Submodels.MTSOL_call import MTSOL_call
 from Submodels.MTSET_call import MTSET_call
@@ -262,10 +262,10 @@ def GenerateMTFLOInput(blading_parameters: list,
     None
     """
     
-    fileHandling.fileHandlingMTFLO(case_name=ANALYSIS_NAME,
-                                   ref_length=L_REF).GenerateMTFLOInput(blading_params=blading_parameters,
-                                                                        design_params=design_parameters,
-                                                                        plot=display_plot)
+    fileHandlingMTFLO(case_name=ANALYSIS_NAME,
+                      ref_length=L_REF).GenerateMTFLOInput(blading_params=blading_parameters,
+                                                           design_params=design_parameters,
+                                                           plot=display_plot)
 
 
 def GenerateMTSETGeometry() -> None:
@@ -374,12 +374,12 @@ def GenerateMTSETGeometry() -> None:
     params_duct = {"Leading Edge Coordinates": (x_duct.min(), upper_y[-1]), "Chord Length": (lower_x.max() - lower_x.min())}
 
     # Generate the walls.x22a_validation
-    fileHandling().fileHandlingMTSET(params_CB=params_CB,
-                                     params_duct=params_duct,
-                                     case_name=ANALYSIS_NAME,
-                                     ref_length=L_REF,
-                                     external_input=True).GenerateMTSETInput(xy_centerbody=xy_centerbody,
-                                                                             xy_duct=xy_duct)
+    fileHandlingMTSET(params_CB=params_CB,
+                      params_duct=params_duct,
+                      case_name=ANALYSIS_NAME,
+                      ref_length=L_REF,
+                      external_input=True).GenerateMTSETInput(xy_centerbody=xy_centerbody,
+                                                              xy_duct=xy_duct)
 
 
 def ChangeOMEGA(omega: float) -> None:
