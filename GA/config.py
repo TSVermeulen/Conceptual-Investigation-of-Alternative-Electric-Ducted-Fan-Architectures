@@ -279,6 +279,9 @@ MAX_GENERATIONS = 100
 MAX_EVALUATIONS = 4000
 
 
+# Compute the total number of objectives
+n_objectives = len(objective_IDs) * len(multi_oper) - sum([1 for ID in objective_IDs if ID in (1, 2)]) * (len(multi_oper) - 1)
+
 # Define the initial population parameter spreads, used to construct a biased initial population 
 SPREAD_CONTINUOUS = 0.25  # Relative spread (+/- %) applied to continous variables around their reference values
 ZERO_NOISE = 0.1  # % noise added to zero values to avoid stagnation

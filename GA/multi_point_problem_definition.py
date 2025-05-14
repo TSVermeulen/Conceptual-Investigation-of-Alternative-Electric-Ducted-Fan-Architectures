@@ -51,9 +51,10 @@ from pathlib import Path
 import numpy as np
 from pymoo.core.problem import ElementwiseProblem
 
-# Ensure all paths are correctly setup
-from utils import ensure_repo_paths
-ensure_repo_paths()
+# Ensure all paths are correctly setup if executing the script as standalone
+if __name__ == "__main__":
+    from utils import ensure_repo_paths
+    ensure_repo_paths()
 
 # Import interface submodels and other dependencies
 from Submodels.MTSOL_call import OutputType, ExitFlag
@@ -98,7 +99,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         design_vars = DesignVector()._construct_vector(config)
 
         # Calculate the number of objectives and constraints of the optimization problem
-        n_objectives = len(config.objective_IDs) * len(config.multi_oper) - sum([1 for ID in config.objective_IDs if ID in (1, 2)]) * (len(config.multi_oper) - 1)
+        n_objectives = config.n_objectives
         n_inequality_constraints = len(config.constraint_IDs[0]) * len(config.multi_oper)
         n_equality_constraints = len(config.constraint_IDs[1]) * len(config.multi_oper)
 
@@ -112,6 +113,10 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Define key paths/directories
         self.parent_dir = Path(__file__).resolve().parent.parent
         self.submodels_path = self.parent_dir / "Submodels"
+
+        # Validate critical submodels_path exist
+        if not self.submodels_path.exists():
+            raise SystemError(f"Missing submodels path: {self.submodels_path}")
         
         # Create folder path to store statefiles
         self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
@@ -179,6 +184,10 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Analysis name has a length of 24 characters, satisfying the maximum length of 32 characters accepted by MTFLOW. 
         self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)
 
+        # Truncate the analysis name to 32 characters if its length exceeds the 32 character limit.
+        if len(self.analysis_name) > 32:
+            self.analysis_name = self.analysis_name[:32]
+
         # Additionally set the tflow file path
         self._tflow_file_path = self.submodels_path / f"tflow.{self.analysis_name}"
 
@@ -199,7 +208,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Compute the inlet Reynolds number and write it to self.oper
         # Uses Vinl [m/s], Lref [m], and kinematic_viscosity [m^2/s]
-        self.oper["Inlet_Reynolds"] = round(float((self.oper["Vinl"] * self.Lref) / config.atmosphere.kinematic_viscosity[0]), 3)
+        self.oper["Inlet_Reynolds"] = float((self.oper["Vinl"] * self.Lref) / config.atmosphere.kinematic_viscosity[0])
 
 
     def ComputeOmega(self,
@@ -273,7 +282,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         Archive the MTFLOW statefile to a separate folder and clean up temporary files.
 
         This method:
-        1. Copies the tdat statefile to a persistent archive folder.
+        1. Move the tdat statefile to a persistent archive folder.
         2. Removes all temporary MTFLOW input/output files, including the original statefile.
         
         Note that the output files can always be regenerated from the statefile.
@@ -286,6 +295,9 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         for file_type in self.FILE_TEMPLATES:
             # Construct filepath
             file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
+
+            if not file_path.is_file():
+                continue
 
             # Move the state file to the dump folder
             if file_type == "tdat": 
@@ -340,15 +352,16 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self.oper = self.multi_oper[0]
             self.ComputeOmega(idx=0)
 
-            fileHandling().fileHandlingMTSET(params_CB=self.centerbody_variables,
-                                             params_duct=self.duct_variables,
-                                             case_name=self.analysis_name,
-                                             ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
+            fh = fileHandling()
+            fh.fileHandlingMTSET(params_CB=self.centerbody_variables,
+                                 params_duct=self.duct_variables,
+                                 case_name=self.analysis_name,
+                                 ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
             
-            fileHandling().fileHandlingMTFLO(case_name=self.analysis_name,
-                                             ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
-                                                                                      design_params=self.blade_design_parameters,
-                                                                                      plot=False)  # Generate the MTFLO input file
+            fh.fileHandlingMTFLO(case_name=self.analysis_name,
+                                 ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
+                                                                          design_params=self.blade_design_parameters,
+                                                                          plot=False)  # Generate the MTFLO input file
             
             output_generated =  True  # If both input generation routines succeeded, set output_generated to True
 

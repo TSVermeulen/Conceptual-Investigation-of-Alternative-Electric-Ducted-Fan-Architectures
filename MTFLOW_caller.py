@@ -310,7 +310,7 @@ class MTFLOW_caller:
             if exit_flag != ExitFlag.CRASH:   
                 try:    
                     MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
-                except:
+                except Exception:
                     # If MTFLO fails, set the exit flag to crash so that we don't execute the MTSOL evaluation.
                     exit_flag = ExitFlag.CRASH
 

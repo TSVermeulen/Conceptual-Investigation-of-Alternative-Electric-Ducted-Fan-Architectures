@@ -121,6 +121,10 @@ class OptimizationProblem(ElementwiseProblem):
         # Define key paths/directories
         self.parent_dir = Path(__file__).resolve().parent.parent
         self.submodels_path = self.parent_dir / "Submodels"
+
+        # Validate critical submodels_path exist
+        if not self.submodels_path.exists():
+            raise SystemError(f"Missing submodels path: {self.submodels_path}")
         
         # Create folder path to store statefiles
         self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
@@ -187,6 +191,10 @@ class OptimizationProblem(ElementwiseProblem):
         # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>.
         # Analysis name has a length of 24 characters, satisfying the maximum length of 32 characters accepted by MTFLOW. 
         self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)
+        
+        # Truncate the analysis name to 32 characters if its length exceeds the 32 character limit.
+        if len(self.analysis_name) > 32:
+            self.analysis_name = self.analysis_name[:32]
 
 
     def ComputeReynolds(self) -> None:
@@ -201,7 +209,7 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Compute the inlet Reynolds number and write it to self.oper
         # Uses Vinl [m/s], Lref [m], and kinematic_viscosity [m^2/s]
-        self.oper["Inlet_Reynolds"] = round(float((self.oper["Vinl"] * self.Lref) / config.atmosphere.kinematic_viscosity[0]), 3)
+        self.oper["Inlet_Reynolds"] = float((self.oper["Vinl"] * self.Lref) / config.atmosphere.kinematic_viscosity[0])
 
 
     def ComputeOmega(self) -> None:
@@ -226,7 +234,7 @@ class OptimizationProblem(ElementwiseProblem):
         Archive the MTFLOW statefile to a separate folder and clean up temporary files.
 
         This method:
-        1. Copies the tdat statefile to a persistent archive folder.
+        1. Moves the tdat statefile to a persistent archive folder.
         2. Removes all temporary MTFLOW input/output files, including the original statefile.
         
         Note that the output files can always be regenerated from the statefile.
@@ -240,7 +248,7 @@ class OptimizationProblem(ElementwiseProblem):
             # Construct filepath
             file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
 
-            if not file_path.exists():
+            if not file_path.is_file():
                 continue
             
             # Move the state file to the dump folder
@@ -281,10 +289,7 @@ class OptimizationProblem(ElementwiseProblem):
         """   
 
         # Lazy import the file_handling class
-        from Submodels.file_handling import fileHandling
-
-        # Create a file_handling parent-class instance
-        file_handler = fileHandling()
+        from Submodels.file_handling import fileHandling        
 
         # Generate the MTSET input file containing the axisymmetric geometries and the MTFLO blading input file
         try:
@@ -295,8 +300,10 @@ class OptimizationProblem(ElementwiseProblem):
             self.blade_blading_parameters, 
             self.Lref) = self.design_vector_interface.DeconstructDesignVector(x_dict=x)
 
+            # Set the non-dimensional omega rates
             self.ComputeOmega()
 
+            file_handler = fileHandling()
             file_handler.fileHandlingMTSET(params_CB=self.centerbody_variables,
                                            params_duct=self.duct_variables,
                                            case_name=self.analysis_name,
