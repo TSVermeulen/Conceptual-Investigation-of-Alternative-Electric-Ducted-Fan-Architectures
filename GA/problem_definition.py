@@ -414,10 +414,11 @@ class OptimizationProblem(ElementwiseProblem):
                                          out=out)
         
         # Cleanup the generated files
-        try:
-            self.CleanUpFiles()
-        except Exception as e:
-            print(f"Warning: Failed to clean up files for {self.analysis_name}: {e}")
+        if design_okay:
+            try:
+                self.CleanUpFiles()
+            except Exception as e:
+                print(f"Warning: Failed to clean up files for {self.analysis_name}: {e}")
     
 
 if __name__ == "__main__":
