@@ -710,6 +710,11 @@ class AirfoilParameterization:
                                                                                    bezier_thickness,
                                                                                    bezier_camber_x,
                                                                                    bezier_camber)
+        
+        if not np.all(np.diff(upper_x) >= 0):
+            raise ValueError("Infeasible profile shape encountered: upper surface contains an error.")
+        elif not np.all(np.diff(lower_x) >= 0):
+            raise ValueError("Infeasible profile shape encountered: lower surface contains an error.")
 
         return upper_x, upper_y, lower_x, lower_y
 

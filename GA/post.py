@@ -818,7 +818,6 @@ class PostProcessing:
         plt.show()
         plt.close('all')
 
-
         # Plot the centerbody designs
         if config.OPTIMIZE_CENTERBODY:
             # First plot the complete final population
