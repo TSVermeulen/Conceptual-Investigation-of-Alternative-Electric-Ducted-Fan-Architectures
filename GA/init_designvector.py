@@ -54,8 +54,8 @@ class DesignVector():
         """
 
 
-    def _construct_vector(self,
-                          cfg: ModuleType) -> dict:
+    def construct_vector(self,
+                         cfg: ModuleType) -> dict:
         """
         Initialize the pymoo design vector based on the toggles in config.
 
@@ -154,5 +154,5 @@ if __name__ == "__main__":
     import config
     # config.OPTIMIZE_DUCT = False
     test = DesignVector()
-    vector = test._construct_vector(config)
+    vector = test.construct_vector(config)
     print(vector)

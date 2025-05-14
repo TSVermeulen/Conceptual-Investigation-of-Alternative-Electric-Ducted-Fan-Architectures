@@ -79,19 +79,24 @@ Changelog:
 - V1.2: Cleaned up import statements, resolved infite loop issue in gridtest, and added MTSOL loop exit for non-convergence. 
 - V1.3: Removed HandleExitFlag() method as it is not needed. Extracted choking handling to a separate method.
 - V1.4: Cleaned up imports. Implemented chdir context manager. Switched to pathlib for path operations. Cleaned up/streamlined exit flags. Implemented OutputType enum class. 
-- V1.5: Updated to remove iter_count output from MTSOl_call.
+- V1.5: Updated to remove iter_count output from MTSOl_call. Updated documentation. Reduced no of streamwise points to 150 to reduce computational cost. 
 """
 
+# Import standard libraries
 import os
 import random
-import numpy as np
 from contextlib import contextmanager
 from pathlib import Path
 
+# Import 3rd party libraries
+import numpy as np
+
+# Import interfacing modules
 from Submodels.MTSET_call import MTSET_call
 from Submodels.MTFLO_call import MTFLO_call
 from Submodels.MTSOL_call import MTSOL_call, ExitFlag, OutputType
 from Submodels.file_handling import fileHandlingMTSET, fileHandlingMTFLO
+
 
 @contextmanager
 def change_working_directory(dir: Path):
@@ -258,7 +263,7 @@ class MTFLOW_caller:
                 # while yielding a more "rounded/elliptic" grid due to the reduced x-coefficient.
                 if check_count == 0:
                     # For the initial attempt, use the default values, but with an increased streamwise resolution
-                    streamwise_points = 200
+                    streamwise_points = 150
                     grid_e_coeff = 0.8
                     grid_x_coeff = 0.8
                 elif check_count == 1:

@@ -79,6 +79,32 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                       "boundary_layer": "boundary_layer.{}",
                       "tdat": "tdat.{}"}
     
+    # Initialize output dictionary to use in case of an infeasible design. 
+    # This equals the outputs of the output_handling.output_processing.GetAllVariables(3) method, 
+    # but is quicker as it does not involve reading a file.
+    CRASH_OUTPUTS: dict[str, dict[str, float]] = {'data':
+                                                  {'Total power CP': 0.00000, 
+                                                   'EtaP': 0.00000, 
+                                                   'Total force CT': 0.00000, 
+                                                   'Element 2 top CTV': 0.00000, 
+                                                   'Element 2 bot CTV': 0.00000, 
+                                                   'Axis body CTV': 0.00000, 
+                                                   'Viscous CTv': 0.00000, 
+                                                   'Inviscid CTi': 0.00000, 
+                                                   'Friction CTf': 0.00000, 
+                                                   'Pressure CTp': 0.00000, 
+                                                   'Pressure Ratio': 0.00000}, 
+                                                  'grouped_data': 
+                                                  {'Element 2': 
+                                                   {'CTf': 0.00000, 
+                                                    'CTp': 0.00000, 
+                                                    'top Xtr': 0.00000, 
+                                                    'bot Xtr': 0.00000}, 
+                                                   'Axis Body': 
+                                                   {'CTf': 0.00000, 
+                                                    'CTp': 0.00000, 
+                                                    'Xtr': 0.00000}}}
+    
 
     def __init__(self,
                  **kwargs) -> None:
@@ -96,7 +122,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         self.optimize_stages = config.OPTIMIZE_STAGE
 
         # Initialize variable list with variable types.
-        design_vars = DesignVector()._construct_vector(config)
+        design_vars = DesignVector().construct_vector(config)
 
         # Calculate the number of objectives and constraints of the optimization problem
         n_objectives = config.n_objectives
@@ -121,8 +147,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Create folder path to store statefiles
         self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
         # Check existance of dump folder
-        self.dump_folder.mkdir(exist_ok=True,
-                               parents=True)
+        self.dump_folder.mkdir(exist_ok=True)
 
         # Define analysisname template
         self.timestamp_format = "%m%d%H%M%S"
@@ -131,31 +156,8 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Initialize design vector interface
         self.design_vector_interface = DesignVectorInterface()
 
-        # Initialize output dictionary to use in case of an infeasible design. 
-        # This equals the outputs of the output_handling.output_processing.GetAllVariables(3) method, 
-        # but is quicker as it does not involve reading a file.
-        self.crash_outputs: dict[str, dict[str, float]] = {'data':
-                                                           {'Total power CP': 0.00000, 
-                                                            'EtaP': 0.00000, 
-                                                            'Total force CT': 0.00000, 
-                                                            'Element 2 top CTV': 0.00000, 
-                                                            'Element 2 bot CTV': 0.00000, 
-                                                            'Axis body CTV': 0.00000, 
-                                                            'Viscous CTv': 0.00000, 
-                                                            'Inviscid CTi': 0.00000, 
-                                                            'Friction CTf': 0.00000, 
-                                                            'Pressure CTp': 0.00000, 
-                                                            'Pressure Ratio': 0.00000}, 
-                                                           'grouped_data': 
-                                                           {'Element 2': 
-                                                            {'CTf': 0.00000, 
-                                                             'CTp': 0.00000, 
-                                                             'top Xtr': 0.00000, 
-                                                             'bot Xtr': 0.00000}, 
-                                                            'Axis Body': 
-                                                            {'CTf': 0.00000, 
-                                                             'CTp': 0.00000, 
-                                                             'Xtr': 0.00000}}}
+        # Create an instance level of crash outputs
+        self.crash_outputs = self.CRASH_OUTPUTS
                         
 
     def GenerateAnalysisName(self) -> None:
@@ -349,7 +351,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self.Lref) = self.design_vector_interface.DeconstructDesignVector(x_dict=x)
 
             # Set the initial non-dimensional omega rates
-            self.oper = self.multi_oper[0]
+            self.oper =  copy.deepcopy(self.multi_oper[0])
             self.ComputeOmega(idx=0)
 
             fileHandlingMTSET(params_CB=self.centerbody_variables,
@@ -468,7 +470,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             try:
                 self.CleanUpFiles()
             except Exception as e:
-                print(f"Warning: Failed to clean up files for {self.analysis_name}: {e}")
+                pass
     
 
 if __name__ == "__main__":

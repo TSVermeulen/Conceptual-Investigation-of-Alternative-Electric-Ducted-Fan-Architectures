@@ -40,9 +40,11 @@ Changelog:
 - V1.2: Updated GetAllVariables() method to remove empty strings to increase robustness and avoid runtime errors in case MTSOL.GetAvgValues() adds additional whitelines.
 """
 
+# Import standard libraries
 import re
 from pathlib import Path
 
+# Import 3rd party libraries
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np

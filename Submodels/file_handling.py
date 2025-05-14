@@ -25,9 +25,8 @@ Examples
 >>> n2415_coeff = {"b_0": 0.203, "b_2": 0.319, "b_8": 0.042, "b_15": 0.750, "b_17": 0.679, 
 ...                "x_t": 0.299, "y_t": 0.060, "x_c": 0.405, "y_c": 0.020, "z_TE": -0.00034, 
 ...                "dz_TE": 0.0017, "r_LE": -0.024, "trailing_wedge_angle": 0.167, "trailing_camberline_angle": 0.065, 
-...                "leading_edge_direction": 0.094, "Chord Length": 1.0}
->>> design_params = {"Duct Leading Edge Coordinates": (0, 2), "Duct Outer Diameter": 1.0}
->>> call_class = fileHandlingMTSET(n2415_coeff, n2415_coeff, design_params, "test_case")
+...                "leading_edge_direction": 0.094, "Chord Length": 1.0, "Leading Edge Coordinates": (0, 2)}
+>>> call_class = fileHandlingMTSET(n2415_coeff, n2415_coeff, "test_case", 1.0)
 >>> call_class.GenerateMTSETInput()
 
 >>> blading_parameters = [
@@ -39,6 +38,8 @@ Examples
 ...         "chord_length": np.array([0.2, 0.2]),
 ...         "sweep_angle": np.array([np.pi / 4, np.pi / 4]),
 ...         "blade_angle": np.array([0, np.pi / 3]),
+...         "ref_blade_angle": 0.0,
+...         "reference_section_blade_angle": 0.0,
 ...     },
 ...     {
 ...         "root_LE_coordinate": 2.0,
@@ -48,17 +49,19 @@ Examples
 ...         "chord_length": np.array([0.2, 0.2]),
 ...         "sweep_angle": np.array([np.pi / 4, np.pi / 4]),
 ...         "blade_angle": np.array([0, np.pi / 8]),
+...         "ref_blade_angle": 0.0,
+...         "reference_section_blade_angle": 0.0,
 ...     },
 ... ]
 >>> design_parameters = [[n2415_coeff, n2415_coeff],
 ...                      [n2415_coeff, n2415_coeff],
 ...                      ]
->>> call_class = fileHandlingMTFLO(2, "test_case")
+>>> call_class = fileHandlingMTFLO("test_case", 1.0)
 >>> call_class.GenerateMTFLOInput(blading_parameters, design_parameters)
 
 Notes
 -----
-This module is designed to work with the BP3434 profile parameterization defined in the Parameterizations.py file
+This module is designed to work with the BP3434 profile parameterization defined in the Parameterizations.py file.
 Ensure that the input dictionaries are correctly formatted. For details on the specific inputs needed, see the 
 different method docstrings.
 
@@ -93,13 +96,16 @@ Changelog
 - V1.2.0: Updated class initialization logic and function inputs to enable existing geometry inputs for debugging/validation
 - V1.2.1: Fixed duplicate leading edge coordinate in fileHandlingMTSET.GetProfileCoordinates(). Implemented nondimensionalisation of geometric parameters for both MTSET and MTFLO input files. 
 - V1.3: Significant reworks to help solve bugs and issues found in validation against the X22A ducted propeller case. Added the grid size as optional input in fileHandlingMTSET. Code now automatically determines degree of bivariate interpolants based on number of radial stations provided in input data. Factorized the GenerateMTFLOInput function. Fixed transformation from planar to cylindrical coordinate system based on the implementation found in the BladeX module. Fixed implementation of circumferential blade thickness and blade slope. 
-- V2.0: Removed grouping class to reduce import size in GA optimisation. Updated 1D interpolation to also dynamically change interpolation degree based on input dimension. 
+- V2.0: Removed grouping class to reduce import size in GA optimisation. Updated 1D interpolation to also dynamically change interpolation degree based on input dimension. Updated documentation. 
 """
 
-import numpy as np
-from scipy import interpolate
+# Import standard libraries
 from pathlib import Path
 from typing import Optional
+
+# Import 3rd party lbiraries
+import numpy as np
+from scipy import interpolate
 
 # Handle local versus global execution of the file with imports
 if __name__ == "__main__":
@@ -121,7 +127,7 @@ class fileHandlingMTSET:
     def __init__(self, 
                  params_CB: dict,
                  params_duct: dict,
-                 case_name: str,
+                 analysis_name: str,
                  ref_length: float,
                  external_input : bool = False,
                  domain_boundaries : Optional[list[float, float, float, float]] = None,
@@ -137,7 +143,7 @@ class fileHandlingMTSET:
             Dictionary containing parameters for the centerbody.
         - params_duct : dict
             Dictionary containing parameters for the duct.
-        - case_name : str
+        - analysis_name : str
             Name of the case being handled.
         - ref_length : float
             The reference length used by MTFLOW to non-dimensionalise all the dimensions.
@@ -178,15 +184,15 @@ class fileHandlingMTSET:
             if missing_keys:
                 raise ValueError(f"Missing required keys in {name}: {missing_keys}")
 
-        if not isinstance(case_name, str):
-            raise TypeError("case_name must be a string")
+        if not isinstance(analysis_name, str):
+            raise TypeError("analysis_name must be a string")
             
         if ref_length <= 0:
             raise ValueError("ref_length must be a positive float")
             
         self.centerbody_params = params_CB
         self.duct_params = params_duct
-        self.case_name = case_name
+        self.analysis_name = analysis_name
         self.ref_length = ref_length
         self.external_input = external_input
 
@@ -315,7 +321,7 @@ class fileHandlingMTSET:
         Returns:
         --------
         None
-            Output of function is the input file to MTSET, walls.xxx, where xxx is equal to self.case_name
+            Output of function is the input file to MTSET, walls.xxx, where xxx is equal to self.analysis_name
         """
 
         domain_boundaries = self.GetGridSize()
@@ -332,10 +338,10 @@ class fileHandlingMTSET:
         xy_centerbody = xy_centerbody / self.ref_length
 
         # Generate walls.xxx input data structure
-        file_path = self.submodels_path / "walls.{}".format(self.case_name)
+        file_path = self.submodels_path / "walls.{}".format(self.analysis_name)
         with open(file_path, "w") as file:
             # Write opening lines of the file
-            file.write(self.case_name + '\n')
+            file.write(self.analysis_name + '\n')
             file.write('    '.join(map(str, domain_boundaries)) + '\n')
 
             # Write centerbody profile coordinates, using a tab delimiter
@@ -365,7 +371,7 @@ class fileHandlingMTFLO:
     SYMMETRIC_LIMIT = 1E-3
 
     def __init__(self, 
-                 case_name: str,
+                 analysis_name: str,
                  ref_length: float,
                  centerbody_rotor_thickness: float = 0.18,
                  ) -> None:
@@ -375,7 +381,7 @@ class fileHandlingMTFLO:
 
         Parameters
         ----------
-        - case_name : str
+        - analysis_name : str
             Name of the case being handled.
         - ref_length : float
             The reference length used by MTFLOW to non-dimensionalise all the dimensions.
@@ -387,7 +393,7 @@ class fileHandlingMTFLO:
         None
         """
 
-        self.case_name= case_name
+        self.analysis_name= analysis_name
         self.ref_length = ref_length
         self.CENTERBODY_ROTOR_THICKNESS = centerbody_rotor_thickness
 
@@ -944,18 +950,14 @@ class fileHandlingMTFLO:
             - "Chord Length": The chord length of the blade.
         - plot : bool, optional
             An optional controlling boolean to decide if plots are to be created of the parameters of interest. Default value is False. 
-
-        Returns:
-        --------
-        None
         """
 
         # Open the tflow.xxx file and start writing the required input data to it
-        file_path = self.submodels_path / "tflow.{}".format(self.case_name)
+        file_path = self.submodels_path / "tflow.{}".format(self.analysis_name)
         with open(file_path, "w") as file:
             # Write the case name to the file
             file.write('NAME\n')
-            file.write(f"{str(self.case_name)}\n")
+            file.write(f"{str(self.analysis_name)}\n")
             file.write('END\n \n')
 
             # Loop over the number of stages and write the data for each stage

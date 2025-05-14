@@ -83,11 +83,11 @@ multi_oper = [{"Inlet_Mach": 0.10285225,
                "atmos": Atmosphere(0),
                "Omega": -9.667,
                "RPS": 25.237},
-            #    {"Inlet_Mach": 0.20,
-            #     "N_crit": 9,
-            #     "atmos": Atmosphere(0),
-            #     "Omega": -20,
-            #     "RPS": 0},
+               {"Inlet_Mach": 0.20,
+                "N_crit": 9,
+                "atmos": Atmosphere(0),
+                "Omega": -20,
+                "RPS": 0},
                 ]
 
 # Compute the inlet velocities and write them to the multi-point oper dict
@@ -107,7 +107,7 @@ REF_FRONTAL_AREA = 5.1726  # m^2
 # Controls for the optimisation vector - BLADES
 OPTIMIZE_STAGE = [True, False, False]
 ROTATING = [True, False, False]
-NUM_RADIALSECTIONS = [5, 2, 2]  # Define the number of radial sections at which the blade profiles for each stage will be defined. 
+NUM_RADIALSECTIONS = [4, 2, 2]  # Define the number of radial sections at which the blade profiles for each stage will be defined. 
 NUM_STAGES = 3  # Define the number of stages (i.e. total count of rotors + stators)
 REFERENCE_BLADE_ANGLES = [np.deg2rad(19), 0, 0]  # Reference angles at the reference section (typically 75% of blade span)
 BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
@@ -141,14 +141,20 @@ def _load_blading(Omega: float,
     """
 
     # Start defining the MTFLO blading inputs
-    radial_stations = np.array([0.0, 0.32004, 0.5334, 0.74676, 1.0668])
+    radial_stations = np.array([0.0, 0.32004, 0.5334, 0.74676, 1.0668])  # 0, 0.3, 0.5, 0.7, 1
     chord_length = np.array([0.3510, 0.3152, 0.2528, 0.2367, 0.2205])
     blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(46.8), np.deg2rad(32.3), np.deg2rad(22.3), np.deg2rad(15.5)])
+    radial_stations = np.array([0.0, 0.5334, 1.0668])  # 0, 0.3, 0.5, 0.7, 1
+    chord_length = np.array([0.3510, 0.2528, 0.2205])
+    blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(32.3), np.deg2rad(15.5)])
+    radial_stations = np.array([0.0, 0.32004, 0.74676, 1.0668])  # 0, 0.3, 0.7, 1
+    chord_length = np.array([0.3510, 0.3152, 0.2367, 0.2205])
+    blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(46.8), np.deg2rad(22.3), np.deg2rad(15.5)])
     propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
                             "rotational_rate": Omega, 
-                            "RPS": RPS,
-                            # "RPS_lst": [RPS, RPS * 3],
-                            "RPS_lst": [RPS],
+                            # "RPS": RPS,
+                            "RPS_lst": [RPS, RPS * 3],
+                            # "RPS_lst": [RPS],
                             "ref_blade_angle": ref_blade_angle, 
                             "reference_section_blade_angle": np.deg2rad(20), 
                             "blade_count": 3, 
@@ -159,8 +165,8 @@ def _load_blading(Omega: float,
     horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, 
                                    "rotational_rate": 0, 
                                    "RPS": 0,
-                                #    "RPS_lst": [0, 0],
-                                   "RPS_lst": [0],
+                                   "RPS_lst": [0, 0],
+                                #    "RPS_lst": [0],
                                    "ref_blade_angle": 0, 
                                    "reference_section_blade_angle": 0, 
                                    "blade_count": 4, 
@@ -172,8 +178,8 @@ def _load_blading(Omega: float,
     diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, 
                                  "rotational_rate": 0, 
                                  "RPS": 0,
-                                #  "RPS_lst": [0, 0],
-                                 "RPS_lst": [0],
+                                 "RPS_lst": [0, 0],
+                                #  "RPS_lst": [0],
                                  "ref_blade_angle": 0, 
                                  "reference_section_blade_angle": 0, 
                                  "blade_count": 2, 
@@ -221,7 +227,7 @@ def _load_blading(Omega: float,
     Dstrut_section = param.FindInitialParameterization(reference_file=filenames[6])
 
     # Construct blading list
-    design_parameters = [[R00_section, R03_section, R05_section, R07_section, R10_section],
+    design_parameters = [[R00_section, R03_section, R07_section, R10_section],
                          [Hstrut_section, Hstrut_section],
                          [Dstrut_section, Dstrut_section]]
 

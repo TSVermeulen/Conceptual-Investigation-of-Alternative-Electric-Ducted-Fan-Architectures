@@ -15,8 +15,10 @@ Changelog:
 - V1.0: Initial implementation. 
 """
 
-from pathlib import Path
+# Import standard libraries
 import sys
+from pathlib import Path
+
 
 def ensure_repo_paths() -> None:
     repo_root = Path(__file__).resolve().parent.parent

@@ -945,7 +945,6 @@ class AirfoilParameterization:
                 return (3 * x[7] - x[8] / np.tan(x[14])) / 2 - x[7]
             else:
                 return x[14]
-
         def constraint_6_upper(x):
             x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
             if x[14] != 0:
@@ -953,14 +952,13 @@ class AirfoilParameterization:
             else:
                 return x[14]
             
-        # Define constraint for contrl point 3 x-coordinate of TE camber curve
+        # Define constraint for control point 3 x-coordinate of TE camber curve
         def constraint_7_lower(x):
             x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
             if x[14] != 0:
                 return (-8 * x[8] / np.tan(x[14]) + 13 * x[7]) / 6 - x[7]
             else:
                 return x[14]
-        
         def constraint_7_upper(x):
             x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
             if x[14] != 0:

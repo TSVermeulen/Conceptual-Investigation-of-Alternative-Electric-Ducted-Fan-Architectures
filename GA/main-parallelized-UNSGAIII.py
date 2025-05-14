@@ -80,10 +80,7 @@ if __name__ == "__main__":
     # Do not spawn more processes than the GA can effectively use
     n_processes = min(n_processes, config.POPULATION_SIZE)
 
-    with multiprocessing.Pool(processes=n_processes,
-                              initializer=ensure_repo_paths,
-                              initargs=()) as pool:
-
+    with multiprocessing.Pool(processes=n_processes) as pool:
         # Create runner
         runner = StarmapParallelization(pool.starmap)
 

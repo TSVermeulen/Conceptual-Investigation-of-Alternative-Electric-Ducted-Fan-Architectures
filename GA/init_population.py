@@ -87,7 +87,7 @@ class InitPopulation():
         self.type = population_type
 
         # Create a new design vector object
-        self.design_vector = DesignVector()._construct_vector(config)
+        self.design_vector = DesignVector().construct_vector(config)
         self.design_vector_keys = list(self.design_vector.keys())
 
         # Set the seed for the random number generator to ensure reproducibility

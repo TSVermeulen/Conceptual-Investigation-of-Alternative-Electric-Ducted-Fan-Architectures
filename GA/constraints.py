@@ -31,15 +31,19 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.2
+Version: 1.3
 
 Changelog:
 - V1.0: Initial implementation with basic equality and inequality constraints.
 - V1.1: Implemented inequality constraint for efficiency such that eta is always > 0. 
-- V1.2: Normalised constraints, added 1<T/Tref<1.01 constraint, extracted common power and thrust calculations to separate helper methods
+- V1.2: Normalised constraints, added 1<T/Tref<1.01 constraint, extracted common power and thrust calculations to separate helper methods.
+- V1.3: Implemented multi-point constraint evaluator. Updated documentation.
 """
 
+# Import 3rd party libraries
 import numpy as np
+
+# Import analysis configuration
 import config
 
 class Constraints:
@@ -342,9 +346,9 @@ class Constraints:
 
 
     def ComputeMultiPointConstraints(self,
-                                     analysis_outputs: list[dict],
+                                     analysis_outputs: list[dict[str, any]],
                                      Lref: float,
-                                     oper: list[dict],
+                                     oper: list[dict[str, any]],
                                      out: dict) -> None:              
         """
         Compute the inequality and equality constraints for a multi-point analysis based on the provided analysis outputs
@@ -357,6 +361,8 @@ class Constraints:
             which are used as inputs to the constraint functions.
         - Lref : float
             A reference length used in the computation of constraints.
+        - oper : list[dict[str, any]]
+            A list containing all operating condition dictionaries for each of the operating points in the multi-point analysis. 
         - out : dict
             A dictionary to store the computed constraints. The keys "G" and "H"
             will be populated with the inequality and equality constraints, respectively.

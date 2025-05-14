@@ -36,14 +36,16 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.0.5
+Version: 1.2
 
 Changelog:
 - V1.0: Initial working version
 - V1.0.5: Cleaned up inputs, removing file_path and changing it to a constant. 
 - V1.1: Added file status check to ensure that the file has been written before proceeding. Added stdinwrite function to clean up process interactions.
+- V1.2: Updated documentation and removed self.process.returncode return from MTFLO_call().caller()
 """
 
+# Import standard libraries
 import subprocess
 import time
 from pathlib import Path
@@ -162,10 +164,21 @@ class MTFLO_call:
 
 
     def FileStatus(self,
-                   fpath: str,
+                   fpath: Path,
                    ) -> bool:
         """ 
-        Simple function to check if the file update/write has finished
+        Simple function to check if the file update/write has finished.
+        Check occurs based on the presence of a file "lock" on the file if/when it is being used by another process. 
+
+        Parameters
+        ----------
+        - fpath : Path
+            Filepath of the file to check
+
+        Returns
+        -------
+        - status : bool
+            A status boolean. True if the file is free, and False if it is still being used by another process. 
         """
         try:
             with open(fpath, "rb"):
@@ -175,16 +188,11 @@ class MTFLO_call:
 
 
     def caller(self,
-               ) -> int:
+               ) -> None:
         """
-        Full interfacing function between Python and MTFLO
-
-        Requires that the input file, tflow.xxx, has been made and is available together with the mtflo.exe executable in the local directory.
+        Full interfacing function between Python and MTFLO.
         
-        Returns
-        -------
-        - self.process.returncode : int
-            self.process.returncode
+        Requires that the input file, tflow.xxx, has been made and is available together with the mtflo.exe executable in the local directory.
         """
         
         # Create subprocess for the MTFLO tool
@@ -201,9 +209,7 @@ class MTFLO_call:
             if self.FileStatus(fpath):
                 break
             else:
-                time.sleep(0.01)
-
-        return self.process.returncode      
+                time.sleep(0.01)  
 
 
 if __name__ == "__main__":

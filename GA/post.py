@@ -671,76 +671,6 @@ class PostProcessing:
                     plt.ylabel('Normalised perpendicular coordinate $y/c$ [-]')
                     plt.tight_layout()
 
-
-        # # Switching logic if we should compare against the specified individual by integer or against the optimum design
-        # if individual == "opt":
-        #     optimum_vector = res.X
-        #     (_, 
-        #      _, 
-        #      optimised_design, 
-        #      _, 
-        #      _) = DesignVectorInterface().DeconstructDesignVector(optimum_vector)
-        # else:
-        #     if optimised_design is None:
-        #         raise ValueError("'optimised_design' must be supplied when 'individual' is an int.")
-        #     optimised_design = copy.deepcopy(optimised_design[individual])
-
-        # # Loop over all stages and compare against the reference design if the stage is optimised:
-        # for i in range(len(config.OPTIMIZE_STAGE)):
-        #     if config.OPTIMIZE_STAGE[i]:
-        #         radial_coordinates = np.linspace(0, 1, config.NUM_RADIALSECTIONS[i])
-                
-        #         # Loop over the radial slices
-        #         for j, radial_coordinate in enumerate(radial_coordinates):
-        #             # Create plot figure
-        #             plt.figure(f"BladeProfileComparison_R{round(radial_coordinate, 3)}")
-   
-        #             # Create complete optimised airfoil representation
-        #             (upper_x, 
-        #              upper_y, 
-        #              lower_x,
-        #              lower_y) = self.ConstructBladeProfile(optimised_design[i],
-        #                                                    j)
-
-        #             # Plot the optimised profile
-        #             plt.plot(np.concatenate((upper_x, np.flip(lower_x)), axis=0),
-        #                      np.concatenate((upper_y, np.flip(lower_y)), axis=0),
-        #                      label="Optimised",
-        #                      color='tab:blue')
-                    
-        #             # Plot the optimised camber line
-        #             plt.plot((upper_x + lower_x) / 2,
-        #                      (upper_y + lower_y) / 2,
-        #                      color='tab:blue')
-   
-        #             # Create complete reference airfoil representation
-        #             (upper_x, 
-        #              upper_y, 
-        #              lower_x,
-        #              lower_y) = self.ConstructBladeProfile(reference_design[i],
-        #                                                    j)
-
-        #             # Plot the reference profile
-        #             plt.plot(np.concatenate((upper_x, np.flip(lower_x)), axis=0),
-        #                      np.concatenate((upper_y, np.flip(lower_y)), axis=0),
-        #                      "-.",
-        #                      color="tab:orange",
-        #                      label="Reference")
-                    
-        #             # Plot the reference camber line
-        #             plt.plot((upper_x + lower_x) / 2,
-        #                      (upper_y + lower_y) / 2,
-        #                      color='tab:orange')
-                    
-        #             # Format plot and add legend
-        #             plt.legend()
-        #             plt.title(f"Blade profile comparison at r={round(radial_coordinate, 3)}R for stage {i}, individual: {individual}")
-        #             plt.minorticks_on()
-        #             plt.grid(which='both')
-        #             plt.xlabel('Normalised chordwise coordinate $x/c$ [-]')
-        #             plt.ylabel('Normalised perpendicular coordinate $y/c$ [-]')
-        #             plt.tight_layout()
-
     
     def GenerateConvergenceStatistics(self,
                                       res : object) -> None:
@@ -771,8 +701,8 @@ class PostProcessing:
         if avg_objectives.ndim > 1 and avg_objectives.shape[1] >1:
             n_obj = avg_objectives.shape[1]
             for i in range(n_obj):
-                plt.plot(n_evals, generational_optimum[:, i], "-.x", label=f'Generational optimum for objective {i}')
-                plt.plot(n_evals, avg_objectives[:,i], "-*", label=f"Generational average for objective {i}")      
+                plt.plot(n_evals, generational_optimum[:, i], "-.x", label=f'Generational optimum for objective {i + 1}')
+                plt.plot(n_evals, avg_objectives[:,i], "-*", label=f"Generational average for objective {i + 1}")      
         else:
             avg_objectives = avg_objectives.squeeze()
             plt.plot(n_evals, generational_optimum, "-.x", label='Generational optimum')
