@@ -174,7 +174,28 @@ class PostProcessing:
         self.blading_data = opt_blading_data
         self.design_data = opt_design_data
 
+        # Deconstruct the optimum set of solutions too 
+        # Loop over the population members and deconstruct their design vectors
+        opt_CB_data = []
+        opt_duct_data = []
+        opt_blading_data = []
+        opt_design_data = []
+        for individual in res.opt:
+            (centerbody_variables, 
+             duct_variables, 
+             blade_design_parameters, 
+             blade_blading_parameters, 
+             _) = vec_interface.DeconstructDesignVector(individual.X)
+            opt_CB_data.append(centerbody_variables)
+            opt_duct_data.append(duct_variables)
+            opt_blading_data.append(blade_blading_parameters)
+            opt_design_data.append(blade_design_parameters)
+        self.CB_data_opt = opt_CB_data
+        self.duct_data_opt = opt_duct_data
+        self.blading_data_opt = opt_blading_data
+        self.design_data_opt = opt_design_data
     
+
     def CompareAxisymmetricGeometry(self,
                                     reference: dict[str, Any],
                                     optimised: list[dict[str, Any]],
@@ -301,48 +322,112 @@ class PostProcessing:
         keys = ["root_LE_coordinate",
                 "ref_blade_angle",
                 "blade_count",
-                "RPS",
+                "RPS_lst",
                 "radial_stations"]
         
         # Construct figure for bar chart
+        # Inside your CompareBladingData() method – updated bar chart section:
         for i in range(len(config.OPTIMIZE_STAGE)):
             if config.OPTIMIZE_STAGE[i]:
                 plt.figure(f"Bar Chart with blading parameters for stage {i}")
-                num_vars = len(keys)
-                num_indiv = len(optimised_blading)
-                x = np.arange(num_vars)
-                bar_width = 0.8 / num_indiv
 
-                # Plot the reference bars
-                reference_bar_data = [reference_blading[i][key] if key != "radial_stations" 
-                                    else (max(reference_blading[i][key]) * 2) for key in keys]
-                reference_bar_data[1] = np.rad2deg(reference_bar_data[1])
-                plt.bar(x,
-                        reference_bar_data,
-                        width=bar_width,
-                        label='Reference',
-                        color='black',
-                        hatch='//',
-                        edgecolor='white')
-                
-                # Plot the optimised bars
-                for j, opt_vals in enumerate(optimised_blading):
-                    optimised_bar_data = [opt_vals[i][key] if key != "radial_stations" 
-                                          else (max(opt_vals[i][key]) * 2) for key in keys]
-                    optimised_bar_data[1] = np.rad2deg(optimised_bar_data[1])
-                    plt.bar(x + (j + 1) * bar_width, 
-                            optimised_bar_data,
-                            width=bar_width,
-                            label=f"Individual {j}")
-        
-                # Labels and formatting
-                plt.xticks(x + (bar_width * num_indiv) / 2, variables, rotation=90)
+                # Update your variables and keys lists accordingly:
+                variables = [
+                    "Root LE coordinate [m]",
+                    "Reference Blade Angle [deg]",
+                    "Blade Count [-]",
+                    "RPS [-]",          # now a list in the data
+                    "Blade Diameter [m]"
+                ]
+                # Note: for radial stations (or blade diameter in your case) you might still use the same logic.
+                keys = [
+                    "root_LE_coordinate",
+                    "ref_blade_angle",
+                    "blade_count",
+                    "RPS_lst",          # key now holds a list of values
+                    "radial_stations"
+                ]
+
+                num_indiv = len(optimised_blading)
+                x = np.arange(len(keys))  
+                # For scalar (single value) fields we use a base bar width:
+                base_bar_width = 0.8 / num_indiv
+
+                # Now loop over each key/variable slot
+                for k, key in enumerate(keys):
+                    if key == "radial_stations":
+                        plt.bar(x[k], 
+                                max(reference_blading[i][key]) * 2, 
+                                width=base_bar_width, 
+                                color='black',
+                                hatch="//",
+                                edgecolor="white")
+                        for j, opt_vals in enumerate(optimised_blading):
+                            opt_val = opt_vals[i][key]
+                            opt_val = max(opt_val) * 2
+                            plt.bar(x[k] + (j + 1) * base_bar_width,
+                                    opt_val,
+                                    width=base_bar_width,
+                                    label=f"Individual {j}")
+                            
+                    elif key == "RPS_lst":
+                        # For the reference data:
+                        ref_rps = reference_blading[i][key]  # a list, e.g. [rps_val1, rps_val2, …]
+                        num_rps = len(ref_rps)
+                        # Divide the base bar width among each RPS sub-bar
+                        sub_bar_width = base_bar_width / num_rps
+                        # Plot each sub-bar (centered around x[k])
+                        for r, r_val in enumerate(ref_rps):
+                            # Compute an offset so that the group is centered:
+                            offset = (r - (num_rps - 1) / 2) * sub_bar_width
+                            plt.bar(x[k] + offset,
+                                    r_val,
+                                    width=sub_bar_width,
+                                    label="Reference" if r == 0 else "", 
+                                    color='black',
+                                    hatch='//',
+                                    edgecolor='white')
+
+                        # Now do the same for each optimised individual:
+                        for j, opt_vals in enumerate(optimised_blading):
+                            opt_rps = opt_vals[i][key]
+                            for r, opt_r_val in enumerate(opt_rps):
+                                offset = (r - (num_rps - 1) / 2) * sub_bar_width
+                                plt.bar(
+                                    x[k] + offset + (j + 1) * base_bar_width,
+                                    opt_r_val,
+                                    width=sub_bar_width,
+                                    label=f"Individual {j}" if r == 0 else ""
+                                )
+                    else:
+                        # For the scalar values (or values that remain unchanged)
+                        ref_val = reference_blading[i][key]
+                        if key == "ref_blade_angle":
+                            ref_val = np.rad2deg(ref_val)
+                        plt.bar(x[k],
+                                ref_val,
+                                width=base_bar_width,
+                                label="Reference",
+                                color='black',
+                                hatch='//',
+                                edgecolor='white')
+                        for j, opt_vals in enumerate(optimised_blading):
+                            opt_val = opt_vals[i][key]
+                            if key == "ref_blade_angle":
+                                opt_val = np.rad2deg(opt_val)
+                            plt.bar(x[k] + (j + 1) * base_bar_width,
+                                    opt_val,
+                                    width=base_bar_width,
+                                    label=f"Individual {j}")
+                            
+                # Format the x-axis using the provided variables
+                plt.xticks(x + (base_bar_width * num_indiv) / 2, variables, rotation=90)
                 plt.title("Comparison of Reference vs Optimized Design Variables")
                 handles, labels = plt.gca().get_legend_handles_labels()
                 by_label = dict(zip(labels, handles))
-                plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
-                plt.grid(axis='y',
-                        which='both')
+                plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1, 1))
+                plt.grid(axis='y', which='both')
+                plt.yscale('log')
                 plt.minorticks_on()
                 plt.tight_layout()
 
@@ -486,75 +571,175 @@ class PostProcessing:
         -------
         None
         """
-
-        # Switching logic if we should compare against the specified individual by integer or against the optimum design
+        
         if individual == "opt":
-            optimum_vector = res.X
-            (_, 
-             _, 
-             optimised_design, 
-             _, 
-             _) = DesignVectorInterface().DeconstructDesignVector(optimum_vector)
+            # Check if res.X is a list of dictionaries
+            if len(res.X) == 1:
+                optimum_dict = res.X[0]
+                (_, _, optimised_design, _, _) = DesignVectorInterface().DeconstructDesignVector(optimum_dict)
+            else:
+                # Otherwise, loop through each dictionary in the list and deconstruct it
+                multi_optimum_designs = []
+                for design_dict in res.X:
+                    (_, _, design_opt, _, _) = DesignVectorInterface().DeconstructDesignVector(design_dict)
+                    multi_optimum_designs.append(design_opt)
+                    
+                # For each optimum design, generate its own set of plots
+                # Plot multiple optimum designs on the same axes per stage and radial slice.
+                for i in range(len(config.OPTIMIZE_STAGE)):
+                    if config.OPTIMIZE_STAGE[i]:
+                        radial_coordinates = np.linspace(0, 1, config.NUM_RADIALSECTIONS[i])
+                        for j, radial_coordinate in enumerate(radial_coordinates):
+                            plt.figure(f"BladeProfileComparison_R{round(radial_coordinate, 3)}_Stage{i}")
+                                
+                            # Define a color palette for the optimum designs:
+                            colors = plt.cm.tab10(np.linspace(0, 1, len(multi_optimum_designs)))
+                                
+                            # Loop over each optimum design and plot on the same axes.
+                            for opt_idx, current_opt_design in enumerate(multi_optimum_designs):
+                                (upper_x_opt, upper_y_opt, lower_x_opt, lower_y_opt) = \
+                                    self.ConstructBladeProfile(current_opt_design[i], j)
+                                plt.plot(np.concatenate((upper_x_opt, np.flip(lower_x_opt))),
+                                        np.concatenate((upper_y_opt, np.flip(lower_y_opt))),
+                                        label=f"Optimised (Ind {opt_idx})",
+                                        color=colors[opt_idx])
+                                plt.plot((upper_x_opt + lower_x_opt) / 2,
+                                        (upper_y_opt + lower_y_opt) / 2,
+                                        color=colors[opt_idx])
+                                
+                            # Construct and plot the reference airfoil representation.
+                            (upper_x_ref, upper_y_ref, lower_x_ref, lower_y_ref) = \
+                                self.ConstructBladeProfile(reference_design[i], j)
+                            plt.plot(np.concatenate((upper_x_ref, np.flip(lower_x_ref))),
+                                    np.concatenate((upper_y_ref, np.flip(lower_y_ref))),
+                                    "-.",
+                                    color="tab:orange",
+                                    label="Reference")
+                            plt.plot((upper_x_ref + lower_x_ref) / 2,
+                                    (upper_y_ref + lower_y_ref) / 2,
+                                    color="tab:orange")
+                                
+                            plt.legend()
+                            plt.title(f"Blade profile at r={round(radial_coordinate, 3)}R for Stage {i} (Multiple Optima)")
+                            plt.minorticks_on()
+                            plt.grid(which='both')
+                            plt.xlabel('Normalised chordwise coordinate $x/c$ [-]')
+                            plt.ylabel('Normalised perpendicular coordinate $y/c$ [-]')
+                            plt.tight_layout()
+                # Once the multiple optimum designs have been plotted, we return early.
+                return
         else:
+            # When an individual index is provided, we expect the optimised_design to be supplied.
             if optimised_design is None:
                 raise ValueError("'optimised_design' must be supplied when 'individual' is an int.")
             optimised_design = copy.deepcopy(optimised_design[individual])
 
-        # Loop over all stages and compare against the reference design if the stage is optimised:
+        # Process a single optimum design (or an optimised design specified by an integer)
         for i in range(len(config.OPTIMIZE_STAGE)):
             if config.OPTIMIZE_STAGE[i]:
                 radial_coordinates = np.linspace(0, 1, config.NUM_RADIALSECTIONS[i])
-                
-                # Loop over the radial slices
                 for j, radial_coordinate in enumerate(radial_coordinates):
-                    # Create plot figure
-                    plt.figure(f"BladeProfileComparison_R{round(radial_coordinate, 3)}")
-   
-                    # Create complete optimised airfoil representation
-                    (upper_x, 
-                     upper_y, 
-                     lower_x,
-                     lower_y) = self.ConstructBladeProfile(optimised_design[i],
-                                                           j)
-
-                    # Plot the optimised profile
-                    plt.plot(np.concatenate((upper_x, np.flip(lower_x)), axis=0),
-                             np.concatenate((upper_y, np.flip(lower_y)), axis=0),
-                             label="Optimised",
-                             color='tab:blue')
+                    plt.figure(f"BladeProfileComparison_R{round(radial_coordinate, 3)}_Stage{i}")
                     
-                    # Plot the optimised camber line
-                    plt.plot((upper_x + lower_x) / 2,
-                             (upper_y + lower_y) / 2,
-                             color='tab:blue')
-   
-                    # Create complete reference airfoil representation
-                    (upper_x, 
-                     upper_y, 
-                     lower_x,
-                     lower_y) = self.ConstructBladeProfile(reference_design[i],
-                                                           j)
-
-                    # Plot the reference profile
-                    plt.plot(np.concatenate((upper_x, np.flip(lower_x)), axis=0),
-                             np.concatenate((upper_y, np.flip(lower_y)), axis=0),
-                             "-.",
-                             color="tab:orange",
-                             label="Reference")
+                    # Construct and plot the optimised design profile and its camber line
+                    (upper_x_opt, upper_y_opt, lower_x_opt, lower_y_opt) = self.ConstructBladeProfile(optimised_design[i], j)
+                    plt.plot(np.concatenate((upper_x_opt, np.flip(lower_x_opt))),
+                            np.concatenate((upper_y_opt, np.flip(lower_y_opt))),
+                            label="Optimised",
+                            color='tab:blue')
+                    plt.plot((upper_x_opt + lower_x_opt) / 2,
+                            (upper_y_opt + lower_y_opt) / 2,
+                            color='tab:blue')
                     
-                    # Plot the reference camber line
-                    plt.plot((upper_x + lower_x) / 2,
-                             (upper_y + lower_y) / 2,
-                             color='tab:orange')
+                    # Construct and plot the reference design profile and its camber line
+                    (upper_x_ref, upper_y_ref, lower_x_ref, lower_y_ref) = self.ConstructBladeProfile(reference_design[i], j)
+                    plt.plot(np.concatenate((upper_x_ref, np.flip(lower_x_ref))),
+                            np.concatenate((upper_y_ref, np.flip(lower_y_ref))),
+                            "-.",
+                            color="tab:orange",
+                            label="Reference")
+                    plt.plot((upper_x_ref + lower_x_ref) / 2,
+                            (upper_y_ref + lower_y_ref) / 2,
+                            color='tab:orange')
                     
-                    # Format plot and add legend
+                    # Format the plot
                     plt.legend()
-                    plt.title(f"Blade profile comparison at r={round(radial_coordinate, 3)}R for stage {i}, individual: {individual}")
+                    plt.title(f"Blade profile at r={round(radial_coordinate, 3)}R for stage {i}, individual: {individual}")
                     plt.minorticks_on()
                     plt.grid(which='both')
                     plt.xlabel('Normalised chordwise coordinate $x/c$ [-]')
                     plt.ylabel('Normalised perpendicular coordinate $y/c$ [-]')
                     plt.tight_layout()
+
+
+        # # Switching logic if we should compare against the specified individual by integer or against the optimum design
+        # if individual == "opt":
+        #     optimum_vector = res.X
+        #     (_, 
+        #      _, 
+        #      optimised_design, 
+        #      _, 
+        #      _) = DesignVectorInterface().DeconstructDesignVector(optimum_vector)
+        # else:
+        #     if optimised_design is None:
+        #         raise ValueError("'optimised_design' must be supplied when 'individual' is an int.")
+        #     optimised_design = copy.deepcopy(optimised_design[individual])
+
+        # # Loop over all stages and compare against the reference design if the stage is optimised:
+        # for i in range(len(config.OPTIMIZE_STAGE)):
+        #     if config.OPTIMIZE_STAGE[i]:
+        #         radial_coordinates = np.linspace(0, 1, config.NUM_RADIALSECTIONS[i])
+                
+        #         # Loop over the radial slices
+        #         for j, radial_coordinate in enumerate(radial_coordinates):
+        #             # Create plot figure
+        #             plt.figure(f"BladeProfileComparison_R{round(radial_coordinate, 3)}")
+   
+        #             # Create complete optimised airfoil representation
+        #             (upper_x, 
+        #              upper_y, 
+        #              lower_x,
+        #              lower_y) = self.ConstructBladeProfile(optimised_design[i],
+        #                                                    j)
+
+        #             # Plot the optimised profile
+        #             plt.plot(np.concatenate((upper_x, np.flip(lower_x)), axis=0),
+        #                      np.concatenate((upper_y, np.flip(lower_y)), axis=0),
+        #                      label="Optimised",
+        #                      color='tab:blue')
+                    
+        #             # Plot the optimised camber line
+        #             plt.plot((upper_x + lower_x) / 2,
+        #                      (upper_y + lower_y) / 2,
+        #                      color='tab:blue')
+   
+        #             # Create complete reference airfoil representation
+        #             (upper_x, 
+        #              upper_y, 
+        #              lower_x,
+        #              lower_y) = self.ConstructBladeProfile(reference_design[i],
+        #                                                    j)
+
+        #             # Plot the reference profile
+        #             plt.plot(np.concatenate((upper_x, np.flip(lower_x)), axis=0),
+        #                      np.concatenate((upper_y, np.flip(lower_y)), axis=0),
+        #                      "-.",
+        #                      color="tab:orange",
+        #                      label="Reference")
+                    
+        #             # Plot the reference camber line
+        #             plt.plot((upper_x + lower_x) / 2,
+        #                      (upper_y + lower_y) / 2,
+        #                      color='tab:orange')
+                    
+        #             # Format plot and add legend
+        #             plt.legend()
+        #             plt.title(f"Blade profile comparison at r={round(radial_coordinate, 3)}R for stage {i}, individual: {individual}")
+        #             plt.minorticks_on()
+        #             plt.grid(which='both')
+        #             plt.xlabel('Normalised chordwise coordinate $x/c$ [-]')
+        #             plt.ylabel('Normalised perpendicular coordinate $y/c$ [-]')
+        #             plt.tight_layout()
 
     
     def GenerateConvergenceStatistics(self,
@@ -573,29 +758,25 @@ class PostProcessing:
         generational_optimum = np.array([e.opt[0].F for e in res.history])
         
         avg_objectives = []
-        std_objectives = []
         for e in res.history:
             F_data = e.pop.get("F")
             avg_objectives.append(np.mean(F_data, axis=0))
-            std_objectives.append(np.std(F_data, axis=0))
 
         avg_objectives = np.array(avg_objectives)
-        std_objectives = np.array(std_objectives)
 
         plt.figure()
-        plt.title("Optimum and average objective values and diversity over generations")
+        plt.title("Optimum and average objective values over generations")
 
         # For multi-objective probems, we plot each objective separately.
         if avg_objectives.ndim > 1 and avg_objectives.shape[1] >1:
             n_obj = avg_objectives.shape[1]
             for i in range(n_obj):
-                plt.plot(n_evals, generational_optimum[:, i], "-x", label=f'Generational optimum for objective {i}')
-                plt.errorbar(n_evals, avg_objectives[:,i], yerr=3*std_objectives[:,i], fmt="-*", label=f"Generational average for objective {i}", capsize=4, capthick=1.5)      
+                plt.plot(n_evals, generational_optimum[:, i], "-.x", label=f'Generational optimum for objective {i}')
+                plt.plot(n_evals, avg_objectives[:,i], "-*", label=f"Generational average for objective {i}")      
         else:
             avg_objectives = avg_objectives.squeeze()
-            std_objectives = std_objectives.squeeze()
-            plt.plot(n_evals, generational_optimum, "-x", label='Generational optimum')
-            plt.errorbar(n_evals, avg_objectives, yerr=std_objectives, fmt="-*", label="Generational average", capsize=4, capthick=1.5)
+            plt.plot(n_evals, generational_optimum, "-.x", label='Generational optimum')
+            plt.plot(n_evals, avg_objectives, "-*", label="Generational average")
 
         plt.grid(which='both')
         plt.yscale('log')
@@ -677,10 +858,6 @@ class PostProcessing:
         plt.tight_layout()
 
 
-
-
-
-
     def ComputeHyperVolume(self)->float:
         """
         
@@ -714,23 +891,41 @@ class PostProcessing:
 
         # Plot the centerbody designs
         if config.OPTIMIZE_CENTERBODY:
+            # First plot the complete final population
             self.CompareAxisymmetricGeometry(config.CENTERBODY_VALUES,
                                              self.CB_data)
+            plt.show()
+            plt.close('all')
+            # Plot the optimum solution set
+            self.CompareAxisymmetricGeometry(config.CENTERBODY_VALUES,
+                                             self.CB_data_opt)
             plt.show()
             plt.close('all')
 
         # Plot the duct designs
         if config.OPTIMIZE_DUCT:
+            # First plot the complete final population
             self.CompareAxisymmetricGeometry(config.DUCT_VALUES,
                                              self.duct_data)
+            plt.show()
+            plt.close('all')
+            # Plot the optimum solution set
+            self.CompareAxisymmetricGeometry(config.DUCT_VALUES,
+                                             self.duct_data_opt)
             plt.show()
             plt.close('all')
         
         # Plot the optimised stage designs
         for i in range(len(config.OPTIMIZE_STAGE)):
             if config.OPTIMIZE_STAGE[i]:
+                # First plot the complete final population
                 self.CompareBladingData(config.STAGE_BLADING_PARAMETERS,
                                         self.blading_data)
+                plt.show()
+                plt.close('all')
+                # Plot the optimum solution set
+                self.CompareBladingData(config.STAGE_BLADING_PARAMETERS,
+                                        self.blading_data_opt)
                 plt.show()
                 plt.close('all')
 
@@ -742,7 +937,7 @@ class PostProcessing:
         
 
 if __name__ == "__main__":
-    output = Path('Results/res_pop20_eval2000_250509080533803576.dill')
+    output = Path('Results/res_pop20_gen20_unsga3_moo_250514065954949106.dill')
 
     processing_class = PostProcessing(fname=output)
     processing_class.main()
