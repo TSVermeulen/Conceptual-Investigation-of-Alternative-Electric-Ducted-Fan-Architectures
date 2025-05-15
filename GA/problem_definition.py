@@ -50,6 +50,7 @@ import os
 import uuid
 import copy
 import datetime
+import contextlib
 from pathlib import Path
 
 # Import 3rd party libraries
@@ -130,7 +131,7 @@ class OptimizationProblem(ElementwiseProblem):
         self.optimize_stages = config.OPTIMIZE_STAGE
 
         # Initialize variable list with variable types.
-        design_vars = DesignVector().construct_vector(config)
+        design_vars = DesignVector.construct_vector(config)
 
         # Calculate the number of objectives and constraints of the optimization problem
         n_objectives = len(config.objective_IDs) * len(config.multi_oper)
@@ -163,6 +164,17 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Initialize design vector interface
         self.design_vector_interface = DesignVectorInterface()
+
+        # Use lazy-loaded modules (initialized at first use)
+        if not hasattr(self, "_lazy_modules_loaded"):
+            from MTFLOW_caller import MTFLOW_caller
+            from Submodels.output_handling import output_processing
+            from Submodels.file_handling import fileHandlingMTSET, fileHandlingMTFLO
+            self._MTFLOW_caller = MTFLOW_caller
+            self._output_processing = output_processing
+            self._fileHandlingMTSET = fileHandlingMTSET
+            self._fileHandlingMTFLO = fileHandlingMTFLO
+            self._lazy_modules_loaded = True
                 
 
     def GenerateAnalysisName(self) -> None:
@@ -252,20 +264,15 @@ class OptimizationProblem(ElementwiseProblem):
             # Construct filepath
             file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
 
-            if not file_path.is_file():
-                continue
-            
             # Move the state file to the dump folder
             if file_type == "tdat": 
-                copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-                try:
+                if file_path.exists():
+                    copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
                     file_path.replace(copied_file)
-                except FileNotFoundError:
-                    print(f"The tdat state file {file_path} could not be located for copying.")
-                    pass
             else:
                 # Cleanup all temporary files
-                file_path.unlink(missing_ok=True)
+                if file_path.exists():
+                    file_path.unlink(missing_ok=True)
 
 
     def GenerateMTFLOWInputs(self,
@@ -292,9 +299,6 @@ class OptimizationProblem(ElementwiseProblem):
               during the process (indicating potential interpolation issues or infeasible axisymmetric bodies).
         """   
 
-        # Lazy import the file_handling class
-        from Submodels.file_handling import fileHandlingMTSET, fileHandlingMTFLO       
-
         # Generate the MTSET input file containing the axisymmetric geometries and the MTFLO blading input file
         try:
             # Deconstruct the design vector
@@ -307,15 +311,15 @@ class OptimizationProblem(ElementwiseProblem):
             # Set the non-dimensional omega rates
             self.ComputeOmega()
 
-            fileHandlingMTSET(params_CB=self.centerbody_variables,
-                              params_duct=self.duct_variables,
-                              analysis_name=self.analysis_name,
-                              ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
+            self._fileHandlingMTSET(params_CB=self.centerbody_variables,
+                                    params_duct=self.duct_variables,
+                                    analysis_name=self.analysis_name,
+                                    ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
             
-            fileHandlingMTFLO(analysis_name=self.analysis_name,
-                              ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
-                                                                       design_params=self.blade_design_parameters,
-                                                                       plot=False)  # Generate the MTFLO input file
+            self._fileHandlingMTFLO(analysis_name=self.analysis_name,
+                                    ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
+                                                                             design_params=self.blade_design_parameters,
+                                                                             plot=False)  # Generate the MTFLO input file
             
             output_generated =  True  # If both input generation routines succeeded, set output_generated to True
 
@@ -366,11 +370,6 @@ class OptimizationProblem(ElementwiseProblem):
         - None
             The output dictionary is modified in-place. 
         """
-
-        # Lazy import the MTFLOW interface and output_handling interface
-        # This helps to improve startup time and memory usage in parallel workers
-        from MTFLOW_caller import MTFLOW_caller
-        from Submodels.output_handling import output_processing
         
         # Generate a unique analysis name
         self.GenerateAnalysisName()
@@ -386,17 +385,17 @@ class OptimizationProblem(ElementwiseProblem):
         if design_okay:
             self.ComputeReynolds()  # Compute the Reynolds number
 
-            MTFLOW_interface = MTFLOW_caller(operating_conditions=self.oper,
-                                             ref_length=self.Lref,
-                                             analysis_name=self.analysis_name,
-                                             **kwargs)
+            MTFLOW_interface = self._MTFLOW_caller(operating_conditions=self.oper,
+                                                   ref_length=self.Lref,
+                                                   analysis_name=self.analysis_name,
+                                                   **kwargs)
 
             # Run MTFLOW
             MTFLOW_interface.caller(external_inputs=True,
                                     output_type=OutputType.FORCES_ONLY)
 
             # Extract outputs
-            output_handler = output_processing(analysis_name=self.analysis_name)
+            output_handler = self._output_processing(analysis_name=self.analysis_name)
             MTFLOW_outputs = output_handler.GetAllVariables(output_type=3)
         else:
             # If the design is infeasible, we load the crash outputs
@@ -417,11 +416,8 @@ class OptimizationProblem(ElementwiseProblem):
                                          out=out)
         
         # Cleanup the generated files
-        if design_okay:
-            try:
-                self.CleanUpFiles()
-            except Exception as e:
-                pass
+        with contextlib.suppress(Exception):
+            self.CleanUpFiles()
     
 
 if __name__ == "__main__":

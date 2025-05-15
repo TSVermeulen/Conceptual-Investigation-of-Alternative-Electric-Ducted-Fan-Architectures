@@ -16,8 +16,7 @@ Examples
 --------
 >>> from init_designvector import DesignVector
 >>> from config import cfg
->>> dv = DesignVector()
->>> design_vector = dv._construct_vector(cfg)
+>>> design_vector = DesignVector.construct_vector(cfg)
 
 Notes
 -----
@@ -53,9 +52,8 @@ class DesignVector():
         Initialisation for the DesignVector class.
         """
 
-
-    def construct_vector(self,
-                         cfg: ModuleType) -> dict:
+    @staticmethod
+    def construct_vector(cfg: ModuleType) -> dict:
         """
         Initialize the pymoo design vector based on the toggles in config.
 

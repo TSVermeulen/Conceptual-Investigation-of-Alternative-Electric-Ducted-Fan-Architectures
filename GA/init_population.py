@@ -87,7 +87,7 @@ class InitPopulation():
         self.type = population_type
 
         # Create a new design vector object
-        self.design_vector = DesignVector().construct_vector(config)
+        self.design_vector = DesignVector.construct_vector(config)
         self.design_vector_keys = list(self.design_vector.keys())
 
         # Set the seed for the random number generator to ensure reproducibility
@@ -197,6 +197,11 @@ class InitPopulation():
 
         # Change vector from a list to a dictionary to match the expected structure of pymoo
         keys = list(self.design_vector.keys())
+        
+        # Perform explicit design vector length check
+        if len(keys) != len(vector):
+            raise ValueError(f"Design-vector length mismatch: {len(vector)} values vs {len(keys)} keys.")
+        
         vector = {key: value for key, value in zip(keys, vector)}
 
         return vector

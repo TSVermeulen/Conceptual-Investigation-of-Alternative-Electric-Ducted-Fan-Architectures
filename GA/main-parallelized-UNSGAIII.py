@@ -132,7 +132,8 @@ if __name__ == "__main__":
 
     # First generate the results folder if it does not exist already
     results_dir = Path(__file__).resolve().parent / "results"
-    results_dir.mkdir(exist_ok=True)
+    results_dir.mkdir(exist_ok=True,
+                      parents=True)
 
     now = datetime.datetime.now()
     timestamp = f"{now:%y%m%d%H%M%S%f}"	
