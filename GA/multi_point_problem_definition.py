@@ -126,6 +126,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Calculate the number of objectives and constraints of the optimization problem
         n_objectives = config.n_objectives
+
         n_inequality_constraints = len(config.constraint_IDs[0]) * len(config.multi_oper)
         n_equality_constraints = len(config.constraint_IDs[1]) * len(config.multi_oper)
 
@@ -155,9 +156,6 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Initialize design vector interface
         self.design_vector_interface = DesignVectorInterface()
-
-        # Create an instance level of crash outputs
-        self.crash_outputs = self.CRASH_OUTPUTS
                         
 
     def GenerateAnalysisName(self) -> None:
@@ -355,11 +353,11 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self.ComputeOmega(idx=0)
 
             fileHandlingMTSET(params_CB=self.centerbody_variables,
-                                 params_duct=self.duct_variables,
-                                 case_name=self.analysis_name,
-                                 ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
+                              params_duct=self.duct_variables,
+                              analysis_name=self.analysis_name,
+                              ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
             
-            fileHandlingMTFLO(case_name=self.analysis_name,
+            fileHandlingMTFLO(analysis_name=self.analysis_name,
                               ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
                                                                        design_params=self.blade_design_parameters,
                                                                        plot=False)  # Generate the MTFLO input file
@@ -416,7 +414,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Only perform the MTFLOW analyses if the input generation has succeeded.
         # Initialise the MTFLOW output list of dictionaries. Use the crash outputs in 
         # initialisation to pre-populate them in case of a crash or infeasible design vector
-        MTFLOW_outputs = [copy.deepcopy(self.crash_outputs) for _ in range(len(self.multi_oper))]
+        MTFLOW_outputs = [copy.deepcopy(self.CRASH_OUTPUTS) for _ in range(len(self.multi_oper))]
 
         if design_okay:
             valid_grid = False
@@ -446,7 +444,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                 except Exception as e:
                     exit_flag = ExitFlag.CRASH
                     print(f"[MTFLOW_ERROR] OP={idx}, case={self.analysis_name}: {e}")
-                    MTFLOW_outputs[idx] = copy.deepcopy(self.crash_outputs)
+                    MTFLOW_outputs[idx] = copy.deepcopy(self.CRASH_OUTPUTS)
 
                 # Set valid_grid to true to skip the grid checking routines for the next operating point if the solver exited with a converged/non-converged solution.
                 if exit_flag in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE, ExitFlag.CHOKING):

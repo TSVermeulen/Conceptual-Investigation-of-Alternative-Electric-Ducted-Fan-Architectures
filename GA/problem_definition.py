@@ -163,9 +163,6 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Initialize design vector interface
         self.design_vector_interface = DesignVectorInterface()
-
-        # Create an instance level of crash outputs
-        self.crash_outputs = self.CRASH_OUTPUTS
                 
 
     def GenerateAnalysisName(self) -> None:
@@ -312,10 +309,10 @@ class OptimizationProblem(ElementwiseProblem):
 
             fileHandlingMTSET(params_CB=self.centerbody_variables,
                               params_duct=self.duct_variables,
-                              case_name=self.analysis_name,
+                              analysis_name=self.analysis_name,
                               ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
             
-            fileHandlingMTFLO(case_name=self.analysis_name,
+            fileHandlingMTFLO(analysis_name=self.analysis_name,
                               ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
                                                                        design_params=self.blade_design_parameters,
                                                                        plot=False)  # Generate the MTFLO input file
@@ -404,7 +401,7 @@ class OptimizationProblem(ElementwiseProblem):
         else:
             # If the design is infeasible, we load the crash outputs
             # This is a predefined dictionary with all outputs set to 0.
-            MTFLOW_outputs = self.crash_outputs
+            MTFLOW_outputs = self.CRASH_OUTPUTS
 
         # Obtain objective(s)
         # The out dictionary is updated in-place
