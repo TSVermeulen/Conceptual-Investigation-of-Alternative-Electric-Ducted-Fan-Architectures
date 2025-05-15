@@ -53,6 +53,8 @@ Changelog:
 - V1.0: Adapted version of a parameterization using only the bezier coefficients to give an improved fit to the reference data. 
 - V1.1: Updated docstring, and working implementation for symmetric profiles (i.e. zero camber)
 - V1.2: Updated FindInitialParameterization method to use SLSQP optimization rather than least squares to enable correct constraint handling. 
+- V1.2.1: Previously increased the number of points in the u-vectors for the bezier curves to 200. This yields too many in the walls.xxx input file for MTSET to handle, causing a crash. 
+          Number of points has been reduced to 100.
 """
 
 import numpy as np
@@ -91,7 +93,7 @@ class AirfoilParameterization:
     """
 
     def __init__(self,
-                 symmetric_limit: float = 1E-3) -> None:
+                 symmetric_limit: float = 5E-3) -> None:
         """
         Initialize the AirfoilParameterization class.
         
@@ -100,7 +102,7 @@ class AirfoilParameterization:
         Parameters
         ----------
         - symmetric_limit : float, optional
-            The triggering value of camber below which an airfoil is treated as being symmetric. Default is 1E-3. This is needed to avoid issues with cotangent calculations. 
+            The triggering value of camber below which an airfoil is treated as being symmetric. Default is 5E-3. This is needed to avoid issues with cotangent calculations. 
 
         Returns
         -------
@@ -552,7 +554,7 @@ class AirfoilParameterization:
     def GenerateBezierUVectors(self,
                                ) -> tuple[np.ndarray[float], np.ndarray[float]]:
         """
-        Create u-vectors for Bezier curve generation. Uses 200 points for the leading and trailing edges.
+        Create u-vectors for Bezier curve generation. Uses 100 points for the leading and trailing edge curves, to give 200 points in total.
 
         Returns
         -------
@@ -563,14 +565,11 @@ class AirfoilParameterization:
         """
 
         # Create u-vectors for Bezier curve generation
-        # Use 200 points
-        n_points = 200
-        u_leading_edge = np.zeros(n_points)
-        u_trailing_edge = np.zeros(n_points)
-
-        for i in range(n_points):
-            u_leading_edge[i] = np.abs(1 - np.cos((i * np.pi) / (2 * (n_points - 1))))  # Space points using a cosine spacing for increased resolution at LE
-            u_trailing_edge[i] = np.abs(np.sin((i * np.pi) / (2 * (n_points - 1))))  # Space points using a sine spacing for increased resolution at TE
+        # Use 100 points for the leading and trailing edge curves, to give 200 points in total.
+        n_points = 100
+        i = np.arange(n_points)
+        u_leading_edge = 1 - np.cos((i * np.pi) / (2 * (n_points - 1)))  # Space points using a cosine spacing for increased resolution at LE 
+        u_trailing_edge = np.sin((i * np.pi) / (2 * (n_points - 1)))  # Space points using a sine spacing for increased resolution at TE
 
         return u_leading_edge, u_trailing_edge
 
@@ -634,6 +633,10 @@ class AirfoilParameterization:
         bezier_thickness_x = np.concatenate((x_LE_thickness, x_TE_thickness), 
                                             axis = 0)  # Construct complete array of x-coordinates over length of profile
         
+        # Check the sorting of the thickness curve - if the arrays are not sorted we raise a valueerror as it indicates an infeasible parameterization
+        if not np.all(np.diff(bezier_thickness_x) >= 0):
+            raise ValueError("The thickness parameterization for the profile is infeasible.")
+        
         # Calculate the camber distributions only if the camber is nonzero
         if airfoil_params["y_c"] >= self.symmetric_limit:
             # Calculate the Bezier curve coefficients for the camber curves
@@ -658,7 +661,11 @@ class AirfoilParameterization:
                                            axis = 0)  # Construct complete camber curve over length of profile
             bezier_camber_x = np.concatenate((x_LE_camber, x_TE_camber),
                                              axis = 0)  # Construct complete array of x-coordinates over length of profile
-        
+            
+            # Check the sorting of the camber curve - if the arrays are not sorted sort them to attempt to fix the profile
+            if not np.all(np.diff(bezier_camber_x) >= 0):
+                raise ValueError("The camber distribution for the profile is infeasible.")
+            
         else:
             # If camber is zero, handle appropriately
             bezier_camber = np.zeros_like(bezier_thickness)
@@ -703,6 +710,11 @@ class AirfoilParameterization:
                                                                                    bezier_thickness,
                                                                                    bezier_camber_x,
                                                                                    bezier_camber)
+        
+        if not np.all(np.diff(upper_x) >= 0):
+            raise ValueError("Infeasible profile shape encountered: upper surface contains an error.")
+        elif not np.all(np.diff(lower_x) >= 0):
+            raise ValueError("Infeasible profile shape encountered: lower surface contains an error.")
 
         return upper_x, upper_y, lower_x, lower_y
 
@@ -938,7 +950,6 @@ class AirfoilParameterization:
                 return (3 * x[7] - x[8] / np.tan(x[14])) / 2 - x[7]
             else:
                 return x[14]
-
         def constraint_6_upper(x):
             x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
             if x[14] != 0:
@@ -946,14 +957,13 @@ class AirfoilParameterization:
             else:
                 return x[14]
             
-        # Define constraint for contrl point 3 x-coordinate of TE camber curve
+        # Define constraint for control point 3 x-coordinate of TE camber curve
         def constraint_7_lower(x):
             x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
             if x[14] != 0:
                 return (-8 * x[8] / np.tan(x[14]) + 13 * x[7]) / 6 - x[7]
             else:
                 return x[14]
-        
         def constraint_7_upper(x):
             x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
             if x[14] != 0:
@@ -976,7 +986,7 @@ class AirfoilParameterization:
                                  method="SLSQP",
                                  bounds=GetBounds(),
                                  constraints=cons,
-                                 options={'maxiter': 100,
+                                 options={'maxiter': 300,
                                           'disp': False},
                                           jac='3-point')
         
