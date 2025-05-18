@@ -831,6 +831,9 @@ class AirfoilParameterization:
             Dictionary containing the optimized airfoil parameters.
         """
 
+        actual_upper_bounds = np.array([0.1, 0.3, 0.7, 0.9, 0.9, 0.5, 0.3, 0.5, 0.2, 0.05, 0.005, -0.001, 0.4, 0.3, 0.3])
+        actual_lower_bounds = np.array([0.01, 0.1, 0, 0, 0, 0.15, 0.01, 0.25, 0, 0, 0, -0.1, 0.001, 0.001, 0.001])
+
         def SLQSPFitting():  
             """ SLSQP fitting implementation"""  
 
@@ -847,8 +850,8 @@ class AirfoilParameterization:
                     A scipy.optimize.bounds instance of the bounds for the optimization problem. 
                 """
 
-                upper_bounds = np.full_like(self.guess_design_vector, 2)
-                lower_bounds = np.full_like(self.guess_design_vector, 0)
+                upper_bounds = np.full_like(self.guess_design_vector, 1.05)
+                lower_bounds = np.full_like(self.guess_design_vector, 0.95)
 
                 return optimize.Bounds(lower_bounds, upper_bounds)
 
@@ -858,10 +861,10 @@ class AirfoilParameterization:
 
             # Define a guess of the initial design vector
             self.guess_design_vector = np.array([0.05,
-                                                0.15,
+                                                0.2,
                                                 0.05 * min(self.airfoil_params["y_t"], np.sqrt(-2 * self.airfoil_params["r_LE"] * self.airfoil_params["x_t"] / 3)),
-                                                0.45,
-                                                0.45,
+                                                0.8,
+                                                0.8,
                                                 self.airfoil_params["x_t"],
                                                 self.airfoil_params["y_t"],
                                                 self.airfoil_params["x_c"] if self.airfoil_params["x_c"] != 0 else 0.35,
@@ -962,7 +965,7 @@ class AirfoilParameterization:
                                         "trailing_camberline_angle": float(optimized_coefficients.x[13]),
                                         "leading_edge_direction": float(optimized_coefficients.x[14])}
             
-            return airfoil_params_optimized, optimized_coefficients.status, optimized_coefficients.fun
+            return airfoil_params_optimized, optimized_coefficients.status
         
         
         def GAFitting():
@@ -982,8 +985,8 @@ class AirfoilParameterization:
             class ProblemDefinition(ElementwiseProblem):
                 def __init__(self):
                     super().__init__(n_var=15, n_obj=1, n_eq_constr=0, n_ieq_constr=3, 
-                                    xl=np.array([0.01, 0.1, 0, 0, 0, 0.15, 0.01, 0.25, 0, 0, 0, -0.1, 0.001, 0.001, 0.001]),
-                                    xu=np.array([0.1, 0.3, 0.7, 0.9, 0.9, 0.5, 0.3, 0.5, 0.2, 0.05, 0.005, -0.001, 0.4, 0.3, 0.3]))
+                                     xl=actual_lower_bounds,
+                                     xu=actual_upper_bounds)
                     
                 def _evaluate(self, x, out, *args, **kwargs):
                     out["F"] = AirfoilParameterization().Objective(x, reference_file)
@@ -1026,8 +1029,8 @@ class AirfoilParameterization:
             return airfoil_params_optimized
 
         # First we try SLSQP fitting
-        airfoil_params_optimized, status, val = SLQSPFitting()
-        if status == 0 and val < 1:
+        airfoil_params_optimized, status = SLQSPFitting()
+        if status == 0:
             return airfoil_params_optimized
         else:
             # If SLSQP failed, try a genetic algorithm
@@ -1040,7 +1043,7 @@ if __name__ == "__main__":
     call_class = AirfoilParameterization()
     
     start_time = time.time()
-    inputfile = Path('Test Airfoils') / 'Dstrut.dat'
+    inputfile = Path('Test Airfoils') / 'n6409.dat'
     airf_params = call_class.FindInitialParameterization(inputfile)
     end_time = time.time()
     print(f"Execution of FindInitialParameterization({inputfile}) took {end_time-start_time} seconds")

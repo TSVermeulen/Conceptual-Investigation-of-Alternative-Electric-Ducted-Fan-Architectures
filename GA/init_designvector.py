@@ -70,22 +70,27 @@ class DesignVector():
 
         # Define helper function with the default 15-parameter profile definition values to keep the method cleaned up
         def profile_section_vars() -> list:
-            """ Return the standard 15-var profile section definition """
-            return [Real(bounds=(0, 1)),  # b_0
-                    Real(bounds=(0, 0.5)),  # b_2
-                    Real(bounds=(0.05, 1)),  # mapping variable for b_8
-                    Real(bounds=(0, 1)),  # b_15
-                    Real(bounds=(0, 1)),  # b_17
-                    Real(bounds=(0.1, 0.9)),  # x_t
-                    Real(bounds=(0.0125, 0.25)),  # y_t
-                    Real(bounds=(0.05, 1)),  # x_c
-                    Real(bounds=(0, 0.1)),  # y_c
-                    Real(bounds=(0, 0.2)),  # z_TE
-                    Real(bounds=(0, 0.02)),  # dz_TE
+            """ 
+            Return the standard 15-var profile section definition.
+            Bounds are based on those presented in:
+                Rogalsky T. Acceleration of differential evolution for aerodynamic design. 
+                Ph.D. Thesis, University of Manitoba; 2004.
+            """
+            return [Real(bounds=(0.01, 0.1)),  # b_0
+                    Real(bounds=(0.1, 0.3)),  # b_2
+                    Real(bounds=(0.05, 0.25)),  # mapping variable for b_8
+                    Real(bounds=(0.8, 0.95)),  # b_15
+                    Real(bounds=(0.8, 0.95)),  # b_17
+                    Real(bounds=(0.15, 0.5)),  # x_t
+                    Real(bounds=(0.02, 0.30)),  # y_t
+                    Real(bounds=(0.2, 0.5)),  # x_c
+                    Real(bounds=(0, 0.2)),  # y_c
+                    Real(bounds=(0, 0.05)),  # z_TE
+                    Real(bounds=(0, 0.005)),  # dz_TE
                     Real(bounds=(-0.1, -0.001)),  # r_LE
-                    Real(bounds=(0.01, np.pi/3)),  # trailing_wedge_angle
-                    Real(bounds=(0.01, np.pi/3)),  # trailing_camberline_angle
-                    Real(bounds=(0.01, np.pi/3))]  # leading_edge_direction
+                    Real(bounds=(0.001, 0.4)),  # trailing_wedge_angle
+                    Real(bounds=(0.001, 0.3)),  # trailing_camberline_angle
+                    Real(bounds=(0.001, 0.3))]  # leading_edge_direction
 
         # Initialize variable list with variable types.
         # This is required to handle the mixed-variable nature of the optimisation, where the blade count is an integer
@@ -94,28 +99,16 @@ class DesignVector():
             # If the centerbody is to be optimised, initialise the variable types
             complete_profile = profile_section_vars()
             centerbody_var_indices = [2, 3, 5, 6, 10, 11, 12]
-            profile = [complete_profile[i] for i in centerbody_var_indices]
+            section_profile = [complete_profile[i] for i in centerbody_var_indices]
 
-            vector.extend(profile)
+            vector.extend(section_profile)
             vector.append(Real(bounds=(0.25, 4)))  # Chord Length
         if cfg.OPTIMIZE_DUCT:
             # If the duct is to be optimised, intialise the variable types
-            vector.append(Real(bounds=(0, 1)))  # b_0
-            vector.append(Real(bounds=(0, 0.5)))  # b_2
-            vector.append(Real(bounds=(0.05, 1)))  # mapping variable for b_8
-            vector.append(Real(bounds=(0, 1)))  # b_15
-            vector.append(Real(bounds=(0, 1)))  # b_17
-            vector.append(Real(bounds=(0.1, 0.9)))  # x_t
-            vector.append(Real(bounds=(0.025, 0.25)))  # y_t
-            vector.append(Real(bounds=(0.05, 1)))  # x_c
-            vector.append(Real(bounds=(0, 0.1)))  # y_c
-            vector.append(Real(bounds=(0, 0.2)))  # z_TE
-            vector.append(Real(bounds=(0, 0.02)))  # dz_TE
-            vector.append(Real(bounds=(-0.1, -0.001)))  # r_LE
-            vector.append(Real(bounds=(0.01, np.pi/3)))  # trailing_wedge_angle
-            vector.append(Real(bounds=(0.01, np.pi/3)))  # trailing_camberline_angle
-            vector.append(Real(bounds=(0.01, np.pi/3)))  # leading_edge_direction
-            vector.append(Real(bounds=(0.25, 2.5)))  # Chord Length
+            duct_profile = profile_section_vars()
+            duct_profile[6] = Real(bounds=(0.04, 0.2))  # set y_t for the duct
+            vector.extend(duct_profile)
+            vector.append(Real(bounds=(1, 1.5)))  # Chord Length
             vector.append(Real(bounds=(-0.5, 0.5)))  # Leading Edge X-Coordinate
 
         for i in range(cfg.NUM_STAGES):
@@ -126,7 +119,7 @@ class DesignVector():
 
         for i in range(cfg.NUM_STAGES):
             if cfg.OPTIMIZE_STAGE[i]:
-                vector.append(Real(bounds=(0., 0.4)))  # root_LE_coordinate
+                vector.append(Real(bounds=(0, 0.4)))  # root_LE_coordinate
                 vector.append(Real(bounds=(-np.pi/4, np.pi/4)))  # ref_blade_angle
                 vector.append(Integer(bounds=(3, 20)))  # blade_count
                 if cfg.ROTATING[i]:
@@ -149,8 +142,7 @@ class DesignVector():
     
 
 if __name__ == "__main__":
-    import config
-    # config.OPTIMIZE_DUCT = False
+    import  config # type: ignore
     test = DesignVector()
     vector = test.construct_vector(config)
     print(vector)
