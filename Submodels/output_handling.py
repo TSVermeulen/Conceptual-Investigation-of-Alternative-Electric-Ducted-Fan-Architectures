@@ -32,12 +32,13 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.2
+Version: 1.3
 
 Changelog:
 - V1.0: Initial working version, containing only the plotting capabilities based on the flowfield.analysis_name and boundary_layer.analysis_name files. The output_processing() class is still a placeholder.
 - V1.1: Added the output_processing() class to read the forces.analysis_name file and extract the thrust and power coefficients. 
 - V1.2: Updated GetAllVariables() method to remove empty strings to increase robustness and avoid runtime errors in case MTSOL.GetAvgValues() adds additional whitelines.
+- V1.3: Fixed issue with file handling where regex patterns expected mandatory spaces, which would not be the case for negative values. 
 """
 
 # Import standard libraries
@@ -601,20 +602,26 @@ class output_processing:
         except OSError as e:
             raise OSError(f"An error occurred opening the forces.{self.analysis_name} file: {e}") from e
 
+        # Define a unified number pattern
+        number_pattern = r"(?:[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?|[+-]?Infinity)"
+
         # Define regex patterns.
-        Ma_pattern = r"Ma\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
-        Re_Ncrit_pattern = r'Re\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+Ncrit\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
-        total_CP_etaP_pattern = r'CP\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+EtaP\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
-        total_CT_pattern = r"Total force    CT\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
-        top_CTV_pattern = r"top CTV\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
-        bot_CTV_pattern = r"bot CTv\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
-        axis_body_CTV_pattern = r"Axis body      CTv\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
-        viscous_inviscid_pattern = r'CTv\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTi\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
-        friction_pressure_pattern = r'CTf\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTp\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
-        element_breakdown_pattern = r'CTf\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTp\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+top Xtr\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+bot Xtr\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
-        axis_body_breakdown_pattern = r'CTf\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+CTp\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)\s+Xtr\s*=\s*(-?\d*\.?\d+(?:[eE][-+]?\d+)?)'
-        P_ratio_pattern = r"Pexit/Po\s+=\s+([-\d.]+(?:E[-+]?\d+)?)"
-        wetted_area_pattern = r"Total\s*:\s*([-+]?\d*\.\d+|\d+)"
+        Ma_pattern = fr"Ma\s*=\s*({number_pattern})"
+        Re_Ncrit_pattern = fr"Re\s*=\s*({number_pattern})\s+Ncrit\s*=\s*({number_pattern})"
+        total_CP_etaP_pattern = fr"CP\s*=\s*({number_pattern})\s+EtaP\s*=\s*({number_pattern})"
+        total_CT_pattern = fr"Total force\s+CT\s*=\s*({number_pattern})"
+        top_CTV_pattern = fr"top CTV\s*=\s*({number_pattern})"
+        bot_CTV_pattern = fr"bot CTv\s*=\s*({number_pattern})"
+        axis_body_CTV_pattern = fr"Axis body\s+CTv\s*=\s*({number_pattern})"
+        viscous_inviscid_pattern = fr"CTv\s*=\s*({number_pattern})\s+CTi\s*=\s*({number_pattern})"
+        friction_pressure_pattern = fr"CTf\s*=\s*({number_pattern})\s+CTp\s*=\s*({number_pattern})"
+        element_breakdown_pattern = (
+            fr"CTf\s*=\s*({number_pattern})\s+CTp\s*=\s*({number_pattern})"
+            fr"\s+top Xtr\s*=\s*({number_pattern})\s+bot Xtr\s*=\s*({number_pattern})"
+        )
+        axis_body_breakdown_pattern = fr"CTf\s*=\s*({number_pattern})\s+CTp\s*=\s*({number_pattern})\s+Xtr\s*=\s*({number_pattern})"
+        P_ratio_pattern = fr"Pexit/Po\s*=\s*({number_pattern})"
+        wetted_area_pattern = fr"Total\s*:\s*({number_pattern})"
 
         # Initialise output dictionaries and index counter.
         oper = {}
