@@ -212,7 +212,7 @@ class Objectives:
             count=len(objectives),
         )
 
-        out["F"] = np.column_stack(computed_objectives)
+        out["F"] = computed_objectives
 
     
     def ComputeMultiPointObjectives(self,
@@ -262,7 +262,7 @@ class Objectives:
         for i, objective in enumerate(constant_objectives):
             computed_objectives[num_varobjectives * num_outputs + i] = round(objective(analysis_outputs[0]), 5)
 
-        out["F"] = np.column_stack(computed_objectives)
+        out["F"] = computed_objectives
         
         
 if __name__ == "__main__":
