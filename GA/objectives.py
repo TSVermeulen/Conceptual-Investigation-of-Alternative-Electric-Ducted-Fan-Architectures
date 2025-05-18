@@ -206,11 +206,11 @@ class Objectives:
 
         objectives = [self.objectivelist[i] for i in objective_IDs]
 
-        computed_objectives = np.empty(len(objectives), dtype=float)
-
-        for i in range(len(objectives)):
-            # Rounds the objective values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
-            computed_objectives[i] = round(objectives[i](analysis_outputs), 5)
+        computed_objectives = np.fromiter(
+            (round(f(analysis_outputs), 5) for f in objectives),
+            dtype=float,
+            count=len(objectives),
+        )
 
         out["F"] = np.column_stack(computed_objectives)
 

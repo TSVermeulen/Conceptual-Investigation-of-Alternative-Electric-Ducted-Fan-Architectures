@@ -50,7 +50,6 @@ import os
 import uuid
 import copy
 import datetime
-import contextlib
 from pathlib import Path
 
 # Import 3rd party libraries
@@ -180,14 +179,9 @@ class OptimizationProblem(ElementwiseProblem):
 
     def GenerateAnalysisName(self) -> None:
         """
-        Generate a unique analysis name.
+        Generate a unique analysis name and write it to self.
         This is required to enable multi-threading of the optimization problem, and log each state file,
         since each evaluation of MTFLOW requires a unique set of files. 
-
-        Returns
-        -------
-        - None
-            The analysis_name is written to self.
         """
 
         # Generate a timestamp string in the format MMDDHHMMSS

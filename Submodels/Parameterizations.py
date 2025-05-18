@@ -753,7 +753,7 @@ class AirfoilParameterization:
                   reference_file: Path = None,
                       ) -> float:
         """
-        Objective function for least-squares minimization.
+        Objective function for minimization.
 
         Parameters
         ----------
@@ -768,11 +768,8 @@ class AirfoilParameterization:
             Sum of squared fit errors of the upper and lower surfaces.
         """
         
-        # # Load in the reference profile shape and obtain the relevant parameters if needed
-        if reference_file is not None:
-            self.GetReferenceThicknessCamber(reference_file)
-            self.airfoil_params = self.GetReferenceParameters()
-        else:
+        # Denormalise design vector only for the slsqp optimisation method. 
+        if reference_file is None:
             x = np.multiply(x, self.guess_design_vector)
 
         # Reformat the design vector into the required airfoil_params dictionary.
@@ -988,8 +985,13 @@ class AirfoilParameterization:
                                      xl=actual_lower_bounds,
                                      xu=actual_upper_bounds)
                     
+                    # Reuse a single parameterisation instance
+                    self.af_param = AirfoilParameterization()
+                    self.af_param.GetReferenceThicknessCamber(reference_file)
+                    self.af_param.GetReferenceParameters()
+                    
                 def _evaluate(self, x, out, *args, **kwargs):
-                    out["F"] = AirfoilParameterization().Objective(x, reference_file)
+                    out["F"] = self.af_param.Objective(x, reference_file)
                     # Compute bound for b_8
                     g1 = x[2] - min(x[6], np.sqrt(-2 * x[11] * x[5] / 3))
 

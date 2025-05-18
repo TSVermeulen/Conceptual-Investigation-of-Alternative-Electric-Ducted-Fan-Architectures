@@ -53,11 +53,14 @@ from pymoo.core.mixed import MixedVariableGA
 from pymoo.core.problem import StarmapParallelization
 from pymoo.optimize import minimize
 
+# Ensure custom package paths are discoverable *before* importing
+from utils import ensure_repo_paths #type: ignore
+ensure_repo_paths()
+
 # Import interface submodels and other dependencies
 import config #type: ignore
 from problem_definition import OptimizationProblem #type: ignore
 from init_population import InitPopulation #type: ignore
-from utils import ensure_repo_paths #type: ignore
 from termination_conditions import GetTerminationConditions #type: ignore
 
 if __name__ == "__main__":

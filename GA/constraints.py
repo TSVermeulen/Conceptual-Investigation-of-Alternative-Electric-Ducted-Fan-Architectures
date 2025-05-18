@@ -288,7 +288,7 @@ class Constraints:
         """
 
         feasibility_constraints = []
-        feasibility_offset = 0.025  # Offset of 0.025 to avoid the control points lying on x_t/x_c
+        feasibility_offset = 0.05  # Offset of 0.05 to avoid the control points lying on x_t/x_c
         if config.OPTIMIZE_CENTERBODY:
             # If the centerbody is to be optimized, add the TE thickness constraint
             thickness_constraint = -3 * self.centerbody_values["b_8"] ** 2 / (2 * self.centerbody_values["r_LE"]) - self.centerbody_values["x_t"] + feasibility_offset
@@ -455,17 +455,11 @@ class Constraints:
         # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
         computed_ineq_constraints = []
         if ineq_constraints:
-            # num_ineq = len(ineq_constraints)
-            #computed_ineq_constraints = [] #np.empty(num_outputs * num_ineq + config.n_feasibility_constraints)
             for i, outputs in enumerate(analysis_outputs):
                 self.ref_thrust = config.T_ref_constr[i]
                 self.ref_power = config.P_ref_constr[i]
                 self.oper = self.multi_oper[i]
                 for j, constraint in enumerate(ineq_constraints):
-                    # computed_ineq_constraints[i * num_ineq + j] = round(constraint(outputs,
-                    #                                                                Lref,
-                    #                                                                thrust[i],
-                    #                                                                power[i]), 5)
                     computed_ineq_constraints.append(round(constraint(outputs,
                                                                       Lref,
                                                                       thrust[i],
@@ -485,17 +479,17 @@ class Constraints:
         # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
         if eq_constraints:
             num_eq = len(eq_constraints)
-            computed_eq_constraints = np.empty(num_outputs * num_eq)
+            computed_eq_constraints = []
 
             for i, outputs in enumerate(analysis_outputs):
                 self.oper = self.multi_oper[i]
                 self.ref_thrust = config.T_ref_constr[i]
                 self.ref_power = config.P_ref_constr[i]
                 for j, constraint in enumerate(eq_constraints):
-                    computed_eq_constraints[i * num_eq + j] = round(constraint(outputs,
-                                                                               Lref,
-                                                                               thrust[i],
-                                                                               power[i]), 5)
+                    computed_eq_constraints.append(round(constraint(outputs,
+                                                                    Lref,
+                                                                    thrust[i],
+                                                                    power[i]), 5))
             if self.design_okay:
                 out["H"] = np.column_stack(computed_eq_constraints)
             else:
