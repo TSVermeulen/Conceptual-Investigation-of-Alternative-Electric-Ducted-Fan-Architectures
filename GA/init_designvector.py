@@ -79,8 +79,8 @@ class DesignVector():
             return [Real(bounds=(0.01, 0.1)),  # b_0
                     Real(bounds=(0.1, 0.3)),  # b_2
                     Real(bounds=(0.05, 0.25)),  # mapping variable for b_8
-                    Real(bounds=(0.8, 0.95)),  # b_15
-                    Real(bounds=(0.8, 0.95)),  # b_17
+                    Real(bounds=(0.75, 0.95)),  # b_15
+                    Real(bounds=(0.75, 0.95)),  # b_17
                     Real(bounds=(0.15, 0.5)),  # x_t
                     Real(bounds=(0.02, 0.30)),  # y_t
                     Real(bounds=(0.2, 0.5)),  # x_c

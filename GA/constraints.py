@@ -31,20 +31,27 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.3
+Version: 1.4
 
 Changelog:
 - V1.0: Initial implementation with basic equality and inequality constraints.
 - V1.1: Implemented inequality constraint for efficiency such that eta is always > 0. 
 - V1.2: Normalised constraints, added 1<T/Tref<1.01 constraint, extracted common power and thrust calculations to separate helper methods.
-- V1.3: Implemented multi-point constraint evaluator. Updated documentation.
+- V1.3: Implemented multi-point constraint evaluator. Updated documentation. Fixed type hinting. 
+- V1.4: Implemented constraints on profile parameterizations. 
 """
+
+# Import standard libraries
+import copy
 
 # Import 3rd party libraries
 import numpy as np
 
 # Import analysis configuration
-import config
+import config # type: ignore
+
+# Define type alias for AnalysisOutputs
+AnalysisOutputs = dict[str, dict[str, float] | dict[str, dict[str, float]]]
 
 class Constraints:
     """
@@ -52,18 +59,19 @@ class Constraints:
     """
 
 
-    def __init__(self) -> None:
+    def __init__(self,
+                 centerbody_values: dict[str, float],
+                 duct_values: dict[str, float],
+                 blade_design_values: list[list[dict[str, float]]],
+                 ) -> None:
         """
         Initialisation of the Constraints class.
-
-        Parameters
-        ----------
-        None
-
-        Returns
-        -------
-        None
         """
+
+        # Write the design variable dictionaries to self
+        self.centerbody_values = copy.deepcopy(centerbody_values)
+        self.duct_values = copy.deepcopy(duct_values)
+        self.blade_design_values = copy.deepcopy(blade_design_values)
 
         # Define lists of all inequality and equality constraints
         self.ineq_constraints_list = [self.KeepEfficiencyFeasibleLower, self.KeepEfficiencyFeasibleUpper, self.MinimumThrust, self.MaximumThrust]
@@ -71,14 +79,14 @@ class Constraints:
 
     
     def _calculate_power(self,
-                         analysis_outputs: dict,
+                         analysis_outputs: AnalysisOutputs,
                          Lref: float) -> float:
         """ 
         Helper method to calculate the power in Watts.
         
         Parameters
         ----------
-        - analysis_outputs : dict
+        - analysis_outputs : AnalysisOutputs
             Outputs from MTFLOW
         - Lref : float
             Reference length
@@ -92,14 +100,14 @@ class Constraints:
 
 
     def _calculate_thrust(self,
-                          analysis_outputs: dict,
+                          analysis_outputs: AnalysisOutputs,
                           Lref: float) -> float:
         """
         Helper method to calculate the thrust in Newtons.
         
         Parameters
         ----------
-        - analysis_outputs : dict
+        - analysis_outputs : AnalysisOutputs
             Outputs from MTFLOW
         - Lref : float
             Reference length
@@ -113,22 +121,22 @@ class Constraints:
 
 
     def ConstantPower(self, 
-                      analysis_outputs: dict, 
-                      Lref: float,
-                      thrust: float,
+                      _analysis_outputs: AnalysisOutputs, 
+                      _Lref: float,
+                      _thrust: float,
                       power: float) -> float:
         """
         Compute the equality constraint for the power coefficient.
 
         Parameters
         ----------
-        - analysis_outputs : dict
+        - _analysis_outputs : AnalysisOutputs
             A dictionary containing the outputs from the MTFLOW forces output file. 
             Must contain all entries corresponding to an execution of 
             output_handling.output_processing().GetAllVariables(3)
-        - Lref : float
+        - _Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter. 
-        - thrust : float
+        - _thrust : float
             The thrust in Newtons. Not used here but included to force constant signature.
         - power : float
             The power in Watts. 
@@ -143,25 +151,25 @@ class Constraints:
     
 
     def KeepEfficiencyFeasibleUpper(self,
-                               analysis_outputs: dict,
-                               Lref: float,
-                               thrust: float,
-                               power: float) -> float:
+                               analysis_outputs: AnalysisOutputs,
+                               _Lref: float,
+                               _thrust: float,
+                               _power: float) -> float:
         """
         Compute the inequality constraint for the efficiency. Enforces that eta < 1. 
 
         Parameters
         ----------
-        - analysis_outputs : dict
+        - analysis_outputs : AnalysisOutputs
             A dictionary containing the outputs from the MTFLOW forces output file. 
             Must contain all entries corresponding to an execution of 
             output_handling.output_processing().GetAllVariables(3).
-        - Lref : float
+        - _Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter.
             Not used in this method, but required for a uniform constraint function signature.
-        - thrust : float
+        - _thrust : float
             The thrust in Newtons. Not used here but included to force constant signature.
-        - power : float
+        - _power : float
             The power in Watts. Not used here but included to force constant signature.
 
         Returns
@@ -175,24 +183,24 @@ class Constraints:
     
 
     def KeepEfficiencyFeasibleLower(self,
-                               analysis_outputs: dict,
-                               Lref: float,
-                               thrust: float,
-                               power: float) -> float:
+                               analysis_outputs: AnalysisOutputs,
+                               _Lref: float,
+                               _thrust: float,
+                               _power: float) -> float:
         """
         Compute the inequality constraint for the efficiency. Enforces that eta > 0. 
 
         Parameters
         ----------
-        - analysis_outputs : dict
+        - analysis_outputs : AnalysisOutputs
             A dictionary containing the outputs from the MTFLOW forces output file. 
             Must contain all entries corresponding to an execution of 
             output_handling.output_processing().GetAllVariables(3).
-        - Lref : float
+        - _Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter.
-        - thrust : float
+        - _thrust : float
             The thrust in Newtons.
-        - power : float
+        - _power : float
             The power in Watts.
 
         Returns
@@ -204,27 +212,26 @@ class Constraints:
         # Compute the inequality constraint for the efficiency.
         return -analysis_outputs['data']['EtaP']
     
-    
 
     def MinimumThrust(self,
-                      analysis_outputs: dict,
-                      Lref: float,
+                      _analysis_outputs: AnalysisOutputs,
+                      _Lref: float,
                       thrust: float,
-                      power: float) -> float:
+                      _power: float) -> float:
         """
         Compute the inequality constraint for the thrust. Enforces that T > (1 - delta) * T_ref.
 
         Parameters
         ----------
-        - analysis_outputs : dict
+        - _analysis_outputs : AnalysisOutputs
             A dictionary containing the outputs from the MTFLOW forces output file. 
             Must contain all entries corresponding to an execution of 
             output_handling.output_processing().GetAllVariables(3). 
-        - Lref : float
+        - _Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter. 
         - thrust : float
             The thrust in Newtons. 
-        - power : float
+        - _power : float
             The power in Watts. Not used here but included to force constant signature.
 
         Returns
@@ -236,26 +243,26 @@ class Constraints:
     
 
     def MaximumThrust(self,
-                      analysis_outputs: dict,
-                      Lref: float,
+                      _analysis_outputs: AnalysisOutputs,
+                      _Lref: float,
                       thrust: float,
-                      power: float) -> float:
+                      _power: float) -> float:
         """
         Compute the upper bound for the thrust. Enforces that T < T_ref + delta.
 
         Parameters
         ----------
-        - analysis_outputs : dict
+        - _analysis_outputs : AnalysisOutputs
             A dictionary containing the outputs from the MTFLOW forces output file. 
             Must contain all entries corresponding to an execution of 
             output_handling.output_processing().GetAllVariables(3)
             Not used here but included to force constant signature.
-        - Lref : float
+        - _Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter. 
             Not used here but included to force constant signature.
-        - thrust : float
+        - _thrust : float
             The thrust in Newtons. 
-        - power : float
+        - _power : float
             The power in Watts. Not used here but included to force constant signature.
 
         Returns
@@ -266,10 +273,42 @@ class Constraints:
         return (config.deviation_range * self.ref_thrust - thrust) / self.ref_thrust  # Normalized thrust constraint
 
 
+    def ComputeProfileFeasibilityConstraints(self) -> list[float]:
+        """
+        Compute the profile feasibility constraints to help enforce a feasible BP3434 parameterization. 
+
+        Returns
+        -------
+        - feasibility_constraints : list[float]
+            A list of the feasibility constraint values. 
+        """
+
+        feasibility_constraints = []
+        feasibility_offset = 0.025  # Offset of 0.025 to avoid the control points lying on x_t/x_c
+        if config.OPTIMIZE_CENTERBODY:
+            # If the centerbody is to be optimized, add the TE thickness constraint
+            thickness_constraint = -3 * self.centerbody_values["b_8"] ** 2 / (2 * self.centerbody_values["r_LE"]) - self.centerbody_values["x_t"] + feasibility_offset
+            feasibility_constraints.append(thickness_constraint)
+        if config.OPTIMIZE_DUCT:
+            # If the duct is to be optimized, add the TE thickness and camber constraints
+            thickness_constraint = -3 * self.duct_values["b_8"] ** 2 / (2 * self.duct_values["r_LE"]) - self.duct_values["x_t"] + feasibility_offset
+            camber_constraint = 8/7 * self.duct_values["y_c"] / np.tan(self.duct_values["leading_edge_direction"]) - self.duct_values["x_c"] + feasibility_offset
+            feasibility_constraints.extend([thickness_constraint, camber_constraint])
+        for i, opt_stage in enumerate(config.OPTIMIZE_STAGE):
+            if opt_stage:
+                for j in range(config.NUM_RADIALSECTIONS[i]):
+                    # For each radial section, add the camber and thickness constraints
+                    thickness_constraint = -3 * self.blade_design_values[i][j]["b_8"] ** 2 / (2 * self.blade_design_values[i][j]["r_LE"]) - self.blade_design_values[i][j]["x_t"] + feasibility_offset
+                    camber_constraint = 8/7 * self.blade_design_values[i][j]["y_c"] / np.tan(self.blade_design_values[i][j]["leading_edge_direction"]) - self.blade_design_values[i][j]["x_c"] + feasibility_offset
+                    feasibility_constraints.extend([thickness_constraint, camber_constraint])
+        
+        return feasibility_constraints
+
+
     def ComputeConstraints(self,
-                           analysis_outputs: dict,
+                           analysis_outputs: AnalysisOutputs,
                            Lref: float,
-                           oper: dict,
+                           oper: dict[str, float],
                            out: dict) -> None:              
         """
         Compute the inequality and equality constraints based on the provided analysis outputs
@@ -277,12 +316,12 @@ class Constraints:
 
         Parameters
         ----------
-        - analysis_outputs: dict 
+        - analysis_outputs: AnalysisOutputs 
             A dictionary containing the results of the analysis,
             which are used as inputs to the constraint functions.
         - Lref : float
             A reference length used in the computation of constraints.
-        - oper : dict
+        - oper : dict[str, float]
             The operating conditions dictionary.
         - out : dict
             A dictionary to store the computed constraints. The keys "G" and "H"
@@ -318,17 +357,16 @@ class Constraints:
         
         # Compute the inequality constraints and write them to out["G"]
         # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
+        computed_ineq_constraints = []
         if ineq_constraints:
-            computed_ineq_constraints = []
             for i in range(len(ineq_constraints)):
                 computed_ineq_constraints.append(round(ineq_constraints[i](analysis_outputs,
                                                                            Lref,
                                                                            thrust,
                                                                            power), 5))
-            
-            out["G"] = np.column_stack(computed_ineq_constraints)
-        else:
-            out["G"] = [[]]
+        feasibility_constraints = self.ComputeProfileFeasibilityConstraints()
+        computed_ineq_constraints.extend(feasibility_constraints)
+        out["G"] = np.column_stack(computed_ineq_constraints)
 
         # Compute the equality constraints and write them to out["H"]
         # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
@@ -346,9 +384,9 @@ class Constraints:
 
 
     def ComputeMultiPointConstraints(self,
-                                     analysis_outputs: list[dict[str, any]],
+                                     analysis_outputs: list[AnalysisOutputs],
                                      Lref: float,
-                                     oper: list[dict[str, any]],
+                                     oper: list[dict[str, float]],
                                      out: dict) -> None:              
         """
         Compute the inequality and equality constraints for a multi-point analysis based on the provided analysis outputs
@@ -356,12 +394,12 @@ class Constraints:
 
         Parameters
         ----------
-        - analysis_outputs: list[dict] 
+        - analysis_outputs: list[AnalysisOutputs] 
             A list of the output dictionaries containing the results of the analyses,
             which are used as inputs to the constraint functions.
         - Lref : float
             A reference length used in the computation of constraints.
-        - oper : list[dict[str, any]]
+        - oper : list[dict[str, float]]
             A list containing all operating condition dictionaries for each of the operating points in the multi-point analysis. 
         - out : dict
             A dictionary to store the computed constraints. The keys "G" and "H"
@@ -400,22 +438,27 @@ class Constraints:
 
         # Compute the inequality constraints and write them to out["G"]
         # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
+        computed_ineq_constraints = []
         if ineq_constraints:
             num_ineq = len(ineq_constraints)
-            computed_ineq_constraints = np.empty(num_outputs * num_ineq)
+            #computed_ineq_constraints = [] #np.empty(num_outputs * num_ineq + config.n_feasibility_constraints)
             for i, outputs in enumerate(analysis_outputs):
                 self.ref_thrust = config.T_ref_constr[i]
                 self.ref_power = config.P_ref_constr[i]
                 self.oper = self.multi_oper[i]
                 for j, constraint in enumerate(ineq_constraints):
-                    computed_ineq_constraints[i * num_ineq + j] = round(constraint(outputs,
-                                                                                   Lref,
-                                                                                   thrust[i],
-                                                                                   power[i]), 5)
-            
-            out["G"] = np.column_stack(computed_ineq_constraints)
-        else:
-            out["G"] = [[]]
+                    # computed_ineq_constraints[i * num_ineq + j] = round(constraint(outputs,
+                    #                                                                Lref,
+                    #                                                                thrust[i],
+                    #                                                                power[i]), 5)
+                    computed_ineq_constraints.append(round(constraint(outputs,
+                                                                      Lref,
+                                                                      thrust[i],
+                                                                      power[i]), 5))
+                    
+        feasibility_constraints = self.ComputeProfileFeasibilityConstraints()
+        computed_ineq_constraints.extend(feasibility_constraints)
+        out["G"] = np.column_stack(computed_ineq_constraints)
 
         # Compute the equality constraints and write them to out["H"]
         # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
@@ -455,13 +498,15 @@ if __name__ == "__main__":
         sys.path.append(submodels_path)
 
     # Import MTFLOW interface submodels and other dependencies
-    from Submodels.output_handling import output_processing
+    from Submodels.output_handling import output_processing #type: ignore
     
     # Extract outputs from the forces output file
     outputs = output_processing(analysis_name='initial_analysis').GetAllVariables(3)
     
     # Create an instance of the Constraints class
-    test = Constraints()
+    test = Constraints(config.CENTERBODY_VALUES,
+                       config.DUCT_VALUES,
+                       config.STAGE_DESIGN_VARIABLES)
 
     # Compute the constraints
     output = {}

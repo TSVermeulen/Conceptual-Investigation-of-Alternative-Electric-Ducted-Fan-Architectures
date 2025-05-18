@@ -44,8 +44,11 @@ Changelog:
 import numpy as np
 
 # Import config module
-import config
+import config #type: ignore
 
+
+# Define type alias for analysis outputs
+AnalysisOutputs = dict[str, dict[str, float] | dict[str, dict[str, float]]]
 
 class Objectives:
     """
@@ -72,7 +75,7 @@ class Objectives:
         self.duct_variables = duct_variables
 
         # Lazy import and cache the AirfoilParameterization class
-        from Submodels.Parameterizations import AirfoilParameterization
+        from Submodels.Parameterizations import AirfoilParameterization #type: ignore
         self._airfoil_parameterization = AirfoilParameterization()
 
         # Define the objective list, and the subset of objectives which are independent of operating condition
@@ -81,53 +84,54 @@ class Objectives:
 
 
     def Efficiency(self,
-                   outputs: dict) -> float:
+                   outputs: AnalysisOutputs) -> float:
         """
         Define the efficiency (sub-)objective.
         This sub-objective has identifier 0.
 
         Parameters
         ----------
-        - outputs : dict
+        - outputs : AnalysisOutputs
             A dictionary containing the outputs from the forces.xxx file. 
             outputs should be structured based on output mode 3 of output_handling.output_processing.GetAllVariables().
 
         Returns
         -------
         - Propulsive Efficiency: float
-            A float of the propulsive efficiency objective, defined as 1 - CT/CP.
+            A float of the propulsive efficiency objective, defined as 1 - EtaP.
         """
 
         return 1 - outputs['data']['EtaP']
 
 
     def FrontalArea(self,
-                    outputs: dict) -> float:
+                    _outputs: AnalysisOutputs) -> float:
         """
         Define the frontal area (sub-)objective.
         This sub-objective has identifier 2.
 
+        Parameters
+        ----------
+        - _outputs : AnalysisOutputs
+            A dictionary containing the outputs from the forces.xxx file. 
+            _outputs should be structured based on output mode 3 of output_handling.output_processing.GetAllVariables().
+
         Returns
         -------
-        - normalised_frontal_area : float
+        - frontal_area : float
             The frontal area normalised by the reference frontal area.
         """
 
-        # To comput the frontal area, we need the maximum radius of the ducted propeller/fan.
+        # To compute the frontal area, we need the maximum radius of the ducted propeller/fan.
         # This can be computed based on the radial LE coordinate of the duct, 
         # together with the maximum y-coordinate of the duct profile.
 
         # Compute the airfoil coordinates
         # We only care about the upper y coordinates so they are the only ones we store
-        _, upper_y, _, _ = self._airfoil_parameterization.ComputeProfileCoordinates([self.duct_variables["b_0"],
-                                                                                     self.duct_variables["b_2"],
-                                                                                     self.duct_variables["b_8"],
-                                                                                     self.duct_variables["b_15"],
-                                                                                     self.duct_variables["b_17"]],
-                                                                                     self.duct_variables)
+        _, upper_y, _, _ = self._airfoil_parameterization.ComputeProfileCoordinates(self.duct_variables)
 
         # Dimensionalise the y coordinates using the chord length
-        upper_y *= self.duct_variables["Chord Length"]
+        upper_y = upper_y * self.duct_variables["Chord Length"]  # avoid side-effects
 
         # Compute the maximum radius
         max_radius = self.duct_variables["Leading Edge Coordinates"][1] + np.max(upper_y)
@@ -202,7 +206,7 @@ class Objectives:
 
         objectives = [self.objectivelist[i] for i in objective_IDs]
 
-        computed_objectives = np.empty_like(objectives)
+        computed_objectives = np.empty(len(objectives), dtype=float)
 
         for i in range(len(objectives)):
             # Rounds the objective values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
@@ -245,7 +249,7 @@ class Objectives:
         num_outputs = len(analysis_outputs)
         num_varobjectives = len(variable_objectives)
         num_constobjectives = len(constant_objectives)
-        computed_objectives = np.empty(num_varobjectives * num_outputs + num_constobjectives)
+        computed_objectives = np.empty(num_varobjectives * num_outputs + num_constobjectives, dtype=float)
 
         # First compute the outputs which are a function of operating condition
         for i, outputs in enumerate(analysis_outputs):
@@ -271,8 +275,8 @@ if __name__ == "__main__":
     submodels_path = parent_dir / "Submodels"
     sys.path.extend([str(parent_dir), str(submodels_path)])
 
-    from Submodels.output_handling import output_processing
-    import config
+    from Submodels.output_handling import output_processing #type: ignore
+    import config #type: ignore
 
     objectives_class = Objectives(config.DUCT_VALUES)
     output = {}

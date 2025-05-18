@@ -40,7 +40,7 @@ from pymoo.termination import get_termination
 from pymoo.termination.collection import TerminationCollection
 
 # Import configuration module
-import config
+import config #type: ignore
 
 def GetTerminationConditions():
     """
