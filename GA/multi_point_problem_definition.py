@@ -459,10 +459,11 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # The out dictionary is updated in-place
         Constraints(self.centerbody_variables,
                     self.duct_variables,
-                    self.blade_design_parameters).ComputeMultiPointConstraints(analysis_outputs=MTFLOW_outputs,
-                                                                               Lref=self.Lref,
-                                                                               oper=self.multi_oper,
-                                                                               out=out)
+                    self.blade_design_parameters,
+                    design_okay).ComputeMultiPointConstraints(analysis_outputs=MTFLOW_outputs,
+                                                              Lref=self.Lref,
+                                                              oper=self.multi_oper,
+                                                              out=out)
 
         # Cleanup the generated files
         with contextlib.suppress(Exception):
