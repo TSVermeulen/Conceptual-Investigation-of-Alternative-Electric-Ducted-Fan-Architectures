@@ -55,14 +55,14 @@ from pymoo.algorithms.moo.unsga3 import UNSGA3, comp_by_rank_and_ref_line_dist
 from pymoo.operators.selection.tournament import TournamentSelection
 
 # Ensure parent process has the correct import paths
-from utils import ensure_repo_paths
+from utils import ensure_repo_paths # type: ignore
 ensure_repo_paths()
 
 # Import interface submodels and other dependencies
-import config
-from problem_definition import OptimizationProblem
-from init_population import InitPopulation
-from termination_conditions import GetTerminationConditions
+import config # type: ignore
+from problem_definition import OptimizationProblem # type: ignore
+from init_population import InitPopulation # type: ignore
+from termination_conditions import GetTerminationConditions # type: ignore
 
 
 if __name__ == "__main__":
@@ -88,7 +88,7 @@ if __name__ == "__main__":
         """ Initialize the optimization problem and algorithm """
         # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
         if hasattr(config, "PROBLEM_TYPE") and config.PROBLEM_TYPE == "multi_point":
-            from multi_point_problem_definition import MultiPointOptimizationProblem
+            from multi_point_problem_definition import MultiPointOptimizationProblem # type: ignore
             problem = MultiPointOptimizationProblem(elementwise_runner=runner,
                                                     seed=config.GLOBAL_SEED)
         else:        

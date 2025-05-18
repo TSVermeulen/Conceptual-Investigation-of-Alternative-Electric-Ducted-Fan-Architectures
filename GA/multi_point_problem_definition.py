@@ -54,16 +54,16 @@ from pymoo.core.problem import ElementwiseProblem
 
 # Ensure all paths are correctly setup if executing the script as standalone
 if __name__ == "__main__":
-    from utils import ensure_repo_paths
+    from utils import ensure_repo_paths # type: ignore
     ensure_repo_paths()
 
 # Import interface submodels and other dependencies
-from Submodels.MTSOL_call import OutputType, ExitFlag
-from objectives import Objectives
-from constraints import Constraints
-from init_designvector import DesignVector
-from design_vector_interface import DesignVectorInterface
-import config
+from Submodels.MTSOL_call import OutputType, ExitFlag # type: ignore
+from objectives import Objectives # type: ignore
+from constraints import Constraints # type: ignore
+from init_designvector import DesignVector # type: ignore
+from design_vector_interface import DesignVectorInterface # type: ignore
+import config # type: ignore
 
 
 class MultiPointOptimizationProblem(ElementwiseProblem):
@@ -83,28 +83,28 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
     # Initialize output dictionary to use in case of an infeasible design. 
     # This equals the outputs of the output_handling.output_processing.GetAllVariables(3) method, 
     # but is quicker as it does not involve reading a file.
-    CRASH_OUTPUTS: dict[str, dict[str, float]] = {'data':
-                                                  {'Total power CP': 0.00000, 
-                                                   'EtaP': 0.00000, 
-                                                   'Total force CT': 0.00000, 
-                                                   'Element 2 top CTV': 0.00000, 
-                                                   'Element 2 bot CTV': 0.00000, 
-                                                   'Axis body CTV': 0.00000, 
-                                                   'Viscous CTv': 0.00000, 
-                                                   'Inviscid CTi': 0.00000, 
-                                                   'Friction CTf': 0.00000, 
-                                                   'Pressure CTp': 0.00000, 
-                                                   'Pressure Ratio': 0.00000}, 
-                                                  'grouped_data': 
-                                                  {'Element 2': 
-                                                   {'CTf': 0.00000, 
-                                                    'CTp': 0.00000, 
-                                                    'top Xtr': 0.00000, 
-                                                    'bot Xtr': 0.00000}, 
-                                                   'Axis Body': 
-                                                   {'CTf': 0.00000, 
-                                                    'CTp': 0.00000, 
-                                                    'Xtr': 0.00000}}}
+    CRASH_OUTPUTS: dict[str, dict[str, float] | dict[str, dict[str, float]]] = {'data':
+                                                                                {'Total power CP': 0.00000, 
+                                                                                 'EtaP': 0.00000, 
+                                                                                 'Total force CT': 0.00000, 
+                                                                                 'Element 2 top CTV': 0.00000, 
+                                                                                 'Element 2 bot CTV': 0.00000, 
+                                                                                 'Axis body CTV': 0.00000, 
+                                                                                 'Viscous CTv': 0.00000, 
+                                                                                 'Inviscid CTi': 0.00000, 
+                                                                                 'Friction CTf': 0.00000, 
+                                                                                 'Pressure CTp': 0.00000, 
+                                                                                 'Pressure Ratio': 0.00000}, 
+                                                                                'grouped_data': 
+                                                                                {'Element 2': 
+                                                                                 {'CTf': 0.00000, 
+                                                                                  'CTp': 0.00000, 
+                                                                                  'top Xtr': 0.00000, 
+                                                                                  'bot Xtr': 0.00000}, 
+                                                                                 'Axis Body': 
+                                                                                 {'CTf': 0.00000, 
+                                                                                  'CTp': 0.00000, 
+                                                                                  'Xtr': 0.00000}}}
     
 
     def __init__(self,
@@ -160,9 +160,9 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Use lazy-loaded modules (initialized at first use)
         if not hasattr(self, "_lazy_modules_loaded"):
-            from MTFLOW_caller import MTFLOW_caller
-            from Submodels.output_handling import output_processing
-            from Submodels.file_handling import fileHandlingMTSET, fileHandlingMTFLO
+            from MTFLOW_caller import MTFLOW_caller # type: ignore
+            from Submodels.output_handling import output_processing # type: ignore
+            from Submodels.file_handling import fileHandlingMTSET, fileHandlingMTFLO # type: ignore
             self._MTFLOW_caller = MTFLOW_caller
             self._output_processing = output_processing
             self._fileHandlingMTSET = fileHandlingMTSET
@@ -320,7 +320,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
 
     def GenerateMTFLOWInputs(self,
-                             x: dict[str, any]) -> bool:
+                             x: dict[str, int | float]) -> bool:
         """
         Generates the input files required for the MTFLOW simulation.
         This method creates the necessary input files for the MTFLOW simulation by utilizing the 
@@ -333,7 +333,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         Parameters
         ----------
-        - x : dict[str, any]
+        - x : dict[str, int | float]
             The pymoo design vector dictionary.
 
         Returns

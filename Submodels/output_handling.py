@@ -95,7 +95,7 @@ class output_visualisation:
 
 
     def __init__(self, 
-                 analysis_name: str = None) -> None:
+                 analysis_name: str) -> None:
         """
         Initialize the output_visualisation class.
         
@@ -110,10 +110,6 @@ class output_visualisation:
         -------
         None
         """ 
-
-        # Simple input validation
-        if analysis_name is None:
-            raise IOError("The variable 'analysis_name' cannot be none in output_visualisation!")
 
         self.analysis_name = analysis_name
 
@@ -227,13 +223,13 @@ class output_visualisation:
     
 
     def ReadGeometry(self,
-                     ) -> list:
+                     ) -> list[np.typing.NDArray[np.floating]]:
         """
         Read in the centrebody and duct geometry from the walls.analysis_name file
 
         Returns
         -------
-        - shapes : list[np.ndarray]
+        - shapes : list[np.typing.NDArray[np.floating]]
             A list of nested arrays, where each array contains the geometry of one of the axisymmetric bodies. 
         """
 
@@ -261,7 +257,7 @@ class output_visualisation:
     
 
     def ReadBlades(self,
-                   ) -> list[np.ndarray[float]]:
+                   ) -> list[np.typing.NDArray[np.floating]]:
         """
         Read the blade geometries from the tflow.analysis_name file.
 
@@ -306,15 +302,15 @@ class output_visualisation:
 
         # Append the last outline if any
         if current_outline:
-            stages_outlines.append(np.array(current_outline))
+            stages_outlines.append(np.array(current_outline, dtype=float))
 
         return stages_outlines
     
 
     def CreateContours(self,
                        df: pd.DataFrame,
-                       shapes: list[np.ndarray[float]],
-                       blades = list[np.ndarray[float]],
+                       shapes: list[np.typing.NDArray[np.floating]],
+                       blades: list[np.typing.NDArray[np.floating]],
                        figsize: tuple[float, float] = (6.4, 4.8),
                        cmap: str = 'viridis',
                        ) -> None:
@@ -515,16 +511,13 @@ class output_visualisation:
         # Load in the flowfield into blocks for each streamline and an overall dataframe
         blocks, df = self.GetFlowfield()
 
-        # Read in the axi-symmetric geometry
-        if self.walls:
-            bodies = self.ReadGeometry()
-
-        # Read in the blade outlines
-        if self.tflow:
-            blades = self.ReadBlades()
-
         # Create contour plots from the flowfield
         if self.walls and self.tflow:
+            # Read in the axi-symmetric geometry
+            bodies = self.ReadGeometry()
+            # Read in the blade outlines
+            blades = self.ReadBlades()
+
             self.CreateContours(df, bodies, blades)
 
         # Create the streamline plots
@@ -551,7 +544,7 @@ class output_processing:
     """
 
     def __init__(self,
-                 analysis_name: str = None):
+                 analysis_name: str):
         """
         Class Initialisation.
 
@@ -560,10 +553,6 @@ class output_processing:
         - analysis_name : str
             A string of the analysis name. Must equal the filename extension used for walls.xxx, tflow.xxx, tdat.xxx, boundary_layer.xxx, and flowfield.xxx.
         """
-
-        # Simple input validation
-        if analysis_name is None:
-            raise IOError("The variable 'analysis_name' cannot be none in output_processing()!")
 
         self.analysis_name = analysis_name
 
@@ -580,7 +569,7 @@ class output_processing:
 
     def GetAllVariables(self,
                         output_type : int = 0,
-                        ) -> dict[str, dict[str, float]]:
+                        ) -> dict[str, float | dict[str, float]]:
         """
         Read the forces.analysis_name file and return the variables and their values.
 
@@ -639,65 +628,120 @@ class output_processing:
             if idx == 0:
                 continue
             if idx == 1 and output_type == 0:
-                oper["Mach"] = re.search(Ma_pattern, line).group(1)
+                match = re.search(Ma_pattern, line)
+                if match is not None:
+                    oper["Mach"] = match.group(1)
+                else:
+                    oper["Mach"] = 0
 
             elif idx == 2 and output_type == 0:
                 match = re.search(Re_Ncrit_pattern, line)
-                oper["Re"] = match.group(1)
-                oper["Ncrit"] = match.group(2)
+                if match is not None:
+                    oper["Re"] = match.group(1)
+                    oper["Ncrit"] = match.group(2)
+                else:
+                    oper["Re"] = 0
+                    oper["Ncrit"] = 0
 
             elif idx == 3 and output_type in (0, 1, 3):
                 match = re.search(total_CP_etaP_pattern, line)
-                data["Total power CP"] = match.group(1)
-                data["EtaP"] = match.group(2)
+                if match is not None:
+                    data["Total power CP"] = match.group(1)
+                    data["EtaP"] = match.group(2)
+                else:
+                    data["Total power CP"] = 0
+                    data["EtaP"] = 0
 
             elif idx == 4 and output_type in (0, 1, 3):
-                data["Total force CT"] = re.search(total_CT_pattern, line).group(1)
+                match = re.search(total_CT_pattern, line)
+                if match is not None:
+                    data["Total force CT"] = match.group(1)
+                else:
+                    data["Total force CT"] = 0
 
             elif idx == 5 and output_type in (0, 1, 3):
-                data["Element 2 top CTV"] = re.search(top_CTV_pattern, line).group(1)
+                match = re.search(top_CTV_pattern, line)
+                if match is not None:
+                    data["Element 2 top CTV"] = match.group(1)
+                else:
+                    data["Element 2 top CTV"] = 0
 
             elif idx == 6 and output_type in (0, 1, 3):
-                data["Element 2 bot CTV"] = re.search(bot_CTV_pattern, line).group(1)
+                match = re.search(bot_CTV_pattern, line)
+                if match is not None:
+                    data["Element 2 bot CTV"] = match.group(1)
+                else:
+                    data["Element 2 bot CTV"] = 0
 
             elif idx == 7 and output_type in (0, 1, 3):
-                data["Axis body CTV"] = re.search(axis_body_CTV_pattern, line).group(1)
+                match = re.search(axis_body_CTV_pattern, line)
+                if match is not None:
+                    data["Axis body CTV"] = match.group(1)
+                else:
+                    data["Axis body CTV"] = 0
 
             elif idx == 9 and output_type in (0, 1, 3):
-                viscous_inviscid_math = re.search(viscous_inviscid_pattern, line)
-                data["Viscous CTv"] = viscous_inviscid_math.group(1)
-                data["Inviscid CTi"] = viscous_inviscid_math.group(2)
+                viscous_inviscid_match = re.search(viscous_inviscid_pattern, line)
+                if viscous_inviscid_match is not None:
+                    data["Viscous CTv"] = viscous_inviscid_match.group(1)
+                    data["Inviscid CTi"] = viscous_inviscid_match.group(2)
+                else:
+                    data["Viscous CTv"] = 0
+                    data["Inviscid CTi"] = 0
 
             elif idx == 10 and output_type in (0, 1, 3):
-                friction_pressure_math = re.search(friction_pressure_pattern, line)
-                data["Friction CTf"] = friction_pressure_math.group(1)
-                data["Pressure CTp"] = friction_pressure_math.group(2)
+                friction_pressure_match = re.search(friction_pressure_pattern, line)
+                if friction_pressure_match is not None:
+                    data["Friction CTf"] = friction_pressure_match.group(1)
+                    data["Pressure CTp"] = friction_pressure_match.group(2)
+                else:
+                    data["Friction CTf"] = 0
+                    data["Pressure CTp"] = 0
 
             elif idx == 11 and output_type in (0, 2, 3):
                 match = re.search(element_breakdown_pattern, line)
-                CTf = match.group(1)
-                CTp = match.group(2)
-                top_Xtr = match.group(3)
-                bot_Xtr = match.group(4)
-                grouped_data["Element 2"] = {"CTf": CTf,
-                                             "CTp": CTp,
-                                             "top Xtr": top_Xtr,
-                                             "bot Xtr": bot_Xtr}
+                if match is not None:
+                    CTf = match.group(1)
+                    CTp = match.group(2)
+                    top_Xtr = match.group(3)
+                    bot_Xtr = match.group(4)
+                    grouped_data["Element 2"] = {"CTf": CTf,
+                                                "CTp": CTp,
+                                                "top Xtr": top_Xtr,
+                                                "bot Xtr": bot_Xtr}
+                else:
+                    grouped_data["Element 2"] = {"CTf": 0,
+                                                "CTp": 0,
+                                                "top Xtr": 0,
+                                                "bot Xtr": 0}
                 
             elif idx == 12 and output_type in (0, 2, 3):
                 match = re.search(axis_body_breakdown_pattern, line)
-                CTf = match.group(1)
-                CTp = match.group(2)
-                Xtr = match.group(3)
-                grouped_data["Axis Body"] = {"CTf": CTf,
-                                             "CTp": CTp,
-                                             "Xtr": Xtr}
+                if match is not None:
+                    CTf = match.group(1)
+                    CTp = match.group(2)
+                    Xtr = match.group(3)
+                    grouped_data["Axis Body"] = {"CTf": CTf,
+                                                "CTp": CTp,
+                                                "Xtr": Xtr}
+                else:
+                    grouped_data["Axis Body"] = {"CTf": 0,
+                                                "CTp": 0,
+                                                "Xtr": 0}
                 
             elif idx == 14 and output_type in (0, 1, 3):
-                data["Pressure Ratio"] = re.search(P_ratio_pattern, line).group(1)
+                match = re.search(P_ratio_pattern, line)
+                if match is not None:
+                    data["Pressure Ratio"] = match.group(1)
+                else:
+                    data["Pressure Ratio"] = 0
             
             elif idx == 21 and output_type in (0, 1, 3):
-                data["Wetted Area"] = re.search(wetted_area_pattern, line).group(1)
+                match = re.search(wetted_area_pattern, line)
+                if match is not None:
+                    data["Wetted Area"] = match.group(1)
+                else:
+                    data["Wetted Area"] = 0
 
         # Convert contents of all dictionaries to floats
         oper = {key: float(value) for key, value in oper.items()}

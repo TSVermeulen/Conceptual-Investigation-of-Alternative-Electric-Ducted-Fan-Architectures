@@ -2,10 +2,14 @@
 X22A_validation
 ===============
 
+Description
+-----------
 This file is an implementation of all classes and functions to validate the MTFLOW codes and input generation routines against 
 experimental wind tunnel data for the X22A ducted propeller powertrain unit, contained in NASA TN-D-4142.
 
-
+Notes
+-----
+N/A
 
 References
 ----------
@@ -13,29 +17,42 @@ References
 [2] - https://apps.dtic.mil/sti/tr/pdf/AD0447814.pdf?form=MG0AV3 
 [3] - https://arc.aiaa.org/doi/10.2514/1.C037541 
 
+Versioning
+----------
+Author: T.S. Vermeulen
+Email: T.S.Vermeulen@student.tudelft.nl
+Student ID 4995309
+Version: 1.0
+
+Changelog:
+- V1.0: Initial complete validated version. 
+- V1.1: Added documentation and type hinting.
 """
 
-import numpy as np
-from pathlib import Path
-from scipy import interpolate
-from ambiance import Atmosphere
-import matplotlib.pyplot as plt
+# Import standard libraries
 import os
 import sys
+from pathlib import Path
+
+# Import 3rd party libraries
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import interpolate
+from ambiance import Atmosphere
 
 # Enable submodel relative imports 
 sys.path.append(str(Path(__file__).resolve().parent))
 
-from Submodels.Parameterizations import AirfoilParameterization
-from Submodels.file_handling import fileHandlingMTFLO, fileHandlingMTSET
-from Submodels.output_handling import output_processing
-from Submodels.MTSOL_call import MTSOL_call
-from Submodels.MTSET_call import MTSET_call
-from Submodels.MTFLO_call import MTFLO_call
+# Import interfacing modules
+from Submodels.Parameterizations import AirfoilParameterization # type: ignore 
+from Submodels.file_handling import fileHandlingMTFLO, fileHandlingMTSET # type: ignore 
+from Submodels.output_handling import output_processing # type: ignore 
+from Submodels.MTSOL_call import MTSOL_call # type: ignore 
+from Submodels.MTSET_call import MTSET_call # type: ignore 
+from Submodels.MTFLO_call import MTFLO_call # type: ignore 
 
 # Define key paths/directories
-parent_dir = Path(__file__).resolve().parent
-submodels_path = parent_dir / "Submodels"
+submodels_path = Path(__file__).resolve().parent / "Submodels"
 
 
 # First we define some constants and the operating conditions which will be analysed
@@ -271,10 +288,6 @@ def GenerateMTFLOInput(blading_parameters: list,
 def GenerateMTSETGeometry() -> None:
     """
     Generate the duct and center body geometry. Uses a combination of analytical representation, and smoothing interpolations to obtain the axisymmetric geometries. 
-
-    Returns
-    -------
-    None
     """
 
     # --------------------
@@ -391,10 +404,6 @@ def ChangeOMEGA(omega: float) -> None:
     ----------
     - omega : float
         The non-dimensional rotational speed to be entered into the tflow input file. 
-
-    Returns
-    -------
-    None
     """
 
     # Open the tflow.analysis_name file
@@ -410,9 +419,9 @@ def ChangeOMEGA(omega: float) -> None:
         file.writelines(lines)
 
 
-def ExecuteParameterSweep(omega: np.ndarray[float],
-                          inlet_mach: np.ndarray[float],
-                          reynolds_inlet: np.ndarray[float],
+def ExecuteParameterSweep(omega: np.typing.NDArray[np.floating],
+                          inlet_mach: np.typing.NDArray[np.floating],
+                          reynolds_inlet: np.typing.NDArray[np.floating],
                           reference_angle: float,
                           generate_plots: bool = False,
                           streamwise_points: int = 400,
@@ -422,11 +431,11 @@ def ExecuteParameterSweep(omega: np.ndarray[float],
 
     Parameters
     ----------
-    - omega : np.ndarray[float]
+    - omega : np.typing.NDArray[np.floating]
         Array of non-dimensional rotational speeds of the rotor.
-    - inlet_mach : np.ndarray[float]
+    - inlet_mach : np.typing.NDArray[np.floating]
         Array of inlet Mach numbers.
-    - reynolds_inlet : np.ndarray[float]
+    - reynolds_inlet : np.typing.NDArray[np.floating]
         Array of inlet Reynolds numbers.
     - reference_angle : float
         The set angle of the propeller blade
@@ -437,11 +446,11 @@ def ExecuteParameterSweep(omega: np.ndarray[float],
 
     Returns
     -------
-    - CT_outputs : np.ndarray[float]
+    - CT_outputs : np.typing.NDArray[np.floating]
         Array of thrust coefficients.
-    - CP_outputs : np.ndarray[float]
+    - CP_outputs : np.typing.NDArray[np.floating]
         Array of power coefficients.
-    - EtaP_outputs : np.ndarray[float]
+    - EtaP_outputs : np.typing.NDArray[np.floating]
         Array of propulsive efficiencies.
     """
 
@@ -458,54 +467,55 @@ def ExecuteParameterSweep(omega: np.ndarray[float],
     try:
         current_dir = Path.cwd()
         os.chdir(submodels_path)
+    
+        # Generate the MTFLO input file
+        GenerateMTFLOInput(blading_parameters,
+                        design_parameters,
+                        display_plot=generate_plots)
+        
+        # Perform analysis for all omega, Mach, and Re combinations defined at the top of the file
+        CT_outputs = np.zeros_like(omega)
+        CP_outputs = np.zeros_like(omega)
+        EtaP_outputs = np.zeros_like(omega)
+
+        for i in range(len(omega)):
+            # Create the grid
+            MTSET_call(analysis_name=ANALYSIS_NAME,
+                    streamwise_points=streamwise_points,
+                    ).caller()
+            
+            # Update the blade parameters to the correct omega 
+            ChangeOMEGA(omega[i])      
+
+            #Load in the blade row(s) from MTFLO 
+            MTFLO_call(ANALYSIS_NAME).caller() 
+
+            # Define operating conditions
+            oper = {"Inlet_Mach": inlet_mach[i],
+                    "Inlet_Reynolds": reynolds_inlet[i],
+                    "N_crit": 9,
+                    }
+            
+            # Execute MTSOL
+            MTSOL_call(operating_conditions=oper,
+                    analysis_name=ANALYSIS_NAME,
+                    ).caller(run_viscous=True,
+                                generate_output=True,
+                                )
+
+            # Collect outputs from the forces.xxx file
+            CT, CP, etaP = output_processing(ANALYSIS_NAME).GetCTCPEtaP()
+            print(f"Omega: {omega[i]}, CT: {CT}, CP: {CP}, etaP: {etaP}")
+            
+            CT_outputs[i] = CT
+            CP_outputs[i] = CP 
+            EtaP_outputs[i] = etaP
+    
     except OSError as e:
         raise OSError from e
-    
-    # Generate the MTFLO input file
-    GenerateMTFLOInput(blading_parameters,
-                       design_parameters,
-                       display_plot=generate_plots)
-    
-    # Perform analysis for all omega, Mach, and Re combinations defined at the top of the file
-    CT_outputs = np.zeros_like(omega)
-    CP_outputs = np.zeros_like(omega)
-    EtaP_outputs = np.zeros_like(omega)
-
-    for i in range(len(omega)):
-        # Create the grid
-        MTSET_call(analysis_name=ANALYSIS_NAME,
-                streamwise_points=streamwise_points,
-                ).caller()
-        
-        # Update the blade parameters to the correct omega 
-        ChangeOMEGA(omega[i])      
-
-        #Load in the blade row(s) from MTFLO 
-        MTFLO_call(ANALYSIS_NAME).caller() 
-
-        # Define operating conditions
-        oper = {"Inlet_Mach": inlet_mach[i],
-                "Inlet_Reynolds": reynolds_inlet[i],
-                "N_crit": 9,
-                }
-        
-        # Execute MTSOL
-        MTSOL_call(operating_conditions=oper,
-                   analysis_name=ANALYSIS_NAME,
-                   ).caller(run_viscous=True,
-                            generate_output=True,
-                            )
-
-        # Collect outputs from the forces.xxx file
-        CT, CP, etaP = output_processing(ANALYSIS_NAME).GetCTCPEtaP()
-        print(f"Omega: {omega[i]}, CT: {CT}, CP: {CP}, etaP: {etaP}")
-        
-        CT_outputs[i] = CT
-        CP_outputs[i] = CP 
-        EtaP_outputs[i] = etaP
-    
-    # Return back to current dir
-    os.chdir(current_dir)
+    finally:
+        # Return back to current dir
+        os.chdir(current_dir)
     
     return CT_outputs, CP_outputs, EtaP_outputs
 

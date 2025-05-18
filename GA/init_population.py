@@ -55,8 +55,8 @@ from pymoo.core.population import Population
 from pymoo.core.individual import Individual
 
 # Import interfacing modules
-from init_designvector import DesignVector 
-import config
+from init_designvector import DesignVector # type: ignore
+import config # type: ignore
 
 
 class InitPopulation():
@@ -227,7 +227,7 @@ class InitPopulation():
                        dtype=float)
         
         # Generate the initial population equal to the POPULATION_SIZE reference_individuals
-        pop_dict = [reference_individual.copy() for _ in range(config.POPULATION_SIZE)]
+        pop_dict = [reference_individual.copy() for _ in range(config.INITIAL_POPULATION_SIZE)]
 
         # Extract the lower and upper bounds of the design variables
         lower_bounds = np.array([self.design_vector[k].bounds[0] for k in self.design_vector_keys],

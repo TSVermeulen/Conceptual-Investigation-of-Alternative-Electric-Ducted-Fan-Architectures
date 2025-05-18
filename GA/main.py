@@ -43,7 +43,6 @@ Changelog:
 
 # Import standard libaries
 import dill
-import config
 import datetime
 from pathlib import Path
 
@@ -55,11 +54,13 @@ from pymoo.algorithms.moo.unsga3 import UNSGA3, comp_by_rank_and_ref_line_dist
 from pymoo.operators.selection.tournament import TournamentSelection
 
 # Import interface submodels and other dependencies
-from utils import ensure_repo_paths
+from utils import ensure_repo_paths #type: ignore
 ensure_repo_paths()
-from problem_definition import OptimizationProblem
-from init_population import InitPopulation
-from termination_conditions import GetTerminationConditions
+
+import config  #type: ignore
+from problem_definition import OptimizationProblem #type: ignore
+from init_population import InitPopulation #type: ignore
+from termination_conditions import GetTerminationConditions #type: ignore
 
 
 if __name__ == "__main__":

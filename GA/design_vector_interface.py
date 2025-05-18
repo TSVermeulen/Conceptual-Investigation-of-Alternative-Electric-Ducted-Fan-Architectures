@@ -42,12 +42,12 @@ from scipy import interpolate
 import numpy as np
 
 # Ensure all paths are correctly setup
-from utils import ensure_repo_paths
+from utils import ensure_repo_paths  # type: ignore 
 ensure_repo_paths()
 
 # Import interfacing modules
-import config
-from Submodels.Parameterizations import AirfoilParameterization
+import config  # type: ignore 
+from Submodels.Parameterizations import AirfoilParameterization # type: ignore 
 _PARAMETERISATION = AirfoilParameterization()
 
 class DesignVectorInterface:
@@ -104,12 +104,7 @@ class DesignVectorInterface:
         radial_duct_coordinates = np.zeros(self.num_stages)
 
         # Compute the duct x,y coordinates. Note that we are only interested in the lower surface.
-        _, _, lower_x, lower_y = self.Parameterization.ComputeProfileCoordinates([duct_variables["b_0"],
-                                                                                  duct_variables["b_2"],
-                                                                                  duct_variables["b_8"],
-                                                                                  duct_variables["b_15"],
-                                                                                  duct_variables["b_17"]],
-                                                                                  duct_variables)
+        _, _, lower_x, lower_y = self.Parameterization.ComputeProfileCoordinates(duct_variables)
         lower_x = lower_x * duct_variables["Chord Length"]
         lower_y = lower_y * duct_variables["Chord Length"]
 

@@ -82,8 +82,8 @@ class FileCreatedHandling(FileSystemEventHandler):
     """
 
     def __init__(self, 
-                 file_path: Path = None, 
-                 destination: Path = None) -> None:
+                 file_path: Path, 
+                 destination: Path) -> None:
         self.file_path = file_path
         self.destination = destination
         self.file_processed = False
@@ -488,7 +488,7 @@ class MTSOL_call:
     def WaitForCompletion(self,
                           completion_type: CompletionType = CompletionType.ITERATION,
                           output_file: str = None,
-                          surface_ID: str = None,
+                          surface_ID: int = None,
                           ) -> ExitFlag:
         """
         Monitor the console output to verify the completion of a command.
@@ -500,6 +500,8 @@ class MTSOL_call:
         - output_file : str, optional
             A string of the output file for which the completion is to be monitored. Either 'forces', 'flowfield', or 'boundary_layer'. 
             Note that the file extension (i.e. casename), should not be included!
+        - surface_ID : int, optional
+            An integer of the surface which is to be inspected. 
 
         Returns
         -------

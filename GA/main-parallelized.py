@@ -54,11 +54,11 @@ from pymoo.core.problem import StarmapParallelization
 from pymoo.optimize import minimize
 
 # Import interface submodels and other dependencies
-import config
-from problem_definition import OptimizationProblem
-from init_population import InitPopulation
-from utils import ensure_repo_paths
-from termination_conditions import GetTerminationConditions
+import config #type: ignore
+from problem_definition import OptimizationProblem #type: ignore
+from init_population import InitPopulation #type: ignore
+from utils import ensure_repo_paths #type: ignore
+from termination_conditions import GetTerminationConditions #type: ignore
 
 if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing

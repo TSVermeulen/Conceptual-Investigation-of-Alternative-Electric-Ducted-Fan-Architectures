@@ -92,10 +92,10 @@ from pathlib import Path
 import numpy as np
 
 # Import interfacing modules
-from Submodels.MTSET_call import MTSET_call
-from Submodels.MTFLO_call import MTFLO_call
-from Submodels.MTSOL_call import MTSOL_call, ExitFlag, OutputType
-from Submodels.file_handling import fileHandlingMTSET, fileHandlingMTFLO
+from Submodels.MTSET_call import MTSET_call # type: ignore 
+from Submodels.MTFLO_call import MTFLO_call # type: ignore 
+from Submodels.MTSOL_call import MTSOL_call, ExitFlag, OutputType # type: ignore 
+from Submodels.file_handling import fileHandlingMTSET, fileHandlingMTFLO # type: ignore 
 
 
 @contextmanager
@@ -175,10 +175,6 @@ class MTFLOW_caller:
                     - "trailing_camberline_angle": Trailing camberline angle.
                     - "leading_edge_direction": Leading edge direction.
                     - "Chord Length": The chord length of the blade.
-
-        Returns
-        -------
-        None
         """
 
         # Unpack class inputs
@@ -189,9 +185,8 @@ class MTFLOW_caller:
         # Set the seed for the random number generator to ensure repeatability. 
         self._rng = random.Random(kwargs.get("seed", 1))
 
-        # Define key paths/directories
-        self.parent_dir = Path(__file__).resolve().parent
-        self.submodels_path = self.parent_dir / "Submodels"
+        # Define key submodels directory
+        self.submodels_path = Path(__file__).resolve().parent / "Submodels"
 
         # Define control boolean for the viscous analysis
         self.run_visc = run_viscous
@@ -228,11 +223,11 @@ class MTFLOW_caller:
         # --------------------
 
         with change_working_directory(self.submodels_path):
-            
             # --------------------
-            # First step is generating the MTSET input file - walls.analysis_name
+            # First step is generating the MTSET input file - walls.analysis_name if needed
             # --------------------
-                        
+
+            # Check if all required inputs are present in case the inputs need to be constructed            
             if not external_inputs:
                 required_kwargs = ("centrebody_params","duct_params","blading_parameters","design_parameters")
                 missing = [k for k in required_kwargs if kwargs.get(k) is None]
@@ -253,7 +248,7 @@ class MTFLOW_caller:
             # Hence we can check the grid by checking the exit flag
             # --------------------
                 
-            # Initialize count of grid checks, iteration_count, and exit flag
+            # Initialize count of grid checks and exit flag
             check_count = 0
             exit_flag = ExitFlag.NOT_PERFORMED
                 
@@ -301,7 +296,7 @@ class MTFLOW_caller:
                 check_count += 1
 
             # --------------------
-            # Generate the MTFLO input file tflow.analysis_name
+            # Generate the MTFLO input file tflow.analysis_name if needed
             # --------------------
             if not external_inputs and exit_flag != ExitFlag.CRASH:
                 fileHandlingMTFLO(case_name=self.analysis_name,
@@ -325,7 +320,6 @@ class MTFLOW_caller:
                                         analysis_name=self.analysis_name).caller(run_viscous=self.run_visc,
                                                                                 generate_output=True,
                                                                                 output_type=output_type)
-                
         return exit_flag
 
 
