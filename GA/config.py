@@ -42,11 +42,11 @@ import numpy as np
 from ambiance import Atmosphere
 
 # Ensure all paths are correctly setup
-from utils import ensure_repo_paths
+from utils import ensure_repo_paths  # type: ignore  # Module not in typeshed or py.typed missing
 ensure_repo_paths()
 
 # Import airfoil parameterization class
-from Submodels.Parameterizations import AirfoilParameterization
+from Submodels.Parameterizations import AirfoilParameterization # type: ignore
 
 # Define the seed used for randomisation
 GLOBAL_SEED = 42
@@ -83,11 +83,11 @@ multi_oper = [{"Inlet_Mach": 0.10285225,
                "atmos": Atmosphere(0),
                "Omega": -9.667,
                "RPS": 25.237},
-               {"Inlet_Mach": 0.20,
-                "N_crit": 9,
-                "atmos": Atmosphere(0),
-                "Omega": -20,
-                "RPS": 0},
+            #    {"Inlet_Mach": 0.20,
+            #     "N_crit": 9,
+            #     "atmos": Atmosphere(0),
+            #     "Omega": -20,
+            #     "RPS": 0},
                 ]
 
 # Compute the inlet velocities and write them to the multi-point oper dict
@@ -101,7 +101,8 @@ CENTERBODY_VALUES = {"b_0": 0., "b_2": 0., "b_8": 7.52387039e-02, "b_15": 7.4644
 
 # Controls for the optimisation vector - DUCT
 OPTIMIZE_DUCT = True
-DUCT_VALUES = {'b_0': 0., 'b_2': 0., 'b_8': 0.004081758291374328, 'b_15': 0.735, 'b_17': 0.8, 'x_t': 0.2691129541223092, 'y_t': 0.084601317961794, 'x_c': 0.5, 'y_c': 0., 'z_TE': -0.015685, 'dz_TE': 0.0005638524603968335, 'r_LE': -0.06953901280141099, 'trailing_wedge_angle': 0.16670974950670672, 'trailing_camberline_angle': 0.003666809042006104, 'leading_edge_direction': -0.811232599724247, 'Chord Length': 1.2446, "Leading Edge Coordinates": (0.093, 1.20968)}
+# DUCT_VALUES = {'b_0': 0., 'b_2': 0., 'b_8': 0.004081758291374328, 'b_15': 0.735, 'b_17': 0.8, 'x_t': 0.2691129541223092, 'y_t': 0.084601317961794, 'x_c': 0.5, 'y_c': 0., 'z_TE': -0.015685, 'dz_TE': 0.0005638524603968335, 'r_LE': -0.06953901280141099, 'trailing_wedge_angle': 0.16670974950670672, 'trailing_camberline_angle': 0.003666809042006104, 'leading_edge_direction': -0.811232599724247, 'Chord Length': 1.2446, "Leading Edge Coordinates": (0.093, 1.20968)}
+DUCT_VALUES = {'b_0': 0.05, 'b_2': 0.2, 'b_8': 0.0016112203781740767, 'b_15': 0.875, 'b_17': 0.8, 'x_t': 0.28390800787161385, 'y_t': 0.08503466788167842, 'x_c': 0.4, 'y_c': 0.0, 'z_TE': -0.015685, 'dz_TE': 0.0005625060663762559, 'r_LE': -0.06974976321495045, 'trailing_wedge_angle': 0.13161296013687374, 'trailing_camberline_angle': 0.003666809042006104, 'leading_edge_direction': -0.811232599724247, "Chord Length": 1.2446, "Leading Edge Coordinates": (0.093, 1.20968)}
 REF_FRONTAL_AREA = 5.1726  # m^2
 
 # Controls for the optimisation vector - BLADES
@@ -141,20 +142,20 @@ def _load_blading(Omega: float,
     """
 
     # Start defining the MTFLO blading inputs
-    radial_stations = np.array([0.0, 0.32004, 0.5334, 0.74676, 1.0668])  # 0, 0.3, 0.5, 0.7, 1
-    chord_length = np.array([0.3510, 0.3152, 0.2528, 0.2367, 0.2205])
-    blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(46.8), np.deg2rad(32.3), np.deg2rad(22.3), np.deg2rad(15.5)])
-    radial_stations = np.array([0.0, 0.5334, 1.0668])  # 0, 0.3, 0.5, 0.7, 1
-    chord_length = np.array([0.3510, 0.2528, 0.2205])
-    blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(32.3), np.deg2rad(15.5)])
+    # radial_stations = np.array([0.0, 0.32004, 0.5334, 0.74676, 1.0668])  # 0, 0.3, 0.5, 0.7, 1
+    # chord_length = np.array([0.3510, 0.3152, 0.2528, 0.2367, 0.2205])
+    # blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(46.8), np.deg2rad(32.3), np.deg2rad(22.3), np.deg2rad(15.5)])
+    # radial_stations = np.array([0.0, 0.5334, 1.0668])  # 0, 0.5, 1
+    # chord_length = np.array([0.3510, 0.2528, 0.2205])
+    # blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(32.3), np.deg2rad(15.5)])
     radial_stations = np.array([0.0, 0.32004, 0.74676, 1.0668])  # 0, 0.3, 0.7, 1
     chord_length = np.array([0.3510, 0.3152, 0.2367, 0.2205])
     blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(46.8), np.deg2rad(22.3), np.deg2rad(15.5)])
     propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
                             "rotational_rate": Omega, 
-                            # "RPS": RPS,
-                            "RPS_lst": [RPS, RPS * 3],
-                            # "RPS_lst": [RPS],
+                            "RPS": RPS,
+                            # "RPS_lst": [RPS, RPS * 3],
+                            "RPS_lst": [RPS],
                             "ref_blade_angle": ref_blade_angle, 
                             "reference_section_blade_angle": np.deg2rad(20), 
                             "blade_count": 3, 
@@ -165,8 +166,8 @@ def _load_blading(Omega: float,
     horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, 
                                    "rotational_rate": 0, 
                                    "RPS": 0,
-                                   "RPS_lst": [0, 0],
-                                #    "RPS_lst": [0],
+                                #    "RPS_lst": [0, 0],
+                                   "RPS_lst": [0],
                                    "ref_blade_angle": 0, 
                                    "reference_section_blade_angle": 0, 
                                    "blade_count": 4, 
@@ -178,8 +179,8 @@ def _load_blading(Omega: float,
     diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, 
                                  "rotational_rate": 0, 
                                  "RPS": 0,
-                                 "RPS_lst": [0, 0],
-                                #  "RPS_lst": [0],
+                                #  "RPS_lst": [0, 0],
+                                 "RPS_lst": [0],
                                  "ref_blade_angle": 0, 
                                  "reference_section_blade_angle": 0, 
                                  "blade_count": 2, 
@@ -279,9 +280,20 @@ class EqConstraintID(IntEnum):
 constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICIENCY_LEQ_ONE, InEqConstraintID.MINIMUM_THRUST, InEqConstraintID.MAXIMUM_THRUST],
                   []]
 
+def count_feasibility():
+    count = (1 if OPTIMIZE_CENTERBODY else 0) + \
+            (2 if OPTIMIZE_DUCT else 0) + \
+            sum(
+                2 * NUM_RADIALSECTIONS[i]
+                for i, opt in enumerate(OPTIMIZE_STAGE) if opt
+            )     
+    return count
+
 # Define the population size
 POPULATION_SIZE = 30
-MAX_GENERATIONS = 100
+# Larger initial population for better diversity, then reduced to standard size
+INITIAL_POPULATION_SIZE = 150
+MAX_GENERATIONS = 25
 MAX_EVALUATIONS = 4000
 
 
@@ -290,7 +302,7 @@ n_objectives = len(objective_IDs) * len(multi_oper) - sum([1 for ID in objective
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
 SPREAD_CONTINUOUS = 0.25  # Relative spread (+/- %) applied to continous variables around their reference values
-ZERO_NOISE = 0.1  # % noise added to zero values to avoid stagnation
+ZERO_NOISE = 0.50  # % noise added to zero values to avoid stagnation
 SPREAD_DISCRETE = (-3, 6)  # Absolute range for discrete variables (referene value -3 to reference value + 6)
 
 PROBLEM_TYPE = "single_point"  # Either "single_point" or "multi_point"
