@@ -40,6 +40,9 @@ Changelog:
 - V2.0: Refactored code for better modularity and maintainability. Updated examples and notes.
 """
 
+# Import standard libraries
+from typing import Any
+
 # Import 3rd party libraries
 import numpy as np
 
@@ -56,7 +59,7 @@ class Objectives:
     """
 
     def __init__(self,
-                 duct_variables : dict[str, any],
+                 duct_variables : dict[str, Any],
                  **kwargs) -> None:
         """
         Initialisation of the Objectives class.
@@ -145,10 +148,16 @@ class Objectives:
     
 
     def WettedArea(self,
-                    outputs: dict) -> float:
+                    outputs: AnalysisOutputs) -> float:
         """
         Define the wetted area (sub-)objective.
         This sub-objective has identifier 3.
+
+        Parameters
+        ----------
+        - outputs : AnalysisOutputs
+            A dictionary containing the outputs from the forces.xxx file. 
+            outputs should be structured based on output mode 3 of output_handling.output_processing.GetAllVariables().
 
         Returns
         -------
@@ -160,14 +169,14 @@ class Objectives:
 
 
     def PressureRatio(self,
-                      outputs: dict) -> float:
+                      outputs: AnalysisOutputs) -> float:
         """
         Define the pressure ratio (sub-)objective.
         This sub-objective has identifier 4.
 
         Parameters
         ----------
-        - outputs : dict
+        - outputs : AnalysisOutputs
             A dictionary containing the outputs from the forces.xxx file. 
             outputs should be structured based on output mode 3 of output_handling.output_processing.GetAllVariables().
 
@@ -259,6 +268,9 @@ class Objectives:
         
         # Now compute the constant objectives
         # Since the objectives are independent of analysis condition, we simply use the first analysis to compute the objectives. 
+        # Validate that the first analysis output contains the required wetted area data
+        if not "Wetted Area" in analysis_outputs[0]["data"]:
+            raise ValueError("The first analysis output does not contain the required 'Wetted Area' data for the constant objectives.")
         for i, objective in enumerate(constant_objectives):
             computed_objectives[num_varobjectives * num_outputs + i] = round(objective(analysis_outputs[0]), 5)
 

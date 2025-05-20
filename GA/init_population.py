@@ -192,16 +192,14 @@ class InitPopulation():
                     vector.append(config.STAGE_BLADING_PARAMETERS[i]["chord_length"][j])
                 for j in range(config.NUM_RADIALSECTIONS[i]):
                     vector.append(config.STAGE_BLADING_PARAMETERS[i]["sweep_angle"][j])
-                for j in range(config.NUM_RADIALSECTIONS[i]):
+                for j in range(config.NUM_RADIALSECTIONS[i] - 1):  # -1 since the tip section has a fixed angle of 0
                     vector.append(config.STAGE_BLADING_PARAMETERS[i]["blade_angle"][j])
+                vector.append(0)  # The tip blade angle is fixed at 0 degrees
 
         # Change vector from a list to a dictionary to match the expected structure of pymoo
         keys = list(self.design_vector.keys())
-        
-        # Perform explicit design vector length check
-        if len(keys) != len(vector):
-            raise ValueError(f"Design-vector length mismatch: {len(vector)} values vs {len(keys)} keys.")
-        
+
+        # Ensure the vector is the same length as the design vector keys        
         vector = {key: value for key, value in zip(keys, vector)}
 
         return vector
@@ -225,9 +223,6 @@ class InitPopulation():
         reference_individual = self.DeconstructDictFromReferenceDesign()
         ref = np.array([reference_individual[k] for k in self.design_vector_keys],
                        dtype=float)
-        
-        # Generate the initial population equal to the POPULATION_SIZE reference_individuals
-        pop_dict = [reference_individual.copy() for _ in range(config.INITIAL_POPULATION_SIZE)]
 
         # Extract the lower and upper bounds of the design variables
         lower_bounds = np.array([self.design_vector[k].bounds[0] for k in self.design_vector_keys],
@@ -235,26 +230,32 @@ class InitPopulation():
         upper_bounds = np.array([self.design_vector[k].bounds[1] for k in self.design_vector_keys],
                                 dtype=float)
 
+        # Verify the reference individual is within the bounds
+        ref = np.clip(ref, lower_bounds, upper_bounds)
+
+        # Generate the initial population equal to the POPULATION_SIZE reference_individuals
+        pop_dict = [reference_individual.copy() for _ in range(config.INITIAL_POPULATION_SIZE)]
+        
+        # Compute masks for the floating point and integer design variables
+        real_mask = np.array([np.issubdtype(type(v), np.floating) for v in reference_individual.values()])
+        int_mask  = np.array([np.issubdtype(type(v), np.integer)  for v in reference_individual.values()])
+        other_mask = ~(real_mask | int_mask)
+        if other_mask.any():
+            raise TypeError("Non-scalar design variables detected: update initial-population logic.")
+            
+        # Compute masks to check which values of the floating point variables are zero
+        zero_real_mask = real_mask & (ref == 0)
+        nonzero_real_mask = real_mask & (ref != 0)
+        span = upper_bounds - lower_bounds
+
         for i in range(1, len(pop_dict)):
             # Generate some noise for the floating point variables
             # Use uniform noise to ensure an equal sampling across the design space.
             noise = self._np_rng.uniform(-1, 1, size=ref.shape)  
-
-            # Compute masks for the floating point and integer design variables
-            real_mask = np.array([np.issubdtype(type(v), np.floating) for v in reference_individual.values()])
-            int_mask  = np.array([np.issubdtype(type(v), np.integer)  for v in reference_individual.values()])
-            other_mask = ~(real_mask | int_mask)
-            if other_mask.any():
-                raise TypeError("Non-scalar design variables detected: update initial-population logic.")
-            
-            # Compute masks to check which values of the floating point variables are zero
-            perturbed_individual = ref.copy()
-            zero_real_mask = real_mask & (perturbed_individual == 0)
-            nonzero_real_mask = real_mask & (perturbed_individual != 0)
-            span = upper_bounds - lower_bounds
-
+           
             # Apply perturbations
             # For nonzero real values, we use a simple noise perturbation
+            perturbed_individual = ref.copy()
             perturbed_individual[nonzero_real_mask] += noise[nonzero_real_mask] * perturbed_individual[nonzero_real_mask] * config.SPREAD_CONTINUOUS
             # For zero real values, we use a perturbation which is equal to some constant value times the design variable span
             perturbed_individual[zero_real_mask] += noise[zero_real_mask] * span[zero_real_mask] * config.ZERO_NOISE * config.SPREAD_CONTINUOUS

@@ -196,7 +196,7 @@ def GenerateMTFLOBlading(Omega: float,
     
 
     # Obtain the parameterizations for the profile sections. 
-    local_dir_path = Path('Validation/Profiles')
+    local_dir_path = Path(__file__).resolve().parent / 'Validation/Profiles'
     R02_fpath = local_dir_path / 'X22_02R.dat'
     R03_fpath = local_dir_path / 'X22_03R.dat'
     R04_fpath = local_dir_path / 'X22_04R.dat'
@@ -218,38 +218,27 @@ def GenerateMTFLOBlading(Omega: float,
 
     # Compute parameterization for the airfoil section at r=0.2R
     # Note that we keep this section constant for r=0.1R and r=0.15R and equal to that of r=0.2R
-    R01_section = AirfoilParameterization().FindInitialParameterization(reference_file=R02_fpath,
-                                                                        plot=False)
+    R01_section = AirfoilParameterization().FindInitialParameterization(reference_file=R02_fpath)
     # Compute parameterization for the airfoil section at r=0.3R
-    R03_section = AirfoilParameterization().FindInitialParameterization(reference_file=R03_fpath,
-                                                                        plot=False)
+    R03_section = AirfoilParameterization().FindInitialParameterization(reference_file=R03_fpath)
     # Compute parameterization for the airfoil section at r=0.4R
-    R04_section = AirfoilParameterization().FindInitialParameterization(reference_file=R04_fpath,
-                                                                        plot=False)
+    R04_section = AirfoilParameterization().FindInitialParameterization(reference_file=R04_fpath)
     # Compute parameterization for the mid airfoil section
-    R05_section = AirfoilParameterization().FindInitialParameterization(reference_file=R05_fpath,
-                                                                        plot=False)
+    R05_section = AirfoilParameterization().FindInitialParameterization(reference_file=R05_fpath)
     # Compute parameterization for the airfoil section at r=0.6R
-    R06_section = AirfoilParameterization().FindInitialParameterization(reference_file=R06_fpath,
-                                                                        plot=False)
+    R06_section = AirfoilParameterization().FindInitialParameterization(reference_file=R06_fpath)
     # Compute parameterization for the airfoil section at r=0.7R
-    R07_section = AirfoilParameterization().FindInitialParameterization(reference_file=R07_fpath,
-                                                                        plot=False)
+    R07_section = AirfoilParameterization().FindInitialParameterization(reference_file=R07_fpath)
     # Compute parameterization for the airfoil section at r=0.8R
-    R08_section = AirfoilParameterization().FindInitialParameterization(reference_file=R08_fpath,
-                                                                        plot=False)
+    R08_section = AirfoilParameterization().FindInitialParameterization(reference_file=R08_fpath)
     # Compute parameterization for the airfoil section at r=0.9R
-    R09_section = AirfoilParameterization().FindInitialParameterization(reference_file=R09_fpath,
-                                                                        plot=False)
+    R09_section = AirfoilParameterization().FindInitialParameterization(reference_file=R09_fpath)
     # Compute parameterization for the tip airfoil section
-    R10_section = AirfoilParameterization().FindInitialParameterization(reference_file=R10_fpath,
-                                                                        plot=False)
+    R10_section = AirfoilParameterization().FindInitialParameterization(reference_file=R10_fpath)
     # Compute parameterization for the horizontal struts
-    Hstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Hstrut_fpath,
-                                                                           plot=False)
+    Hstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Hstrut_fpath)
     # Compute parameterization for the diagonal struts
-    Dstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Dstrut_fpath,
-                                                                           plot=False)
+    Dstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Dstrut_fpath)
 
     # Construct blading list
     design_parameters = [[R01_section, R01_section, R03_section, R04_section, R05_section, R06_section, R07_section, R08_section, R09_section, R10_section],
@@ -279,7 +268,7 @@ def GenerateMTFLOInput(blading_parameters: list,
     None
     """
     
-    fileHandlingMTFLO(case_name=ANALYSIS_NAME,
+    fileHandlingMTFLO(analysis_name=ANALYSIS_NAME,
                       ref_length=L_REF).GenerateMTFLOInput(blading_params=blading_parameters,
                                                            design_params=design_parameters,
                                                            plot=display_plot)
@@ -389,7 +378,7 @@ def GenerateMTSETGeometry() -> None:
     # Generate the walls.x22a_validation
     fileHandlingMTSET(params_CB=params_CB,
                       params_duct=params_duct,
-                      case_name=ANALYSIS_NAME,
+                      analysis_name=ANALYSIS_NAME,
                       ref_length=L_REF,
                       external_input=True).GenerateMTSETInput(xy_centerbody=xy_centerbody,
                                                               xy_duct=xy_duct)

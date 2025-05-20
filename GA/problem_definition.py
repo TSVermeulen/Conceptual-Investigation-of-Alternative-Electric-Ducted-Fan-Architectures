@@ -33,7 +33,7 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.3
+Version: 1.4
 
 Changelog:
 - V1.0: Initial implementation. 
@@ -43,6 +43,7 @@ Changelog:
 - V1.2: Extracted design vector handling to separate file/class.
 - V1.3: Removed troublesome cache implementation. Cleaned up _evaluate method. Created default crash output dictionary to avoid repeated reading of crash_outputs forces file. Adjusted GenerateAnalysisName method to use 8-char uuid.
         Updated ComputeOmega method to write omega to the blading lists rather than to the oper dictionary.
+- V1.4: Improved robustness of crash handling in MTFLOW. 
 """
 
 # Import standard libraries
@@ -61,7 +62,7 @@ from utils import ensure_repo_paths  # type: ignore
 ensure_repo_paths()
 
 # Import interface submodels and other dependencies
-from Submodels.MTSOL_call import OutputType  # type: ignore 
+from Submodels.MTSOL_call import OutputType, ExitFlag  # type: ignore 
 from objectives import Objectives  # type: ignore 
 from constraints import Constraints  # type: ignore 
 from init_designvector import DesignVector  # type: ignore 
@@ -385,13 +386,17 @@ class OptimizationProblem(ElementwiseProblem):
                                                    analysis_name=self.analysis_name,
                                                    **kwargs)
 
-            # Run MTFLOW
-            MTFLOW_interface.caller(external_inputs=True,
-                                    output_type=OutputType.FORCES_ONLY)
+            try:
+                # Run MTFLOW
+                MTFLOW_interface.caller(external_inputs=True,
+                                        output_type=OutputType.FORCES_ONLY)
 
-            # Extract outputs
-            output_handler = self._output_processing(analysis_name=self.analysis_name)
-            MTFLOW_outputs = output_handler.GetAllVariables(output_type=3)
+                # Extract outputs
+                output_handler = self._output_processing(analysis_name=self.analysis_name)
+                MTFLOW_outputs = output_handler.GetAllVariables(output_type=3)
+            except Exception as e:
+                print(f"[MTFLOW_ERROR] case={self.analysis_name}: {e}")
+                MTFLOW_outputs = copy.deepcopy(self.CRASH_OUTPUTS)
         else:
             # If the design is infeasible, we load the crash outputs
             # This is a predefined dictionary with all outputs set to 0.

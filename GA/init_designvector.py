@@ -79,8 +79,8 @@ class DesignVector():
             return [Real(bounds=(0.01, 0.1)),  # b_0
                     Real(bounds=(0.1, 0.3)),  # b_2
                     Real(bounds=(0.05, 0.25)),  # mapping variable for b_8
-                    Real(bounds=(0.75, 0.95)),  # b_15
-                    Real(bounds=(0.75, 0.95)),  # b_17
+                    Real(bounds=(0.5, 0.95)),  # b_15
+                    Real(bounds=(0.5, 0.95)),  # b_17
                     Real(bounds=(0.15, 0.5)),  # x_t
                     Real(bounds=(0.02, 0.30)),  # y_t
                     Real(bounds=(0.2, 0.5)),  # x_c
@@ -120,7 +120,7 @@ class DesignVector():
         for i in range(cfg.NUM_STAGES):
             if cfg.OPTIMIZE_STAGE[i]:
                 vector.append(Real(bounds=(0, 0.4)))  # root_LE_coordinate
-                vector.append(Real(bounds=(-np.pi/4, np.pi/4)))  # ref_blade_angle
+                vector.append(Real(bounds=(0.05, np.pi/6)))  # ref_blade_angle from [~2.8deg to 30 deg]
                 vector.append(Integer(bounds=(3, 20)))  # blade_count
                 if cfg.ROTATING[i]:
                     for _ in range(len(cfg.multi_oper)):
@@ -129,9 +129,9 @@ class DesignVector():
 
                 for _ in range(cfg.NUM_RADIALSECTIONS[i]): 
                     vector.append(Real(bounds=(0.1, 0.75)))  # chord length
-                for _ in range(cfg.NUM_RADIALSECTIONS[i]): 
+                for _ in range(cfg.NUM_RADIALSECTIONS[i] - 1):  # Note the -1 since the root section is independent of sweep. 
                     vector.append(Real(bounds=(0, np.pi/3)))  # sweep_angle
-                for _ in range(cfg.NUM_RADIALSECTIONS[i]): 
+                for _ in range(cfg.NUM_RADIALSECTIONS[i] - 1):  # Note the -1 since the tip has a fixed angle at 0
                     vector.append(Real(bounds=(0, np.pi/3)))  # blade_angle
 
         # For a mixed-variable problem, PyMoo expects the vector to be a dictionary, so we convert vector to a dictionary.
