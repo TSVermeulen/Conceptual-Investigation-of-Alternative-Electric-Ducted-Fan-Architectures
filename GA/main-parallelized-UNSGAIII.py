@@ -90,7 +90,6 @@ if __name__ == "__main__":
 
     with multiprocessing.Pool(processes=n_processes,
                               initializer=ensure_repo_paths,
-                              maxtasksperchild=100,  # Recycle workers periodically to avoid C-side memory leaking. 
                               ) as pool:
         # Create runner
         runner = StarmapParallelization(pool.starmap)
