@@ -195,6 +195,10 @@ class RepairIndividuals(Repair):
             one_to_one_LE_camber_y = np.all(np.diff(y_LE_camber) >= 0)  # >=0 since LE camber should be increasing
             one_to_one_TE_camber_y = np.all(np.diff(y_TE_camber) <= 0)  # <=0 since TE camber should be decreasing
 
+            # Check if all x points are one to one. If so, we return the updated profile parameters
+            if one_to_one_TE_thickness_x and one_to_one_LE_camber_x and one_to_one_TE_camber_x and one_to_one_TE_thickness_y and one_to_one_LE_camber_y and one_to_one_TE_camber_y:
+                return profile_params
+
             # Handle TE thickness x points
             if not one_to_one_TE_thickness_x:
                 # Adjust the third x control point to enforce x3 = x_2 + feasibility_offset
@@ -276,10 +280,6 @@ class RepairIndividuals(Repair):
             if attempt == 100:
                 # If the attempts do not succeed, set the camber to zero and retry the repair for a symmetric profile
                 profile_params["y_c"] = 0
-
-            # Check if all x points are one to one. If so, we return the updated profile parameters
-            if one_to_one_TE_thickness_x and one_to_one_LE_camber_x and one_to_one_TE_camber_x and one_to_one_TE_thickness_y and one_to_one_LE_camber_y and one_to_one_TE_camber_y:
-                return profile_params.copy()
                
         return original_params
 
