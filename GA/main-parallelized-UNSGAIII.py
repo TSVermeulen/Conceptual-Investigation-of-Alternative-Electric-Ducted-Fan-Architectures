@@ -55,7 +55,7 @@ from pymoo.algorithms.moo.unsga3 import UNSGA3, comp_by_rank_and_ref_line_dist
 from pymoo.operators.selection.tournament import TournamentSelection
 
 # Ensure parent process has the correct import paths
-from utils import ensure_repo_paths # type: ignore
+from utils import ensure_repo_paths, calculate_n_reference_points # type: ignore
 ensure_repo_paths()
 
 # Import interface submodels and other dependencies
@@ -107,7 +107,7 @@ if __name__ == "__main__":
         # Create the reference directions to be used for the optimisation
         ref_dirs = get_reference_directions("energy",
                                             n_dim=config.n_objectives,
-                                            n_points=config.POPULATION_SIZE)
+                                            n_points=calculate_n_reference_points(config))
 
         # Initialize the algorithm
         duplicate_elimination = MixedVariableDuplicateElimination()

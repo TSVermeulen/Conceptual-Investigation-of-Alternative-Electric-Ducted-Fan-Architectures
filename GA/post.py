@@ -54,6 +54,7 @@ from typing import Any, Optional
 # Import 3rd party libraries
 import matplotlib.pyplot as plt
 import numpy as np
+from pymoo.visualization.scatter import Scatter
 
 # Ensure all paths are correctly setup
 from utils import ensure_repo_paths
@@ -61,9 +62,9 @@ ensure_repo_paths()
  
 
 # Import interfacing modules
-import config
-from Submodels.Parameterizations import AirfoilParameterization
-from design_vector_interface import DesignVectorInterface
+import config # type: ignore 
+from Submodels.Parameterizations import AirfoilParameterization # type: ignore 
+from design_vector_interface import DesignVectorInterface # type: ignore 
 
 # Adjust open figure warning
 plt.rcParams['figure.max_open_warning'] = 50
@@ -225,22 +226,21 @@ class PostProcessing:
         (original_upper_x, 
         original_upper_y, 
         original_lower_x, 
-        original_lower_y) = parameterization.ComputeProfileCoordinates([reference["b_0"],
-                                                                        reference["b_2"],
-                                                                        reference["b_8"],
-                                                                        reference["b_15"],
-                                                                        reference["b_17"]],
-                                                                        reference)
+        original_lower_y) = parameterization.ComputeProfileCoordinates(reference)
         
+        # Precompute the concatenated original geometry coordinates to avoid repeated operatings while plotting
+        original_x = np.concatenate((original_upper_x, np.flip(original_lower_x)), axis=0)
+        original_y = np.concatenate((original_upper_y, np.flip(original_lower_y)), axis=0)
+
         # Create grouped figure to compare the geometry between the reference and the optimised designs
         grouped_fig, ax1 = plt.subplots()
         
         # First plot the original geometry
-        ax1.plot(np.concatenate((original_upper_x, np.flip(original_lower_x)), axis=0),
-                np.concatenate((original_upper_y, np.flip(original_lower_y)), axis=0), 
-                "k-.", 
-                label="Original Geometry",
-                )
+        ax1.plot(original_x,
+                 original_y, 
+                 "k-.", 
+                 label="Original Geometry",
+                 )
         
         # Loop over all individuals in the final population and plot their geometries
         for i, geom in enumerate(optimised):                
@@ -248,32 +248,31 @@ class PostProcessing:
             (opt_upper_x, 
             opt_upper_y, 
             opt_lower_x, 
-            opt_lower_y) = parameterization.ComputeProfileCoordinates([geom["b_0"],
-                                                                       geom["b_2"],
-                                                                       geom["b_8"],
-                                                                       geom["b_15"],
-                                                                       geom["b_17"]],
-                                                                       geom)
+            opt_lower_y) = parameterization.ComputeProfileCoordinates(geom)
+            
+            # Compute the concatenated optimised x and y coordinates
+            opt_x = np.concatenate((opt_upper_x, np.flip(opt_lower_x)), axis=0)
+            opt_y = np.concatenate((opt_upper_y, opt_lower_y[::-1]), axis=0)
 
             # Plot the optimised geometry
-            ax1.plot(np.concatenate((opt_upper_x, np.flip(opt_lower_x)), axis=0),
-                    np.concatenate((opt_upper_y, np.flip(opt_lower_y)), axis=0), 
-                    label=f"Individual {i}",
-                    )
+            ax1.plot(opt_x,
+                     opt_y, 
+                     label=f"Individual {i}",
+                     )
             
-            if individual:      
+            if individual:     
                 # Create figure for the individual comparison plot
                 plt.figure(f"Comparison for individual {i}")
                 # plot the original geometry
-                plt.plot(np.concatenate((original_upper_x, np.flip(original_lower_x)), axis=0),
-                        np.concatenate((original_upper_y, np.flip(original_lower_y)), axis=0), 
-                        "k-.", 
-                        label="Original Geometry",
-                        )
-                plt.plot(np.concatenate((opt_upper_x, np.flip(opt_lower_x)), axis=0),
-                        np.concatenate((opt_upper_y, np.flip(opt_lower_y)), axis=0), 
-                        label=f"Individual {i}",
-                        )
+                plt.plot(original_x,
+                         original_y, 
+                         "k-.", 
+                         label="Original Geometry",
+                         )
+                plt.plot(opt_x,
+                         opt_y, 
+                         label=f"Individual {i}",
+                         )
                 plt.legend(bbox_to_anchor=(1,1))
                 plt.grid(which='both')
                 plt.minorticks_on()
@@ -533,12 +532,7 @@ class PostProcessing:
         (upper_x, 
          upper_y, 
          lower_x,
-         lower_y) = self._airfoil_param.ComputeProfileCoordinates([design[section_idx]["b_0"],
-                                                                   design[section_idx]["b_2"],
-                                                                   design[section_idx]["b_8"],
-                                                                   design[section_idx]["b_15"],
-                                                                   design[section_idx]["b_17"]],
-                                                                   design[section_idx])
+         lower_y) = AirfoilParameterization().ComputeProfileCoordinates(design[section_idx])
 
         return upper_x, upper_y, lower_x, lower_y
     
@@ -547,7 +541,7 @@ class PostProcessing:
                                reference_design: list[list[dict[str, Any]]],
                                res: object,
                                individual: int | str = "opt",
-                               optimised_design: list[list[dict[str, Any]]] = None) -> None:
+                               optimised_design: Optional[list[list[dict[str, Any]]]] = None) -> None:
         """
         Compares the blade design data of a reference design with an optimized design 
         and generates plots for visual comparison at various radial sections.
@@ -801,7 +795,29 @@ class PostProcessing:
         
         """
 
-        raise NotImplementedError
+        # Collect the objective values of the complete evaluated solution set
+        F_all = np.vstack([gen.pop.get("F") for gen in res.history if np.all(np.abs(gen.pop.get("F"))) < 2])
+
+        # Create scatter plot of the objective space
+        plot = Scatter(title="Objective space for the complete evaluated solution set")	
+        plot.add(res.history[0].pop[0].get("F"), marker="x", facecolor="blue", s=35, label="Reference Design")
+        plot.add(F_all, facecolor='none', edgecolor='black', s=10, label="Evaluated solutions")
+        plot.add(res.F, facecolor='red', s=20, label="Optimum solutions")
+        plot.legend = True
+        plot.show()
+
+
+    def AnalyseDesignSpace(self,
+                           res: object,
+                           idx_1: int,
+                           idx_2: int) -> None:
+        """
+        
+        """
+
+        pass
+
+        
     
 
     def main(self) -> None:
@@ -817,6 +833,10 @@ class PostProcessing:
         self.GenerateConvergenceStatistics(res)
         plt.show()
         plt.close('all')
+
+        # Visualise the objective space
+        self.PlotObjectiveSpace(res)
+        
 
         # Plot the centerbody designs
         if config.OPTIMIZE_CENTERBODY:
@@ -846,6 +866,15 @@ class PostProcessing:
         
         # Plot the optimised stage designs
         for i in range(len(config.OPTIMIZE_STAGE)):
+
+            # from Submodels.file_handling import fileHandlingMTFLO
+            # for i in range(len(self.blading_data_opt)):
+            #     self.blading_data_opt[i][0]["rotational_rate"] = 0
+            #     fileHandlingMTFLO(analysis_name="test",
+            #                     ref_length=self.blading_data_opt[i][0]["radial_stations"][-1] * 2).GenerateMTFLOInput(blading_params=self.blading_data_opt[i],
+            #                                                             design_params=self.design_data_opt[i],
+            #                                                             plot=True) 
+
             if config.OPTIMIZE_STAGE[i]:
                 # First plot the complete final population
                 self.CompareBladingData(config.STAGE_BLADING_PARAMETERS,
@@ -866,7 +895,7 @@ class PostProcessing:
         
 
 if __name__ == "__main__":
-    output = Path('Results/res_pop20_gen20_unsga3_moo_250514065954949106.dill')
+    output = Path('Results/res_pop30_eval4000_250519060525325837.dill')
 
     processing_class = PostProcessing(fname=output)
     processing_class.main()

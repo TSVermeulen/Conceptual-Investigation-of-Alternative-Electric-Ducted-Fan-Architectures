@@ -103,14 +103,14 @@ CENTERBODY_VALUES = {"b_0": 0., "b_2": 0., "b_8": 7.52387039e-02, "b_15": 7.4644
 OPTIMIZE_DUCT = True
 # DUCT_VALUES = {'b_0': 0., 'b_2': 0., 'b_8': 0.004081758291374328, 'b_15': 0.735, 'b_17': 0.8, 'x_t': 0.2691129541223092, 'y_t': 0.084601317961794, 'x_c': 0.5, 'y_c': 0., 'z_TE': -0.015685, 'dz_TE': 0.0005638524603968335, 'r_LE': -0.06953901280141099, 'trailing_wedge_angle': 0.16670974950670672, 'trailing_camberline_angle': 0.003666809042006104, 'leading_edge_direction': -0.811232599724247, 'Chord Length': 1.2446, "Leading Edge Coordinates": (0.093, 1.20968)}
 DUCT_VALUES = {'b_0': 0.05, 'b_2': 0.2, 'b_8': 0.0016112203781740767, 'b_15': 0.875, 'b_17': 0.8, 'x_t': 0.28390800787161385, 'y_t': 0.08503466788167842, 'x_c': 0.4, 'y_c': 0.0, 'z_TE': -0.015685, 'dz_TE': 0.0005625060663762559, 'r_LE': -0.06974976321495045, 'trailing_wedge_angle': 0.13161296013687374, 'trailing_camberline_angle': 0.003666809042006104, 'leading_edge_direction': -0.811232599724247, "Chord Length": 1.2446, "Leading Edge Coordinates": (0.093, 1.20968)}
-REF_FRONTAL_AREA = 5.1726  # m^2
+REF_FRONTAL_AREA = 5.1712  # m^2
 
 # Controls for the optimisation vector - BLADES
 OPTIMIZE_STAGE = [True, False, False]
 ROTATING = [True, False, False]
 NUM_RADIALSECTIONS = [4, 2, 2]  # Define the number of radial sections at which the blade profiles for each stage will be defined. 
 NUM_STAGES = 3  # Define the number of stages (i.e. total count of rotors + stators)
-REFERENCE_BLADE_ANGLES = [np.deg2rad(19), 0, 0]  # Reference angles at the reference section (typically 75% of blade span)
+REFERENCE_BLADE_ANGLES = [np.deg2rad(14.5), 0, 0]  # Reference angles at the reference section, measured at the blade tip. The 14.5 degree angle is equivalent to a 19deg angle at the 75% span location.
 BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
 tipGap = 0.01016  # 1.016 cm tip gap
 
@@ -142,22 +142,19 @@ def _load_blading(Omega: float,
     """
 
     # Start defining the MTFLO blading inputs
-    # radial_stations = np.array([0.0, 0.32004, 0.5334, 0.74676, 1.0668])  # 0, 0.3, 0.5, 0.7, 1
-    # chord_length = np.array([0.3510, 0.3152, 0.2528, 0.2367, 0.2205])
-    # blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(46.8), np.deg2rad(32.3), np.deg2rad(22.3), np.deg2rad(15.5)])
     # radial_stations = np.array([0.0, 0.5334, 1.0668])  # 0, 0.5, 1
     # chord_length = np.array([0.3510, 0.2528, 0.2205])
     # blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(32.3), np.deg2rad(15.5)])
     radial_stations = np.array([0.0, 0.32004, 0.74676, 1.0668])  # 0, 0.3, 0.7, 1
     chord_length = np.array([0.3510, 0.3152, 0.2367, 0.2205])
-    blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(46.8), np.deg2rad(22.3), np.deg2rad(15.5)])
+    blade_angle = np.array([np.deg2rad(38.1), np.deg2rad(30.9), np.deg2rad(16.8), np.deg2rad(0)])
     propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
                             "rotational_rate": Omega, 
                             "RPS": RPS,
                             # "RPS_lst": [RPS, RPS * 3],
                             "RPS_lst": [RPS],
                             "ref_blade_angle": ref_blade_angle, 
-                            "reference_section_blade_angle": np.deg2rad(20), 
+                            "reference_section_blade_angle": 0, 
                             "blade_count": 3, 
                             "radial_stations": radial_stations, 
                             "chord_length": chord_length, 
@@ -197,7 +194,7 @@ def _load_blading(Omega: float,
     # Define the sweep angles
     # Note that this is approximate, since the rotation of the chord line is not completely accurate when rotating a complete profile
     sweep_angle = np.zeros_like(blading_parameters[0]["chord_length"])
-    root_blade_angle = (np.deg2rad(53.6) + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0]["reference_section_blade_angle"])
+    root_blade_angle = (np.deg2rad(38.1) + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0]["reference_section_blade_angle"])
 
     root_LE = blading_parameters[0]["root_LE_coordinate"] # The location of the root LE is arbitrary for computing the sweep angles.
     root_mid_chord = root_LE + (0.3510 / 2) * np.cos(np.pi / 2 - root_blade_angle)
@@ -209,7 +206,7 @@ def _load_blading(Omega: float,
 
     # Obtain the parameterizations for the profile sections. 
     profile_dir_path = Path(__file__).parent.parent / 'Validation/Profiles'
-    file_names = ['X22_02R.dat', 'X22_03R.dat', 'X22_05R.dat', 'X22_07R.dat', 'X22_10R.dat', 'Hstrut.dat', 'Dstrut.dat']
+    file_names = ['X22_02R.dat', 'X22_03R.dat', 'X22_07R.dat', 'X22_10R.dat', 'Hstrut.dat', 'Dstrut.dat']
     filenames = [profile_dir_path / stem for stem in file_names]
     
     # First check if all files are present
@@ -221,11 +218,10 @@ def _load_blading(Omega: float,
     param = AirfoilParameterization()
     R00_section = param.FindInitialParameterization(reference_file=filenames[0])
     R03_section = param.FindInitialParameterization(reference_file=filenames[1])
-    R05_section = param.FindInitialParameterization(reference_file=filenames[2])
-    R07_section = param.FindInitialParameterization(reference_file=filenames[3])
-    R10_section = param.FindInitialParameterization(reference_file=filenames[4])
-    Hstrut_section = param.FindInitialParameterization(reference_file=filenames[5])
-    Dstrut_section = param.FindInitialParameterization(reference_file=filenames[6])
+    R07_section = param.FindInitialParameterization(reference_file=filenames[2])
+    R10_section = param.FindInitialParameterization(reference_file=filenames[3])
+    Hstrut_section = param.FindInitialParameterization(reference_file=filenames[4])
+    Dstrut_section = param.FindInitialParameterization(reference_file=filenames[5])
 
     # Construct blading list
     design_parameters = [[R00_section, R03_section, R07_section, R10_section],
@@ -240,15 +236,15 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
                                                                  REFERENCE_BLADE_ANGLES[0])
 
 # Define the target thrust/power and efficiency for use in constraints
-P_ref_constr = [0.18673 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
+P_ref_constr = [0.76169 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
                 # 1.5592 * (0.5 * atmosphere.density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
                 ]  # Reference Power in Watts derived from baseline analysis
-T_ref_constr = [0.15061 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
+T_ref_constr = [0.60736 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 # 1.2002 * (0.5 * atmosphere.density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 ] # Reference Thrust in Newtons derived from baseline analysis
 
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
-
+print(T_ref_constr)
 
 # Define the constraint IDs used to construct the constraint functions
 # constraint IDs are structured as a nested list, of the form:
@@ -280,20 +276,12 @@ class EqConstraintID(IntEnum):
 constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICIENCY_LEQ_ONE, InEqConstraintID.MINIMUM_THRUST, InEqConstraintID.MAXIMUM_THRUST],
                   []]
 
-def count_feasibility():
-    count = (1 if OPTIMIZE_CENTERBODY else 0) + \
-            (2 if OPTIMIZE_DUCT else 0) + \
-            sum(
-                2 * NUM_RADIALSECTIONS[i]
-                for i, opt in enumerate(OPTIMIZE_STAGE) if opt
-            )     
-    return count
 
 # Define the population size
 POPULATION_SIZE = 30
 # Larger initial population for better diversity, then reduced to standard size
-INITIAL_POPULATION_SIZE = 150
-MAX_GENERATIONS = 25
+INITIAL_POPULATION_SIZE = 60
+MAX_GENERATIONS = 34
 MAX_EVALUATIONS = 4000
 
 
@@ -302,9 +290,12 @@ n_objectives = len(objective_IDs) * len(multi_oper) - sum([1 for ID in objective
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
 SPREAD_CONTINUOUS = 0.25  # Relative spread (+/- %) applied to continous variables around their reference values
-ZERO_NOISE = 0.50  # % noise added to zero values to avoid stagnation
+ZERO_NOISE = 0.25  # % noise added to zero values to avoid stagnation
 SPREAD_DISCRETE = (-3, 6)  # Absolute range for discrete variables (referene value -3 to reference value + 6)
 
-PROBLEM_TYPE = "single_point"  # Either "single_point" or "multi_point"
-RESERVED_THREADS = 2
+# Parameter to control profile feasibility x-constraint offset
+PROFILE_FEASIBILITY_OFFSET = 0.05  # Offset value to avoid bezier control points lying on x_t/x_c
+
+PROBLEM_TYPE = "single_point"  # Either "single_point" or "multi_point". Defines the type of problem loaded in the main file. 
+RESERVED_THREADS = 0  # Threads reserved for the operating system and any other programs.
 THREADS_PER_EVALUATION = 2  # Number of threads per MTFLOW evaluation: one for running MTSET/MTSOL/MTFLO and one for polling outputs

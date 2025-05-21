@@ -185,7 +185,7 @@ class OptimizationProblem(ElementwiseProblem):
             self._lazy_modules_loaded = True
                 
 
-    def GenerateAnalysisName(self) -> None:
+    def SetAnalysisName(self) -> None:
         """
         Generate a unique analysis name and write it to self.
         This is required to enable multi-threading of the optimization problem, and log each state file,
@@ -385,7 +385,7 @@ class OptimizationProblem(ElementwiseProblem):
         """
         
         # Generate a unique analysis name
-        self.GenerateAnalysisName()
+        self.SetAnalysisName()
 
         # Copy the operational conditions
         self.oper = copy.deepcopy(config.multi_oper[0])

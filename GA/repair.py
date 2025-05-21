@@ -270,7 +270,7 @@ class RepairIndividuals(Repair):
             # # Handle TE camber y points
             if not one_to_one_TE_camber_y:
                 # Adjust z_TE to 0 
-                profile_params["z_TE"] = 0.001
+                profile_params["z_TE"] = 0
 
                 # Compute the new trailing camberline angle
                 alpha_TE = np.atan((5/6 * profile_params["y_c"]) / (1 - profile_params["b_17"])) + 1e-3
@@ -302,19 +302,9 @@ class RepairIndividuals(Repair):
             Dictionary containing the blading parameters with adjusted values to ensure positive sweepback angle
         """
 
-        # Loop over all stages and check the sweep angles if the stage is to be optimised. 
-        # Compute the LE coordinate of the blade row
-        LE_coordinate = blading_params["radial_stations"] * np.tan(blading_params["sweep_angle"])
-
-        # Check if the LE coordinate is increasing, and if not, fix it by setting it to the maximum value so far
-        # Because we don't increase the sweep angle beyond the already chosen value, we do not need to 
-        # check the bounds. 
-        fixed_LE_coordinate = np.maximum.accumulate(LE_coordinate)
-
-
-        # Extract the corresponding sweep angles and write them back to the blading parameters. 
-        # We leave the root section constant since the root is independent of sweep angle, and this avoids a divide-by-zero warning. 
-        blading_params["sweep_angle"][1:] = np.atan(fixed_LE_coordinate[1:] / blading_params["radial_stations"][1:])  
+        # Extract the corresponding sweep angles and make them positive increasing,
+        # and write them back to the blading parameters. 
+        blading_params["sweep_angle"] = np.maximum.accumulate(blading_params["sweep_angle"])  
 
         return blading_params
     

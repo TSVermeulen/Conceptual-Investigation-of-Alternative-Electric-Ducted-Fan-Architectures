@@ -170,7 +170,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self._lazy_modules_loaded = True
                         
 
-    def GenerateAnalysisName(self) -> None:
+    def SetAnalysisName(self) -> None:
         """
         Generate a unique analysis name.
         This is required to enable multi-threading of the optimization problem, and log each state file,
@@ -240,14 +240,19 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         None
         """
 
-        if idx >= len(blading_params["RPS_lst"]):
-            raise IndexError(f"Expected at least {idx+1} RPS values, but got {len(blading_params['RPS_lst'])}")
+        if idx >= len(self.blade_blading_parameters[0]["RPS_lst"]):
+            raise IndexError(f"Expected at least {idx+1} RPS values, but got {len(self.blade_blading_parameters[0]['RPS_lst'])}")
 
         # Compute the non-dimensional rotational rate Omega for MTFLOW and write it to the blading parameters
         # Multiplied by -1 to comply with sign convention in MTFLOW. 
+
+        # First compute the constant non-dimensionalisation factor
+        factor = -2 * np.pi * self.Lref / self.oper["Vinl"]
+
+        # Loop over all stages
         for blading_params in self.blade_blading_parameters:
             blading_params["RPS"] = blading_params["RPS_lst"][idx]
-            blading_params["rotational_rate"] = float((-blading_params["RPS"] * np.pi * 2 * self.Lref) / (self.oper["Vinl"]))
+            blading_params["rotational_rate"] = float(blading_params["RPS"] * factor)
 
 
     def SetOmega(self,
@@ -406,7 +411,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         """
         
         # Generate a unique analysis name
-        self.GenerateAnalysisName()
+        self.SetAnalysisName()
 
         # Copy the multi-point operating conditions
         self.multi_oper = copy.deepcopy(config.multi_oper)
