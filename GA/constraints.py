@@ -31,7 +31,7 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.4
+Version: 1.5
 
 Changelog:
 - V1.0: Initial implementation with basic equality and inequality constraints.
@@ -39,6 +39,7 @@ Changelog:
 - V1.2: Normalised constraints, added 1<T/Tref<1.01 constraint, extracted common power and thrust calculations to separate helper methods.
 - V1.3: Implemented multi-point constraint evaluator. Updated documentation. Fixed type hinting. 
 - V1.4: Implemented constraints on profile parameterizations. 
+- V1.5: Fixed bug in minimum thrust constraint.
 """
 
 # Import standard libraries
@@ -247,7 +248,7 @@ class Constraints:
         - float 
             The computed normalised thrust constraint. 
         """
-        return (thrust - (1 - config.deviation_range) * self.ref_thrust) / self.ref_thrust  # Normalized thrust constraint
+        return -thrust / self.ref_thrust + (1 - config.deviation_range)  # Normalized thrust constraint
     
 
     def MaximumThrust(self,
@@ -489,13 +490,13 @@ if __name__ == "__main__":
     from Submodels.output_handling import output_processing #type: ignore
     
     # Extract outputs from the forces output file
-    outputs = output_processing(analysis_name='initial_analysis').GetAllVariables(3)
-    
+    outputs = output_processing(analysis_name='0521161706_4028_bd2b1ff84a4a').GetAllVariables(3)
+
     # Create an instance of the Constraints class
     test = Constraints(config.CENTERBODY_VALUES,
                        config.DUCT_VALUES,
-                       config.STAGE_DESIGN_VARIABLES)
-
+                       config.STAGE_DESIGN_VARIABLES,
+                       design_okay=True)
     # Compute the constraints
     output = {}
     test.ComputeConstraints(outputs, 

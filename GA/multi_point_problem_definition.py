@@ -128,7 +128,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Calculate the number of objectives and constraints of the optimization problem
         n_objectives = config.n_objectives
 
-        n_inequality_constraints = len(config.constraint_IDs[0]) * len(config.multi_oper) + config.count_feasibility()
+        n_inequality_constraints = len(config.constraint_IDs[0]) * len(config.multi_oper)
         n_equality_constraints = len(config.constraint_IDs[1]) * len(config.multi_oper)
 
         # Initialize the parent class

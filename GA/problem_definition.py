@@ -143,7 +143,7 @@ class OptimizationProblem(ElementwiseProblem):
         # Calculate the number of objectives and constraints of the optimization problem
         n_objectives = len(config.objective_IDs) * len(config.multi_oper)
        
-        n_inequality_constraints = len(config.constraint_IDs[0]) + config.count_feasibility()
+        n_inequality_constraints = len(config.constraint_IDs[0])
         n_equality_constraints = len(config.constraint_IDs[1])
 
         # Initialize the parent class
