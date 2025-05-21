@@ -187,13 +187,13 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         timestamp = now.strftime(self.timestamp_format)
 
         # Generate a unique identifier using UUID
-        unique_id = uuid.uuid4().hex[:8]  # 8 chars max
+        unique_id = uuid.uuid4().hex[:12]  # 12 chars max
 
         # Add a process ID to the analysis name to ensure uniqueness in multi-threaded environments.
         process_id = os.getpid() % 10000  # 4 chars max
 
         # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>.
-        # Analysis name has a length of 24 characters, satisfying the maximum length of 32 characters accepted by MTFLOW. 
+        # Analysis name has a length of 28 characters, satisfying the maximum length of 32 characters accepted by MTFLOW. 
         self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)
 
         # Truncate the analysis name to 32 characters if its length exceeds the 32 character limit.
@@ -312,7 +312,12 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             if file_type == "tdat": 
                 if file_path.exists():
                     copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-                    file_path.replace(copied_file)
+                    try:
+                        # Atomic operation to improve edge case handling
+                        file_path.replace(copied_file)
+                    except FileNotFoundError:
+                        # Another process might have already moved it
+                        pass
             else:
                 # Cleanup all temporary files
                 if file_path.exists():

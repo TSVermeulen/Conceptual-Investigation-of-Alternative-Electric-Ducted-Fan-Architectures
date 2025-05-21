@@ -408,9 +408,6 @@ class DesignVectorInterface:
             A dictionary containing the reconstructed design vector x.
         """
 
-        # print(duct_variables)
-        # print(blade_blading_parameters)
-
         def extract_b8_map(params: dict[str, float]) -> float:
             """
             Helper function to compute the mapping parameter b_8_map using the bezier parameter b_8
@@ -426,7 +423,6 @@ class DesignVectorInterface:
             """ 
             Return the standard 15-var profile section definition.
             """
-            # print(profile)
             return [profile["b_0"],  # b_0
                     profile["b_2"],  # b_2
                     extract_b8_map(profile),  # b_8_map
@@ -487,5 +483,5 @@ class DesignVectorInterface:
         # For a mixed-variable problem, PyMoo expects the vector to be a dictionary, so we convert vector to a dictionary.
         # Note that all variables are given a name xi.
         vector = {f"x{i}": var for i, var in enumerate(vector)}
-        # input("press enter")
+        
         return vector

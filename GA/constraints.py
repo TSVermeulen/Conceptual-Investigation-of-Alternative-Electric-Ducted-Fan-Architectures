@@ -47,8 +47,9 @@ import copy
 # Import 3rd party libraries
 import numpy as np
 
-# Import analysis configuration
+# Import analysis configuration and Parameterization class
 import config # type: ignore
+from Submodels.Parameterizations import AirfoilParameterization # type: ignore
 
 # Define type alias for AnalysisOutputs
 AnalysisOutputs = dict[str, dict[str, float] | dict[str, dict[str, float]]]
@@ -80,6 +81,9 @@ class Constraints:
 
         self.design_okay = design_okay
         self.infeasible_CV = 1e12
+
+        # Initialize the airfoil parameterization class
+        self.airfoil_parameterization = AirfoilParameterization()
 
     
     def _calculate_power(self,
@@ -277,38 +281,6 @@ class Constraints:
         return (config.deviation_range * self.ref_thrust - thrust) / self.ref_thrust  # Normalized thrust constraint
 
 
-    def ComputeProfileFeasibilityConstraints(self) -> list[float]:
-        """
-        Compute the profile feasibility constraints to help enforce a feasible BP3434 parameterization. 
-
-        Returns
-        -------
-        - feasibility_constraints : list[float]
-            A list of the feasibility constraint values. 
-        """
-
-        feasibility_constraints = []
-        feasibility_offset = 0.05  # Offset of 0.05 to avoid the control points lying on x_t/x_c
-        if config.OPTIMIZE_CENTERBODY:
-            # If the centerbody is to be optimized, add the TE thickness constraint
-            thickness_constraint = -3 * self.centerbody_values["b_8"] ** 2 / (2 * self.centerbody_values["r_LE"]) - self.centerbody_values["x_t"] + feasibility_offset
-            feasibility_constraints.append(thickness_constraint)
-        if config.OPTIMIZE_DUCT:
-            # If the duct is to be optimized, add the TE thickness and camber constraints
-            thickness_constraint = -3 * self.duct_values["b_8"] ** 2 / (2 * self.duct_values["r_LE"]) - self.duct_values["x_t"] + feasibility_offset
-            camber_constraint = 8/7 * self.duct_values["y_c"] / np.tan(self.duct_values["leading_edge_direction"]) - self.duct_values["x_c"] + feasibility_offset
-            feasibility_constraints.extend([thickness_constraint, camber_constraint])
-        for i, opt_stage in enumerate(config.OPTIMIZE_STAGE):
-            if opt_stage:
-                for j in range(config.NUM_RADIALSECTIONS[i]):
-                    # For each radial section, add the camber and thickness constraints
-                    thickness_constraint = -3 * self.blade_design_values[i][j]["b_8"] ** 2 / (2 * self.blade_design_values[i][j]["r_LE"]) - self.blade_design_values[i][j]["x_t"] + feasibility_offset
-                    camber_constraint = 8/7 * self.blade_design_values[i][j]["y_c"] / np.tan(self.blade_design_values[i][j]["leading_edge_direction"]) - self.blade_design_values[i][j]["x_c"] + feasibility_offset
-                    feasibility_constraints.extend([thickness_constraint, camber_constraint])
-        
-        return feasibility_constraints
-
-
     def ComputeConstraints(self,
                            analysis_outputs: AnalysisOutputs,
                            Lref: float,
@@ -368,8 +340,7 @@ class Constraints:
                                                                            Lref,
                                                                            thrust,
                                                                            power), 5))
-        feasibility_constraints = self.ComputeProfileFeasibilityConstraints()
-        computed_ineq_constraints.extend(feasibility_constraints)
+                
         if self.design_okay:
             out["G"] = np.column_stack(computed_ineq_constraints)
         else:
@@ -465,8 +436,6 @@ class Constraints:
                                                                       thrust[i],
                                                                       power[i]), 5))
                     
-        feasibility_constraints = self.ComputeProfileFeasibilityConstraints()
-        computed_ineq_constraints.extend(feasibility_constraints)
         if self.design_okay:
             out["G"] = computed_ineq_constraints
         else:
@@ -478,7 +447,6 @@ class Constraints:
         # Compute the equality constraints and write them to out["H"]
         # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
         if eq_constraints:
-            num_eq = len(eq_constraints)
             computed_eq_constraints = []
 
             for i, outputs in enumerate(analysis_outputs):

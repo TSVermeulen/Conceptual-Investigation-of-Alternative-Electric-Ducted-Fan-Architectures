@@ -223,6 +223,9 @@ class Objectives:
 
         out["F"] = computed_objectives
 
+        # Check dimension of objectives
+        assert out["F"].ndim == 1, "ElementwiseProblem needs a 1-D objective array"
+
     
     def ComputeMultiPointObjectives(self,
                                     analysis_outputs: list[dict],
@@ -269,13 +272,16 @@ class Objectives:
         # Now compute the constant objectives
         # Since the objectives are independent of analysis condition, we simply use the first analysis to compute the objectives. 
         # Validate that the first analysis output contains the required wetted area data
-        if not "Wetted Area" in analysis_outputs[0]["data"]:
+        if "Wetted Area" not in analysis_outputs[0]["data"]:
             raise ValueError("The first analysis output does not contain the required 'Wetted Area' data for the constant objectives.")
+        
         for i, objective in enumerate(constant_objectives):
             computed_objectives[num_varobjectives * num_outputs + i] = round(objective(analysis_outputs[0]), 5)
 
         out["F"] = computed_objectives
         
+        # Check dimension of objectives
+        assert out["F"].ndim == 1, "ElementwiseProblem needs a 1-D objective array"
         
 if __name__ == "__main__":
     # Run a test of the objectives class

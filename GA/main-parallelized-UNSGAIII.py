@@ -75,14 +75,23 @@ if __name__ == "__main__":
     total_threads = multiprocessing.cpu_count()
     threads_per_eval = max(1, getattr(config, "THREADS_PER_EVALUATION", 2))
     total_threads_avail = max(0, total_threads - config.RESERVED_THREADS)
+    
+    if total_threads_avail < threads_per_eval:
+        # No point spawning processes that will immediately contend for the same cores
+        n_processes = 0
+    else:
+        n_processes = total_threads_avail // threads_per_eval
+    
+    # Always fall back to at least one serial worker to ensure the script still runs. 
+    n_processes = max(1, n_processes)
 
-    # Never let integer division explode or produce zero workers
-    n_processes = max(1, total_threads_avail // threads_per_eval)
     # Do not spawn more processes than the GA can effectively use
     n_processes = min(n_processes, config.POPULATION_SIZE)
 
     with multiprocessing.Pool(processes=n_processes,
-                              initializer=ensure_repo_paths) as pool:
+                              initializer=ensure_repo_paths,
+                              maxtasksperchild=100,  # Recycle workers periodically to avoid C-side memory leaking. 
+                              ) as pool:
         # Create runner
         runner = StarmapParallelization(pool.starmap)
 

@@ -76,21 +76,21 @@ class DesignVector():
                 Rogalsky T. Acceleration of differential evolution for aerodynamic design. 
                 Ph.D. Thesis, University of Manitoba; 2004.
             """
-            return [Real(bounds=(0.01, 0.1)),  # b_0
-                    Real(bounds=(0.1, 0.3)),  # b_2
-                    Real(bounds=(0.05, 0.25)),  # mapping variable for b_8
-                    Real(bounds=(0.5, 0.95)),  # b_15
-                    Real(bounds=(0.5, 0.95)),  # b_17
-                    Real(bounds=(0.15, 0.5)),  # x_t
+            return [Real(bounds=(0.05, 0.1)),  # b_0
+                    Real(bounds=(0.125, 0.3)),  # b_2
+                    Real(bounds=(0.05, 0.7)),  # mapping variable for b_8
+                    Real(bounds=(0.7, 0.95)),  # b_15
+                    Real(bounds=(0.7, 0.95)),  # b_17
+                    Real(bounds=(0.15, 0.4)),  # x_t
                     Real(bounds=(0.02, 0.30)),  # y_t
                     Real(bounds=(0.2, 0.5)),  # x_c
-                    Real(bounds=(0, 0.2)),  # y_c
+                    Real(bounds=(0, 0.15)),  # y_c
                     Real(bounds=(0, 0.05)),  # z_TE
                     Real(bounds=(0, 0.005)),  # dz_TE
                     Real(bounds=(-0.1, -0.001)),  # r_LE
-                    Real(bounds=(0.001, 0.4)),  # trailing_wedge_angle
-                    Real(bounds=(0.001, 0.3)),  # trailing_camberline_angle
-                    Real(bounds=(0.001, 0.3))]  # leading_edge_direction
+                    Real(bounds=(0.001, 0.3)),  # trailing_wedge_angle
+                    Real(bounds=(0.001, 0.2)),  # trailing_camberline_angle
+                    Real(bounds=(0.001, 0.2))]  # leading_edge_direction
 
         # Initialize variable list with variable types.
         # This is required to handle the mixed-variable nature of the optimisation, where the blade count is an integer
@@ -120,7 +120,7 @@ class DesignVector():
         for i in range(cfg.NUM_STAGES):
             if cfg.OPTIMIZE_STAGE[i]:
                 vector.append(Real(bounds=(0, 0.4)))  # root_LE_coordinate
-                vector.append(Real(bounds=(0.05, np.pi/6)))  # ref_blade_angle from [~2.8deg to 30 deg]
+                vector.append(Real(bounds=(0.1, np.pi/6)))  # ref_blade_angle from [~5.7deg to 30 deg]
                 vector.append(Integer(bounds=(3, 20)))  # blade_count
                 if cfg.ROTATING[i]:
                     for _ in range(len(cfg.multi_oper)):

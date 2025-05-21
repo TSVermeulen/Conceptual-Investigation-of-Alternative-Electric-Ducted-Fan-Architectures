@@ -51,6 +51,7 @@ import os
 import uuid
 import copy
 import datetime
+import contextlib
 from pathlib import Path
 
 # Import 3rd party libraries
@@ -62,7 +63,7 @@ from utils import ensure_repo_paths  # type: ignore
 ensure_repo_paths()
 
 # Import interface submodels and other dependencies
-from Submodels.MTSOL_call import OutputType, ExitFlag  # type: ignore 
+from Submodels.MTSOL_call import OutputType # type: ignore 
 from objectives import Objectives  # type: ignore 
 from constraints import Constraints  # type: ignore 
 from init_designvector import DesignVector  # type: ignore 
@@ -111,6 +112,7 @@ class OptimizationProblem(ElementwiseProblem):
     
 
     def __init__(self,
+                 verbose: bool = False,
                  **kwargs) -> None:
         """
         Initialization of the OptimizationProblem class. 
@@ -120,10 +122,15 @@ class OptimizationProblem(ElementwiseProblem):
         - **kwargs : dict[str, Any]
             Additional keyword arguments
 
+        - verbose : bool, optional 
+            Bool to determine if error messages should be printed to the console while running.
+
         Returns
         -------
         None
         """
+
+        self.verbose = verbose
 
         # Import control variables
         self.num_radial = config.NUM_RADIALSECTIONS
@@ -183,6 +190,11 @@ class OptimizationProblem(ElementwiseProblem):
         Generate a unique analysis name and write it to self.
         This is required to enable multi-threading of the optimization problem, and log each state file,
         since each evaluation of MTFLOW requires a unique set of files. 
+
+        Returns
+        -------
+        - None
+            The analysis_name is stored as an instance attribute.
         """
 
         # Generate a timestamp string in the format MMDDHHMMSS
@@ -190,13 +202,13 @@ class OptimizationProblem(ElementwiseProblem):
         timestamp = now.strftime(self.timestamp_format)
 
         # Generate a unique identifier using UUID
-        unique_id = uuid.uuid4().hex[:8]  # 8 chars max
+        unique_id = uuid.uuid4().hex[:12]  # 12 chars max
 
         # Add a process ID to the analysis name to ensure uniqueness in multi-threaded environments.
         process_id = os.getpid() % 10000  # 4 chars max
 
         # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>.
-        # Analysis name has a length of 24 characters, satisfying the maximum length of 32 characters accepted by MTFLOW. 
+        # Analysis name has a length of 28 characters, satisfying the maximum length of 32 characters accepted by MTFLOW. 
         self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)
         
         # Truncate the analysis name to 32 characters if its length exceeds the 32 character limit.
@@ -264,7 +276,12 @@ class OptimizationProblem(ElementwiseProblem):
             if file_type == "tdat": 
                 if file_path.exists():
                     copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-                    file_path.replace(copied_file)
+                    try:
+                        # Atomic operation to improve edge case handling
+                        file_path.replace(copied_file)
+                    except FileNotFoundError:
+                        # Another process might have already moved it
+                        pass
             else:
                 # Cleanup all temporary files
                 if file_path.exists():
@@ -323,13 +340,15 @@ class OptimizationProblem(ElementwiseProblem):
             # Any value error that might occur while generating the MTSET input file will be caused by interpolation issues arising from the input values, so 
             # this is an efficient and simple method to check if the axisymmetric bodies are feasible. 
             output_generated = False  # If any of the input generation routines raised an error, set output_generated to False
-            error_code = "INVALID_DESIGN"
-            print(f"[{error_code}] Invalid design vector encountered: {e}")
+            if self.verbose:
+                error_code = "INVALID_DESIGN"
+                print(f"[{error_code}] Invalid design vector encountered: {e}")
         except Exception as e:
             # If any unexpected errors occur, log them as well
             output_generated = False
-            error_code = f"UNEXPECTED_{type(e).__name__}"
-            print(f"[{error_code}] Unexpected error in input generation: {e}")
+            if self.verbose:
+                error_code = f"UNEXPECTED_{type(e).__name__}"
+                print(f"[{error_code}] Unexpected error in input generation: {e}")
         
         if not output_generated:
             # Set parameters equal to the config values in case of a crash so that the constraint/objective value calculations do not crash
@@ -419,10 +438,8 @@ class OptimizationProblem(ElementwiseProblem):
                                                     out=out)
         
         # Cleanup the generated files
-        try:
+        with contextlib.suppress(Exception): 
             self.CleanUpFiles()
-        except Exception:
-            pass
     
 
 if __name__ == "__main__":

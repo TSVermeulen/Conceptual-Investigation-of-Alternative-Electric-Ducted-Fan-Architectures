@@ -312,7 +312,6 @@ class InitPopulation():
     
 
 if __name__ == "__main__":
-    config.OPTIMIZE_DUCT = False
     test = InitPopulation("biased")
 
     biased_pop = test.GeneratePopulation()
