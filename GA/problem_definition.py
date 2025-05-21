@@ -276,12 +276,9 @@ class OptimizationProblem(ElementwiseProblem):
             if file_type == "tdat": 
                 if file_path.exists():
                     copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-                    try:
+                    with contextlib.suppress(FileNotFoundError):
                         # Atomic operation to improve edge case handling
                         file_path.replace(copied_file)
-                    except FileNotFoundError:
-                        # Another process might have already moved it
-                        pass
             else:
                 # Cleanup all temporary files
                 if file_path.exists():
@@ -344,11 +341,12 @@ class OptimizationProblem(ElementwiseProblem):
                 error_code = "INVALID_DESIGN"
                 print(f"[{error_code}] Invalid design vector encountered: {e}")
         except Exception as e:
+            import traceback
             # If any unexpected errors occur, log them as well
             output_generated = False
             if self.verbose:
                 error_code = f"UNEXPECTED_{type(e).__name__}"
-                print(f"[{error_code}] Unexpected error in input generation: {e}")
+                print(f"[{error_code}] Traceback:\n{traceback.format_exc()}")  # Use traceback for more specific error information.
         
         if not output_generated:
             # Set parameters equal to the config values in case of a crash so that the constraint/objective value calculations do not crash

@@ -240,6 +240,9 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         None
         """
 
+        if idx >= len(blading_params["RPS_lst"]):
+            raise IndexError(f"Expected at least {idx+1} RPS values, but got {len(blading_params['RPS_lst'])}")
+
         # Compute the non-dimensional rotational rate Omega for MTFLOW and write it to the blading parameters
         # Multiplied by -1 to comply with sign convention in MTFLOW. 
         for blading_params in self.blade_blading_parameters:
@@ -312,12 +315,9 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             if file_type == "tdat": 
                 if file_path.exists():
                     copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
-                    try:
+                    with contextlib.suppress(FileNotFoundError):
                         # Atomic operation to improve edge case handling
                         file_path.replace(copied_file)
-                    except FileNotFoundError:
-                        # Another process might have already moved it
-                        pass
             else:
                 # Cleanup all temporary files
                 if file_path.exists():

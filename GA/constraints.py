@@ -431,19 +431,19 @@ class Constraints:
                 self.ref_thrust = config.T_ref_constr[i]
                 self.ref_power = config.P_ref_constr[i]
                 self.oper = self.multi_oper[i]
-                for _, constraint in enumerate(ineq_constraints):
+                for constraint in ineq_constraints:
                     computed_ineq_constraints.append(round(constraint(outputs,
                                                                       Lref,
                                                                       thrust[i],
                                                                       power[i]), 5))
                     
         if self.design_okay:
-            out["G"] = computed_ineq_constraints
+            out["G"] = np.column_stack(computed_ineq_constraints)
         else:
             # If the design is infeasible, set a really high constraint violation to steer the optimizer away
             for i in range(len(computed_ineq_constraints)):
                 computed_ineq_constraints[i] = self.infeasible_CV
-            out["G"] = computed_ineq_constraints
+            out["G"] = np.column_stack(computed_ineq_constraints)
 
         # Compute the equality constraints and write them to out["H"]
         # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
@@ -454,18 +454,18 @@ class Constraints:
                 self.oper = self.multi_oper[i]
                 self.ref_thrust = config.T_ref_constr[i]
                 self.ref_power = config.P_ref_constr[i]
-                for j, constraint in enumerate(eq_constraints):
+                for constraint in eq_constraints:
                     computed_eq_constraints.append(round(constraint(outputs,
                                                                     Lref,
                                                                     thrust[i],
                                                                     power[i]), 5))
             if self.design_okay:
-                out["H"] = computed_eq_constraints
+                out["H"] = np.column_stack(computed_eq_constraints)
             else:
                 # If the design is infeasible, set a really high constraint violation to steer the optimizer away.
                 for i in range(len(computed_eq_constraints)):
                     computed_eq_constraints[i] = self.infeasible_CV
-                out["H"] = computed_eq_constraints
+                out["H"] = np.column_stack(computed_eq_constraints)
         else: 
             out["H"] = []
 
