@@ -75,11 +75,10 @@ class RepairIndividuals(Repair):
         self.airfoil_parameterization = AirfoilParameterization()
 
         # Create Bezier U-vectors
-        self._u_vectors: tuple[np.typing.NDArray, np.typing.NDArray] = self.airfoil_parameterization.GenerateBezierUVectors()
+        self._u_vectors: tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]] = self.airfoil_parameterization.GenerateBezierUVectors()
 
         # Extract BP3434 bounds from the design vector class
-        self.dv_constructor = DesignVector()
-        self.BP_bounds = self.dv_constructor.BP_3434_bounds
+        self.BP_bounds = DesignVector().BP_3434_bounds
 
         # Initialize upper and lower bound lists for the complete design vector array
         self.xu = None
@@ -98,8 +97,8 @@ class RepairIndividuals(Repair):
         
         Returns
         -------
-        - tuple[tuple[np.typing.NDArray, np.typing.NDArray, np.typing.NDArray, np.typing.NDArray],
-                tuple[np.typing.NDArray, np.typing.NDArray, np.typing.NDArray, np.typing.NDArray]]
+        - tuple[tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+                tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]
             - Tuple containing the Bezier curves for the leading and trailing edge thickness and camber distributions x-coordinates
                 - x_LE_thickness : np.ndarray
                     Bezier curve for the leading edge thickness x-coordinates
@@ -184,7 +183,7 @@ class RepairIndividuals(Repair):
         # Attempt to enforce one to one mapping of the bezier x-curves for 100 attempts. 
         # If we fail to find a one to one mapping, we will return the profile parameters as is and accept the infeasibility
         original_params = profile_params.copy()
-        for attempt in range(200):
+        for _ in range(200):
             profile_params = profile_params.copy()  # Isolate each attempted fix
             # Compute the bezier curves for the x-coordinates. x_LE_thickness is always one to one, so we can ignore it.
             ((_, 
@@ -286,11 +285,7 @@ class RepairIndividuals(Repair):
                 alpha_TE = np.atan((5/6 * profile_params["y_c"]) / (1 - profile_params["b_17"])) + 1e-3
                 alpha_TE = np.clip(alpha_TE, self.BP_bounds["trailing_camberline_angle"][0], self.BP_bounds["trailing_camberline_angle"][1])  # Enforce alpha_TE to bounds
                 profile_params["trailing_camberline_angle"] = alpha_TE
-            
-            # if attempt == 100:
-            #     # If the attempts do not succeed, set the camber to zero and retry the repair for a symmetric profile
-            #     profile_params["y_c"] = 0
-               
+                           
         return original_params
 
 
@@ -381,6 +376,9 @@ class RepairIndividuals(Repair):
 
             # Only extract the bounds of they are not already written in self. 
             if self.xu is None or self.xl is None:
+                if problem is None:
+                    raise ValueError("'problem' must expose xl/xu when calling RepairIndividuals._do()")
+                
                 self.xl = np.array(list(problem.xl.values()))
                 self.xu = np.array(list(problem.xu.values()))
 
@@ -388,7 +386,7 @@ class RepairIndividuals(Repair):
             x_array = set_to_bounds_if_outside(x_array, self.xl, self.xu)
 
             # Convert the array back to a dictionary and write the result to X
-            X[i] = {f"x{i}": var for i, var in enumerate(x_array)}
+            X[i] = dict(zip(x.keys(), x_array))
             
         return X
 

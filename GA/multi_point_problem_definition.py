@@ -106,6 +106,8 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                                                                                   'CTp': 0.00000, 
                                                                                   'Xtr': 0.00000}}}
     
+    _DESIGN_VARS = DesignVector.construct_vector(config)
+    
 
     def __init__(self,
                  **kwargs) -> None:
@@ -122,9 +124,6 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         self.num_stages = config.NUM_STAGES
         self.optimize_stages = config.OPTIMIZE_STAGE
 
-        # Initialize variable list with variable types.
-        design_vars = DesignVector().construct_vector(config)
-
         # Calculate the number of objectives and constraints of the optimization problem
         n_objectives = config.n_objectives
 
@@ -132,7 +131,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         n_equality_constraints = len(config.constraint_IDs[1]) * len(config.multi_oper)
 
         # Initialize the parent class
-        super().__init__(vars=design_vars,
+        super().__init__(vars=self._DESIGN_VARS,
                          n_obj=n_objectives,
                          n_ieq_constr=n_inequality_constraints,
                          n_eq_constr=n_equality_constraints,
@@ -299,10 +298,10 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
     def CleanUpFiles(self) -> None:
         """
-        Archive the MTFLOW statefile to a separate folder and clean up temporary files.
+        Move the MTFLOW statefile to a separate folder and clean up temporary files.
 
         This method:
-        1. Move the tdat statefile to a persistent archive folder.
+        1. Moves the tdat statefile to a persistent archive folder.
         2. Removes all temporary MTFLOW input/output files, including the original statefile.
         
         Note that the output files can always be regenerated from the statefile.

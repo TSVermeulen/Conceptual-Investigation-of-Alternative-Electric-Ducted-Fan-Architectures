@@ -242,9 +242,8 @@ P_ref_constr = [0.76169 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] *
 T_ref_constr = [0.60736 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 # 1.2002 * (0.5 * atmosphere.density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 ] # Reference Thrust in Newtons derived from baseline analysis
-
+Eta_ref_constr = 0.79738
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
-print(T_ref_constr)
 
 # Define the constraint IDs used to construct the constraint functions
 # constraint IDs are structured as a nested list, of the form:
@@ -278,10 +277,10 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
 
 
 # Define the population size
-POPULATION_SIZE = 30
+POPULATION_SIZE = 40
 # Larger initial population for better diversity, then reduced to standard size
 INITIAL_POPULATION_SIZE = 60
-MAX_GENERATIONS = 34
+MAX_GENERATIONS = 50
 MAX_EVALUATIONS = 4000
 
 
@@ -293,8 +292,9 @@ SPREAD_CONTINUOUS = 0.25  # Relative spread (+/- %) applied to continous variabl
 ZERO_NOISE = 0.25  # % noise added to zero values to avoid stagnation
 SPREAD_DISCRETE = (-3, 6)  # Absolute range for discrete variables (referene value -3 to reference value + 6)
 
-# Parameter to control profile feasibility x-constraint offset
+# Repair operator controls
 PROFILE_FEASIBILITY_OFFSET = 0.05  # Offset value to avoid bezier control points lying on x_t/x_c
+MAX_ONE2ONE_ATTEMPTS = 200  # Maximum number of attempts to enforce one-to-one on the profile parameterization. 
 
 PROBLEM_TYPE = "single_point"  # Either "single_point" or "multi_point". Defines the type of problem loaded in the main file. 
 RESERVED_THREADS = 0  # Threads reserved for the operating system and any other programs.

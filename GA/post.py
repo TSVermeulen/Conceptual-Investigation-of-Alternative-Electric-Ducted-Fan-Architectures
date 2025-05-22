@@ -55,6 +55,7 @@ from typing import Any, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 from pymoo.visualization.scatter import Scatter
+from pymoo.visualization.pcp import PCP
 
 # Ensure all paths are correctly setup
 from utils import ensure_repo_paths
@@ -591,6 +592,7 @@ class PostProcessing:
                                 
                             # Loop over each optimum design and plot on the same axes.
                             for opt_idx, current_opt_design in enumerate(multi_optimum_designs):
+                                print(current_opt_design)
                                 (upper_x_opt, upper_y_opt, lower_x_opt, lower_y_opt) = \
                                     self.ConstructBladeProfile(current_opt_design[i], j)
                                 plt.plot(np.concatenate((upper_x_opt, np.flip(lower_x_opt))),
@@ -792,16 +794,28 @@ class PostProcessing:
     def PlotObjectiveSpace(self,
                            res: object) -> None:
         """
-        
+        Visualise the objective space for all feasible solutions.
+
+        Parameters
+        ----------
+        - res : object
+            The optimization result object containing the design vector of the optimized design.
         """
 
         # Collect the objective values of the complete evaluated solution set
-        F_all = np.vstack([gen.pop.get("F") for gen in res.history if np.all(np.abs(gen.pop.get("F"))) < 2])
+        F_all = np.vstack([gen.pop.get("F") for gen in res.history])
+
+        # Collect the constraint violations for all evaluated solutions
+        CV_all = np.vstack([gen.pop.get("CV") for gen in res.history])
+        
+        # Select only the feasible designs
+        feasible_mask = np.all(CV_all <= 0, axis=1)
+        F_feasible = F_all[feasible_mask]
 
         # Create scatter plot of the objective space
-        plot = Scatter(title="Objective space for the complete evaluated solution set")	
+        plot = Scatter(title="Objective space for the feasible evaluated solution set")	
         plot.add(res.history[0].pop[0].get("F"), marker="x", facecolor="blue", s=35, label="Reference Design")
-        plot.add(F_all, facecolor='none', edgecolor='black', s=10, label="Evaluated solutions")
+        plot.add(F_feasible, facecolor='none', edgecolor='black', s=10, label="Evaluated solutions")
         plot.add(res.F, facecolor='red', s=20, label="Optimum solutions")
         plot.legend = True
         plot.show()
@@ -809,16 +823,45 @@ class PostProcessing:
 
     def AnalyseDesignSpace(self,
                            res: object,
-                           idx_1: int,
-                           idx_2: int) -> None:
+                           idx_list: list[int]
+                           ) -> None:
         """
-        
+        Visualise the feasible design space for the design variables whose indices are given in idx_list. 
+
+        Parameters
+        ----------
+        - res : object
+            The optimization result object containing the design vector of the optimized design.
+        - idx_list : list[int]
+            A list of integers which correspond to the indices of the design variables which need to be plotted. 
+            To determine which integer value correspond to which design variable, inspect the init_designvector class.            
         """
 
-        pass
+        # Collect all evaluated design vectors
+        X_all_dicts = [design for gen in res.history for design in gen.pop.get("X")]
 
+        # Collect the constraint violations for all evaluated solutions
+        CV_all = np.array([design for gen in res.history for design in gen.pop.get("CV")])
+
+        # Convert the feasible solution set to arrays for plotting
+        # Selects only the design variables whose indices are given in idx_list. 
+        keys = [f"x{i}" for i in idx_list]
+        X_all_arr = np.array([[d[k] for k in keys] for d in X_all_dicts])
         
-    
+        # Select only the feasible design vectors
+        feasible_mask = np.all(CV_all <=0, axis=1)
+        X_feasible_arr = X_all_arr[feasible_mask]
+
+        # Create parallel coordinate plot for the design variables
+        pcp = PCP(labels=keys)
+        pcp.add(X_feasible_arr)
+        pcp.tight_layout = True
+        pcp.show()
+
+        # Create scatter plot for the design variables
+        scatter = Scatter(labels=keys)
+        scatter.add(X_feasible_arr).show()
+
 
     def main(self) -> None:
         """
@@ -836,7 +879,10 @@ class PostProcessing:
 
         # Visualise the objective space
         self.PlotObjectiveSpace(res)
-        
+
+        # Visualise the design space
+        self.AnalyseDesignSpace(res,
+                                [0, 2, 4, 5, 6, 7, 8, 9])
 
         # Plot the centerbody designs
         if config.OPTIMIZE_CENTERBODY:
@@ -868,11 +914,11 @@ class PostProcessing:
         for i in range(len(config.OPTIMIZE_STAGE)):
 
             # from Submodels.file_handling import fileHandlingMTFLO
-            # for i in range(len(self.blading_data_opt)):
-            #     self.blading_data_opt[i][0]["rotational_rate"] = 0
+            # for j in range(len(self.blading_data_opt)):
+            #     self.blading_data_opt[j][0]["rotational_rate"] = 0
             #     fileHandlingMTFLO(analysis_name="test",
-            #                     ref_length=self.blading_data_opt[i][0]["radial_stations"][-1] * 2).GenerateMTFLOInput(blading_params=self.blading_data_opt[i],
-            #                                                             design_params=self.design_data_opt[i],
+            #                     ref_length=self.blading_data_opt[j][0]["radial_stations"][-1] * 2).GenerateMTFLOInput(blading_params=self.blading_data_opt[j],
+            #                                                             design_params=self.design_data_opt[j],
             #                                                             plot=True) 
 
             if config.OPTIMIZE_STAGE[i]:
@@ -887,6 +933,7 @@ class PostProcessing:
                 plt.show()
                 plt.close('all')
 
+                # Plot the optimum solution set.
                 self.CompareBladeDesignData(reference_design=config.STAGE_DESIGN_VARIABLES,
                                             res=res,
                                             individual="opt")
@@ -895,7 +942,7 @@ class PostProcessing:
         
 
 if __name__ == "__main__":
-    output = Path('Results/res_pop30_eval4000_250519060525325837.dill')
+    output = Path('Results/res_pop30_eval4000_250519013251434007.dill')
 
     processing_class = PostProcessing(fname=output)
     processing_class.main()

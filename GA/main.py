@@ -78,14 +78,16 @@ if __name__ == "__main__":
                                         n_points=calculate_n_reference_points(config))
 
     # Initialize the algorithm
+    selection_operator = TournamentSelection(func_comp=comp_by_rank_and_ref_line_dist)
+    duplicate_operator = MixedVariableDuplicateElimination()
     algorithm = UNSGA3(ref_dirs=ref_dirs,
                        pop_size=config.POPULATION_SIZE,
-                       mating=MixedVariableMating(selection=TournamentSelection(func_comp=comp_by_rank_and_ref_line_dist),
-                                                  eliminate_duplicates=MixedVariableDuplicateElimination()),
+                       mating=MixedVariableMating(selection=selection_operator,
+                                                  eliminate_duplicates=duplicate_operator),
                        sampling=InitPopulation(population_type="biased",
                                                seed=config.GLOBAL_SEED).GeneratePopulation(),
-                       eliminate_duplicates=MixedVariableDuplicateElimination(),
-                       selection=TournamentSelection(func_comp=comp_by_rank_and_ref_line_dist)
+                       eliminate_duplicates=duplicate_operator,
+                       selection=selection_operator
                        )
         
     # Run the optimization
@@ -107,7 +109,7 @@ if __name__ == "__main__":
 
     # First generate the results folder if it does not exist already
     results_dir = Path(__file__).resolve().parent / "results"
-    results_dir.mkdir(exist_ok=True)
+    results_dir.mkdir(exist_ok=True, parents=True)
 
     now = datetime.datetime.now()
     timestamp = f"{now:%y%m%d%H%M%S%f}"	

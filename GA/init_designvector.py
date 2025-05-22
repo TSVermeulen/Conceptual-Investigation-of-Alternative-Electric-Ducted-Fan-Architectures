@@ -41,7 +41,7 @@ from types import ModuleType
 # Import 3rd party libraries
 from pymoo.core.variable import Real, Integer
 
-class DesignVector():
+class DesignVector:
     """
     This class is used to construct the design vector for the optimisation problem.
     """
@@ -69,12 +69,40 @@ class DesignVector():
         """
 
 
-    def construct_vector(self, cfg: ModuleType) -> dict:
+    @staticmethod
+    def profile_section_vars(cls) -> list:
+        """ 
+        Return the standard 15-var profile section definition.
+        Bounds are based on those presented in:
+            Rogalsky T. Acceleration of differential evolution for aerodynamic design. 
+            Ph.D. Thesis, University of Manitoba; 2004.
+        """
+        return [Real(bounds=cls.BP_3434_bounds["b_0"]),  # b_0
+                Real(bounds=cls.BP_3434_bounds["b_2"]),  # b_2
+                Real(bounds=cls.BP_3434_bounds["b_8"]),  # mapping variable for b_8
+                Real(bounds=cls.BP_3434_bounds["b_15"]),  # b_15
+                Real(bounds=cls.BP_3434_bounds["b_17"]),  # b_17
+                Real(bounds=cls.BP_3434_bounds["x_t"]),  # x_t
+                Real(bounds=cls.BP_3434_bounds["y_t"]),  # y_t
+                Real(bounds=cls.BP_3434_bounds["x_c"]),  # x_c
+                Real(bounds=cls.BP_3434_bounds["y_c"]),  # y_c
+                Real(bounds=cls.BP_3434_bounds["z_TE"]),  # z_TE
+                Real(bounds=cls.BP_3434_bounds["dz_TE"]),  # dz_TE
+                Real(bounds=cls.BP_3434_bounds["r_LE"]),  # r_LE
+                Real(bounds=cls.BP_3434_bounds["trailing_wedge_angle"]),  # trailing_wedge_angle
+                Real(bounds=cls.BP_3434_bounds["trailing_camberline_angle"]),  # trailing_camberline_angle
+                Real(bounds=cls.BP_3434_bounds["leading_edge_direction"])]  # leading_edge_direction
+
+
+    @classmethod
+    def construct_vector(cls, cfg: ModuleType) -> dict:
         """
         Initialize the pymoo design vector based on the toggles in config.
 
         Parameters
         ----------
+        - cls : class
+            The class. used to access the class-attribute BP_3434_bounds. 
         - cfg : ModuleType
             The config module containing the design vector configuration.
         
@@ -84,44 +112,20 @@ class DesignVector():
             A dictionary containing the design vector variables and their bounds.
         """
 
-        # Define helper function with the default 15-parameter profile definition values to keep the method cleaned up
-        def profile_section_vars() -> list:
-            """ 
-            Return the standard 15-var profile section definition.
-            Bounds are based on those presented in:
-                Rogalsky T. Acceleration of differential evolution for aerodynamic design. 
-                Ph.D. Thesis, University of Manitoba; 2004.
-            """
-            return [Real(bounds=self.BP_3434_bounds["b_0"]),  # b_0
-                    Real(bounds=self.BP_3434_bounds["b_2"]),  # b_2
-                    Real(bounds=self.BP_3434_bounds["b_8"]),  # mapping variable for b_8
-                    Real(bounds=self.BP_3434_bounds["b_15"]),  # b_15
-                    Real(bounds=self.BP_3434_bounds["b_17"]),  # b_17
-                    Real(bounds=self.BP_3434_bounds["x_t"]),  # x_t
-                    Real(bounds=self.BP_3434_bounds["y_t"]),  # y_t
-                    Real(bounds=self.BP_3434_bounds["x_c"]),  # x_c
-                    Real(bounds=self.BP_3434_bounds["y_c"]),  # y_c
-                    Real(bounds=self.BP_3434_bounds["z_TE"]),  # z_TE
-                    Real(bounds=self.BP_3434_bounds["dz_TE"]),  # dz_TE
-                    Real(bounds=self.BP_3434_bounds["r_LE"]),  # r_LE
-                    Real(bounds=self.BP_3434_bounds["trailing_wedge_angle"]),  # trailing_wedge_angle
-                    Real(bounds=self.BP_3434_bounds["trailing_camberline_angle"]),  # trailing_camberline_angle
-                    Real(bounds=self.BP_3434_bounds["leading_edge_direction"])]  # leading_edge_direction
-
         # Initialize variable list with variable types.
         # This is required to handle the mixed-variable nature of the optimisation, where the blade count is an integer
         vector = []
         if cfg.OPTIMIZE_CENTERBODY:
             # If the centerbody is to be optimised, initialise the variable types
-            complete_profile = profile_section_vars()
-            centerbody_var_indices = [2, 3, 5, 6, 10, 11, 12]
+            complete_profile = cls.profile_section_vars(cls)
+            centerbody_var_indices = [2, 3, 5, 6, 10, 11, 12]  # Indices corresponding to the camber parameters. We force the centerbody to be symmetric, so these are not needed. 
             section_profile = [complete_profile[i] for i in centerbody_var_indices]
 
             vector.extend(section_profile)
             vector.append(Real(bounds=(0.25, 4)))  # Chord Length
         if cfg.OPTIMIZE_DUCT:
             # If the duct is to be optimised, intialise the variable types
-            duct_profile = profile_section_vars()
+            duct_profile = cls.profile_section_vars(cls)
             duct_profile[6] = Real(bounds=(0.04, 0.2))  # set y_t for the duct
             vector.extend(duct_profile)
             vector.append(Real(bounds=(1, 1.5)))  # Chord Length
@@ -131,7 +135,7 @@ class DesignVector():
             # If (any of) the rotor/stator stage(s) are to be optimised, initialise the variable types
             if cfg.OPTIMIZE_STAGE[i]:
                 for _ in range(cfg.NUM_RADIALSECTIONS[i]):
-                    vector.extend(profile_section_vars())                  
+                    vector.extend(cls.profile_section_vars(cls))                  
 
         for i in range(cfg.NUM_STAGES):
             if cfg.OPTIMIZE_STAGE[i]:
