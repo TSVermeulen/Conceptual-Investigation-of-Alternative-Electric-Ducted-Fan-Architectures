@@ -62,6 +62,7 @@ import config #type: ignore
 from problem_definition import OptimizationProblem #type: ignore
 from init_population import InitPopulation #type: ignore
 from termination_conditions import GetTerminationConditions #type: ignore
+from repair import RepairIndividuals
 
 if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
@@ -89,7 +90,8 @@ if __name__ == "__main__":
         # Initialize the algorithm
         algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
                                     sampling=InitPopulation(population_type="biased",
-                                                            seed=config.GLOBAL_SEED).GeneratePopulation())
+                                                            seed=config.GLOBAL_SEED).GeneratePopulation(),
+                                    repair=RepairIndividuals())
         
         # Run the optimization
         res = minimize(problem,

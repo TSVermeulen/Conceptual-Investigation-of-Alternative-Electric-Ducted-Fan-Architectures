@@ -277,7 +277,7 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
 
 
 # Define the population size
-POPULATION_SIZE = 40
+POPULATION_SIZE = 30
 # Larger initial population for better diversity, then reduced to standard size
 INITIAL_POPULATION_SIZE = 60
 MAX_GENERATIONS = 50

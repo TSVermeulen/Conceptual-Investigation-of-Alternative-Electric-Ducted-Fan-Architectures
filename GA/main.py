@@ -61,6 +61,7 @@ import config  #type: ignore
 from problem_definition import OptimizationProblem #type: ignore
 from init_population import InitPopulation #type: ignore
 from termination_conditions import GetTerminationConditions #type: ignore
+from repair import RepairIndividuals #type: ignore
 
 
 if __name__ == "__main__":
@@ -87,7 +88,8 @@ if __name__ == "__main__":
                        sampling=InitPopulation(population_type="biased",
                                                seed=config.GLOBAL_SEED).GeneratePopulation(),
                        eliminate_duplicates=duplicate_operator,
-                       selection=selection_operator
+                       selection=selection_operator,
+                       repair=RepairIndividuals()
                        )
         
     # Run the optimization
