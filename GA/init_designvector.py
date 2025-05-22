@@ -46,14 +46,30 @@ class DesignVector():
     This class is used to construct the design vector for the optimisation problem.
     """
 
+    BP_3434_bounds = {"b_0": (0.05, 0.1),
+                      "b_2": (0.125, 0.3),
+                      "b_8": (0.05, 0.7),
+                      "b_15": (0.7, 0.95),
+                      "b_17": (0.7, 0.95),
+                      "x_t": (0.15, 0.4),
+                      "y_t": (0.02, 0.3),
+                      "x_c": (0.2, 0.5),
+                      "y_c": (0, 0.15),
+                      "z_TE": (0, 0.05),
+                      "dz_TE": (0, 0.005),
+                      "r_LE": (-0.1, -0.001),
+                      "trailing_wedge_angle": (0.001, 0.3),
+                      "trailing_camberline_angle": (0.001, 0.2),
+                      "leading_edge_direction": (0.001, 0.2)}
+
 
     def __init__(self) -> None:
         """
         Initialisation for the DesignVector class.
         """
 
-    @staticmethod
-    def construct_vector(cfg: ModuleType) -> dict:
+
+    def construct_vector(self, cfg: ModuleType) -> dict:
         """
         Initialize the pymoo design vector based on the toggles in config.
 
@@ -76,21 +92,21 @@ class DesignVector():
                 Rogalsky T. Acceleration of differential evolution for aerodynamic design. 
                 Ph.D. Thesis, University of Manitoba; 2004.
             """
-            return [Real(bounds=(0.05, 0.1)),  # b_0
-                    Real(bounds=(0.125, 0.3)),  # b_2
-                    Real(bounds=(0.05, 0.7)),  # mapping variable for b_8
-                    Real(bounds=(0.7, 0.95)),  # b_15
-                    Real(bounds=(0.7, 0.95)),  # b_17
-                    Real(bounds=(0.15, 0.4)),  # x_t
-                    Real(bounds=(0.02, 0.30)),  # y_t
-                    Real(bounds=(0.2, 0.5)),  # x_c
-                    Real(bounds=(0, 0.15)),  # y_c
-                    Real(bounds=(0, 0.05)),  # z_TE
-                    Real(bounds=(0, 0.005)),  # dz_TE
-                    Real(bounds=(-0.1, -0.001)),  # r_LE
-                    Real(bounds=(0.001, 0.3)),  # trailing_wedge_angle
-                    Real(bounds=(0.001, 0.2)),  # trailing_camberline_angle
-                    Real(bounds=(0.001, 0.2))]  # leading_edge_direction
+            return [Real(bounds=self.BP_3434_bounds["b_0"]),  # b_0
+                    Real(bounds=self.BP_3434_bounds["b_2"]),  # b_2
+                    Real(bounds=self.BP_3434_bounds["b_8"]),  # mapping variable for b_8
+                    Real(bounds=self.BP_3434_bounds["b_15"]),  # b_15
+                    Real(bounds=self.BP_3434_bounds["b_17"]),  # b_17
+                    Real(bounds=self.BP_3434_bounds["x_t"]),  # x_t
+                    Real(bounds=self.BP_3434_bounds["y_t"]),  # y_t
+                    Real(bounds=self.BP_3434_bounds["x_c"]),  # x_c
+                    Real(bounds=self.BP_3434_bounds["y_c"]),  # y_c
+                    Real(bounds=self.BP_3434_bounds["z_TE"]),  # z_TE
+                    Real(bounds=self.BP_3434_bounds["dz_TE"]),  # dz_TE
+                    Real(bounds=self.BP_3434_bounds["r_LE"]),  # r_LE
+                    Real(bounds=self.BP_3434_bounds["trailing_wedge_angle"]),  # trailing_wedge_angle
+                    Real(bounds=self.BP_3434_bounds["trailing_camberline_angle"]),  # trailing_camberline_angle
+                    Real(bounds=self.BP_3434_bounds["leading_edge_direction"])]  # leading_edge_direction
 
         # Initialize variable list with variable types.
         # This is required to handle the mixed-variable nature of the optimisation, where the blade count is an integer

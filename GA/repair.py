@@ -26,19 +26,21 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Date [dd-mm-yyyy]: [21-05-2025]
-Version: 1.3
+Date [dd-mm-yyyy]: [22-05-2025]
+Version: 1.4
 
 Changelog:
 - V1.0: Initial implementation of repair operators for profile parameterizations.
 - V1.1: Added enforcement of positive sweepback for blade leading edge.
 - V1.2: Improved one-to-one enforcement for Bezier curves.
 - V1.3: Refactored repair logic and updated documentation. Improved robustness of one-to-one enforcing by including additonal equation for gamma_LE.
+- V1.4: Made bounds on repair enforce_one2one a reference to the design vector initialisation to ensure single source of truth. Added explicit repair out of bounds operator. 
 """
 
 # Import 3rd party libraries
 import numpy as np
 from pymoo.core.repair import Repair
+from pymoo.operators.repair.to_bound import set_to_bounds_if_outside
 
 # Import local libraries
 from utils import ensure_repo_paths #type: ignore
@@ -47,6 +49,7 @@ ensure_repo_paths()
 import config #type: ignore
 from Submodels.Parameterizations import AirfoilParameterization #type: ignore
 from design_vector_interface import DesignVectorInterface #type: ignore
+from init_designvector import DesignVector #type: ignore
 
 
 class RepairIndividuals(Repair):
@@ -71,6 +74,16 @@ class RepairIndividuals(Repair):
         # Initialize the airfoil parameterization class
         self.airfoil_parameterization = AirfoilParameterization()
 
+        # Create Bezier U-vectors
+        self._u_vectors: tuple[np.typing.NDArray, np.typing.NDArray] = self.airfoil_parameterization.GenerateBezierUVectors()
+
+        # Extract BP3434 bounds from the design vector class
+        self.dv_constructor = DesignVector()
+        self.BP_bounds = self.dv_constructor.BP_3434_bounds
+
+        # Initialize upper and lower bound lists for the complete design vector array
+        self.xu = None
+        self.xl = None
 
     def _computebezier(self, 
                        profile_params: dict[str, float]) -> tuple[np.typing.NDArray, np.typing.NDArray, np.typing.NDArray, np.typing.NDArray]:
@@ -107,9 +120,6 @@ class RepairIndividuals(Repair):
                     Bezier curve for the trailing edge camber y-coordinates
         """
 
-        # Create Bezier U-vectors
-        u_leading_edge, u_trailing_edge = self.airfoil_parameterization.GenerateBezierUVectors()
-
         # Calculate the Bezier curve coefficients for the thickness curves
         (x_LE_thickness_coeff, 
          y_LE_thickness_coeff, 
@@ -117,6 +127,7 @@ class RepairIndividuals(Repair):
          y_TE_thickness_coeff) = self.airfoil_parameterization.GetThicknessControlPoints(profile_params)
             
         # Compute the bezier curves for thickness
+        u_leading_edge, u_trailing_edge = self._u_vectors
         x_LE_thickness = self.airfoil_parameterization.BezierCurve3(x_LE_thickness_coeff,
                                                                     u_leading_edge)
         x_TE_thickness = self.airfoil_parameterization.BezierCurve4(x_TE_thickness_coeff,
@@ -205,14 +216,14 @@ class RepairIndividuals(Repair):
                 if (profile_params["b_15"] - profile_params["x_t"]) / (1 - profile_params["x_t"]) < 3 * profile_params["x_t"] + 15 * profile_params["b_8"] ** 2 / (4 * profile_params["r_LE"]):
                     b_15_adjusted_coor = 3 * profile_params["x_t"] + 15 * profile_params["b_8"] ** 2 / (4 * profile_params["r_LE"]) + self.feasibility_offset
                     b_15_adjusted = profile_params["x_t"] + (1 - profile_params["x_t"]) * b_15_adjusted_coor
-                    b_15_adjusted = np.clip(b_15_adjusted, 0.7, 0.95)  # Enfoce b_15 to bounds
+                    b_15_adjusted = np.clip(b_15_adjusted, self.BP_bounds["b_15"][0], self.BP_bounds["b_15"][1])  # Enfoce b_15 to bounds
                     profile_params["b_15"] = b_15_adjusted
 
                 if (3 * profile_params["x_t"] + 15 * profile_params["b_8"] ** 2 / (4 * profile_params["r_LE"])) > profile_params["b_15"]:
                     # Adjust the second control point to enforce x2 < x3
                     b_8_adjusted = np.sqrt(-10 * profile_params["x_t"] * profile_params["r_LE"] / 21) - 1e-2
                     b_8_map = b_8_adjusted / min(profile_params["y_t"], np.sqrt(-2 * profile_params["r_LE"] * profile_params["x_t"] / 3))
-                    b_8_clipped_map = np.clip(b_8_map, 0.05, 0.7)
+                    b_8_clipped_map = np.clip(b_8_map, self.BP_bounds["b_8"][0], self.BP_bounds["b_8"][1])
                     b_8_adjusted_clipped = b_8_clipped_map * min(profile_params["y_t"], np.sqrt(-2 * profile_params["r_LE"] * profile_params["x_t"] / 3))
                     profile_params["b_8"] = b_8_adjusted_clipped
             
@@ -220,18 +231,18 @@ class RepairIndividuals(Repair):
             if not one_to_one_LE_camber_x:
                 if profile_params["b_2"] < profile_params["b_0"]: 
                     b_2 = profile_params["b_0"] + self.feasibility_offset
-                    profile_params["b_2"] = np.clip(b_2, 0.125, 0.3)  # Enforce b_2 to bounds
+                    profile_params["b_2"] = np.clip(b_2, self.BP_bounds["b_2"][0], self.BP_bounds["b_2"][1])  # Enforce b_2 to bounds
 
                 if profile_params["b_2"] > profile_params["x_c"]:
                     b_2 = profile_params["x_c"] - self.feasibility_offset
-                    profile_params["b_2"] = np.clip(b_2, 0.125, 0.3)  # Enforce b_2 to bounds
+                    profile_params["b_2"] = np.clip(b_2, self.BP_bounds["b_2"][0], self.BP_bounds["b_2"][1])  # Enforce b_2 to bounds
 
             # Handle TE camber x points
             if not one_to_one_TE_camber_x:
                 if (profile_params["b_17"] - profile_params["x_c"]) / (1 - profile_params["x_c"]) < (-8 * profile_params["y_c"] / np.tan(profile_params["leading_edge_direction"]) + 13 * profile_params["x_c"]) / 6:
                     b_17_adjusted_coor = (-8 * profile_params["y_c"] / np.tan(profile_params["leading_edge_direction"]) + 13 * profile_params["x_c"]) / 6 + self.feasibility_offset
                     b_17_adjusted = (1 - profile_params["x_c"]) * b_17_adjusted_coor + profile_params["x_c"]
-                    b_17_adjusted = np.clip(b_17_adjusted, 0.7, 0.95)  # Enforce b_17 to bounds
+                    b_17_adjusted = np.clip(b_17_adjusted, self.BP_bounds["b_17"][0], self.BP_bounds["b_17"][1])  # Enforce b_17 to bounds
                     profile_params["b_17"] = b_17_adjusted  
 
                 elif profile_params["x_c"] > (3 * profile_params["x_c"] - profile_params["y_c"] / np.tan(profile_params["leading_edge_direction"]))  / 2:
@@ -241,12 +252,12 @@ class RepairIndividuals(Repair):
                     # gamma_LE must lie somewhere between the two computed values for it to be feasible, so we simply take the middle value.
                     gamma_LE_adjusted = (gamma_LE_adjusted_x_based + gamma_LE_adjusted_b0_based) / 2
                                                    
-                    gamma_LE_adjusted = np.clip(gamma_LE_adjusted, 0.001, 0.2)  # Enforce gamma_LE to bounds
+                    gamma_LE_adjusted = np.clip(gamma_LE_adjusted, self.BP_bounds["leading_edge_direction"][0], self.BP_bounds["leading_edge_direction"][1])  # Enforce gamma_LE to bounds
                     profile_params["leading_edge_direction"] = gamma_LE_adjusted
 
                 elif profile_params["x_c"] > (-8 * profile_params["y_c"] / np.tan(profile_params["leading_edge_direction"]) + 13 * profile_params["x_c"]) / 6:
                     y_c_adjusted = 7 / 8 * profile_params["x_c"] * np.tan(profile_params["leading_edge_direction"]) - 1e-3#+ self.feasibility_offset
-                    y_c_adjusted = np.clip(y_c_adjusted, 0, 0.2)  # Enforce y_c to bounds
+                    y_c_adjusted = np.clip(y_c_adjusted, self.BP_bounds["y_c"][0], self.BP_bounds["y_c"][1])  # Enforce y_c to bounds
                     profile_params["y_c"] = y_c_adjusted
             
             # Handle TE thickness y points
@@ -256,7 +267,7 @@ class RepairIndividuals(Repair):
                 
                 # Compute the new trailing edge wedge angle
                 beta_TE = np.atan((profile_params["y_t"] + profile_params["b_8"]) / (2 * (1 - profile_params["b_15"]))) - 1e-3
-                beta_TE = np.clip(beta_TE, 0.001, 0.3)  # Enforce beta_TE to bounds
+                beta_TE = np.clip(beta_TE, self.BP_bounds["trailing_wedge_angle"][0], self.BP_bounds["trailing_wedge_angle"][1])  # Enforce beta_TE to bounds
                 profile_params["trailing_wedge_angle"] = beta_TE
 
             # Handle LE camber y points
@@ -264,7 +275,7 @@ class RepairIndividuals(Repair):
                 # Adjust the b_0 control point
                 b_0_coor = profile_params["y_c"] / np.tan(profile_params["leading_edge_direction"]) - 1e-3
                 b_0 = b_0_coor / profile_params["x_c"]
-                b_0 = np.clip(b_0, 0.05, 0.1)  # Enforce b_0 to bounds
+                b_0 = np.clip(b_0, self.BP_bounds["b_0"][0], self.BP_bounds["b_0"][1])  # Enforce b_0 to bounds
                 profile_params["b_0"] = b_0
             
             # # Handle TE camber y points
@@ -274,12 +285,12 @@ class RepairIndividuals(Repair):
 
                 # Compute the new trailing camberline angle
                 alpha_TE = np.atan((5/6 * profile_params["y_c"]) / (1 - profile_params["b_17"])) + 1e-3
-                alpha_TE = np.clip(alpha_TE, 0.001, 0.2)  # Enforce alpha_TE to bounds
+                alpha_TE = np.clip(alpha_TE, self.BP_bounds["trailing_camberline_angle"][0], self.BP_bounds["trailing_camberline_angle"][1])  # Enforce alpha_TE to bounds
                 profile_params["trailing_camberline_angle"] = alpha_TE
             
-            if attempt == 100:
-                # If the attempts do not succeed, set the camber to zero and retry the repair for a symmetric profile
-                profile_params["y_c"] = 0
+            # if attempt == 100:
+            #     # If the attempts do not succeed, set the camber to zero and retry the repair for a symmetric profile
+            #     profile_params["y_c"] = 0
                
         return original_params
 
@@ -310,7 +321,7 @@ class RepairIndividuals(Repair):
     
 
     def _do(self, 
-            _problem: object, 
+            problem: object, 
             X: list[dict[str, float | int]], **kwargs) -> list[dict[str, float | int]]:
         """
         Perform a simple repair on all individuals in the population. 
@@ -318,8 +329,8 @@ class RepairIndividuals(Repair):
 
         Parameters
         ----------
-        - _problem : object
-            The optimisation problem. This is a required input from the pymoo framework, but is not used within this implementation. 
+        - problem : object
+            The optimisation problem.
         - X : list[dict[str, float | int]]
             The list of design vector dictionaries for all individuals in the population. 
         
@@ -360,11 +371,26 @@ class RepairIndividuals(Repair):
                         # Repair the profile parameters
                         blade_design_parameters[j][k] = self._enforce_one2one(blade_design_parameters[j][k])
             
-            # Reconstruct the design vector
-            X[i] = dvi.ReconstructDesignVector(centerbody_variables,
+            # Reconstruct the design vector into a singular dictionary
+            x = dvi.ReconstructDesignVector(centerbody_variables,
                                                duct_variables,
                                                blade_design_parameters,
                                                blade_blading_parameters)
+            
+            # Convert design vector into array together with bounds to enforce design variable bounds
+            x_array = np.array(list(x.values()))
+
+            # Only extract the bounds of they are not already written in self. 
+            if self.xu is None or self.xl is None:
+                self.xl = np.array(list(problem.xl.values()))
+                self.xu = np.array(list(problem.xu.values()))
+
+            # Repair the design vector if it is out of bounds
+            x_array = set_to_bounds_if_outside(x_array, self.xl, self.xu)
+
+            # Convert the array back to a dictionary and write the result to X
+            X[i] = {f"x{i}": var for i, var in enumerate(x_array)}
+            
         return X
 
 

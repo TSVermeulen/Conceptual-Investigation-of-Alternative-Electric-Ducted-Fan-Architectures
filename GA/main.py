@@ -54,7 +54,7 @@ from pymoo.algorithms.moo.unsga3 import UNSGA3, comp_by_rank_and_ref_line_dist
 from pymoo.operators.selection.tournament import TournamentSelection
 
 # Import interface submodels and other dependencies
-from utils import ensure_repo_paths #type: ignore
+from utils import ensure_repo_paths, calculate_n_reference_points #type: ignore
 ensure_repo_paths()
 
 import config  #type: ignore
@@ -65,14 +65,17 @@ from termination_conditions import GetTerminationConditions #type: ignore
 
 if __name__ == "__main__":
     """ Initialize the optimization problem and algorithm """
-
     # Initialize the optimization problem by passing the configuration and the starmap interface of the thread_pool
-    problem = OptimizationProblem(seed=config.GLOBAL_SEED)
+    if hasattr(config, "PROBLEM_TYPE") and config.PROBLEM_TYPE == "multi_point":
+        from multi_point_problem_definition import MultiPointOptimizationProblem # type: ignore
+        problem = MultiPointOptimizationProblem(seed=config.GLOBAL_SEED)
+    else:        
+        problem = OptimizationProblem(seed=config.GLOBAL_SEED)
 
     # Create the reference directions to be used for the optimisation
     ref_dirs = get_reference_directions("energy",
                                         n_dim=len(config.objective_IDs),
-                                        n_points=config.POPULATION_SIZE)
+                                        n_points=calculate_n_reference_points(config))
 
     # Initialize the algorithm
     algorithm = UNSGA3(ref_dirs=ref_dirs,

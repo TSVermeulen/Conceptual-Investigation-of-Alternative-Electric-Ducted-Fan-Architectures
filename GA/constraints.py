@@ -428,10 +428,8 @@ class Constraints:
                 self.ref_thrust = config.T_ref_constr[i]
                 self.ref_power = config.P_ref_constr[i]
                 self.oper = self.multi_oper[i]
-
-                point_constraints = [round(constraint(outputs, Lref, thrust[i], power[i]), 5)
-                                     for constraint in ineq_constraints]
-                computed_ineq_constraints.extend(point_constraints)
+                computed_ineq_constraints.extend([round(constraint(outputs, Lref, thrust[i], power[i]), 5)
+                                                  for constraint in ineq_constraints])
 
             if self.design_okay:
                 out["G"] = np.column_stack(computed_ineq_constraints)
@@ -448,9 +446,8 @@ class Constraints:
                 self.oper = self.multi_oper[i]
                 self.ref_thrust = config.T_ref_constr[i]
                 self.ref_power = config.P_ref_constr[i]
-                point_constraints = [round(constraint(outputs, Lref, thrust[i], power[i]), 5)
-                                     for constraint in eq_constraints]
-                computed_eq_constraints.extend(point_constraints)
+                computed_eq_constraints.extend([round(constraint(outputs, Lref, thrust[i], power[i]), 5)
+                                                for constraint in eq_constraints])
             if self.design_okay:
                 out["H"] = np.column_stack(computed_eq_constraints)
             else:

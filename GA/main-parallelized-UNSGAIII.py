@@ -90,6 +90,7 @@ if __name__ == "__main__":
 
     with multiprocessing.Pool(processes=n_processes,
                               initializer=ensure_repo_paths,
+                              maxtasksperchild=100,
                               ) as pool:
         # Create runner
         runner = StarmapParallelization(pool.starmap)
@@ -108,6 +109,8 @@ if __name__ == "__main__":
         ref_dirs = get_reference_directions("energy",
                                             n_dim=config.n_objectives,
                                             n_points=calculate_n_reference_points(config))
+        
+        assert len(ref_dirs) < config.POPULATION_SIZE, "Reference direction count must not be smaller than population size"
 
         # Initialize the algorithm
         duplicate_elimination = MixedVariableDuplicateElimination()

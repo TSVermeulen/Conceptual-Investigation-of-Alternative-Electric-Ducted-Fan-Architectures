@@ -983,8 +983,8 @@ class fileHandlingMTFLO:
                     # Compute the local leading edge offset at the radial station from the provided interpolant
                     # Use it to offset the x-coordinates of the upper and lower surfaces to the correct position
                     LE_coordinate = blade_geometry["leading_edge_distribution"](radial_points[i])
-                    rotated_upper_x += LE_coordinate
-                    rotated_lower_x += LE_coordinate
+                    rotated_upper_x += LE_coordinate - rotated_upper_x[0]
+                    rotated_lower_x += LE_coordinate - rotated_lower_x[0]
 
                     # Transform the 2D planar airfoils into 3D cylindrical sections
                     y_section_upper, y_section_lower, y_camber, z_section_upper, z_section_lower, z_camber = self.PlanarToCylindrical(rotated_upper_y,

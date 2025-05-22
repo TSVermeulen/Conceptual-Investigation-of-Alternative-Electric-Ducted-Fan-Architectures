@@ -138,7 +138,7 @@ class OptimizationProblem(ElementwiseProblem):
         self.optimize_stages = config.OPTIMIZE_STAGE
 
         # Initialize variable list with variable types.
-        design_vars = DesignVector.construct_vector(config)
+        design_vars = DesignVector().construct_vector(config)
 
         # Calculate the number of objectives and constraints of the optimization problem
         n_objectives = len(config.objective_IDs) * len(config.multi_oper)
