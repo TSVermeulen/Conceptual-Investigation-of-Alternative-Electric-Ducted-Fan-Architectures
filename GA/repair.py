@@ -246,17 +246,16 @@ class RepairIndividuals(Repair):
                     profile_params["b_17"] = b_17_adjusted  
 
                 elif profile_params["x_c"] > (3 * profile_params["x_c"] - profile_params["y_c"] / np.tan(profile_params["leading_edge_direction"]))  / 2:
-                    gamma_LE_adjusted_x_based = np.atan(profile_params["y_c"] / (profile_params["x_c"]))
-                    gamma_LE_adjusted_b0_based = np.atan(profile_params["y_c"] / (profile_params["b_0"] * profile_params["x_c"]))  # based on the LE camber y coordinates
+                    gamma_LE_adjusted_x_based = np.atan(profile_params["y_c"] / (profile_params["x_c"] - 2 * self.feasibility_offset)) + 1e-3
+                    gamma_LE_adjusted_b0_based = np.atan(profile_params["y_c"] / (profile_params["b_0"] * profile_params["x_c"])) - 1e-3  # based on the LE camber y coordinates
 
                     # gamma_LE must lie somewhere between the two computed values for it to be feasible, so we simply take the middle value.
                     gamma_LE_adjusted = (gamma_LE_adjusted_x_based + gamma_LE_adjusted_b0_based) / 2
                                                    
-                    gamma_LE_adjusted = np.clip(gamma_LE_adjusted, self.BP_bounds["leading_edge_direction"][0], self.BP_bounds["leading_edge_direction"][1])  # Enforce gamma_LE to bounds
-                    profile_params["leading_edge_direction"] = gamma_LE_adjusted
+                    profile_params["leading_edge_direction"] = np.clip(gamma_LE_adjusted, self.BP_bounds["leading_edge_direction"][0], self.BP_bounds["leading_edge_direction"][1])  # Enforce gamma_LE to bounds
 
                 elif profile_params["x_c"] > (-8 * profile_params["y_c"] / np.tan(profile_params["leading_edge_direction"]) + 13 * profile_params["x_c"]) / 6:
-                    y_c_adjusted = 7 / 8 * profile_params["x_c"] * np.tan(profile_params["leading_edge_direction"]) - 1e-3#+ self.feasibility_offset
+                    y_c_adjusted = 7 / 8 * profile_params["x_c"] * np.tan(profile_params["leading_edge_direction"]) - 1e-3
                     y_c_adjusted = np.clip(y_c_adjusted, self.BP_bounds["y_c"][0], self.BP_bounds["y_c"][1])  # Enforce y_c to bounds
                     profile_params["y_c"] = y_c_adjusted
             
