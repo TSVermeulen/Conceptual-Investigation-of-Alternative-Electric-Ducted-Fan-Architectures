@@ -135,25 +135,25 @@ if __name__ == "__main__":
                        save_history=True,
                        return_least_infeasible=True)
 
-    # Print some performance metrics
-    print(f"Optimization completed in {res.exec_time:.2f} seconds")
-    print("Best solution found: \nX = %s\nF = %s" % (res.X, res.F))
+        # Print some performance metrics
+        print(f"Optimization completed in {res.exec_time:.2f} seconds")
+        print("Best solution found: \nX = %s\nF = %s" % (res.X, res.F))
 
-    """ Save the results to a dill file for future reference """
-    # This avoids needing to re-run the optimization if the results are needed later.
-    # The filename is generated using the process ID and current timestamp to ensure uniqueness.
+        """ Save the results to a dill file for future reference """
+        # This avoids needing to re-run the optimization if the results are needed later.
+        # The filename is generated using the process ID and current timestamp to ensure uniqueness.
 
-    # First generate the results folder if it does not exist already
-    results_dir = Path(__file__).resolve().parent / "results"
-    results_dir.mkdir(exist_ok=True,
-                      parents=True)
+        # First generate the results folder if it does not exist already
+        results_dir = Path(__file__).resolve().parent / "results"
+        results_dir.mkdir(exist_ok=True,
+                        parents=True)
 
-    now = datetime.datetime.now()
-    timestamp = f"{now:%y%m%d%H%M%S%f}"	
-    output_name = results_dir / f"res_pop{config.POPULATION_SIZE}_eval{config.MAX_EVALUATIONS}_{timestamp}.dill"
-    try:
-        with open(output_name, 'wb') as f:
-            dill.dump(res, f)
-        print(f"Results saved to {output_name}")
-    except Exception as e:
-        print(f"Error saving results: {e}")
+        now = datetime.datetime.now()
+        timestamp = f"{now:%y%m%d%H%M%S%f}"	
+        output_name = results_dir / f"res_pop{config.POPULATION_SIZE}_eval{config.MAX_EVALUATIONS}_{timestamp}.dill"
+        try:
+            with open(output_name, 'wb') as f:
+                dill.dump(res, f)
+            print(f"Results saved to {output_name}")
+        except Exception as e:
+            print(f"Error saving results: {e}")

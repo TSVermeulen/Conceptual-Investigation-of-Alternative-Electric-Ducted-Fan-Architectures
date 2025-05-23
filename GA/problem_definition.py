@@ -164,7 +164,10 @@ class OptimizationProblem(ElementwiseProblem):
         # Create folder path to store statefiles
         self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
         # Check existance of dump folder
-        self.dump_folder.mkdir(exist_ok=True)
+        try:
+            self.dump_folder.mkdir(exist_ok=True)
+        except PermissionError:
+            raise PermissionError(f"Unable to create dump folder: {self.dump_folder}. Check permissions")
 
         # Define analysisname template
         self.timestamp_format = "%m%d%H%M%S"

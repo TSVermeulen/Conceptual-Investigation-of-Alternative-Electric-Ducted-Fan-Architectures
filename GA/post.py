@@ -137,6 +137,21 @@ class PostProcessing:
             raise RuntimeError(f"Error loading results: {e}") from e
 
 
+    def _extract_data(self, population):
+        """
+        Helper method to extract and deconstruct vectors from a population.
+        """
+        vec_interface = DesignVectorInterface()
+
+        decomposed_data = [vec_interface.DeconstructDesignVector(individual.X) for individual in population]
+        CB_data = [data[0] for data in decomposed_data]
+        duct_data = [data[1] for data in decomposed_data]
+        design_data = [data[2] for data in decomposed_data]
+        blading_data = [data[3] for data in decomposed_data]
+        
+        return CB_data, duct_data, blading_data, design_data
+    
+
     def ExtractPopulationData(self,
                               res: object) -> None:
         """
@@ -148,54 +163,12 @@ class PostProcessing:
         - res : object
             The reconstructed pymoo results object.
         """
-        
-        # Initialize empty lists
-        opt_CB_data = []
-        opt_duct_data = []
-        opt_blading_data = []
-        opt_design_data = []
+            
+        # Write data from the full population to self
+        self.CB_data, self.duct_data, self.blading_data, self.design_data = self._extract_data(res.pop)
 
-        # Create local instance of the vector interfacing class
-        vec_interface = DesignVectorInterface()
-
-        # Loop over the population members and deconstruct their design vectors
-        for individual in res.pop:
-            (centerbody_variables, 
-             duct_variables, 
-             blade_design_parameters, 
-             blade_blading_parameters, 
-             _) = vec_interface.DeconstructDesignVector(individual.X)
-            opt_CB_data.append(centerbody_variables)
-            opt_duct_data.append(duct_variables)
-            opt_blading_data.append(blade_blading_parameters)
-            opt_design_data.append(blade_design_parameters)
-        
-        # Write all data to self
-        self.CB_data = opt_CB_data
-        self.duct_data = opt_duct_data
-        self.blading_data = opt_blading_data
-        self.design_data = opt_design_data
-
-        # Deconstruct the optimum set of solutions too 
-        # Loop over the population members and deconstruct their design vectors
-        opt_CB_data = []
-        opt_duct_data = []
-        opt_blading_data = []
-        opt_design_data = []
-        for individual in res.opt:
-            (centerbody_variables, 
-             duct_variables, 
-             blade_design_parameters, 
-             blade_blading_parameters, 
-             _) = vec_interface.DeconstructDesignVector(individual.X)
-            opt_CB_data.append(centerbody_variables)
-            opt_duct_data.append(duct_variables)
-            opt_blading_data.append(blade_blading_parameters)
-            opt_design_data.append(blade_design_parameters)
-        self.CB_data_opt = opt_CB_data
-        self.duct_data_opt = opt_duct_data
-        self.blading_data_opt = opt_blading_data
-        self.design_data_opt = opt_design_data
+        # Write data from the optimum individuals to self
+        self.CB_data_opt, self.duct_data_opt, self.blading_data_opt, self.design_data_opt = self._extract_data(res.opt)
     
 
     def CompareAxisymmetricGeometry(self,
@@ -253,7 +226,7 @@ class PostProcessing:
             
             # Compute the concatenated optimised x and y coordinates
             opt_x = np.concatenate((opt_upper_x, np.flip(opt_lower_x)), axis=0)
-            opt_y = np.concatenate((opt_upper_y, opt_lower_y[::-1]), axis=0)
+            opt_y = np.concatenate((opt_upper_y, np.flip(opt_lower_y)), axis=0)
 
             # Plot the optimised geometry
             ax1.plot(opt_x,
@@ -533,7 +506,7 @@ class PostProcessing:
         (upper_x, 
          upper_y, 
          lower_x,
-         lower_y) = AirfoilParameterization().ComputeProfileCoordinates(design[section_idx])
+         lower_y) = self._airfoil_param.ComputeProfileCoordinates(design[section_idx])
 
         return upper_x, upper_y, lower_x, lower_y
     
@@ -592,7 +565,6 @@ class PostProcessing:
                                 
                             # Loop over each optimum design and plot on the same axes.
                             for opt_idx, current_opt_design in enumerate(multi_optimum_designs):
-                                print(current_opt_design)
                                 (upper_x_opt, upper_y_opt, lower_x_opt, lower_y_opt) = \
                                     self.ConstructBladeProfile(current_opt_design[i], j)
                                 plt.plot(np.concatenate((upper_x_opt, np.flip(lower_x_opt))),
@@ -681,14 +653,8 @@ class PostProcessing:
 
         # First visualise the convergence of the objective values
         n_evals = [e.evaluator.n_eval for e in res.history]
-        generational_optimum = np.array([e.opt[0].F for e in res.history])
-        
-        avg_objectives = []
-        for e in res.history:
-            F_data = e.pop.get("F")
-            avg_objectives.append(np.mean(F_data, axis=0))
-
-        avg_objectives = np.array(avg_objectives)
+        generational_optimum = np.array([e.opt[0].F for e in res.history])       
+        avg_objectives = np.array([np.mean(e.pop.get("F"), axis=0) for e in res.history])
 
         plt.figure()
         plt.title("Optimum and average objective values over generations")
@@ -913,13 +879,13 @@ class PostProcessing:
         # Plot the optimised stage designs
         for i in range(len(config.OPTIMIZE_STAGE)):
 
-            # from Submodels.file_handling import fileHandlingMTFLO
-            # for j in range(len(self.blading_data_opt)):
-            #     self.blading_data_opt[j][0]["rotational_rate"] = 0
-            #     fileHandlingMTFLO(analysis_name="test",
-            #                     ref_length=self.blading_data_opt[j][0]["radial_stations"][-1] * 2).GenerateMTFLOInput(blading_params=self.blading_data_opt[j],
-            #                                                             design_params=self.design_data_opt[j],
-            #                                                             plot=True) 
+            from Submodels.file_handling import fileHandlingMTFLO
+            for j in range(len(self.blading_data_opt)):
+                self.blading_data_opt[j][0]["rotational_rate"] = 0
+                fileHandlingMTFLO(analysis_name="test",
+                                ref_length=self.blading_data_opt[j][0]["radial_stations"][-1] * 2).GenerateMTFLOInput(blading_params=self.blading_data_opt[j],
+                                                                        design_params=self.design_data_opt[j],
+                                                                        plot=True) 
 
             if config.OPTIMIZE_STAGE[i]:
                 # First plot the complete final population
@@ -942,7 +908,7 @@ class PostProcessing:
         
 
 if __name__ == "__main__":
-    output = Path('Results/res_pop30_eval4000_250519013251434007.dill')
+    output = Path('Results/res_pop30_eval4000_250523111905788625.dill')
 
     processing_class = PostProcessing(fname=output)
     processing_class.main()

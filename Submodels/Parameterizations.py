@@ -526,10 +526,6 @@ class AirfoilParameterization:
         lower_x = camber_x + thickness_distribution * np.sin(theta)
         lower_y = camber - thickness_distribution * np.cos(theta)
 
-        # Check validity of surfaces. 
-        if not (np.all(np.diff(upper_x) >= 0) and np.all(np.diff(lower_x) >= 0)):
-            raise ValueError("Infeasible profile shape encountered: surfaces contain an error.")
-
         return upper_x, upper_y, lower_x, lower_y
     
 
@@ -672,10 +668,6 @@ class AirfoilParameterization:
                                                                                    bezier_thickness,
                                                                                    bezier_camber_x,
                                                                                    bezier_camber)
-        
-        # Check validity of design
-        if not (np.all(np.diff(upper_x) >= 0) and np.all(np.diff(lower_x) >= 0)):
-            raise ValueError("Infeasible profile shape encountered: surfaces contain an error.")
 
         return upper_x, upper_y, lower_x, lower_y
 

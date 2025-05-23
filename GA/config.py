@@ -96,7 +96,7 @@ for oper_dict in multi_oper:
 
 # Controls for the optimisation vector - CENTERBODY
 OPTIMIZE_CENTERBODY = False  # Control boolean to determine if centerbody should be optimised. If false, code uses the default entry below.
-CENTERBODY_VALUES = {"b_0": 0., "b_2": 0., "b_8": 7.52387039e-02, "b_15": 7.46448823e-01, "b_17": 0., 'x_t': 0.29842005729819904, 'y_t': 0.12533559300869632, 'x_c': 0., 'y_c': 0., 'z_TE': 0., 'dz_TE': 0.00277173368735548, 'r_LE': -0.06946118699675888, 'trailing_wedge_angle': 0.27689037361278407, 'trailing_camberline_angle': 0., 'leading_edge_direction': 0., "Chord Length": 1.5, "Leading Edge Coordinates": (0., 0.)}
+CENTERBODY_VALUES = {"b_0": 0.05, "b_2": 0.125, "b_8": 7.52387039e-02, "b_15": 7.46448823e-01, "b_17": 0.8, 'x_t': 0.29842005729819904, 'y_t': 0.12533559300869632, 'x_c': 0.3, 'y_c': 0., 'z_TE': 0., 'dz_TE': 0.00277173368735548, 'r_LE': -0.06946118699675888, 'trailing_wedge_angle': 0.27689037361278407, 'trailing_camberline_angle': 0., 'leading_edge_direction': 0., "Chord Length": 1.5, "Leading Edge Coordinates": (0., 0.)}
 
 
 # Controls for the optimisation vector - DUCT

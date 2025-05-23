@@ -57,8 +57,8 @@ class DesignVector:
                       "y_c": (0, 0.15),
                       "z_TE": (0, 0.05),
                       "dz_TE": (0, 0.005),
-                      "r_LE": (-0.1, -0.001),
-                      "trailing_wedge_angle": (0.001, 0.3),
+                      "r_LE": (-0.2, -0.001),
+                      "trailing_wedge_angle": (0.001, 0.4),
                       "trailing_camberline_angle": (0.001, 0.2),
                       "leading_edge_direction": (0.001, 0.2)}
 
@@ -69,7 +69,7 @@ class DesignVector:
         """
 
 
-    @staticmethod
+    @classmethod
     def profile_section_vars(cls) -> list:
         """ 
         Return the standard 15-var profile section definition.
@@ -117,7 +117,7 @@ class DesignVector:
         vector = []
         if cfg.OPTIMIZE_CENTERBODY:
             # If the centerbody is to be optimised, initialise the variable types
-            complete_profile = cls.profile_section_vars(cls)
+            complete_profile = cls.profile_section_vars()
             centerbody_var_indices = [2, 3, 5, 6, 10, 11, 12]  # Indices corresponding to the camber parameters. We force the centerbody to be symmetric, so these are not needed. 
             section_profile = [complete_profile[i] for i in centerbody_var_indices]
 
@@ -125,7 +125,7 @@ class DesignVector:
             vector.append(Real(bounds=(0.25, 4)))  # Chord Length
         if cfg.OPTIMIZE_DUCT:
             # If the duct is to be optimised, intialise the variable types
-            duct_profile = cls.profile_section_vars(cls)
+            duct_profile = cls.profile_section_vars()
             duct_profile[6] = Real(bounds=(0.04, 0.2))  # set y_t for the duct
             vector.extend(duct_profile)
             vector.append(Real(bounds=(1, 1.5)))  # Chord Length
@@ -135,7 +135,7 @@ class DesignVector:
             # If (any of) the rotor/stator stage(s) are to be optimised, initialise the variable types
             if cfg.OPTIMIZE_STAGE[i]:
                 for _ in range(cfg.NUM_RADIALSECTIONS[i]):
-                    vector.extend(cls.profile_section_vars(cls))                  
+                    vector.extend(cls.profile_section_vars())                  
 
         for i in range(cfg.NUM_STAGES):
             if cfg.OPTIMIZE_STAGE[i]:
