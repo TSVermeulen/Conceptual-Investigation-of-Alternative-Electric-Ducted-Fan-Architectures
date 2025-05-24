@@ -184,7 +184,6 @@ class RepairIndividuals(Repair):
         # If we fail to find a one to one mapping, we will return the profile parameters as is and accept the infeasibility
         original_params = profile_params.copy()
         for _ in range(200):
-            profile_params = profile_params.copy()  # Isolate each attempted fix
             # Compute the bezier curves for the x-coordinates. x_LE_thickness is always one to one, so we can ignore it.
             ((_, 
               x_TE_thickness, 
@@ -208,6 +207,8 @@ class RepairIndividuals(Repair):
             # Check if all x points are one to one. If so, we return the updated profile parameters
             if one_to_one_TE_thickness_x and one_to_one_LE_camber_x and one_to_one_TE_camber_x and one_to_one_TE_thickness_y and one_to_one_LE_camber_y and one_to_one_TE_camber_y:
                 return profile_params
+            else:
+                profile_params = profile_params.copy()  # Isolate each attempted fix
 
             # Handle TE thickness x points
             if not one_to_one_TE_thickness_x:

@@ -110,6 +110,8 @@ class OptimizationProblem(ElementwiseProblem):
                                                         	                      'CTp': 0.00000, 
                                                         	                      'Xtr': 0.00000}}}
     
+    _DESIGN_VARS = DesignVector.construct_vector(config)
+
 
     def __init__(self,
                  verbose: bool = False,
@@ -137,9 +139,6 @@ class OptimizationProblem(ElementwiseProblem):
         self.num_stages = config.NUM_STAGES
         self.optimize_stages = config.OPTIMIZE_STAGE
 
-        # Initialize variable list with variable types.
-        design_vars = DesignVector.construct_vector(config)
-
         # Calculate the number of objectives and constraints of the optimization problem
         n_objectives = len(config.objective_IDs) * len(config.multi_oper)
        
@@ -147,7 +146,7 @@ class OptimizationProblem(ElementwiseProblem):
         n_equality_constraints = len(config.constraint_IDs[1])
 
         # Initialize the parent class
-        super().__init__(vars=design_vars,
+        super().__init__(vars=self._DESIGN_VARS,
                          n_obj=n_objectives,
                          n_ieq_constr=n_inequality_constraints,
                          n_eq_constr=n_equality_constraints,
@@ -213,10 +212,6 @@ class OptimizationProblem(ElementwiseProblem):
         # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>.
         # Analysis name has a length of 28 characters, satisfying the maximum length of 32 characters accepted by MTFLOW. 
         self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)
-        
-        # Truncate the analysis name to 32 characters if its length exceeds the 32 character limit.
-        if len(self.analysis_name) > 32:
-            self.analysis_name = self.analysis_name[:32]
 
 
     def ComputeReynolds(self) -> None:
@@ -238,22 +233,16 @@ class OptimizationProblem(ElementwiseProblem):
         """
         A simple function to compute the non-dimensional MTFLOW rotational rate Omega,
         and write it to the blading parameters.
-
-        Returns
-        -------
-        None
         """
+        
+        # Pre-calculate the common factor to avoid repeated computation
+        omega_factor = (-2 * np.pi * self.Lref) / self.oper["Vinl"]
 
-        # Extract RPS values into a list
-        rps_values = [params["RPS_lst"][0] for params in self.blade_blading_parameters]
-        
-        # Calculate rotational rates in one vectorized operation
-        rot_rates = [float((-rps * np.pi * 2 * self.Lref) / (self.oper["Vinl"])) for rps in rps_values]
-        
-        # Assign back to individual dictionaries
-        for i, blading_params in enumerate(self.blade_blading_parameters):
-            blading_params["RPS"] = rps_values[i]
-            blading_params["rotational_rate"] = rot_rates[i]
+        # Process each stage in a single loop
+        for blading_params in self.blade_blading_parameters:
+            rps = blading_params["RPS_lst"][0]  # For a single point analysis, we need to extract/flatten the RPS_list into RPS, which is equivalent to taking the first entry from the list.
+            blading_params["RPS"] = rps
+            blading_params["rotational_rate"] = float(rps * omega_factor)
 
 
     def CleanUpFiles(self) -> None:

@@ -545,9 +545,10 @@ class AirfoilParameterization:
         # Create u-vectors for Bezier curve generation
         # Use 100 points for the leading and trailing edge curves, to give 200 points in total.
         n_points = 100
-        i = np.arange(n_points)
-        u_leading_edge = 1. - np.cos((i * np.pi) / (2 * (n_points - 1)))  # Space points using a cosine spacing for increased resolution at LE 
-        u_trailing_edge = np.sin((i * np.pi) / (2 * (n_points - 1)))  # Space points using a sine spacing for increased resolution at TE
+        pi_factor = np.pi / (2 * (n_points - 1))
+        i_scaled = np.arange(n_points) * pi_factor
+        u_leading_edge = 1. - np.cos(i_scaled)  # Space points using a cosine spacing for increased resolution at LE 
+        u_trailing_edge = np.sin(i_scaled)  # Space points using a sine spacing for increased resolution at TE
 
         return u_leading_edge, u_trailing_edge
 
@@ -759,6 +760,10 @@ class AirfoilParameterization:
         
         # Denormalise design vector only for the slsqp optimisation method. 
         if reference_file is None:
+            # Validate that reference data is loaded
+            if not hasattr(self, "x") or not hasattr(self, 'upper_coords') or not hasattr(self, 'lower_coords'):
+                raise ValueError("Reference data not loaded. Call GetReferenceThicknessCamber first.")
+            
             x = np.multiply(x, self.guess_design_vector)
 
         # Reformat the design vector into the required airfoil_params dictionary.

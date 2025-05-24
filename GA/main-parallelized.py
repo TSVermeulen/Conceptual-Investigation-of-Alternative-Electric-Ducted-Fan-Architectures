@@ -87,8 +87,9 @@ if __name__ == "__main__":
     n_processes = min(n_processes, config.POPULATION_SIZE)
     
     with multiprocessing.Pool(processes=n_processes,
-                            initializer=ensure_repo_paths,
-                            initargs=()) as pool:
+                              initializer=ensure_repo_paths,
+                              maxtasksperchild=100,
+                              ) as pool:
 
         # Create runner
         runner = StarmapParallelization(pool.starmap)

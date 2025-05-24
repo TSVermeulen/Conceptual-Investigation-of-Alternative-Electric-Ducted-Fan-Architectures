@@ -148,7 +148,10 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Create folder path to store statefiles
         self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
         # Check existance of dump folder
-        self.dump_folder.mkdir(exist_ok=True)
+        try:
+            self.dump_folder.mkdir(exist_ok=True)
+        except PermissionError as e:
+            raise PermissionError(f"Unable to create dump folder: {self.dump_folder}. Check permissions") from e
 
         # Define analysisname template
         self.timestamp_format = "%m%d%H%M%S"
@@ -195,10 +198,6 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Analysis name has a length of 28 characters, satisfying the maximum length of 32 characters accepted by MTFLOW. 
         self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)
 
-        # Truncate the analysis name to 32 characters if its length exceeds the 32 character limit.
-        if len(self.analysis_name) > 32:
-            self.analysis_name = self.analysis_name[:32]
-
         # Additionally set the tflow file path
         self._tflow_file_path = self.submodels_path / f"tflow.{self.analysis_name}"
 
@@ -243,8 +242,8 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             raise IndexError(f"Expected at least {idx+1} RPS values, but got {len(self.blade_blading_parameters[0]['RPS_lst'])}")
 
         # Compute the non-dimensional rotational rate Omega for MTFLOW and write it to the blading parameters
-        # Multiplied by -1 to comply with sign convention in MTFLOW. 
-
+        # Multiplied by -1 to comply with sign convention in MTFLOW.
+        #  
         # First compute the constant non-dimensionalisation factor
         factor = -2 * np.pi * self.Lref / self.oper["Vinl"]
 
