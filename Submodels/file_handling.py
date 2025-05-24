@@ -86,7 +86,7 @@ Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
 Version: 2.0
-Date [dd-mm-yyyy]: 14-05-2025
+Date [dd-mm-yyyy]: 24-05-2025
 
 Changelog
 ---------
@@ -96,7 +96,7 @@ Changelog
 - V1.2.0: Updated class initialization logic and function inputs to enable existing geometry inputs for debugging/validation
 - V1.2.1: Fixed duplicate leading edge coordinate in fileHandlingMTSET.GetProfileCoordinates(). Implemented nondimensionalisation of geometric parameters for both MTSET and MTFLO input files. 
 - V1.3: Significant reworks to help solve bugs and issues found in validation against the X22A ducted propeller case. Added the grid size as optional input in fileHandlingMTSET. Code now automatically determines degree of bivariate interpolants based on number of radial stations provided in input data. Factorized the GenerateMTFLOInput function. Fixed transformation from planar to cylindrical coordinate system based on the implementation found in the BladeX module. Fixed implementation of circumferential blade thickness and blade slope. 
-- V2.0: Removed grouping class to reduce import size in GA optimisation. Updated 1D interpolation to also dynamically change interpolation degree based on input dimension. Updated documentation. 
+- V2.0: Removed grouping class to reduce import size in GA optimisation. Updated 1D interpolation to also dynamically change interpolation degree based on input dimension. Updated documentation. Enforced y=0 in rotateProfile since it has no effect on MTFLOW evaluation. 
 """
 
 # Import standard libraries
@@ -607,6 +607,11 @@ class fileHandlingMTFLO:
         rotated_upper_y = rotated_upper_points[:,1] + mid_y
         rotated_lower_x = rotated_lower_points[:,0] + mid_x
         rotated_lower_y = rotated_lower_points[:,1] + mid_y
+
+        # Additionally, shift the LE of the profiles back to y = 0 since we do not use rake in the profiles.
+        # MTFLOW solves the meridional flowfield, so the LE y-distribution has no effect on the flowfield, meaning we can fix it at 0.
+        rotated_upper_y -= rotated_upper_y[0]
+        rotated_lower_y -= rotated_lower_y[0]
         
         return rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y 
 

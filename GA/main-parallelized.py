@@ -62,7 +62,7 @@ import config #type: ignore
 from problem_definition import OptimizationProblem #type: ignore
 from init_population import InitPopulation #type: ignore
 from termination_conditions import GetTerminationConditions #type: ignore
-from repair import RepairIndividuals
+from repair import RepairIndividuals #type: ignore
 
 if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing

@@ -41,7 +41,7 @@ Version 1.1
 
 Changelog:
 - V1.0: Initial implementation of plotting capabilities of outputs.
-- V1.1: Added convergence property plotter. Untested for multi-objective data.  
+- V1.1: Added convergence property plotter.
 """
 
 # Import standard libraries
@@ -66,6 +66,7 @@ ensure_repo_paths()
 import config # type: ignore 
 from Submodels.Parameterizations import AirfoilParameterization # type: ignore 
 from design_vector_interface import DesignVectorInterface # type: ignore 
+from Submodels.file_handling import fileHandlingMTFLO #type: ignore
 
 # Adjust open figure warning
 plt.rcParams['figure.max_open_warning'] = 50
@@ -264,222 +265,6 @@ class PostProcessing:
         grouped_fig.tight_layout()
 
 
-    def CompareBladingData(self,
-                         reference_blading: list[dict[str, Any]],
-                         optimised_blading: list[list[dict[str, Any]]]) -> None:
-        """
-        Generate plots of the blading data for the final population members and the initial reference design. 
-
-        Parameters
-        ----------
-        - reference_blading : list[dict[str, Any]]
-            The reference blading data. Each dictionary in the list corresponds to a stage. 
-        - optimised_blading : list[dict[str, Any]]
-            The optimised blading data. Each nested list corresponds to an individual in the final optimised population. 
-        
-        Returns
-        -------
-        None
-        """
-
-        # First we compare the blading data
-        # We use a bar chart to compare the "singular" values, and line charts to compare the sectional distributions
-        # Construct the variables used to annotate the plot. These are "polished" versions of the keys
-        variables = ["Root LE coordinate [m]",
-                     "Reference Blade Angle [deg]",
-                     "Blade Count [-]",
-                     "RPS [-]",
-                     "Blade Diameter [m]"]
-        
-        # Keys in the blading dictionaries of interest
-        keys = ["root_LE_coordinate",
-                "ref_blade_angle",
-                "blade_count",
-                "RPS_lst",
-                "radial_stations"]
-        
-        # Construct figure for bar chart
-        # Inside your CompareBladingData() method – updated bar chart section:
-        for i in range(len(config.OPTIMIZE_STAGE)):
-            if config.OPTIMIZE_STAGE[i]:
-                plt.figure(f"Bar Chart with blading parameters for stage {i}")
-
-                # Update your variables and keys lists accordingly:
-                variables = [
-                    "Root LE coordinate [m]",
-                    "Reference Blade Angle [deg]",
-                    "Blade Count [-]",
-                    "RPS [-]",          # now a list in the data
-                    "Blade Diameter [m]"
-                ]
-                # Note: for radial stations (or blade diameter in your case) you might still use the same logic.
-                keys = [
-                    "root_LE_coordinate",
-                    "ref_blade_angle",
-                    "blade_count",
-                    "RPS_lst",          # key now holds a list of values
-                    "radial_stations"
-                ]
-
-                num_indiv = len(optimised_blading)
-                x = np.arange(len(keys))  
-                # For scalar (single value) fields we use a base bar width:
-                base_bar_width = 0.8 / num_indiv
-
-                # Now loop over each key/variable slot
-                for k, key in enumerate(keys):
-                    if key == "radial_stations":
-                        plt.bar(x[k], 
-                                max(reference_blading[i][key]) * 2, 
-                                width=base_bar_width, 
-                                color='black',
-                                hatch="//",
-                                edgecolor="white")
-                        for j, opt_vals in enumerate(optimised_blading):
-                            opt_val = opt_vals[i][key]
-                            opt_val = max(opt_val) * 2
-                            plt.bar(x[k] + (j + 1) * base_bar_width,
-                                    opt_val,
-                                    width=base_bar_width,
-                                    label=f"Individual {j}")
-                            
-                    elif key == "RPS_lst":
-                        # For the reference data:
-                        ref_rps = reference_blading[i][key]  # a list, e.g. [rps_val1, rps_val2, …]
-                        num_rps = len(ref_rps)
-                        # Divide the base bar width among each RPS sub-bar
-                        sub_bar_width = base_bar_width / num_rps
-                        # Plot each sub-bar (centered around x[k])
-                        for r, r_val in enumerate(ref_rps):
-                            # Compute an offset so that the group is centered:
-                            offset = (r - (num_rps - 1) / 2) * sub_bar_width
-                            plt.bar(x[k] + offset,
-                                    r_val,
-                                    width=sub_bar_width,
-                                    label="Reference" if r == 0 else "", 
-                                    color='black',
-                                    hatch='//',
-                                    edgecolor='white')
-
-                        # Now do the same for each optimised individual:
-                        for j, opt_vals in enumerate(optimised_blading):
-                            opt_rps = opt_vals[i][key]
-                            for r, opt_r_val in enumerate(opt_rps):
-                                offset = (r - (num_rps - 1) / 2) * sub_bar_width
-                                plt.bar(
-                                    x[k] + offset + (j + 1) * base_bar_width,
-                                    opt_r_val,
-                                    width=sub_bar_width,
-                                    label=f"Individual {j}" if r == 0 else ""
-                                )
-                    else:
-                        # For the scalar values (or values that remain unchanged)
-                        ref_val = reference_blading[i][key]
-                        if key == "ref_blade_angle":
-                            ref_val = np.rad2deg(ref_val)
-                        plt.bar(x[k],
-                                ref_val,
-                                width=base_bar_width,
-                                label="Reference",
-                                color='black',
-                                hatch='//',
-                                edgecolor='white')
-                        for j, opt_vals in enumerate(optimised_blading):
-                            opt_val = opt_vals[i][key]
-                            if key == "ref_blade_angle":
-                                opt_val = np.rad2deg(opt_val)
-                            plt.bar(x[k] + (j + 1) * base_bar_width,
-                                    opt_val,
-                                    width=base_bar_width,
-                                    label=f"Individual {j}")
-                            
-                # Format the x-axis using the provided variables
-                plt.xticks(x + (base_bar_width * num_indiv) / 2, variables, rotation=90)
-                plt.title("Comparison of Reference vs Optimized Design Variables")
-                handles, labels = plt.gca().get_legend_handles_labels()
-                by_label = dict(zip(labels, handles))
-                plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1, 1))
-                plt.grid(axis='y', which='both')
-                plt.yscale('log')
-                plt.minorticks_on()
-                plt.tight_layout()
-
-        # Next generate a few graphs to compare the sectional blading data
-        marker_cycle = cycler(marker=['o', 's', '^', '<', 'v', '>', '*', '+'])
-        color_cycle = cycler(color=plt.rcParams['axes.prop_cycle'].by_key()['color'])
-        for i in range(len(config.OPTIMIZE_STAGE)):
-            if config.OPTIMIZE_STAGE[i]:
-                fig, ax = plt.subplots(nrows=2,
-                                       ncols=2,
-                                       constrained_layout=True)
-                fig.suptitle(f"Sectional blading data for stage {i}")
-
-                # Set cyclers for marker and color
-                ax[0,0].set_prop_cycle(marker_cycle * color_cycle)
-                ax[0,1].set_prop_cycle(marker_cycle * color_cycle)
-                ax[1,0].set_prop_cycle(marker_cycle * color_cycle)
-
-                # Set grids on
-                ax[0,0].minorticks_on()
-                ax[0,0].grid(which='both')
-                ax[1,0].minorticks_on()
-                ax[1,0].grid(which='both')
-                ax[0,1].minorticks_on()
-                ax[0,1].grid(which='both')
-
-                # Set x-axis label
-                ax[0,0].set_xlabel("Radial coordinate [m]")
-                ax[0,1].set_xlabel("Radial coordinate [m]")
-                ax[1,0].set_xlabel("Radial coordinate [m]")
-                    
-                # First plot the reference data
-                ax[0,0].plot(reference_blading[i]["radial_stations"],
-                             reference_blading[i]["chord_length"],
-                             label="Reference",
-                             color='black',
-                             marker="x",
-                             ms=3)
-                ax[0,0].set_title("Chord length distribution [m]")
-
-                ax[0,1].plot(reference_blading[i]["radial_stations"],
-                             np.rad2deg(reference_blading[i]["sweep_angle"]),
-                             label="Reference",
-                             color='black',
-                             marker="x",
-                             ms=3)
-                ax[0,1].set_title("Sweep angle distribution [deg]")
-
-                ax[1,0].plot(reference_blading[i]["radial_stations"],
-                             np.rad2deg(reference_blading[i]["blade_angle"]),
-                             label="Reference",
-                             color='black',
-                             marker="x",
-                             ms=3)
-                ax[1,0].set_title("Blade angle distribution [deg]")
-
-                # Loop over the optimised individuals
-                for j, opt_vals in enumerate(optimised_blading):
-                    ax[0,0].plot(opt_vals[i]["radial_stations"],
-                                 opt_vals[i]["chord_length"],
-                                 label=f"Individual {j}",
-                                 ms=3)
-                    
-                    ax[0,1].plot(opt_vals[i]["radial_stations"],
-                                 np.rad2deg(opt_vals[i]["sweep_angle"]),
-                                 label=f"Individual {j}",
-                                 ms=3)
-                    
-                    ax[1,0].plot(opt_vals[i]["radial_stations"],
-                                 np.rad2deg(opt_vals[i]["blade_angle"]),
-                                 label=f"Individual {j}",
-                                 ms=3)
-                
-                # Disable the 4th plot and use its place for the legend
-                ax[1,1].axis('off')
-                handles, labels = ax[0,0].get_legend_handles_labels()
-                ax[1,1].legend(handles, labels, loc='center', ncol=2)
-
-
     def ConstructBladeProfile(self,
                               design:list[dict[str, Any]],
                               section_idx: int) -> tuple:
@@ -510,12 +295,338 @@ class PostProcessing:
 
         return upper_x, upper_y, lower_x, lower_y
     
+
+    def _plot_scalar_blading_parameter(self, x, k, key, reference_value, optimised_blading, stage_idx, base_bar_width):
+        """Helper method to plot scalar blading parameters."""
+        ref_val = reference_value
+        if key == "ref_blade_angle":
+            ref_val = np.rad2deg(ref_val)
+        
+        # Plot the reference data
+        plt.bar(x[k], ref_val, width=base_bar_width, label="Reference",
+                color='black', hatch='//', edgecolor='white')
+        
+        # Plot the optimised blading parameters
+        for j, opt_vals in enumerate(optimised_blading):
+            opt_val = opt_vals[stage_idx][key]
+            if key == "ref_blade_angle":
+                opt_val = np.rad2deg(opt_val)
+            plt.bar(x[k] + (j + 1) * base_bar_width, opt_val,
+                    width=base_bar_width, label=f"Individual {j}")
+
+
+    def _plot_rps_blading_parameter(self, x, k, reference_rps, optimised_blading, stage_idx, base_bar_width):
+        """Helper method to plot RPS blading parameters."""
+        num_rps = len(reference_rps)
+        sub_bar_width = base_bar_width / num_rps
+        
+        # Plot reference RPS values
+        for r, r_val in enumerate(reference_rps):
+            offset = (r - (num_rps - 1) / 2) * sub_bar_width
+            plt.bar(x[k] + offset, r_val, width=sub_bar_width,
+                    label="Reference" if r == 0 else "", 
+                    color='black', hatch='//', edgecolor='white')
+
+        # Plot optimised RPS values
+        for j, opt_vals in enumerate(optimised_blading):
+            opt_rps = opt_vals[stage_idx]["RPS_lst"]
+            for r, opt_r_val in enumerate(opt_rps):
+                offset = (r - (num_rps - 1) / 2) * sub_bar_width
+                plt.bar(x[k] + offset + (j + 1) * base_bar_width, opt_r_val,
+                        width=sub_bar_width,
+                        label=f"Individual {j}" if r == 0 else "")
+
+
+    def _plot_radial_stations_parameter(self, x, k, reference_value, optimised_blading, stage_idx, base_bar_width):
+        """Helper method to plot radial stations parameters (blade diameter)."""
+        plt.bar(x[k], max(reference_value) * 2, width=base_bar_width, 
+                color='black', hatch="//", edgecolor="white")
+        
+        for j, opt_vals in enumerate(optimised_blading):
+            opt_val = opt_vals[stage_idx]["radial_stations"]
+            opt_val = max(opt_val) * 2  # Time 2 since the radial stations array is defined over the blade radius. 
+            plt.bar(x[k] + (j + 1) * base_bar_width, opt_val,
+                    width=base_bar_width, label=f"Individual {j}")
+
+
+    def _plot_blading_bar_chart(self, stage_idx, reference_blading, optimised_blading):
+        """Helper method to create bar chart comparing blading parameters."""
+        variables = [
+            "Root LE coordinate [m]",
+            "Reference Blade Angle [deg]",
+            "Blade Count [-]",
+            "RPS [-]",
+            "Blade Diameter [m]"
+        ]
+        
+        keys = [
+            "root_LE_coordinate",
+            "ref_blade_angle", 
+            "blade_count",
+            "RPS_lst",
+            "radial_stations"
+        ]
+
+        num_indiv = len(optimised_blading)
+        x = np.arange(len(keys))
+        base_bar_width = 0.8 / num_indiv
+
+        plt.figure(f"Bar Chart with blading parameters for stage {stage_idx}")
+
+        for k, key in enumerate(keys):
+            if key == "radial_stations":
+                self._plot_radial_stations_parameter(x, k, reference_blading[stage_idx][key], 
+                                                    optimised_blading, stage_idx, base_bar_width)
+            elif key == "RPS_lst":
+                self._plot_rps_blading_parameter(x, k, reference_blading[stage_idx][key],
+                                            optimised_blading, stage_idx, base_bar_width)
+            else:
+                self._plot_scalar_blading_parameter(x, k, key, reference_blading[stage_idx][key],
+                                                optimised_blading, stage_idx, base_bar_width)
+
+        # Format the plot
+        plt.xticks(x + (base_bar_width * num_indiv) / 2, variables, rotation=90)
+        plt.title("Comparison of Reference vs Optimized Design Variables")
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1, 1))
+        plt.grid(axis='y', which='both')
+        plt.yscale('log')
+        plt.minorticks_on()
+        plt.tight_layout()
+
+
+    def _plot_sectional_blading_data(self, stage_idx, reference_blading, optimised_blading):
+        """Helper method to plot sectional blading data (chord length, sweep angle, blade angle)."""
+        marker_cycle = cycler(marker=['o', 's', '^', '<', 'v', '>', '*', '+'])
+        color_cycle = cycler(color=plt.rcParams['axes.prop_cycle'].by_key()['color'])
+        
+        fig, ax = plt.subplots(nrows=2, ncols=2, constrained_layout=True)
+        fig.suptitle(f"Sectional blading data for stage {stage_idx}")
+
+        # Set cyclers and grids
+        for row in range(2):
+            for col in range(2):
+                if row == 1 and col == 1:  # Skip the bottom-right subplot (used for legend)
+                    continue
+                ax[row, col].set_prop_cycle(marker_cycle * color_cycle)
+                ax[row, col].minorticks_on()
+                ax[row, col].grid(which='both')
+                ax[row, col].set_xlabel("Radial coordinate [m]")
+
+        # Plot reference data
+        ax[0,0].plot(reference_blading[stage_idx]["radial_stations"],
+                    reference_blading[stage_idx]["chord_length"],
+                    label="Reference", color='black', marker="x", ms=3)
+        ax[0,0].set_title("Chord length distribution [m]")
+
+        ax[0,1].plot(reference_blading[stage_idx]["radial_stations"],
+                    np.rad2deg(reference_blading[stage_idx]["sweep_angle"]),
+                    label="Reference", color='black', marker="x", ms=3)
+        ax[0,1].set_title("Sweep angle distribution [deg]")
+
+        ax[1,0].plot(reference_blading[stage_idx]["radial_stations"],
+                    np.rad2deg(reference_blading[stage_idx]["blade_angle"]),
+                    label="Reference", color='black', marker="x", ms=3)
+        ax[1,0].set_title("Blade angle distribution [deg]")
+
+        # Plot optimised data
+        for j, opt_vals in enumerate(optimised_blading):
+            ax[0,0].plot(opt_vals[stage_idx]["radial_stations"],
+                        opt_vals[stage_idx]["chord_length"],
+                        label=f"Individual {j}", ms=3)
+            
+            ax[0,1].plot(opt_vals[stage_idx]["radial_stations"],
+                        np.rad2deg(opt_vals[stage_idx]["sweep_angle"]),
+                        label=f"Individual {j}", ms=3)
+            
+            ax[1,0].plot(opt_vals[stage_idx]["radial_stations"],
+                        np.rad2deg(opt_vals[stage_idx]["blade_angle"]),
+                        label=f"Individual {j}", ms=3)
+
+        # Use bottom-right subplot for legend
+        ax[1,1].axis('off')
+        handles, labels = ax[0,0].get_legend_handles_labels()
+        ax[1,1].legend(handles, labels, loc='center', ncol=2)
+
+
+    def CompareBladingData(self,
+                        reference_blading: list[dict[str, Any]],
+                        optimised_blading: list[list[dict[str, Any]]]) -> None:
+        """
+        Generate plots of the blading data for the final population members and the initial reference design.
+
+        Parameters
+        ----------
+        - reference_blading : list[dict[str, Any]]
+            The reference blading data. Each dictionary in the list corresponds to a stage.
+        - optimised_blading : list[dict[str, Any]]
+            The optimised blading data. Each nested list corresponds to an individual in the final optimised population.
+        """
+        # Generate bar charts and sectional plots for each optimized stage
+        for stage_idx, opt_stage in enumerate(config.OPTIMIZE_STAGE):
+            if opt_stage:
+                # Create bar chart comparison
+                self._plot_blading_bar_chart(stage_idx, reference_blading, optimised_blading)
+                
+                # Create sectional data plots
+                self._plot_sectional_blading_data(stage_idx, reference_blading, optimised_blading)
     
+    
+    def _plot_single_blade_profile(self, 
+                                   design: list[dict[str, Any]], 
+                                   section_idx: int, 
+                                   label: str, 
+                                   color: str, 
+                                   linestyle: str = '-') -> None:
+        """
+        Helper method to plot a single blade profile with camber line.
+        
+        Parameters
+        ----------
+        - design : list[dict[str, Any]]
+            The design data for the blade stage
+        - section_idx : int
+            The radial section index
+        - label : str
+            Label for the plot legend
+        - color : str
+            Color for the plot
+        - linestyle : str, optional
+            Line style for the plot. Defaults to '-'
+        """
+        upper_x, upper_y, lower_x, lower_y = self.ConstructBladeProfile(design, section_idx)
+        
+        # Plot the blade profile
+        plt.plot(np.concatenate((upper_x, np.flip(lower_x))),
+                np.concatenate((upper_y, np.flip(lower_y))),
+                label=label, color=color, linestyle=linestyle)
+        
+        # Plot the camber line
+        plt.plot((upper_x + lower_x) / 2,
+                (upper_y + lower_y) / 2,
+                color=color, linestyle=linestyle)
+
+
+    def _plot_reference_blade_profile(self, 
+                                      reference_design: list[list[dict[str, Any]]], 
+                                      stage_idx: int, 
+                                      section_idx: int) -> None:
+        """
+        Helper method to plot the reference blade profile.
+        
+        Parameters
+        ----------
+        - reference_design : list[list[dict[str, Any]]]
+            The reference design data
+        - stage_idx : int
+            The stage index
+        - section_idx : int
+            The radial section index
+        """
+        self._plot_single_blade_profile(reference_design[stage_idx], section_idx, 
+                                    "Reference", "tab:orange", "-.")
+
+
+    def _format_blade_plot(self, 
+                           radial_coordinate: float, 
+                           stage_idx: int, 
+                           plot_type: str = "") -> None:
+        """
+        Helper method to format blade profile plots.
+        
+        Parameters
+        ----------
+        - radial_coordinate : float
+            The radial coordinate for the plot title
+        - stage_idx : int
+            The stage index for the plot title
+        - plot_type : str, optional
+            Additional text for the plot title
+        """
+        title_suffix = f" ({plot_type})" if plot_type else ""
+        plt.legend()
+        plt.title(f"Blade profile at r={round(radial_coordinate, 3)}R for Stage {stage_idx}{title_suffix}")
+        plt.minorticks_on()
+        plt.grid(which='both')
+        plt.xlabel('Normalised chordwise coordinate $x/c$ [-]')
+        plt.ylabel('Normalised perpendicular coordinate $y/c$ [-]')
+        plt.tight_layout()
+
+
+    def _plot_multiple_optimum_designs(self, 
+                                       multi_optimum_designs: list, 
+                                       reference_design: list[list[dict[str, Any]]], 
+                                       stage_idx: int) -> None:
+        """
+        Helper method to plot multiple optimum designs for a given stage.
+        
+        Parameters
+        ----------
+        - multi_optimum_designs : list
+            List of optimum design data
+        - reference_design : list[list[dict[str, Any]]]
+            The reference design data
+        - stage_idx : int
+            The stage index to plot
+        """
+        radial_coordinates = np.linspace(0, 1, config.NUM_RADIALSECTIONS[stage_idx])
+        colors = plt.cm.tab10(np.linspace(0, 1, len(multi_optimum_designs)))
+        
+        for j, radial_coordinate in enumerate(radial_coordinates):
+            plt.figure(f"BladeProfileComparison_R{round(radial_coordinate, 3)}_Stage{stage_idx}")
+            
+            # Plot each optimum design
+            for opt_idx, current_opt_design in enumerate(multi_optimum_designs):
+                self._plot_single_blade_profile(current_opt_design[stage_idx], j, 
+                                            f"Optimised (Ind {opt_idx})", colors[opt_idx])
+            
+            # Plot reference design
+            self._plot_reference_blade_profile(reference_design, stage_idx, j)
+            
+            # Format the plot
+            self._format_blade_plot(radial_coordinate, stage_idx, "Multiple Optima")
+
+
+    def _plot_single_optimum_design(self, 
+                                    optimised_design: list[list[dict[str, Any]]], 
+                                    reference_design: list[list[dict[str, Any]]], 
+                                    stage_idx: int, 
+                                    individual: int | str) -> None:
+        """
+        Helper method to plot a single optimum design for a given stage.
+        
+        Parameters
+        ----------
+        - optimised_design : list[list[dict[str, Any]]]
+            The optimised design data
+        - reference_design : list[list[dict[str, Any]]]
+            The reference design data
+        - stage_idx : int
+            The stage index to plot
+        - individual : int | str
+            The individual identifier for labeling
+        """
+        radial_coordinates = np.linspace(0, 1, config.NUM_RADIALSECTIONS[stage_idx])
+        
+        for j, radial_coordinate in enumerate(radial_coordinates):
+            plt.figure(f"BladeProfileComparison_R{round(radial_coordinate, 3)}_Stage{stage_idx}")
+            
+            # Plot optimised design
+            self._plot_single_blade_profile(optimised_design[stage_idx], j, "Optimised", 'tab:blue')
+            
+            # Plot reference design
+            self._plot_reference_blade_profile(reference_design, stage_idx, j)
+            
+            # Format the plot
+            self._format_blade_plot(radial_coordinate, stage_idx, f"individual: {individual}")
+
+
     def CompareBladeDesignData(self,
-                               reference_design: list[list[dict[str, Any]]],
-                               res: object,
-                               individual: int | str = "opt",
-                               optimised_design: Optional[list[list[dict[str, Any]]]] = None) -> None:
+                            reference_design: list[list[dict[str, Any]]],
+                            res: object,
+                            individual: int | str = "opt",
+                            optimised_design: Optional[list[list[dict[str, Any]]]] = None) -> None:
         """
         Compares the blade design data of a reference design with an optimized design 
         and generates plots for visual comparison at various radial sections.
@@ -541,103 +652,38 @@ class PostProcessing:
         """
         
         if individual == "opt":
-            # Check if res.X is a list of dictionaries
+            # Handle optimum design case
             if len(res.X) == 1:
+                # Single optimum design
                 optimum_dict = res.X[0]
                 (_, _, optimised_design, _, _) = DesignVectorInterface().DeconstructDesignVector(optimum_dict)
+                
+                # Plot single optimum for each optimized stage
+                for i in range(len(config.OPTIMIZE_STAGE)):
+                    if config.OPTIMIZE_STAGE[i]:
+                        self._plot_single_optimum_design(optimised_design, reference_design, i, individual)
             else:
-                # Otherwise, loop through each dictionary in the list and deconstruct it
+                # Multiple optimum designs
                 multi_optimum_designs = []
                 for design_dict in res.X:
                     (_, _, design_opt, _, _) = DesignVectorInterface().DeconstructDesignVector(design_dict)
                     multi_optimum_designs.append(design_opt)
-                    
-                # For each optimum design, generate its own set of plots
-                # Plot multiple optimum designs on the same axes per stage and radial slice.
+                
+                # Plot multiple optima for each optimized stage
                 for i in range(len(config.OPTIMIZE_STAGE)):
                     if config.OPTIMIZE_STAGE[i]:
-                        radial_coordinates = np.linspace(0, 1, config.NUM_RADIALSECTIONS[i])
-                        for j, radial_coordinate in enumerate(radial_coordinates):
-                            plt.figure(f"BladeProfileComparison_R{round(radial_coordinate, 3)}_Stage{i}")
-                                
-                            # Define a color palette for the optimum designs:
-                            colors = plt.cm.tab10(np.linspace(0, 1, len(multi_optimum_designs)))
-                                
-                            # Loop over each optimum design and plot on the same axes.
-                            for opt_idx, current_opt_design in enumerate(multi_optimum_designs):
-                                (upper_x_opt, upper_y_opt, lower_x_opt, lower_y_opt) = \
-                                    self.ConstructBladeProfile(current_opt_design[i], j)
-                                plt.plot(np.concatenate((upper_x_opt, np.flip(lower_x_opt))),
-                                        np.concatenate((upper_y_opt, np.flip(lower_y_opt))),
-                                        label=f"Optimised (Ind {opt_idx})",
-                                        color=colors[opt_idx])
-                                plt.plot((upper_x_opt + lower_x_opt) / 2,
-                                        (upper_y_opt + lower_y_opt) / 2,
-                                        color=colors[opt_idx])
-                                
-                            # Construct and plot the reference airfoil representation.
-                            (upper_x_ref, upper_y_ref, lower_x_ref, lower_y_ref) = \
-                                self.ConstructBladeProfile(reference_design[i], j)
-                            plt.plot(np.concatenate((upper_x_ref, np.flip(lower_x_ref))),
-                                    np.concatenate((upper_y_ref, np.flip(lower_y_ref))),
-                                    "-.",
-                                    color="tab:orange",
-                                    label="Reference")
-                            plt.plot((upper_x_ref + lower_x_ref) / 2,
-                                    (upper_y_ref + lower_y_ref) / 2,
-                                    color="tab:orange")
-                                
-                            plt.legend()
-                            plt.title(f"Blade profile at r={round(radial_coordinate, 3)}R for Stage {i} (Multiple Optima)")
-                            plt.minorticks_on()
-                            plt.grid(which='both')
-                            plt.xlabel('Normalised chordwise coordinate $x/c$ [-]')
-                            plt.ylabel('Normalised perpendicular coordinate $y/c$ [-]')
-                            plt.tight_layout()
-                # Once the multiple optimum designs have been plotted, we return early.
-                return
+                        self._plot_multiple_optimum_designs(multi_optimum_designs, reference_design, i)
         else:
-            # When an individual index is provided, we expect the optimised_design to be supplied.
+            # Handle individual index case
             if optimised_design is None:
                 raise ValueError("'optimised_design' must be supplied when 'individual' is an int.")
+            
             optimised_design = copy.deepcopy(optimised_design[individual])
-
-        # Process a single optimum design (or an optimised design specified by an integer)
-        for i in range(len(config.OPTIMIZE_STAGE)):
-            if config.OPTIMIZE_STAGE[i]:
-                radial_coordinates = np.linspace(0, 1, config.NUM_RADIALSECTIONS[i])
-                for j, radial_coordinate in enumerate(radial_coordinates):
-                    plt.figure(f"BladeProfileComparison_R{round(radial_coordinate, 3)}_Stage{i}")
-                    
-                    # Construct and plot the optimised design profile and its camber line
-                    (upper_x_opt, upper_y_opt, lower_x_opt, lower_y_opt) = self.ConstructBladeProfile(optimised_design[i], j)
-                    plt.plot(np.concatenate((upper_x_opt, np.flip(lower_x_opt))),
-                            np.concatenate((upper_y_opt, np.flip(lower_y_opt))),
-                            label="Optimised",
-                            color='tab:blue')
-                    plt.plot((upper_x_opt + lower_x_opt) / 2,
-                            (upper_y_opt + lower_y_opt) / 2,
-                            color='tab:blue')
-                    
-                    # Construct and plot the reference design profile and its camber line
-                    (upper_x_ref, upper_y_ref, lower_x_ref, lower_y_ref) = self.ConstructBladeProfile(reference_design[i], j)
-                    plt.plot(np.concatenate((upper_x_ref, np.flip(lower_x_ref))),
-                            np.concatenate((upper_y_ref, np.flip(lower_y_ref))),
-                            "-.",
-                            color="tab:orange",
-                            label="Reference")
-                    plt.plot((upper_x_ref + lower_x_ref) / 2,
-                            (upper_y_ref + lower_y_ref) / 2,
-                            color='tab:orange')
-                    
-                    # Format the plot
-                    plt.legend()
-                    plt.title(f"Blade profile at r={round(radial_coordinate, 3)}R for stage {i}, individual: {individual}")
-                    plt.minorticks_on()
-                    plt.grid(which='both')
-                    plt.xlabel('Normalised chordwise coordinate $x/c$ [-]')
-                    plt.ylabel('Normalised perpendicular coordinate $y/c$ [-]')
-                    plt.tight_layout()
+            
+            # Plot individual design for each optimized stage
+            for i in range(len(config.OPTIMIZE_STAGE)):
+                if config.OPTIMIZE_STAGE[i]:
+                    self._plot_single_optimum_design(optimised_design, reference_design, i, individual)
 
     
     def GenerateConvergenceStatistics(self,
@@ -750,13 +796,6 @@ class PostProcessing:
         plt.tight_layout()
 
 
-    def ComputeHyperVolume(self)->float:
-        """
-        
-        """
-        raise NotImplementedError
-
-
     def PlotObjectiveSpace(self,
                            res: object) -> None:
         """
@@ -829,6 +868,147 @@ class PostProcessing:
         scatter.add(X_feasible_arr).show()
 
 
+    def CreateBladeGeometryPlots(self,
+                                blading: list[list[dict[str, any]]],
+                                design: list[list[list[dict[str, any]]]]) -> None:
+        """
+        Generate 2D and 3D plots of blade geometries for each stage the ducted fan design.
+        This method visualizes the blade sections by constructing their geometry using provided blading and design data.
+
+        For each stage marked for optimization, it creates:
+          - A 2D plot showing the airfoil profiles at multiple radial stations.
+          - A 3D plot displaying the full blade surface by stacking the airfoil sections along the span.
+
+        The method utilizes geometry construction and transformation utilities from the fileHandlingMTFLO class and
+        airfoil coordinate conversion from the _airfoil_param attribute.
+
+        Parameters
+        ----------
+        - blading : list[list[dict[str, any]]]
+            A list containing blading data for each stage. Each stage is represented as a list of dictionaries
+            with geometric and aerodynamic properties at various radial stations.
+        - design : list[list[list[dict[str, any]]]]
+            A list containing design data for each stage. Each stage is represented as a list of lists of dictionaries
+            with design parameters for the blade sections.
+
+        Notes
+        -----
+        - Only stages specified in the global config.OPTIMIZE_STAGE list are plotted.
+        - The method assumes the existence of external classes and configuration, such as fileHandlingMTFLO and config.
+        - Plots are displayed using matplotlib.
+        """
+
+        # Define the number of radial sections to generate a plot for, the number of chordwise data points to use 
+        # and their distribution. 
+        n_points_radial = 16
+        n_data = 120
+        axial_points = (1 - np.cos(np.linspace(0, np.pi, n_data))) / 2
+
+        # Initialize fileHandlingMTFLO class - we use the methods developed there to construct the blade shape
+        # Initialized with random inputs since we will not be generating any outputs from the class. 
+        # We just use the methods from the class to generate the geometry for plotting. 
+        fh = fileHandlingMTFLO("*", 1)  
+
+        # Create plot for each stage:
+        for i in range(len(blading)):
+            # Only compute the plots if the stage is to be optimized
+            if config.OPTIMIZE_STAGE[i]:
+                # Set up figures for 2D and 3D plotting
+                fig2d, ax2d = plt.subplots(figsize=(12, 8))
+                fig3d = plt.figure(figsize=(12, 8))
+                ax3d = fig3d.add_subplot(111, projection='3d')
+
+                # Construct the radial points at which we obtain the data. 
+                radial_points = np.linspace(blading[i]["radial_stations"][0], 
+                                            blading[i]["radial_stations"][-1], 
+                                            n_points_radial,
+                                            ) 
+                
+                # Define lists to store the section geometries
+                x_data = []
+                y_data = []
+                r_data = []
+                    
+                # Compute the blade geometry interpolations
+                blade_geometry: dict = fh.ConstructBlades(blading[i],
+                                                          design[i])
+                    
+                # Loop over the blade span
+                for r in radial_points:
+                     # All parameters are normalised using the local chord length, so we need to obtain the local chord in order to obtain the dimensional parameters
+                    local_chord = blade_geometry["chord_distribution"](r)
+                    axial_coordinates = axial_points * local_chord
+                
+                    # Create complete airfoil representation from the camber and thickness distributions
+                    camber_distribution = blade_geometry["camber_distribution"]((r, axial_points)) * local_chord
+                    thickness_distribution = blade_geometry["thickness_distribution"]((r, axial_points)) * local_chord
+                    upper_x, upper_y, lower_x, lower_y = self._airfoil_param.ConvertBezier2AirfoilCoordinates(axial_coordinates, 
+                                                                                                              thickness_distribution, 
+                                                                                                              axial_coordinates, 
+                                                                                                              camber_distribution)
+
+                    # Rotate the airfoil profile to the correct angle
+                    # The blade pitch is defined with respect to the blade pitch angle at the reference radial station, and thus is corrected accordingly. 
+                    blade_pitch = (blade_geometry["pitch_distribution"](r) + blading[i]["ref_blade_angle"] - blading[i]["reference_section_blade_angle"])
+                    rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y  = fh.RotateProfile(blade_pitch,
+                                                                                                            upper_x,
+                                                                                                            lower_x,
+                                                                                                            upper_y,
+                                                                                                            lower_y)
+                    
+                    # Compute the local leading edge offset at the radial station from the provided interpolant
+                    # Use it to offset the x-coordinates of the upper and lower surfaces to the correct position
+                    LE_coordinate = blade_geometry["leading_edge_distribution"](r)
+                    rotated_upper_x += LE_coordinate - rotated_upper_x[0]
+                    rotated_lower_x += LE_coordinate - rotated_lower_x[0]
+
+                    # Concatenate the upper and lower data sets
+                    rotated_x = np.concatenate((rotated_upper_x, np.flip(rotated_lower_x)), axis=0)
+                    rotated_y = np.concatenate((rotated_upper_y, np.flip(rotated_lower_y)), axis=0)
+                    
+                    # Plot the 2D profile on 2D axes
+                    ax2d.plot(rotated_x, rotated_y)
+
+                    # Append the section to the list for 3d plotting
+                    x_data.append(rotated_x)
+                    y_data.append(rotated_y)
+                    r_data.append(np.full_like(rotated_x, r))
+
+                    # Plot the blade section in the 3D plot
+                    ax3d.plot(rotated_x, 
+                              rotated_y,
+                              np.full_like(rotated_x, r),  # Each section is defined at constant r
+                              color='black')
+                
+                # Convert all data to arrays - this is needed to use the plot_surface method. 
+                x_data = np.array(x_data)
+                y_data = np.array(y_data)
+                r_data = np.array(r_data)
+
+                # Plot the blade surface in 3D
+                ax3d.plot_surface(x_data, 
+                                  y_data, 
+                                  r_data, 
+                                  alpha=0.75)        
+
+                # Format 2D plot
+                ax2d.set_title("2D Projection of Blade Geometry at Each Radial Section")
+                ax2d.set_xlabel("Axial Coordinate [m]")
+                ax2d.set_ylabel("Thickness/Height Coordinate [m]")
+                ax2d.minorticks_on()
+                ax2d.grid(which='both')
+
+                # Format 3D plot
+                ax3d.set_title("3D Blade Geometry")
+                ax3d.set_xlabel("Axial Coordinate [m]")
+                ax3d.set_ylabel("Thickness/Height Coordinate [m]")
+                ax3d.set_zlabel("Radial Coordinate [m]")
+                ax3d.minorticks_on()
+                ax3d.grid(which='both')
+
+            plt.show()
+
+
     def main(self) -> None:
         """
         Main post-processing method. 
@@ -842,7 +1022,7 @@ class PostProcessing:
         self.GenerateConvergenceStatistics(res)
         plt.show()
         plt.close('all')
-
+       
         # Visualise the objective space
         self.PlotObjectiveSpace(res)
 
@@ -879,33 +1059,32 @@ class PostProcessing:
         # Plot the optimised stage designs
         for i in range(len(config.OPTIMIZE_STAGE)):
 
-            from Submodels.file_handling import fileHandlingMTFLO
-            for j in range(len(self.blading_data_opt)):
-                self.blading_data_opt[j][0]["rotational_rate"] = 0
-                fileHandlingMTFLO(analysis_name="test",
-                                ref_length=self.blading_data_opt[j][0]["radial_stations"][-1] * 2).GenerateMTFLOInput(blading_params=self.blading_data_opt[j],
-                                                                        design_params=self.design_data_opt[j],
-                                                                        plot=True) 
-
             if config.OPTIMIZE_STAGE[i]:
                 # First plot the complete final population
                 self.CompareBladingData(config.STAGE_BLADING_PARAMETERS,
                                         self.blading_data)
                 plt.show()
                 plt.close('all')
+
                 # Plot the optimum solution set
                 self.CompareBladingData(config.STAGE_BLADING_PARAMETERS,
                                         self.blading_data_opt)
                 plt.show()
                 plt.close('all')
 
-                # Plot the optimum solution set.
+                # Plot the optimum solution set
                 self.CompareBladeDesignData(reference_design=config.STAGE_DESIGN_VARIABLES,
                                             res=res,
                                             individual="opt")
                 plt.show()
                 plt.close('all')
-        
+
+                # Plot the optimum solution set
+                for j in range(len(self.blading_data_opt)):
+                    self.CreateBladeGeometryPlots(self.blading_data_opt[j],
+                                                  self.design_data_opt[j])
+                    plt.show()
+                    plt.close('all')
 
 if __name__ == "__main__":
     output = Path('Results/res_pop30_eval4000_250523111905788625.dill')

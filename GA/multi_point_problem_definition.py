@@ -311,14 +311,17 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         None
         """
 
-        for file_type in self.FILE_TEMPLATES:
-            # Construct filepath
-            file_path = self.submodels_path / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
+        # Construct filepaths once to reduce string operations
+        file_paths = {
+            file_type: self.submodels_path / template.format(self.analysis_name)
+            for file_type, template in self.FILE_TEMPLATES.items()
+        }
 
+        for file_type, file_path in file_paths.items():
             # Move the state file to the dump folder
             if file_type == "tdat": 
                 if file_path.exists():
-                    copied_file = self.dump_folder / self.FILE_TEMPLATES[file_type].format(self.analysis_name)
+                    copied_file = self.dump_folder / file_path.name
                     with contextlib.suppress(FileNotFoundError):
                         # Atomic operation to improve edge case handling
                         file_path.replace(copied_file)

@@ -55,7 +55,7 @@ Changelog:
 - V1.2: Updated FindInitialParameterization method to use SLSQP optimization rather than least squares to enable correct constraint handling. 
 - V1.2.1: Previously increased the number of points in the u-vectors for the bezier curves to 200. This yields too many in the walls.xxx input file for MTSET to handle, causing a crash. 
           Number of points has been reduced to 100.
-- V1.3: Fixed type hinting. Fixed issue in internal handling/definition of b_15 & b_17. Improved accuracy. Updated documentation. 
+- V1.3: Fixed type hinting. Fixed issue in internal handling/definition of b_15 & b_17. Improved accuracy. Updated documentation. Refactored findInitialParameterization. 
 """
 
 # Import standard libraries
@@ -513,7 +513,6 @@ class AirfoilParameterization:
             Array of y-coordinates for the lower surface of the airfoil.
         """
 
-        thickness_distribution = np.zeros(len(thickness_x))
         thickness_interpolation = interpolate.CubicSpline(thickness_x, thickness)  # Interpolation of bezier thickness distribution
         thickness_distribution = thickness_interpolation(camber_x)  # Use interpolation to get value of thickness at camber points
 
@@ -801,6 +800,178 @@ class AirfoilParameterization:
             return 1e6
         
 
+    def _slsqp_fitting(self, reference_file: Path) -> tuple[dict[str, float], int]:
+        """SLSQP optimization implementation"""
+        
+        # Load in the reference profile shape and obtain the relevant parameters
+        self.GetReferenceThicknessCamber(reference_file)
+        self.airfoil_params = self.GetReferenceParameters()
+
+        # Define a guess of the initial design vector
+        self.guess_design_vector = np.array([0.05,
+                                             0.2,
+                                             0.05 * min(self.airfoil_params["y_t"], np.sqrt(-2 * self.airfoil_params["r_LE"] * self.airfoil_params["x_t"] / 3)),
+                                             0.8,
+                                             0.8,
+                                             self.airfoil_params["x_t"],
+                                             self.airfoil_params["y_t"],
+                                             self.airfoil_params["x_c"] if self.airfoil_params["x_c"] != 0 else 0.35,
+                                             self.airfoil_params["y_c"],
+                                             self.airfoil_params["z_TE"],
+                                             self.airfoil_params["dz_TE"],
+                                             self.airfoil_params["r_LE"],
+                                             self.airfoil_params["trailing_wedge_angle"] if self.airfoil_params["trailing_wedge_angle"] != 0 else 0.001,
+                                             self.airfoil_params["trailing_camberline_angle"] if self.airfoil_params["trailing_camberline_angle"] != 0 else 0.001,
+                                             self.airfoil_params["leading_edge_direction"] if self.airfoil_params["leading_edge_direction"] != 0 else 0.001,
+                                             ])
+
+        # Define nonlinear constraint for b8
+        def b8_constraint(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return np.min([x[6], np.sqrt(-2 * x[11] * x[5] / 3)]) - x[2]        
+            
+        # Define constraint for bezier control point 1 x-coordinate of TE thickness curve
+        def x1_constraint_lower_thickness(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return (7 * x[5] + 9 * x[2] / (2 * x[11])) / 4 - x[5]
+        def x1_constraint_upper_thickness(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return 1 - (7 * x[5] + 9 * x[2] / (2 * x[11])) / 4
+            
+        # Define constraint for bezier control point 2 x-coordinate of TE thickness curve
+        def x2_constraint_lower_thickness(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return 2 * x[5] + 15 * x[2] ** 2 / (4 * x[11])
+        def x2_constraint_upper_thickness(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return 1 - 2 * x[5] + 15 * x[2] ** 2 / (4 * x[11])
+            
+        # Define constraint for bezier control point 2 x-coordinate of TE camber curve
+        def constraint_6_lower(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return (3 * x[7] - x[8] / np.tan(x[14])) / 2 - x[7] if x[14] != 0 else x[14]
+
+        def constraint_6_upper(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return 1 - (3 * x[7] - x[8] / np.tan(x[14])) / 2 if x[14] != 0 else x[14]
+                
+        # Define constraint for control point 3 x-coordinate of TE camber curve
+        def constraint_7_lower(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return (-8 * x[8] / np.tan(x[14]) + 13 * x[7]) / 6 - x[7] if x[14] != 0 else x[14]
+
+        def constraint_7_upper(x):
+            x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
+            return 1 - (-8 * x[8] / np.tan(x[14]) + 13 * x[7]) / 6 if x[14] != 0 else x[14]
+                    
+        cons = [{'type': 'ineq', 'fun': b8_constraint},
+                {'type': 'ineq', 'fun': x1_constraint_lower_thickness},
+                {'type': 'ineq', 'fun': x1_constraint_upper_thickness},
+                {'type': 'ineq', 'fun': x2_constraint_lower_thickness},
+                {'type': 'ineq', 'fun': x2_constraint_upper_thickness},
+                {'type': 'ineq', 'fun': constraint_6_lower},
+                {'type': 'ineq', 'fun': constraint_6_upper},
+                {'type': 'ineq', 'fun': constraint_7_lower},
+                {'type': 'ineq', 'fun': constraint_7_upper}]
+            
+        optimized_coefficients = optimize.minimize(self.Objective,
+                                np.ones_like(self.guess_design_vector),
+                                method="SLSQP",
+                                bounds= optimize.Bounds(0.95, 1.05),  # Assume the initial guess is reasonably close to the true values, so +/- 5% on the variables should work. 
+                                constraints=cons,
+                                options={'maxiter': 500,
+                                        'disp': False},
+                                        jac='3-point')
+            
+        # Denormalise the found coefficients and write them to the output dictionary
+        optimized_coefficients.x = optimized_coefficients.x.astype(float)
+        optimized_coefficients.x = np.multiply(optimized_coefficients.x, self.guess_design_vector)
+            
+        airfoil_params_optimized = {"b_0": float(optimized_coefficients.x[0]),
+                                    "b_2": float(optimized_coefficients.x[1]),
+                                    "b_8": float(optimized_coefficients.x[2]),
+                                    "b_15": float(optimized_coefficients.x[3]),
+                                    "b_17": float(optimized_coefficients.x[4]),
+                                    "x_t": float(optimized_coefficients.x[5]),
+                                    "y_t": float(optimized_coefficients.x[6]),
+                                    "x_c": float(optimized_coefficients.x[7]),
+                                    "y_c": float(optimized_coefficients.x[8]),
+                                    "z_TE": float(optimized_coefficients.x[9]),
+                                    "dz_TE": float(optimized_coefficients.x[10]),
+                                    "r_LE": float(optimized_coefficients.x[11]),
+                                    "trailing_wedge_angle": float(optimized_coefficients.x[12]),
+                                    "trailing_camberline_angle": float(optimized_coefficients.x[13]),
+                                    "leading_edge_direction": float(optimized_coefficients.x[14])}
+            
+        return airfoil_params_optimized, optimized_coefficients.status
+    
+
+    def _GA_fitting(self, reference_file: Path) -> dict[str, float]:
+        """Genetic algorithm optimization implementation"""
+
+        actual_upper_bounds = np.array([0.1, 0.3, 0.7, 0.9, 0.9, 0.5, 0.3, 0.5, 0.2, 0.05, 0.005, -0.001, 0.4, 0.3, 0.3])
+        actual_lower_bounds = np.array([0.01, 0.1, 0, 0, 0, 0.15, 0.01, 0.25, 0, 0, 0, -0.2, 0.001, 0.001, 0.001])
+
+        # Lazy-import the pymoo package to avoid unneccesary imports. 
+        from pymoo.algorithms.soo.nonconvex.ga import GA
+        from pymoo.core.problem import ElementwiseProblem
+        from pymoo.optimize import minimize
+        from pymoo.termination.default import DefaultSingleObjectiveTermination
+
+        # Define the optimisation problem definition class
+        class ProblemDefinition(ElementwiseProblem):
+            def __init__(self):
+                super().__init__(n_var=15, n_obj=1, n_eq_constr=0, n_ieq_constr=3, 
+                                 xl=actual_lower_bounds,
+                                 xu=actual_upper_bounds)
+                    
+                # Reuse a single parameterisation instance
+                self.af_param = AirfoilParameterization()
+                self.af_param.GetReferenceThicknessCamber(reference_file)
+                self.af_param.GetReferenceParameters()
+                    
+            def _evaluate(self, x, out, *args, **kwargs):
+                out["F"] = self.af_param.Objective(x, reference_file)
+                # Compute bound for b_8
+                g1 = x[2] - min(x[6], np.sqrt(-2 * x[11] * x[5] / 3))
+
+                # Compute TE camber curve bound to avoid invalid camber shape
+                g2 = 8/7 * x[8] / np.tan(x[14]) - (x[7] + 0.05)  # + 0.025 to avoid intersection with x_c
+
+                # Compute TE thickness curve bound to avoid invalid thickness shape
+                g4 = -5 * x[2] ** 2 / (8 * x[11]) - (x[5] + 0.05)  # + 0.025 to avoid intersection with x_t
+                out["G"] = [g1, g2, g4]
+
+        
+        term_conditions = DefaultSingleObjectiveTermination(xtol=1e-18, cvtol=1e-12, ftol=0.001, period=10, n_max_gen=500, n_max_evals=100000)
+        problem = ProblemDefinition()
+        algorithm = GA(pop_size=150,
+                       eliminate_duplicates=True)
+        res = minimize(problem,
+                       algorithm,
+                       termination=term_conditions,
+                       seed=42,
+                       verbose=True)
+            
+        airfoil_params_optimized = {"b_0": float(res.X[0]),
+                                    "b_2": float(res.X[1]),
+                                    "b_8": float(res.X[2]),
+                                    "b_15": float(res.X[3]),
+                                    "b_17": float(res.X[4]),
+                                    "x_t": float(res.X[5]),
+                                    "y_t": float(res.X[6]),
+                                    "x_c": float(res.X[7]),
+                                    "y_c": float(res.X[8]),
+                                    "z_TE": float(res.X[9]),
+                                    "dz_TE": float(res.X[10]),
+                                    "r_LE": float(res.X[11]),
+                                    "trailing_wedge_angle": float(res.X[12]),
+                                    "trailing_camberline_angle": float(res.X[13]),
+                                    "leading_edge_direction": float(res.X[14])}
+            
+        return airfoil_params_optimized
+
+
     def FindInitialParameterization(self, 
                                     reference_file: Path) -> dict[str, float]:
         """
@@ -817,216 +988,15 @@ class AirfoilParameterization:
         - dict[str, float]
             Dictionary containing the optimized airfoil parameters.
         """
-
-        actual_upper_bounds = np.array([0.1, 0.3, 0.7, 0.9, 0.9, 0.5, 0.3, 0.5, 0.2, 0.05, 0.005, -0.001, 0.4, 0.3, 0.3])
-        actual_lower_bounds = np.array([0.01, 0.1, 0, 0, 0, 0.15, 0.01, 0.25, 0, 0, 0, -0.1, 0.001, 0.001, 0.001])
-
-        def SLQSPFitting():  
-            """ SLSQP fitting implementation"""  
-
-            def GetBounds() -> optimize.Bounds:
-                """
-                Get the bounds for the optimization problem. Note that the bounds are given in normalised form. 
-                We assume the initial estimates for the design variables are close to the real values, such that bounds of 0.95-1.05 can be used. 
-                This gives a reasonable fit to the reference profile while maintaining acceptable performance. 
-
-
-                Returns
-                -------
-                - optimize.Bounds()
-                    A scipy.optimize.bounds instance of the bounds for the optimization problem. 
-                """
-
-                upper_bounds = np.full_like(self.guess_design_vector, 1.05)
-                lower_bounds = np.full_like(self.guess_design_vector, 0.95)
-
-                return optimize.Bounds(lower_bounds, upper_bounds)
-
-            # Load in the reference profile shape and obtain the relevant parameters
-            self.GetReferenceThicknessCamber(reference_file)
-            self.airfoil_params = self.GetReferenceParameters()
-
-            # Define a guess of the initial design vector
-            self.guess_design_vector = np.array([0.05,
-                                                0.2,
-                                                0.05 * min(self.airfoil_params["y_t"], np.sqrt(-2 * self.airfoil_params["r_LE"] * self.airfoil_params["x_t"] / 3)),
-                                                0.8,
-                                                0.8,
-                                                self.airfoil_params["x_t"],
-                                                self.airfoil_params["y_t"],
-                                                self.airfoil_params["x_c"] if self.airfoil_params["x_c"] != 0 else 0.35,
-                                                self.airfoil_params["y_c"],
-                                                self.airfoil_params["z_TE"],
-                                                self.airfoil_params["dz_TE"],
-                                                self.airfoil_params["r_LE"],
-                                                self.airfoil_params["trailing_wedge_angle"] if self.airfoil_params["trailing_wedge_angle"] != 0 else 0.001,
-                                                self.airfoil_params["trailing_camberline_angle"] if self.airfoil_params["trailing_camberline_angle"] != 0 else 0.001,
-                                                self.airfoil_params["leading_edge_direction"] if self.airfoil_params["leading_edge_direction"] != 0 else 0.001,
-                                                ])
-
-            # Define nonlinear constraint for b8
-            def b8_constraint(x):
-                x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
-                return np.min([x[6], np.sqrt(-2 * x[11] * x[5] / 3)]) - x[2]        
-            
-            # Define constraint for bezier control point 1 x-coordinate of TE thickness curve
-            def x1_constraint_lower_thickness(x):
-                x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
-                return (7 * x[5] + 9 * x[2] / (2 * x[11])) / 4 - x[5]
-            def x1_constraint_upper_thickness(x):
-                x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
-                return 1 - (7 * x[5] + 9 * x[2] / (2 * x[11])) / 4
-            
-            # Define constraint for bezier control point 2 x-coordinate of TE thickness curve
-            def x2_constraint_lower_thickness(x):
-                x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
-                return 2 * x[5] + 15 * x[2] ** 2 / (4 * x[11])
-            def x2_constraint_upper_thickness(x):
-                x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
-                return 1 - 2 * x[5] + 15 * x[2] ** 2 / (4 * x[11])
-            
-            # Define constraint for bezier control point 2 x-coordinate of TE camber curve
-            def constraint_6_lower(x):
-                x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
-                if x[14] !=0:
-                    return (3 * x[7] - x[8] / np.tan(x[14])) / 2 - x[7]
-                else:
-                    return x[14]
-            def constraint_6_upper(x):
-                x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
-                if x[14] != 0:
-                    return 1 - (3 * x[7] - x[8] / np.tan(x[14])) / 2
-                else:
-                    return x[14]
-                
-            # Define constraint for control point 3 x-coordinate of TE camber curve
-            def constraint_7_lower(x):
-                x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
-                if x[14] != 0:
-                    return (-8 * x[8] / np.tan(x[14]) + 13 * x[7]) / 6 - x[7]
-                else:
-                    return x[14]
-            def constraint_7_upper(x):
-                x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
-                if x[14] != 0:
-                    return 1 - (-8 * x[8] / np.tan(x[14]) + 13 * x[7]) / 6
-                else:
-                    return x[14]
-                    
-            cons = [{'type': 'ineq', 'fun': b8_constraint},
-                    {'type': 'ineq', 'fun': x1_constraint_lower_thickness},
-                    {'type': 'ineq', 'fun': x1_constraint_upper_thickness},
-                    {'type': 'ineq', 'fun': x2_constraint_lower_thickness},
-                    {'type': 'ineq', 'fun': x2_constraint_upper_thickness},
-                    {'type': 'ineq', 'fun': constraint_6_lower},
-                    {'type': 'ineq', 'fun': constraint_6_upper},
-                    {'type': 'ineq', 'fun': constraint_7_lower},
-                    {'type': 'ineq', 'fun': constraint_7_upper}]
-            
-            optimized_coefficients = optimize.minimize(self.Objective,
-                                    np.ones_like(self.guess_design_vector),
-                                    method="SLSQP",
-                                    bounds=GetBounds(),
-                                    constraints=cons,
-                                    options={'maxiter': 500,
-                                            'disp': False},
-                                            jac='3-point')
-            
-            # Denormalise the found coefficients and write them to the output dictionary
-            optimized_coefficients.x = optimized_coefficients.x.astype(float)
-            optimized_coefficients.x = np.multiply(optimized_coefficients.x, self.guess_design_vector)
-            
-            airfoil_params_optimized = {"b_0": float(optimized_coefficients.x[0]),
-                                        "b_2": float(optimized_coefficients.x[1]),
-                                        "b_8": float(optimized_coefficients.x[2]),
-                                        "b_15": float(optimized_coefficients.x[3]),
-                                        "b_17": float(optimized_coefficients.x[4]),
-                                        "x_t": float(optimized_coefficients.x[5]),
-                                        "y_t": float(optimized_coefficients.x[6]),
-                                        "x_c": float(optimized_coefficients.x[7]),
-                                        "y_c": float(optimized_coefficients.x[8]),
-                                        "z_TE": float(optimized_coefficients.x[9]),
-                                        "dz_TE": float(optimized_coefficients.x[10]),
-                                        "r_LE": float(optimized_coefficients.x[11]),
-                                        "trailing_wedge_angle": float(optimized_coefficients.x[12]),
-                                        "trailing_camberline_angle": float(optimized_coefficients.x[13]),
-                                        "leading_edge_direction": float(optimized_coefficients.x[14])}
-            
-            return airfoil_params_optimized, optimized_coefficients.status
         
-        
-        def GAFitting():
-            """
-            GA fitting implementation. 
-            Used as a backup parameter fitting in case the SLSQP algorithm fails to give a solution. 
-            Although more robust, it is also substantially slower, and is therefore only used as a backup. 
-            """    
-
-            # Lazy-import the pymoo package to avoid unneccesary imports. 
-            from pymoo.algorithms.soo.nonconvex.ga import GA
-            from pymoo.core.problem import ElementwiseProblem
-            from pymoo.optimize import minimize
-            from pymoo.termination.default import DefaultSingleObjectiveTermination
-
-            # Define the optimisation problem definition class
-            class ProblemDefinition(ElementwiseProblem):
-                def __init__(self):
-                    super().__init__(n_var=15, n_obj=1, n_eq_constr=0, n_ieq_constr=3, 
-                                     xl=actual_lower_bounds,
-                                     xu=actual_upper_bounds)
-                    
-                    # Reuse a single parameterisation instance
-                    self.af_param = AirfoilParameterization()
-                    self.af_param.GetReferenceThicknessCamber(reference_file)
-                    self.af_param.GetReferenceParameters()
-                    
-                def _evaluate(self, x, out, *args, **kwargs):
-                    out["F"] = self.af_param.Objective(x, reference_file)
-                    # Compute bound for b_8
-                    g1 = x[2] - min(x[6], np.sqrt(-2 * x[11] * x[5] / 3))
-
-                    # Compute TE camber curve bound to avoid invalid camber shape
-                    g2 = 8/7 * x[8] / np.tan(x[14]) - (x[7] + 0.05)  # + 0.025 to avoid intersection with x_c
-
-                    # Compute TE thickness curve bound to avoid invalid thickness shape
-                    g4 = -5 * x[2] ** 2 / (8 * x[11]) - (x[5] + 0.05)  # + 0.025 to avoid intersection with x_t
-                    out["G"] = [g1, g2, g4]
-
-            term_conditions = DefaultSingleObjectiveTermination(xtol=1e-18, cvtol=1e-12, ftol=0.001, period=10, n_max_gen=500, n_max_evals=100000)
-            problem = ProblemDefinition()
-            algorithm = GA(pop_size=150,
-                        eliminate_duplicates=True)
-            res = minimize(problem,
-                        algorithm,
-                        termination=term_conditions,
-                        seed=42,
-                        verbose=True)
-            
-            airfoil_params_optimized = {"b_0": float(res.X[0]),
-                                        "b_2": float(res.X[1]),
-                                        "b_8": float(res.X[2]),
-                                        "b_15": float(res.X[3]),
-                                        "b_17": float(res.X[4]),
-                                        "x_t": float(res.X[5]),
-                                        "y_t": float(res.X[6]),
-                                        "x_c": float(res.X[7]),
-                                        "y_c": float(res.X[8]),
-                                        "z_TE": float(res.X[9]),
-                                        "dz_TE": float(res.X[10]),
-                                        "r_LE": float(res.X[11]),
-                                        "trailing_wedge_angle": float(res.X[12]),
-                                        "trailing_camberline_angle": float(res.X[13]),
-                                        "leading_edge_direction": float(res.X[14])}
-            
-            return airfoil_params_optimized
 
         # First we try SLSQP fitting
-        airfoil_params_optimized, status = SLQSPFitting()
+        airfoil_params_optimized, status = self._slsqp_fitting(reference_file)
         if status == 0:
             return airfoil_params_optimized
         else:
             # If SLSQP failed, try a genetic algorithm
-            airfoil_params_optimized = GAFitting()
+            airfoil_params_optimized = self._GA_fitting(reference_file)
             return airfoil_params_optimized
 
 

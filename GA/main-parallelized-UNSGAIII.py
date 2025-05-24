@@ -110,8 +110,6 @@ if __name__ == "__main__":
                                             n_dim=config.n_objectives,
                                             n_points=calculate_n_reference_points(config))
         
-        assert len(ref_dirs) < config.POPULATION_SIZE, "Reference direction count must not be smaller than population size"
-
         # Initialize the algorithm
         duplicate_elimination = MixedVariableDuplicateElimination()
         selection_operator = TournamentSelection(func_comp=comp_by_rank_and_ref_line_dist)

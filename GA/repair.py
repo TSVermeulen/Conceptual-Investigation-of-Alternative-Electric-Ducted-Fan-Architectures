@@ -221,10 +221,8 @@ class RepairIndividuals(Repair):
                 if (3 * profile_params["x_t"] + 15 * profile_params["b_8"] ** 2 / (4 * profile_params["r_LE"])) > profile_params["b_15"]:
                     # Adjust the second control point to enforce x2 < x3
                     sqrt_term = -10 * profile_params["x_t"] * profile_params["r_LE"] / 21
-                    if sqrt_term >= 0:  # Safety check to avoid sqrt of a negative number
-                        b_8_adjusted = np.sqrt(sqrt_term) - 1e-2
-                    else:
-                        b_8_adjusted = 0
+                    # Safety check to avoid sqrt of a negative number
+                    b_8_adjusted = np.sqrt(sqrt_term) - 1e-2 if sqrt_term >= 0 else 0
                     b_8_map = b_8_adjusted / min(profile_params["y_t"], np.sqrt(-2 * profile_params["r_LE"] * profile_params["x_t"] / 3))
                     b_8_clipped_map = np.clip(b_8_map, self.BP_bounds["b_8"][0], self.BP_bounds["b_8"][1])
                     b_8_adjusted_clipped = b_8_clipped_map * min(profile_params["y_t"], np.sqrt(-2 * profile_params["r_LE"] * profile_params["x_t"] / 3))
@@ -413,13 +411,13 @@ if __name__ == "__main__":
     failures_before = 0
     failures_after = 0
 
-    for i, individual in enumerate(pop_dict):
+    for individual in pop_dict:
         try:
             dvi.DeconstructDesignVector(individual, compute_duct=False)
         except ValueError:
             failures_before += 1
     
-    for i, individual in enumerate(repaired_pop):
+    for individual in repaired_pop:
         try:
             dvi.DeconstructDesignVector(individual, compute_duct=False)
         except ValueError:
