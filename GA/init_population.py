@@ -48,6 +48,9 @@ Changelog:
 - V1.2: Implemented perturbation for zero-valued real design parameters.
 """
 
+# Import standard librariers
+import numbers
+
 # Import 3rd party libraries
 import numpy as np
 from pymoo.core.mixed import MixedVariableSampling
@@ -266,7 +269,7 @@ class InitPopulation():
             perturbed_individual = np.clip(perturbed_individual, lower_bounds, upper_bounds)
 
             # Convert to dicitonary while casting the discrete variable(s) back to int
-            pop_dict[i] = {key: (int(val) if isinstance(reference_individual[key], (int, np.integer)) else val)
+            pop_dict[i] = {key: (int(val) if isinstance(reference_individual[key], numbers.Integral) else val)
                            for key, val in zip(self.design_vector_keys, perturbed_individual)}
 
         # Construct the population object

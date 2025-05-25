@@ -41,11 +41,7 @@ Changelog:
 """
 
 # Import standard libraries
-import os
-import uuid
-import datetime
-import copy
-import contextlib
+import os, uuid, datetime, copy, contextlib
 from pathlib import Path
 
 # Import 3rd party libraries
@@ -417,9 +413,6 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         
         # Generate a unique analysis name
         self.SetAnalysisName()
-
-        # Copy the multi-point operating conditions
-        self.multi_oper = copy.deepcopy(self.multi_oper)
         
         # Generate the MTFLOW input files.
         # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector. 

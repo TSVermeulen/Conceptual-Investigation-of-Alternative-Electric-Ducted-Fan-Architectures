@@ -79,7 +79,7 @@ Changelog:
 - V1.2: Cleaned up import statements, resolved infite loop issue in gridtest, and added MTSOL loop exit for non-convergence. 
 - V1.3: Removed HandleExitFlag() method as it is not needed. Extracted choking handling to a separate method.
 - V1.4: Cleaned up imports. Implemented chdir context manager. Switched to pathlib for path operations. Cleaned up/streamlined exit flags. Implemented OutputType enum class. 
-- V1.5: Updated to remove iter_count output from MTSOl_call. Updated documentation. Reduced no of streamwise points to 150 to reduce computational cost. 
+- V1.5: Updated to remove iter_count output from MTSOl_call. Updated documentation. Reduced no of streamwise points to 150 to reduce computational cost. Adopted named constants for grid coefficients and streamwise points. 
 """
 
 # Import standard libraries
@@ -122,6 +122,10 @@ class MTFLOW_caller:
     Wrapper class to execute the complete MTFLOW evaluation cycle.
     This class handles the setup, execution, and error handling for the MTFLOW evaluation process, which includes generating input files, constructing grids, and running solvers.
     """
+
+    INITIAL_GRID_E_COEFF = 0.8
+    INITIAL_GRID_X_COEFF = 0.8
+    INITIAL_STREAMWISE_POINTS = 150
 
 
     def __init__(self,
@@ -258,14 +262,14 @@ class MTFLOW_caller:
                 # while yielding a more "rounded/elliptic" grid due to the reduced x-coefficient.
                 if check_count == 0:
                     # For the initial attempt, use the default values, but with an increased streamwise resolution
-                    streamwise_points = 150
-                    grid_e_coeff = 0.8
-                    grid_x_coeff = 0.8
+                    streamwise_points = self.INITIAL_STREAMWISE_POINTS
+                    grid_e_coeff = self.INITIAL_GRID_E_COEFF
+                    grid_x_coeff = self.INITIAL_GRID_X_COEFF
                 elif check_count == 1:
                     # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid   
                     streamwise_points = 141  
-                    grid_e_coeff = 0.8
-                    grid_x_coeff = 0.8
+                    grid_e_coeff = self.INITIAL_GRID_E_COEFF
+                    grid_x_coeff = self.INITIAL_GRID_X_COEFF
                 elif check_count == 2:
                     # Adjust grid parameters to try and fix the grid, while also keeping the reduced number of streamwise_points
                     grid_e_coeff = 0.7  

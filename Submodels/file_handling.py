@@ -960,17 +960,17 @@ class fileHandlingMTFLO:
 
                 # Loop over the radial points and construct the data for each radial point
                 # Each radial point is defined as a "section" within the input file
-                for i in range(len(radial_points)): 
+                for r in radial_points: 
                     # Create a section in the input file
                     file.write('SECTION\n')
 
                     # All parameters are normalised using the local chord length, so we need to obtain the local chord in order to obtain the dimensional parameters
-                    local_chord = blade_geometry["chord_distribution"](radial_points[i])
+                    local_chord = blade_geometry["chord_distribution"](r)
                     axial_coordinates = axial_points * local_chord
                    
                     # Create complete airfoil representation from the camber and thickness distributions
-                    camber_distribution = blade_geometry["camber_distribution"]((radial_points[i], axial_points)) * local_chord
-                    thickness_distribution = blade_geometry["thickness_distribution"]((radial_points[i], axial_points)) * local_chord
+                    camber_distribution = blade_geometry["camber_distribution"]((r, axial_points)) * local_chord
+                    thickness_distribution = blade_geometry["thickness_distribution"]((r, axial_points)) * local_chord
                     upper_x, upper_y, lower_x, lower_y = AirfoilParameterization().ConvertBezier2AirfoilCoordinates(axial_coordinates, 
                                                                                                                     thickness_distribution, 
                                                                                                                     axial_coordinates, 
@@ -978,7 +978,7 @@ class fileHandlingMTFLO:
 
                     # Rotate the airfoil profile to the correct angle
                     # The blade pitch is defined with respect to the blade pitch angle at the reference radial station, and thus is corrected accordingly. 
-                    blade_pitch = (blade_geometry["pitch_distribution"](radial_points[i]) + blading_params[stage]["ref_blade_angle"] - blading_params[stage]["reference_section_blade_angle"])
+                    blade_pitch = (blade_geometry["pitch_distribution"](r) + blading_params[stage]["ref_blade_angle"] - blading_params[stage]["reference_section_blade_angle"])
                     rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y  = self.RotateProfile(blade_pitch,
                                                                                                              upper_x,
                                                                                                              lower_x,
@@ -987,17 +987,17 @@ class fileHandlingMTFLO:
 
                     # Compute the local leading edge offset at the radial station from the provided interpolant
                     # Use it to offset the x-coordinates of the upper and lower surfaces to the correct position
-                    LE_coordinate = blade_geometry["leading_edge_distribution"](radial_points[i])
+                    LE_coordinate = blade_geometry["leading_edge_distribution"](r)
                     rotated_upper_x += LE_coordinate - rotated_upper_x[0]
                     rotated_lower_x += LE_coordinate - rotated_lower_x[0]
 
                     # Transform the 2D planar airfoils into 3D cylindrical sections
                     y_section_upper, y_section_lower, y_camber, z_section_upper, z_section_lower, z_camber = self.PlanarToCylindrical(rotated_upper_y,
                                                                                                                                       rotated_lower_y,
-                                                                                                                                      radial_points[i])
+                                                                                                                                      r)
                     
                     # Compute the circumferential blade thickness
-                    if radial_points[i] == 0:
+                    if r == 0:
                         # Handle the case at the centerline, where we define the thickness to be zero. 
                         circumferential_thickness = np.zeros_like(axial_points)
                     else:
@@ -1005,11 +1005,11 @@ class fileHandlingMTFLO:
                                                                                   z_section_upper,
                                                                                   y_section_lower,
                                                                                   z_section_lower,
-                                                                                  radial_points[i])
+                                                                                  r)
                         
                         # Perform check that thickness does not exceed limit of complete blockage (T=2pir/N)
                         # If thickness exceeds limit, raises a ValueError
-                        self.ValidateBladeThickness(max(circumferential_thickness), radial_points[i], blading_params[stage]["blade_count"])
+                        self.ValidateBladeThickness(max(circumferential_thickness), r, blading_params[stage]["blade_count"])
 
                     # Compute the blade slope in the m'-theta plane. 
                     # Uses the average of the upper and lower x-coordinates to evaluate against. 
@@ -1020,7 +1020,7 @@ class fileHandlingMTFLO:
 
                     if plot:
                         self.plot_blade_data(stage,
-                                             radial_points[i],
+                                             r,
                                              x_points,
                                              rotated_upper_x,
                                              rotated_upper_y,
@@ -1042,7 +1042,7 @@ class fileHandlingMTFLO:
                     for j in range(n_points_axial):  
                         # Write data to row
                         row = np.array([round((x_points[sampling_indices][j]), 5),
-                                        round(radial_points[i], 5),
+                                        round(r, 5),
                                         round(circumferential_thickness[sampling_indices][j], 5),
                                         round(blade_slope[sampling_indices][j], 5),
                                         ])

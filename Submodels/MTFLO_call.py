@@ -46,8 +46,7 @@ Changelog:
 """
 
 # Import standard libraries
-import subprocess
-import time
+import subprocess, time
 from pathlib import Path
 
 

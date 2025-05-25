@@ -55,14 +55,8 @@ Changelog:
 - V1.4.1: Removed iter_count from outputs. 
 """
 
-import subprocess
-import os
-import re
-import time
-import shutil
-import queue
-import threading
-import numpy as np
+# Import standard libraries
+import subprocess, os, re, time, shutil, queue, threading
 from pathlib import Path
 from collections import OrderedDict
 from contextlib import ExitStack
@@ -75,6 +69,10 @@ if os.name == 'nt':
     import msvcrt
 else:
     import fcntl
+
+# Import 3rd party libraries
+import numpy as np
+
 
 class FileCreatedHandling(FileSystemEventHandler):
     """ 
@@ -128,7 +126,7 @@ class FileCreatedHandling(FileSystemEventHandler):
                 return True
             time.sleep(backoff)
             # Adjust the backoff based on remaining time to avoid overshooting the timeout
-            backoff = min(max_backoff, backoff * 2, timeout - (time.monotonic() - start_time))
+            backoff = min(max_backoff, backoff * 2)
         return False
         
 

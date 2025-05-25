@@ -67,6 +67,11 @@ import matplotlib.pyplot as plt
 from scipy import interpolate, optimize
 
 
+def _cot(angle: float) -> float:
+    """Cotangent function."""
+    return 1 / np.tan(angle)
+
+
 class AirfoilParameterization:
     """
     This class calculates airfoil parameterizations using Bezier curves.
@@ -444,9 +449,6 @@ class AirfoilParameterization:
             Y-coordinates of the control points for the trailing edge camber Bezier curve.
         """
 
-        def cot(angle):
-            return 1 / np.tan(angle)
-
         # First use the provided parameter values to construct the relative locations of the control points
         b_17_coordinate = (airfoil_params["b_17"] - airfoil_params["x_c"]) / (1 - airfoil_params["x_c"])
         b_0_coordinate = airfoil_params["b_0"] * airfoil_params["x_c"]
@@ -466,8 +468,8 @@ class AirfoilParameterization:
         
         # Construct trailing edge x coefficients
         x_trailing_edge_camber_coeff = np.array([airfoil_params["x_c"],
-                                                 (3 * airfoil_params["x_c"] - airfoil_params["y_c"] * cot(airfoil_params["leading_edge_direction"])) / 2,
-                                                 (-8 * airfoil_params["y_c"] * cot(airfoil_params["leading_edge_direction"]) + 13 * airfoil_params["x_c"]) / 6,
+                                                 (3 * airfoil_params["x_c"] - airfoil_params["y_c"] * _cot(airfoil_params["leading_edge_direction"])) / 2,
+                                                 (-8 * airfoil_params["y_c"] * _cot(airfoil_params["leading_edge_direction"]) + 13 * airfoil_params["x_c"]) / 6,
                                                  b_17_coordinate,
                                                  1])
 
@@ -786,14 +788,18 @@ class AirfoilParameterization:
         try:
             upper_x, upper_y, lower_x, lower_y = self.ComputeProfileCoordinates(airfoil_params)
 
-            reference_upper_y = interpolate.make_splrep(self.x,
-                                                        self.upper_coords,
-                                                        k=3,
-                                                        s=0)(upper_x)
-            reference_lower_y = interpolate.make_splrep(self.x,
-                                                        self.lower_coords,
-                                                        k=3,
-                                                        s=0)(lower_x)
+            # Cache interpolation objects to avoid recreating them for each evaluation
+            if not hasattr(self, '_upper_interp') or not hasattr(self, '_lower_interp'):
+                self._upper_interp = interpolate.make_splrep(self.x,
+                                                             self.upper_coords,
+                                                             k=3,
+                                                             s=0)
+                self._lower_interp = interpolate.make_splrep(self.x,
+                                                             self.lower_coords,
+                                                             k=3,
+                                                             s=0)
+            reference_upper_y = self._upper_interp(upper_x)
+            reference_lower_y = self._lower_interp(lower_x)
             
             l2_error_upper = np.linalg.norm(upper_y - reference_upper_y)
             l2_error_lower = np.linalg.norm(lower_y - reference_lower_y)
