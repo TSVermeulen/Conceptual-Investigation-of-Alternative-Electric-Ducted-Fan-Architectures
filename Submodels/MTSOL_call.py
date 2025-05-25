@@ -402,6 +402,7 @@ class MTSOL_call:
 
         # Set the Reynolds number to 0 to ensure an inviscid solve is performed initially
         self.StdinWrite("R 0")
+        self.StdinWrite("V 1,3,4")
 
         # Wait for completion of processing operating condition change
         self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
@@ -431,6 +432,7 @@ class MTSOL_call:
 
         # Set the viscous Reynolds number, calculated using the length self.LREF
         self.StdinWrite(f"R {self.operating_conditions['Inlet_Reynolds']}")
+        self.StdinWrite("V1,3,4")
 
         # Wait for completion of processing operating condition change
         self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
@@ -444,7 +446,7 @@ class MTSOL_call:
                    mode: str = "enable"
                    ) -> None:
         """
-        Set the viscous toggle for the given surface identifier.
+        Set the viscous toggle for the given surface identifier(s).
 
         Parameters
         ----------
@@ -471,16 +473,17 @@ class MTSOL_call:
         
         # Enter the Modify solution parameters menu
         self.StdinWrite("m")
+        self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE)
 
         # Toggle the given surfaces to enable their viscous setting only if the surface was disabled
         for ID in surface_ID:
             # First check the current state of the surface
             flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)
-            # Toggle if not already enabled, since completed indicates the surface is inviscid
-            if flag == lookfor_flag:
+            while flag == lookfor_flag:
                 self.StdinWrite(f"V{ID}")
                 flag = self.WaitForCompletion(completion_type=CompletionType.VISCOUS_TOGGLE, surface_ID=ID)           
-
+                if flag != lookfor_flag:
+                    break
         # Exit the Modify solution parameters menu
         self.StdinWrite("")
   
@@ -566,8 +569,10 @@ class MTSOL_call:
             
             # When toggling viscous surfaces, check for the star at the corresponding line:
             elif line.startswith(' T{} *'.format(surface_ID)) and completion_type == CompletionType.VISCOUS_TOGGLE:
+                print(line)
                 return ExitFlag.SUCCESS
             elif line.startswith(' T{}    '.format(surface_ID)) and completion_type == CompletionType.VISCOUS_TOGGLE:
+                print(line)
                 return ExitFlag.COMPLETED
             
             # If the solver crashes, return the crash exit flag
@@ -961,108 +966,107 @@ class MTSOL_call:
             raise OSError(f"Unknown exit flag {exit_flag} encountered!") from None
 
 
-    def TryExecuteViscousSolver(self,
-                                surface_ID: list[int]|int = None,
-                                ) -> ExitFlag:
-        """
-        Try to execute the MTSOL solver for the current analysis on the viscous surface surface_ID.
+    # def TryExecuteViscousSolver(self,
+    #                             surface_ID: list[int]|int = None,
+    #                             ) -> ExitFlag:
+    #     """
+    #     Try to execute the MTSOL solver for the current analysis on the viscous surface surface_ID.
 
-        Parameters
-        ----------
-        - surface_ID : list[int]|int, optional
-            ID of the surface which is to be toggled. For a ducted fan, the ID should be either 1, 3, or 4. 
+    #     Parameters
+    #     ----------
+    #     - surface_ID : list[int]|int, optional
+    #         ID of the surface which is to be toggled. For a ducted fan, the ID should be either 1, 3, or 4. 
         
-        Returns
-        -------
-        - exit_flag : ExitFlag
-            Exit flag indicating the status of the solver execution.
-        """
+    #     Returns
+    #     -------
+    #     - exit_flag : ExitFlag
+    #         Exit flag indicating the status of the solver execution.
+    #     """
         
-        try:
-            # Reload the MTSOL statefile if MTSOL is still active, otherwise restart MTSOL
-            if getattr(self, "process", None) and self.process.poll() is None:
-                # Return it to the main menu. Initial 0 is to exit iteration menu if relevant
-                self.StdinWrite("\n 0 \n")
+    #     try:
+    #         # Restart MTSOL if MTSOL has crashed.
+    #         if self.process.poll() is not None:
+    #             # Return it to the main menu. Initial 0 is to exit iteration menu if relevant
+    #             self.GenerateProcess()
+    #         else:
+    #             self.process.kill()
+    #             self.GenerateProcess()
+            
+    #         # Ensure reynolds number is set to correct value, and set the appropriate viscous toggle
+    #         self.StdinWrite("\n m")
+    #         self.StdinWrite(f"R {self.operating_conditions['Inlet_Reynolds']}")
+    #         print('a')
+    #         print(self.WaitForCompletion(completion_type=CompletionType.PARAM_CHANGE))
+    #         self.StdinWrite("")
+    #         print("b")
 
-                # Reload the state file 
-                self.StdinWrite("R")
-            else:
-                self.GenerateProcess()
 
-            # Set viscous if surface_ID is given
-            if surface_ID is not None:
-                self.SetViscous(surface_ID,
-                                mode="enable")
+    #         # Set viscous if surface_ID is given
+    #         if surface_ID is not None:
+    #             self.SetViscous(surface_ID,
+    #                             mode="enable")
+                
+    #             self.WaitForCompletion(completion_type=CompletionType.ITERATION)
+    #         print(2)
+    #         # Execute the solver and get the exit flag and iteration count
+    #         exit_flag = self.ExecuteSolver()
 
-            # Execute the solver and get the exit flag and iteration count
-            exit_flag = self.ExecuteSolver()
+    #         # If solve did not crash, update the statefile
+    #         if exit_flag != ExitFlag.CRASH:
+    #             self.WriteStateFile()
+    #     except (OSError, BrokenPipeError) as e:
+    #         print(e)
+    #         # If the solver crashes, set the exit flag to crash
+    #         exit_flag = ExitFlag.CRASH
 
-            # If solve was successful or non-converging, update the statefile
-            if exit_flag in (ExitFlag.SUCCESS, ExitFlag.CHOKING):
-                self.WriteStateFile()
-        except (OSError, BrokenPipeError):
-            # If the solver crashes, set the exit flag to crash
-            exit_flag = ExitFlag.CRASH
-
-        return exit_flag  
+    #     return exit_flag  
     
     
-    def ConvergeIndividualSurfaces(self,
-                                   ) -> ExitFlag:
-        """
-        Should a complete viscous analysis fail and cause an MTSOL crash, a partial run, where each axisymmetric surface is toggled individually, 
-        may sometimes improve performance and yield (partially) converged results.
+    # def ConvergeIndividualSurfaces(self,
+    #                                ) -> ExitFlag:
+    #     """
+    #     Should a complete viscous analysis fail and cause an MTSOL crash, a partial run, where each axisymmetric surface is toggled individually, 
+    #     may sometimes improve performance and yield (partially) converged results.
 
-        This function executes a consecutive partial run, where the centerbody, outer duct, and inner duct are converged in sequence.
-        Note that this function requires MTSOL to be closed/in the crashed state. 
+    #     This function executes a consecutive partial run, where the centerbody, outer duct, and inner duct are converged in sequence.
         
-        Returns
-        -------
-        - total_exit_flag : ExitFlag
-            Exit flag indicating the overall status of the convergence. 
-        """
+    #     Returns
+    #     -------
+    #     - total_exit_flag : ExitFlag
+    #         Exit flag indicating the overall status of the convergence. 
+    #     """
 
-       # Define initial exit flags and iteration counters
-        # Note that a negative iteration count indicates that the solver did not run
-        exit_flag_visc_CB = ExitFlag.NOT_PERFORMED
-        exit_flag_visc_induct = ExitFlag.NOT_PERFORMED
-        exit_flag_visc_outduct = ExitFlag.NOT_PERFORMED
-        total_exit_flag = ExitFlag.NOT_PERFORMED
+    #     # Define initial exit flags and iteration counters
+    #     # Note that a negative iteration count indicates that the solver did not run
+    #     exit_flag_visc_CB = ExitFlag.NOT_PERFORMED
+    #     exit_flag_visc_induct = ExitFlag.NOT_PERFORMED
+    #     exit_flag_visc_outduct = ExitFlag.NOT_PERFORMED
+    #     total_exit_flag = ExitFlag.NOT_PERFORMED
 
-        # Initialize a list to keep track of any surfaces which may fail convergence
-        failed_surfaces = []
+    #     # Execute the viscous solve for the centerbody
+    #     print("cb")
+    #     exit_flag_visc_CB = self.TryExecuteViscousSolver(surface_ID=1)
+    #     if exit_flag_visc_CB == ExitFlag.CRASH:
+    #         # if the viscous CB solve caused a crash, return appropriate exit flag
+    #         return exit_flag_visc_CB
 
-        # Execute the initial viscous solve, where we only solve for the boundary layer on the centerbody
-        self.SetViscous([3, 4],
-                        mode="disable")  # Disable the duct viscous surfaces
-        exit_flag_visc_CB = self.TryExecuteViscousSolver(surface_ID=1)
-        if exit_flag_visc_CB in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
-            # if the viscous CB solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
-            failed_surfaces.append(1)
-
-        # Execute the viscous solve for the outside of the duct
-        exit_flag_visc_outduct = self.TryExecuteViscousSolver(surface_ID=3)
-        if exit_flag_visc_outduct in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
-            # if the viscous solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
-            failed_surfaces.append(3)
+    #     # Execute the viscous solve for the outside of the duct
+    #     print('od')
+    #     exit_flag_visc_outduct = self.TryExecuteViscousSolver(surface_ID=3)
+    #     if exit_flag_visc_outduct == ExitFlag.CRASH:
+    #         # if the viscous solve caused a crash, return appropriate exit flag
+    #         return exit_flag_visc_outduct
         
-        # Execute the final viscous solve for the inside of the duct
-        exit_flag_visc_induct = self.TryExecuteViscousSolver(surface_ID=4)
-        if exit_flag_visc_induct in (ExitFlag.CRASH, ExitFlag.NON_CONVERGENCE):
-            # if the viscous solve caused a crash or doesn't converge, write it to the failed list for a later retry. 
-            failed_surfaces.append(4)
-
-        # Retry convergence of the failed surfaced
-        retry_results = {surface: self.TryExecuteViscousSolver(surface_ID=surface) for surface in failed_surfaces}
+    #     # Execute the final viscous solve for the inside of the duct
+    #     print('id')
+    #     exit_flag_visc_induct = self.TryExecuteViscousSolver(surface_ID=4)
+    #     if exit_flag_visc_induct == ExitFlag.CRASH:
+    #         # if the viscous solve caused a crash, return appropriate exit flag
+    #         return exit_flag_visc_induct
         
-        # Compute the overall exit flag and total iteration count
-        exit_flag_visc_CB = retry_results.get(1, exit_flag_visc_CB)
-        exit_flag_visc_outduct = retry_results.get(3, exit_flag_visc_outduct)
-        exit_flag_visc_induct = retry_results.get(4, exit_flag_visc_induct)
+    #     total_exit_flag = max([exit_flag_visc_CB, exit_flag_visc_outduct, exit_flag_visc_induct], key=lambda flag: flag.value)
 
-        total_exit_flag = max([exit_flag_visc_CB, exit_flag_visc_outduct, exit_flag_visc_induct], key=lambda flag: flag.value)
-
-        return total_exit_flag
+    #     return total_exit_flag
     
 
     def caller(self,
@@ -1142,9 +1146,6 @@ class MTSOL_call:
             # Toggle viscous on all surfaces
             self.ToggleViscous()  # Turn on viscous
 
-            # Update the state file
-            self.WriteStateFile()
-
             # Update the iteration limit
             self.ITER_LIMIT = self.ITER_LIMIT_VISC
             
@@ -1152,15 +1153,18 @@ class MTSOL_call:
             try:
                 exit_flag_visc = self.ExecuteSolver()
                 
-                total_exit_flag = max([exit_flag_visc, exit_flag_invisc], key=lambda flag: flag.value)
-
             except (OSError, BrokenPipeError):
-                # If the complete viscous solve crashed, restart MTSOL and try to converge the individual surfaces separately
-                total_exit_flag = self.ConvergeIndividualSurfaces()                
+                # If the complete viscous solve crashed, set the exit flag appropriately
+                exit_flag_visc = ExitFlag.CRASH           
 
             finally:
+                # # Try converging individual surfaces if the complete solve crashed
+                # if exit_flag_visc == ExitFlag.CRASH:
+                #     exit_flag_visc = self.ConvergeIndividualSurfaces()  
+
                 # Handle the exit flag
-                self.HandleExitFlag(exit_flag_visc, 
+                total_exit_flag = max([exit_flag_visc, exit_flag_invisc], key=lambda flag: flag.value)
+                self.HandleExitFlag(total_exit_flag, 
                                     handle_type='Viscous',
                                     update_statefile=generate_output)
                 
@@ -1190,9 +1194,9 @@ class MTSOL_call:
 if __name__ == "__main__": 
     import time
     
-    analysisName = "test_case"
-    oper = {"Inlet_Mach": 0.2000,
-            "Inlet_Reynolds": 5.000E6,
+    analysisName = "0525040913_4804_55f1b299bf34"
+    oper = {"Inlet_Mach": 0.10285225,
+            "Inlet_Reynolds": 5112279,
             "N_crit": 9,
             }
 
