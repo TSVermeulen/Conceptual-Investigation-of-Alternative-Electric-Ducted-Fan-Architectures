@@ -64,6 +64,6 @@ def calculate_n_reference_points(cfg: object) -> int:
         if count >= max(1, cfg.POPULATION_SIZE):
             return p
     
-    print(f"Unable to find suitable p within {max_iter} iterations for {m} objectives and population size: {cfg.POPULATION_SIZE}. Setting p equal to the population size...")
+    print(f"Unable to find suitable p within {max_iter} iterations for {m} objectives and population size: {cfg.POPULATION_SIZE}. Setting p equal to the number of objectives...")
 
-    return cfg.POPULATION_SIZE
+    return m
