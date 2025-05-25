@@ -170,6 +170,10 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self._fileHandlingMTSET = fileHandlingMTSET
             self._fileHandlingMTFLO = fileHandlingMTFLO
             self._lazy_modules_loaded = True
+
+        # Load base operating conditions
+        self.multi_oper = copy.deepcopy(config.multi_oper)
+        self._base_oper = copy.deepcopy(self.multi_oper[0])
                         
 
     def SetAnalysisName(self) -> None:
@@ -364,7 +368,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self.Lref) = self.design_vector_interface.DeconstructDesignVector(x_dict=x)
 
             # Set the initial non-dimensional omega rates
-            self.oper =  copy.deepcopy(self.multi_oper[0])
+            self.oper =  copy.deepcopy(self._base_oper)
             self.ComputeOmega(idx=0)
 
             self._fileHandlingMTSET(params_CB=self.centerbody_variables,
@@ -393,11 +397,11 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         
         if not output_generated:
             # Set parameters equal to the config values in case of a crash so that the constraint/objective value calculations do not crash
-            self.Lref = copy.deepcopy(config.BLADE_DIAMETERS[0])
-            self.duct_variables = copy.deepcopy(config.DUCT_VALUES)
-            self.centerbody_variables = copy.deepcopy(config.CENTERBODY_VALUES)
-            self.blade_blading_parameters = copy.deepcopy(config.STAGE_BLADING_PARAMETERS)
-            self.blade_design_parameters = copy.deepcopy(config.STAGE_DESIGN_VARIABLES)
+            self.Lref = copy.copy(config.BLADE_DIAMETERS[0])
+            self.duct_variables = copy.copy(config.DUCT_VALUES)
+            self.centerbody_variables = copy.copy(config.CENTERBODY_VALUES)
+            self.blade_blading_parameters = copy.copy(config.STAGE_BLADING_PARAMETERS)
+            self.blade_design_parameters = copy.copy(config.STAGE_DESIGN_VARIABLES)
 
         return output_generated
                   
@@ -415,7 +419,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         self.SetAnalysisName()
 
         # Copy the multi-point operating conditions
-        self.multi_oper = copy.deepcopy(config.multi_oper)
+        self.multi_oper = copy.deepcopy(self.multi_oper)
         
         # Generate the MTFLOW input files.
         # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector. 
@@ -424,7 +428,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Only perform the MTFLOW analyses if the input generation has succeeded.
         # Initialise the MTFLOW output list of dictionaries. Use the crash outputs in 
         # initialisation to pre-populate them in case of a crash or infeasible design vector
-        MTFLOW_outputs = [copy.deepcopy(self.CRASH_OUTPUTS) for _ in range(len(self.multi_oper))]
+        MTFLOW_outputs = [self.CRASH_OUTPUTS for _ in range(len(self.multi_oper))]
 
         if design_okay:
             valid_grid = False
@@ -454,7 +458,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                 except Exception as e:
                     exit_flag = ExitFlag.CRASH
                     print(f"[MTFLOW_ERROR] OP={idx}, case={self.analysis_name}: {e}")
-                    MTFLOW_outputs[idx] = copy.deepcopy(self.CRASH_OUTPUTS)
+                    MTFLOW_outputs[idx] = self.CRASH_OUTPUTS
 
                 # Set valid_grid to true to skip the grid checking routines for the next operating point if the solver exited with a converged/non-converged solution.
                 if exit_flag in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE, ExitFlag.CHOKING):

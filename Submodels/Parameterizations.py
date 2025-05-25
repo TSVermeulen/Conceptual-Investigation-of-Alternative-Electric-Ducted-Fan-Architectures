@@ -936,7 +936,7 @@ class AirfoilParameterization:
                 self.af_param.GetReferenceParameters()
                     
             def _evaluate(self, x, out, *args, **kwargs):
-                out["F"] = self.af_param.Objective(x, reference_file)
+                out["F"] = self.af_param.Objective(x)
                 # Compute bound for b_8
                 g1 = x[2] - min(x[6], np.sqrt(-2 * x[11] * x[5] / 3))
 

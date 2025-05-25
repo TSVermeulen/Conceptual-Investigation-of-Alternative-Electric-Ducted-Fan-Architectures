@@ -258,7 +258,7 @@ class MTFLOW_caller:
                 # while yielding a more "rounded/elliptic" grid due to the reduced x-coefficient.
                 if check_count == 0:
                     # For the initial attempt, use the default values, but with an increased streamwise resolution
-                    streamwise_points = 200
+                    streamwise_points = 150
                     grid_e_coeff = 0.8
                     grid_x_coeff = 0.8
                 elif check_count == 1:
@@ -310,9 +310,10 @@ class MTFLOW_caller:
             if exit_flag != ExitFlag.CRASH:   
                 try:    
                     MTFLO_call(self.analysis_name).caller() #Load in the blade row(s) from MTFLO
-                except Exception:
+                except Exception as e:
                     # If MTFLO fails, set the exit flag to crash so that we don't execute the MTSOL evaluation.
                     exit_flag = ExitFlag.CRASH
+                    print(f"MTFLO failed: {e}")
 
                 if exit_flag != ExitFlag.CRASH:
                     # Execute MTSOL    

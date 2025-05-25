@@ -39,7 +39,7 @@ Changelog:
 - V1.2: Normalised constraints, added 1<T/Tref<1.01 constraint, extracted common power and thrust calculations to separate helper methods.
 - V1.3: Implemented multi-point constraint evaluator. Updated documentation. Fixed type hinting. 
 - V1.4: Implemented constraints on profile parameterizations. 
-- V1.5: Fixed bug in minimum thrust constraint.
+- V1.5: Fixed bug in minimum thrust constraint. Performance improvements by avoiding repeated construction/lookup of data. 
 """
 
 # Import standard libraries
@@ -59,6 +59,13 @@ class Constraints:
     """
     Class containing all the constraints for the genetic algorithm optimisation. 
     """
+
+
+    # Large constraint violation value to penalize infeasible designs
+    INFEASIBLE_CV = 1e12  # CV = Constraint Violation
+
+    # Define rounding for constraints to match MTFLOW precision
+    CONSTRAINT_PRECISION = 5
 
 
     def __init__(self,
@@ -82,11 +89,13 @@ class Constraints:
 
         self.design_okay = design_okay
 
-        # Large constraint violation value to penalize infeasible designs
-        self.infeasible_CV = 1e12  # CV = Constraint Violation
-
         # Initialize the airfoil parameterization class
         self.airfoil_parameterization = AirfoilParameterization()
+
+        # Cache filtered constraints to avoid repeated list comprehensions
+        self._cached_ineq_constraints = None
+        self._cached_eq_constraints = None
+        self._cached_constraint_ids = None
 
     
     def _calculate_power(self,
@@ -128,7 +137,7 @@ class Constraints:
         - Thrust : float
             A float of the thrust in Newtons
         """
-        return analysis_outputs['data']['Total force CT'] * (0.5 * self.oper["atmos"].density[0] * self.oper["Vinl"] ** 2 * Lref ** 2)
+        return analysis_outputs["data"]["Total force CT"] * (0.5 * self.oper["atmos"].density[0] * self.oper["Vinl"] ** 2 * Lref ** 2)
 
 
     def ConstantPower(self, 
@@ -193,7 +202,7 @@ class Constraints:
         """
 
         # Compute the inequality constraint for the efficiency.
-        return analysis_outputs['data']['EtaP'] - 1
+        return analysis_outputs["data"]["EtaP"] - 1
     
 
     def KeepEfficiencyFeasibleLower(self,
@@ -224,7 +233,7 @@ class Constraints:
         """
 
         # Compute the inequality constraint for the efficiency.
-        return -analysis_outputs['data']['EtaP']
+        return -analysis_outputs["data"]["EtaP"]
     
 
     def MinimumThrust(self,
@@ -287,6 +296,21 @@ class Constraints:
         return thrust / self.ref_thrust - (1 + config.deviation_range) # Normalized thrust constraint
 
 
+    def _get_filtered_constraints(self):
+        """
+        Get cached filtered constraints or create them if the cache is invalid.
+        """
+
+        current_constraint_ids = (tuple(config.constraint_IDs[0]), tuple(config.constraint_IDs[1]))
+
+        if self._cached_constraint_ids != current_constraint_ids:
+            self._cached_ineq_constraints = [self.ineq_constraints_list[i] for i in config.constraint_IDs[0]]
+            self._cached_eq_constraints = [self.eq_constraints_list[i] for i in config.constraint_IDs[1]]
+            self._cached_constraint_ids = current_constraint_ids
+        
+        return self._cached_ineq_constraints, self._cached_eq_constraints
+
+
     def ComputeConstraints(self,
                            analysis_outputs: AnalysisOutputs,
                            Lref: float,
@@ -325,9 +349,8 @@ class Constraints:
         # Copy the operating conditions
         self.oper = oper.copy()
 
-        # Filter all inequality and equality constraints based on the constraint IDs
-        ineq_constraints = [self.ineq_constraints_list[i] for i in config.constraint_IDs[0]]
-        eq_constraints = [self.eq_constraints_list[i] for i in config.constraint_IDs[1]]
+        # Get all inequality and equality constraints based on the constraint IDs
+        ineq_constraints, eq_constraints = self._get_filtered_constraints()
 
         # Compute thrust and power
         thrust = self._calculate_thrust(analysis_outputs, Lref)
@@ -341,30 +364,52 @@ class Constraints:
         # Compute the inequality constraints and write them to out["G"]
         # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
         if ineq_constraints:
-            computed_ineq_constraints = [round(constraint(analysis_outputs, Lref, thrust, power), 5)
+            computed_ineq_constraints = [round(constraint(analysis_outputs, Lref, thrust, power), self.CONSTRAINT_PRECISION)
                                          for constraint in ineq_constraints]
 
             if self.design_okay:
                 out["G"] = np.column_stack(computed_ineq_constraints)
             else:
                 # If the design is infeasible, set a really high constraint violation to steer the optimizer away. 
-                infeasible_constraints = [self.infeasible_CV] * len(computed_ineq_constraints)
+                infeasible_constraints = [self.INFEASIBLE_CV] * len(computed_ineq_constraints)
                 out["G"] = np.column_stack(infeasible_constraints)
 
         # Compute the equality constraints and write them to out["H"]
         # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
         if eq_constraints:
-            computed_eq_constraints = [round(constraint(analysis_outputs, Lref, thrust, power), 5)
+            computed_eq_constraints = [round(constraint(analysis_outputs, Lref, thrust, power), self.CONSTRAINT_PRECISION)
                                        for constraint in eq_constraints]
             
             if self.design_okay:
                 out["H"] = np.column_stack(computed_eq_constraints)
             else:
                 # If the design is infeasible, set a really high constraint violation to steer the optimizer away. 
-                infeasible_constraints = [self.infeasible_CV] * len(computed_eq_constraints)
+                infeasible_constraints = [self.INFEASIBLE_CV] * len(computed_eq_constraints)
                 out["H"] = np.column_stack(infeasible_constraints)
         else: 
             out["H"] = [[]]
+
+
+    def _compute_multi_point_constraints(self, 
+                                         constraint_list: list,
+                                         analysis_outputs: list[AnalysisOutputs],
+                                         Lref: float,
+                                         thrust: np.ndarray,
+                                         power: np.ndarray) -> list[float]:
+        """Helper method to compute constraints for multi-point analysis."""
+        computed_constraints = []
+
+        # Pre-extract reference values to avoid repeated config access
+        ref_thrusts = config.T_ref_constr
+        ref_powers = config.P_ref_constr
+        
+        for i, outputs in enumerate(analysis_outputs):
+            self.ref_thrust = ref_thrusts[i]
+            self.ref_power = ref_powers[i]
+            self.oper = self.multi_oper[i]
+            computed_constraints.extend([round(constraint(outputs, Lref, thrust[i], power[i]), self.CONSTRAINT_PRECISION)
+                                        for constraint in constraint_list])
+        return computed_constraints
 
 
     def ComputeMultiPointConstraints(self,
@@ -405,55 +450,41 @@ class Constraints:
         # Copy the operating conditions
         self.multi_oper = oper.copy()
 
-        # Filter all inequality and equality constraints based on the constraint IDs
-        ineq_constraints = [self.ineq_constraints_list[i] for i in config.constraint_IDs[0]]
-        eq_constraints = [self.eq_constraints_list[i] for i in config.constraint_IDs[1]]
+        # Get all inequality and equality constraints based on the constraint IDs
+        ineq_constraints, eq_constraints = self._get_filtered_constraints()
 
         num_outputs = len(analysis_outputs)
 
         # Compute thrust and power
-        thrust = []
-        power = []
+        thrust = np.empty(num_outputs, dtype=float)
+        power = np.empty(num_outputs, dtype=float)
+
         for i in range(num_outputs):
             self.oper = self.multi_oper[i]  # Set the correct operating condition to compute the thrust/power
-            thrust.append(self._calculate_thrust(analysis_outputs[i], Lref))
-            power.append(self._calculate_power(analysis_outputs[i], Lref))
+            thrust[i] = self._calculate_thrust(analysis_outputs[i], Lref)
+            power[i] = self._calculate_power(analysis_outputs[i], Lref)
         
 
         # Compute the inequality constraints and write them to out["G"]
         # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
         if ineq_constraints:
-            computed_ineq_constraints = []
-            for i, outputs in enumerate(analysis_outputs):
-                self.ref_thrust = config.T_ref_constr[i]
-                self.ref_power = config.P_ref_constr[i]
-                self.oper = self.multi_oper[i]
-                computed_ineq_constraints.extend([round(constraint(outputs, Lref, thrust[i], power[i]), 5)
-                                                  for constraint in ineq_constraints])
+            computed_ineq_constraints = self._compute_multi_point_constraints(ineq_constraints, analysis_outputs, Lref, thrust, power)
 
             if self.design_okay:
                 out["G"] = np.column_stack(computed_ineq_constraints)
             else:
                 # If the design is infeasible, set a really high constraint violation to steer the optimizer away
-                infeasible_constraints = [self.infeasible_CV] * len(computed_ineq_constraints)
-                out["G"] = np.column_stack(infeasible_constraints)
+                out["G"] = np.full((1, len(computed_ineq_constraints)), self.INFEASIBLE_CV, dtype=float)
 
         # Compute the equality constraints and write them to out["H"]
         # Rounds the constraint values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
         if eq_constraints:
-            computed_eq_constraints = []
-            for i, outputs in enumerate(analysis_outputs):
-                self.oper = self.multi_oper[i]
-                self.ref_thrust = config.T_ref_constr[i]
-                self.ref_power = config.P_ref_constr[i]
-                computed_eq_constraints.extend([round(constraint(outputs, Lref, thrust[i], power[i]), 5)
-                                                for constraint in eq_constraints])
+            computed_eq_constraints = self._compute_multi_point_constraints(eq_constraints, analysis_outputs, Lref, thrust, power)
             if self.design_okay:
                 out["H"] = np.column_stack(computed_eq_constraints)
             else:
                 # If the design is infeasible, set a really high constraint violation to steer the optimizer away.
-                infeasible_constraints = [self.infeasible_CV] * len(computed_eq_constraints)
-                out["H"] = np.column_stack(infeasible_constraints)
+                out["H"] = np.full((1, len(computed_eq_constraints)), self.INFEASIBLE_CV, dtype=float)
 
     
 if __name__ == "__main__":

@@ -112,6 +112,8 @@ class OptimizationProblem(ElementwiseProblem):
     
     _DESIGN_VARS = DesignVector.construct_vector(config)
 
+    _base_oper = copy.deepcopy(config.multi_oper[0])
+
 
     def __init__(self,
                  verbose: bool = False,
@@ -345,11 +347,11 @@ class OptimizationProblem(ElementwiseProblem):
         
         if not output_generated:
             # Set parameters equal to the config values in case of a crash so that the constraint/objective value calculations do not crash
-            self.Lref = copy.deepcopy(config.BLADE_DIAMETERS[0])
-            self.duct_variables = copy.deepcopy(config.DUCT_VALUES)
-            self.centerbody_variables = copy.deepcopy(config.CENTERBODY_VALUES)
-            self.blade_blading_parameters = copy.deepcopy(config.STAGE_BLADING_PARAMETERS)
-            self.blade_design_parameters = copy.deepcopy(config.STAGE_DESIGN_VARIABLES)
+            self.Lref = copy.copy(config.BLADE_DIAMETERS[0])
+            self.duct_variables = copy.copy(config.DUCT_VALUES)
+            self.centerbody_variables = copy.copy(config.CENTERBODY_VALUES)
+            self.blade_blading_parameters = copy.copy(config.STAGE_BLADING_PARAMETERS)
+            self.blade_design_parameters = copy.copy(config.STAGE_DESIGN_VARIABLES)
         
         return output_generated
         
@@ -383,7 +385,7 @@ class OptimizationProblem(ElementwiseProblem):
         self.SetAnalysisName()
 
         # Copy the operational conditions
-        self.oper = copy.deepcopy(config.multi_oper[0])
+        self.oper = copy.deepcopy(self._base_oper)
         
         # Generate the MTFLOW input files.
         # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector. 
@@ -408,7 +410,7 @@ class OptimizationProblem(ElementwiseProblem):
                 MTFLOW_outputs = output_handler.GetAllVariables(output_type=3)
             except Exception as e:
                 print(f"[MTFLOW_ERROR] case={self.analysis_name}: {e}")
-                MTFLOW_outputs = copy.deepcopy(self.CRASH_OUTPUTS)
+                MTFLOW_outputs = self.CRASH_OUTPUTS
         else:
             # If the design is infeasible, we load the crash outputs
             # This is a predefined dictionary with all outputs set to 0.

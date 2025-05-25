@@ -46,6 +46,7 @@ class DesignVector:
     This class is used to construct the design vector for the optimisation problem.
     """
 
+    # Define the bounds on the BP3434 parameterization method. 
     BP_3434_bounds = {"b_0": (0.05, 0.1),
                       "b_2": (0.125, 0.3),
                       "b_8": (0.05, 0.7),
@@ -62,6 +63,12 @@ class DesignVector:
                       "trailing_camberline_angle": (0.001, 0.2),
                       "leading_edge_direction": (0.001, 0.2)}
 
+    # Initialize the profile vars as None
+    _cached_profile_vars = None
+
+    # Indices for the thickness parameters for the centerbody parameters
+    # We force the centerbody to be symmetric, so camber parameters are not needed
+    CENTERBODY_VAR_INDICES = [2, 3, 5, 6, 10, 11, 12]
 
     def __init__(self) -> None:
         """
@@ -70,12 +77,9 @@ class DesignVector:
 
 
     @classmethod
-    def profile_section_vars(cls) -> list:
+    def _create_profile_vars(cls) -> list:
         """ 
-        Return the standard 15-var profile section definition.
-        Bounds are based on those presented in:
-            Rogalsky T. Acceleration of differential evolution for aerodynamic design. 
-            Ph.D. Thesis, University of Manitoba; 2004.
+        Create the profile section variables once and cache them.
         """
         return [Real(bounds=cls.BP_3434_bounds["b_0"]),  # b_0
                 Real(bounds=cls.BP_3434_bounds["b_2"]),  # b_2
@@ -92,6 +96,19 @@ class DesignVector:
                 Real(bounds=cls.BP_3434_bounds["trailing_wedge_angle"]),  # trailing_wedge_angle
                 Real(bounds=cls.BP_3434_bounds["trailing_camberline_angle"]),  # trailing_camberline_angle
                 Real(bounds=cls.BP_3434_bounds["leading_edge_direction"])]  # leading_edge_direction
+
+    @classmethod
+    def profile_section_vars(cls) -> list:
+        """ 
+        Return the standard 15-var profile section definition.
+        Bounds are based on those presented in:
+            Rogalsky T. Acceleration of differential evolution for aerodynamic design. 
+            Ph.D. Thesis, University of Manitoba; 2004.
+        """
+
+        if cls._cached_profile_vars is None:
+            cls._cached_profile_vars = cls._create_profile_vars()
+        return cls._cached_profile_vars.copy()  # Return a copy to prevent modification.
 
 
     @classmethod
@@ -118,8 +135,7 @@ class DesignVector:
         if cfg.OPTIMIZE_CENTERBODY:
             # If the centerbody is to be optimised, initialise the variable types
             complete_profile = cls.profile_section_vars()
-            centerbody_var_indices = [2, 3, 5, 6, 10, 11, 12]  # Indices corresponding to the camber parameters. We force the centerbody to be symmetric, so these are not needed. 
-            section_profile = [complete_profile[i] for i in centerbody_var_indices]
+            section_profile = [complete_profile[i] for i in cls.CENTERBODY_VAR_INDICES]
 
             vector.extend(section_profile)
             vector.append(Real(bounds=(0.25, 4)))  # Chord Length
@@ -131,32 +147,45 @@ class DesignVector:
             vector.append(Real(bounds=(0.75, 1.5)))  # Chord Length
             vector.append(Real(bounds=(-0.5, 0.5)))  # Leading Edge X-Coordinate
 
-        for i in range(cfg.NUM_STAGES):
-            # If (any of) the rotor/stator stage(s) are to be optimised, initialise the variable types
-            if cfg.OPTIMIZE_STAGE[i]:
-                for _ in range(cfg.NUM_RADIALSECTIONS[i]):
-                    vector.extend(cls.profile_section_vars())                  
-
+        # Pre-calculate the stage parameters to avoid repeated calculations
+        stage_configs = []
+        num_operating_points = len(cfg.multi_oper)
         for i in range(cfg.NUM_STAGES):
             if cfg.OPTIMIZE_STAGE[i]:
-                vector.append(Real(bounds=(0, 0.4)))  # root_LE_coordinate
-                vector.append(Real(bounds=(0.1, np.pi/6)))  # ref_blade_angle from [~5.7deg to 30 deg]
-                vector.append(Integer(bounds=(3, 20)))  # blade_count
-                if cfg.ROTATING[i]:
-                    for _ in range(len(cfg.multi_oper)):
-                        vector.append(Real(bounds=(20, 80)))  # blade RPS
-                vector.append(Real(bounds=(1.0, 3.0)))  # blade diameter
+                num_radial_sections = cfg.NUM_RADIALSECTIONS[i]
+                stage_configs.append({
+                    'index': i,
+                    'num_radial_sections': num_radial_sections,
+                    'is_rotating': cfg.ROTATING[i]
+                })
 
-                for _ in range(cfg.NUM_RADIALSECTIONS[i]): 
-                    vector.append(Real(bounds=(0.1, 0.75)))  # chord length
-                for _ in range(cfg.NUM_RADIALSECTIONS[i] - 1):  # Note the -1 since the root section is independent of sweep. 
-                    vector.append(Real(bounds=(0, np.pi/3)))  # sweep_angle
-                for _ in range(cfg.NUM_RADIALSECTIONS[i] - 1):  # Note the -1 since the tip has a fixed angle at 0
-                    vector.append(Real(bounds=(0, np.pi/3)))  # blade_angle
+        # For the stage(s) marked for optimisation, add the profile design variables to the design vector
+        for stage_config in stage_configs:
+            for _ in range(stage_config['num_radial_sections']):
+                vector.extend(cls.profile_section_vars())             
+
+        # Add stage-specific variables
+        for stage_config in stage_configs:
+            i = stage_config['index']
+            vector.append(Real(bounds=(0, 0.4)))  # root_LE_coordinate
+            vector.append(Real(bounds=(0.1, np.pi/6)))  # ref_blade_angle from [~5.7deg to 30 deg]
+            vector.append(Integer(bounds=(3, 20)))  # blade_count
+            if stage_config['is_rotating']:
+                for _ in range(num_operating_points):
+                    vector.append(Real(bounds=(20, 80)))  # blade RPS
+            vector.append(Real(bounds=(1.0, 3.0)))  # blade diameter
+
+            for _ in range(stage_config['num_radial_sections']): 
+                vector.append(Real(bounds=(0.1, 0.75)))  # chord length
+            for _ in range(stage_config['num_radial_sections'] - 1):  # Note the -1 since the root section is independent of sweep. 
+                vector.append(Real(bounds=(0, np.pi/3)))  # sweep_angle
+            for _ in range(stage_config['num_radial_sections'] - 1):  # Note the -1 since the tip has a fixed angle at 0
+                vector.append(Real(bounds=(0, np.pi/3)))  # blade_angle
 
         # For a mixed-variable problem, PyMoo expects the vector to be a dictionary, so we convert vector to a dictionary.
         # Note that all variables are given a name xi.
-        vector = {f"x{i}": var for i, var in enumerate(vector)}
+        var_names = [f"x{i}" for i in range(len(vector))]
+        vector = dict(zip(var_names, vector))
         
         return vector
     

@@ -86,6 +86,7 @@ if __name__ == "__main__":
     # Do not spawn more processes than the GA can effectively use
     n_processes = min(n_processes, config.POPULATION_SIZE)
     
+    print(f"Spawning {n_processes} worker processes (total threads: {total_threads}, available: {total_threads_avail}, threads per eval: {threads_per_eval})")
     with multiprocessing.Pool(processes=n_processes,
                               initializer=ensure_repo_paths,
                               maxtasksperchild=100,
