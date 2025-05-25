@@ -1154,7 +1154,7 @@ class MTSOL_call:
             
             # First we try to run a complete viscous case. Only if this doesn't work and causes a crash do we try to converge each surface individually
             try:
-                exit_flag_visc = self.ConvergeIndividualSurfaces()#self.ExecuteSolver()
+                exit_flag_visc = self.ExecuteSolver()
                 
             except (OSError, BrokenPipeError):
                 # If the complete viscous solve crashed, set the exit flag appropriately
