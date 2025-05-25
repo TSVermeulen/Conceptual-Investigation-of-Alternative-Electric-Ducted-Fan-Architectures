@@ -284,7 +284,7 @@ class Constraints:
         - float
             The computed normalised thrust constraint.
         """
-        return (config.deviation_range * self.ref_thrust - thrust) / self.ref_thrust  # Normalized thrust constraint
+        return thrust / self.ref_thrust - (1 + config.deviation_range) # Normalized thrust constraint
 
 
     def ComputeConstraints(self,

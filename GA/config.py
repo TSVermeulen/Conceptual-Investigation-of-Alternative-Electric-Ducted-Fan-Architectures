@@ -75,14 +75,14 @@ class ObjectiveID(IntEnum):
     # DUCT_THRUST_CONTRIBUTION = auto()
     # CENTERBODY_THRUST_CONTRIBUTION = auto()
      
-objective_IDs = [ObjectiveID.EFFICIENCY, ObjectiveID.FRONTAL_AREA]
+objective_IDs = [ObjectiveID.EFFICIENCY]
 
 # Define the multi-point operating conditions
 multi_oper = [{"Inlet_Mach": 0.10285225,
                "N_crit": 9,
                "atmos": Atmosphere(0),
-               "Omega": -9.667,
-               "RPS": 25.237},
+               "Omega": -13.963,
+               "RPS": 36.45},
             #    {"Inlet_Mach": 0.20,
             #     "N_crit": 9,
             #     "atmos": Atmosphere(0),
@@ -236,13 +236,13 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
                                                                  REFERENCE_BLADE_ANGLES[0])
 
 # Define the target thrust/power and efficiency for use in constraints
-P_ref_constr = [0.76169 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
+P_ref_constr = [3.0457 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
                 # 1.5592 * (0.5 * atmosphere.density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
                 ]  # Reference Power in Watts derived from baseline analysis
-T_ref_constr = [0.60736 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
+T_ref_constr = [2.0604 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 # 1.2002 * (0.5 * atmosphere.density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 ] # Reference Thrust in Newtons derived from baseline analysis
-Eta_ref_constr = 0.79738
+Eta_ref_constr = 0.67650
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
 
 # Define the constraint IDs used to construct the constraint functions
@@ -277,11 +277,11 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
 
 
 # Define the population size
-POPULATION_SIZE = 30
-# Larger initial population for better diversity, then reduced to standard size
-INITIAL_POPULATION_SIZE = 60
-MAX_GENERATIONS = 50
-MAX_EVALUATIONS = 4000
+POPULATION_SIZE = 100
+# Larger initial population for better diversity in case of infeasible designs, then reduced to standard size
+INITIAL_POPULATION_SIZE = 200
+MAX_GENERATIONS = 100
+MAX_EVALUATIONS = 11000
 
 
 # Compute the total number of objectives
