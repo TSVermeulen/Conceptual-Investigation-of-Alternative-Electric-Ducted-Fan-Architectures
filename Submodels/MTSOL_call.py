@@ -719,7 +719,7 @@ class MTSOL_call:
             return
 
         # Indices of header lines that should not be averaged
-        skip_lines = {0, 1, 2, 3, 4, 5, 13, 25, 26, 31, 36, 41}
+        skip_lines = frozenset({0, 1, 2, 3, 4, 5, 13, 25, 26, 31, 36, 41})
 
         with ExitStack() as stack, open(self.filepaths['forces'], 'w') as averaged_file:
             file_handlers = [stack.enter_context(open(output_file, 'r', newline='')) for output_file in output_files]    

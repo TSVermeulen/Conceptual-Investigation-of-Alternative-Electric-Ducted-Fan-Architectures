@@ -704,38 +704,44 @@ class AirfoilParameterization:
         
         # Calculate bezier coefficients for the thickness curves for plotting
         x_LE_thickness_coeff, y_LE_thickness_coeff, x_TE_thickness_coeff, y_TE_thickness_coeff = self.GetThicknessControlPoints(airfoil_params)
+        x_LE_camber_coeff, y_LE_camber_coeff, x_TE_camber_coeff, y_TE_camber_coeff = self.GetCamberControlPoints(airfoil_params)
 
         try:
-            #Create plots of the thickness distribution compared to the input data
-            plt.figure("Thickness Distributions")
-            plt.plot(bezier_thickness_x, bezier_thickness, label="BezierThickness")
-            plt.plot(x_LE_thickness_coeff, y_LE_thickness_coeff, '*', color='k', label="Bezier Coefficients")
-            plt.plot(x_TE_thickness_coeff, y_TE_thickness_coeff, '*', color='r')  # Do not label this line to avoid duplicate legend entry            
-            plt.plot(self.x_points_thickness, self.thickness_distribution, "-.", label="ThicknessInputData")
-            plt.xlabel("x/c [-]")
-            plt.ylabel("y_t/c [-]")
-            plt.legend()
+            # Create a single figure with subplots
+            fig, axs = plt.subplots(2, 1, figsize=(8, 6), gridspec_kw={'height_ratios': [1, 1.2]})
 
-            # Calculate bezier coefficients for the camber curves for plotting
-            x_LE_camber_coeff, y_LE_camber_coeff, x_TE_camber_coeff, y_TE_camber_coeff = self.GetCamberControlPoints(airfoil_params)
+            # First row: Thickness and Camber distributions
+            axs[0].plot(bezier_thickness_x, bezier_thickness, label="Bezier Thickness", color="blue")
+            axs[0].plot(x_LE_thickness_coeff, y_LE_thickness_coeff, '*', color='b', label="Bezier Thickness Coefficients")
+            axs[0].plot(x_TE_thickness_coeff, y_TE_thickness_coeff, '*', color='b')
+            axs[0].plot(self.x_points_thickness, self.thickness_distribution, "-.", label="Thickness Input Data")
+            axs[0].plot(bezier_camber_x, bezier_camber, label="Bezier Camber", color="red")
+            axs[0].plot(x_LE_camber_coeff, y_LE_camber_coeff, '^', color='r', label="Bezier Camber Coefficients")
+            axs[0].plot(x_TE_camber_coeff, y_TE_camber_coeff, '^', color='r')
+            axs[0].plot(self.x_points_camber, self.camber_distribution, "--", label="Camber Input Data")
+            axs[0].set_title("Thickness & Camber Distributions")
+            axs[0].set_xlabel("x/c [-]")
+            axs[0].set_ylabel("y/c [-]")
+            axs[0].legend(bbox_to_anchor=(1,1))
+            axs[0].grid(True)
 
-            plt.figure("Camber Distributions")
-            plt.plot(bezier_camber_x, bezier_camber, label="BezierCamber")
-            plt.plot(x_LE_camber_coeff, y_LE_camber_coeff, '*', color='k', label="Bezier Coefficients")
-            plt.plot(x_TE_camber_coeff, y_TE_camber_coeff, '*', color='r')  # Do not label this line to avoid duplicate legend entry
-            plt.plot(self.x_points_camber, self.camber_distribution, "-.", label="CamberInputData")
-            plt.xlabel("x/c [-]")
-            plt.ylabel("y_c/c [-]")
-            plt.legend()
+            # Second row: Combined airfoil shape
+            axs[1].plot(upper_x, upper_y, label="Reconstructed Upper Surface", color="green")
+            axs[1].plot(lower_x, lower_y, label="Reconstructed Lower Surface", color="purple")
+            axs[1].plot(self.reference_data[:, 0], self.reference_data[:, 1], "-.", color="gray", label="Reference Input Data")
+            axs[1].set_title("Combined Airfoil Shape")
+            axs[1].set_xlabel("x/c [-]")
+            axs[1].set_ylabel("y/c [-]")
+            axs[1].legend(bbox_to_anchor=(1,1))
+            axs[1].grid(True)
 
-            plt.figure("Airfoil Shape")
-            plt.plot(upper_x, upper_y, label="Reconstructed Upper Surface")
-            plt.plot(lower_x, lower_y, label="Reconstructed Lower Surface")
-            plt.plot(self.reference_data[:self.idx_LE + 1, 0], self.reference_data[:self.idx_LE + 1, 1], "-.", color="g")
-            plt.plot(self.reference_data[self.idx_LE:, 0], self.reference_data[self.idx_LE:, 1], "-.", color="g")
-            plt.xlabel("x/c [-]")
-            plt.ylabel("y/c [-]")
+            # Set main figure title
+            fig.suptitle(f"BP 3434 Parameterization for the NACA 2414 Airfoil", fontsize=14)
+
+            # Adjust layout
+            plt.tight_layout()
             plt.show()
+
         except Exception as e:
             print(f"Warning: Failed to generate plots: {str(e)}")
 
@@ -893,7 +899,7 @@ class AirfoilParameterization:
                                 options={'maxiter': 500,
                                         'disp': False},
                                         jac='3-point')
-            
+
         # Denormalise the found coefficients and write them to the output dictionary
         optimized_coefficients.x = optimized_coefficients.x.astype(float)
         optimized_coefficients.x = np.multiply(optimized_coefficients.x, self.guess_design_vector)
@@ -1016,7 +1022,7 @@ if __name__ == "__main__":
     call_class = AirfoilParameterization()
     
     start_time = time.time()
-    inputfile = Path('Test Airfoils') / 'n6409.dat'
+    inputfile = Path(__file__).resolve().parent / 'Test Airfoils/n2414.dat'
     airf_params = call_class.FindInitialParameterization(inputfile)
     end_time = time.time()
     print(f"Execution of FindInitialParameterization({inputfile}) took {end_time-start_time} seconds")
