@@ -341,7 +341,10 @@ class RepairIndividuals(Repair):
 
         # Loop over all individuals in the population and repair them if needed
         for i, individual in enumerate(X):
-            # First deconstruct the design vector in to the different design dictionaries
+            # First extract the keys of the integer variables in the design vector dictionary to be able to cast them back to integer after repairing
+            int_keys = [key for key, value in individual.items() if isinstance(value, (int, np.integer))]
+
+            # Deconstruct the design vector in to the different design dictionaries
             # We do not need to compute the duct LE y coordinate here, so we can skip this step 
             # and speed up the computation by setting compute_duct = False.
             (centerbody_variables,
@@ -374,6 +377,8 @@ class RepairIndividuals(Repair):
                                                blade_design_parameters,
                                                blade_blading_parameters)
             
+
+            
             # Convert design vector into array together with bounds to enforce design variable bounds
             x_array = np.array(list(x.values()))
 
@@ -389,8 +394,10 @@ class RepairIndividuals(Repair):
             x_array = set_to_bounds_if_outside(x_array, self.xl, self.xu)
 
             # Convert the array back to a dictionary and write the result to X
-            X[i] = dict(zip(x.keys(), x_array))
-            
+            # Casts the integer values back to integers to ensure consistent variable types throughout the evaluation. 
+            x_dict = dict(zip(x.keys(), x_array))
+            X[i] = {key: (int(val) if key in int_keys else val) for key, val in x_dict.items()}
+                        
         return X
 
 

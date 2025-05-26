@@ -290,7 +290,7 @@ n_objectives = len(objective_IDs) * len(multi_oper) - sum([1 for ID in objective
 # Define the initial population parameter spreads, used to construct a biased initial population 
 SPREAD_CONTINUOUS = 0.25  # Relative spread (+/- %) applied to continous variables around their reference values
 ZERO_NOISE = 0.25  # % noise added to zero values to avoid stagnation
-SPREAD_DISCRETE = (-3, 6)  # Absolute range for discrete variables (referene value -3 to reference value + 6)
+SPREAD_DISCRETE = (-3, 17)  # Absolute range for discrete variables (referene value -3 to reference value + 6)
 
 # Repair operator controls
 PROFILE_FEASIBILITY_OFFSET = 0.05  # Offset value to avoid bezier control points lying on x_t/x_c

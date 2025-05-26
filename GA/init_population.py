@@ -193,11 +193,10 @@ class InitPopulation():
 
                 for j in range(config.NUM_RADIALSECTIONS[i]):
                     vector.append(config.STAGE_BLADING_PARAMETERS[i]["chord_length"][j])
-                for j in range(config.NUM_RADIALSECTIONS[i]):
-                    vector.append(config.STAGE_BLADING_PARAMETERS[i]["sweep_angle"][j])
+                for j in range(config.NUM_RADIALSECTIONS[i] - 1):
+                    vector.append(config.STAGE_BLADING_PARAMETERS[i]["sweep_angle"][j + 1])
                 for j in range(config.NUM_RADIALSECTIONS[i] - 1):  # -1 since the tip section has a fixed angle of 0
                     vector.append(config.STAGE_BLADING_PARAMETERS[i]["blade_angle"][j])
-                vector.append(0)  # The tip blade angle is fixed at 0 degrees
 
         # Change vector from a list to a dictionary to match the expected structure of pymoo
         keys = list(self.design_vector.keys())
