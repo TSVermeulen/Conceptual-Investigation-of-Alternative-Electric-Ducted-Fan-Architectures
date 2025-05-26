@@ -102,6 +102,12 @@ class AirfoilParameterization:
         Find the initial parameterization for the airfoil provided in the reference_file.
     """
 
+    # Constants
+    N_BEZIER_POINTS = 100
+    GA_UPPER_BOUNDS = np.array([0.1, 0.3, 0.7, 0.9, 0.9, 0.5, 0.3, 0.5, 0.2, 0.05, 0.005, -0.001, 0.4, 0.3, 0.3])
+    GA_LOWER_BOUNDS = np.array([0.01, 0.1, 0, 0, 0, 0.15, 0.01, 0.25, 0, 0, 0, -0.2, 0.001, 0.001, 0.001])
+
+
     def __init__(self) -> None:
         """
         Initialize the AirfoilParameterization class.
@@ -534,7 +540,6 @@ class AirfoilParameterization:
                                ) -> tuple[np.typing.NDArray[np.floating], np.typing.NDArray[np.floating]]:
         """
         Create u-vectors for Bezier curve generation. 
-        Uses 100 points for the leading and trailing edge curves, to give 200 points in total.
 
         Returns
         -------
@@ -545,10 +550,8 @@ class AirfoilParameterization:
         """
 
         # Create u-vectors for Bezier curve generation
-        # Use 100 points for the leading and trailing edge curves, to give 200 points in total.
-        n_points = 100
-        pi_factor = np.pi / (2 * (n_points - 1))
-        i_scaled = np.arange(n_points) * pi_factor
+        pi_factor = np.pi / (2 * (self.N_BEZIER_POINTS - 1))
+        i_scaled = np.arange(self.N_BEZIER_POINTS) * pi_factor
         u_leading_edge = 1. - np.cos(i_scaled)  # Space points using a cosine spacing for increased resolution at LE 
         u_trailing_edge = np.sin(i_scaled)  # Space points using a sine spacing for increased resolution at TE
 
@@ -736,7 +739,7 @@ class AirfoilParameterization:
             axs[1].grid(True)
 
             # Set main figure title
-            fig.suptitle(f"BP 3434 Parameterization for the NACA 2414 Airfoil", fontsize=14)
+            fig.suptitle("BP 3434 Parameterization for the Airfoil", fontsize=14)
 
             # Adjust layout
             plt.tight_layout()
@@ -937,15 +940,15 @@ class AirfoilParameterization:
 
         # Define the optimisation problem definition class
         class ProblemDefinition(ElementwiseProblem):
-            def __init__(self):
-                super().__init__(n_var=15, n_obj=1, n_eq_constr=0, n_ieq_constr=3, 
-                                 xl=actual_lower_bounds,
-                                 xu=actual_upper_bounds)
-                    
+            def __init__(self):                   
                 # Reuse a single parameterisation instance
                 self.af_param = AirfoilParameterization()
                 self.af_param.GetReferenceThicknessCamber(reference_file)
                 self.af_param.GetReferenceParameters()
+
+                super().__init__(n_var=15, n_obj=1, n_eq_constr=0, n_ieq_constr=3, 
+                                 xl=self.af_param.GA_LOWER_BOUNDS,
+                                 xu=self.af_param.GA_UPPER_BOUNDS)
                     
             def _evaluate(self, x, out, *args, **kwargs):
                 out["F"] = self.af_param.Objective(x)
