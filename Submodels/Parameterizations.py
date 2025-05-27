@@ -929,9 +929,6 @@ class AirfoilParameterization:
     def _GA_fitting(self, reference_file: Path) -> dict[str, float]:
         """Genetic algorithm optimization implementation"""
 
-        actual_upper_bounds = np.array([0.1, 0.3, 0.7, 0.9, 0.9, 0.5, 0.3, 0.5, 0.2, 0.05, 0.005, -0.001, 0.4, 0.3, 0.3])
-        actual_lower_bounds = np.array([0.01, 0.1, 0, 0, 0, 0.15, 0.01, 0.25, 0, 0, 0, -0.2, 0.001, 0.001, 0.001])
-
         # Lazy-import the pymoo package to avoid unneccesary imports. 
         from pymoo.algorithms.soo.nonconvex.ga import GA
         from pymoo.core.problem import ElementwiseProblem

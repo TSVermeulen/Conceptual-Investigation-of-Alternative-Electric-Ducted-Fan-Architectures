@@ -37,6 +37,9 @@ Changelog:
 - V1.4: Made bounds on repair enforce_one2one a reference to the design vector initialisation to ensure single source of truth. Added explicit repair out of bounds operator. 
 """
 
+# Import standard libraries
+import copy
+
 # Import 3rd party libraries
 import numpy as np
 from pymoo.core.repair import Repair
@@ -83,6 +86,10 @@ class RepairIndividuals(Repair):
         # Initialize upper and lower bound lists for the complete design vector array
         self.xu = None
         self.xl = None
+
+        # Initialize the design vector interface
+        self.dvi = DesignVectorInterface()
+
 
     def _computebezier(self, 
                        profile_params: dict[str, float]) -> tuple[np.typing.NDArray, np.typing.NDArray, np.typing.NDArray, np.typing.NDArray]:
@@ -182,8 +189,9 @@ class RepairIndividuals(Repair):
 
         # Attempt to enforce one to one mapping of the bezier x-curves for 100 attempts. 
         # If we fail to find a one to one mapping, we will return the profile parameters as is and accept the infeasibility
-        original_params = profile_params.copy()
+        original_params = copy.deepcopy(profile_params)
         for _ in range(200):
+            
             # Compute the bezier curves for the x-coordinates. x_LE_thickness is always one to one, so we can ignore it.
             ((_, 
               x_TE_thickness, 
@@ -208,86 +216,86 @@ class RepairIndividuals(Repair):
             if one_to_one_TE_thickness_x and one_to_one_LE_camber_x and one_to_one_TE_camber_x and one_to_one_TE_thickness_y and one_to_one_LE_camber_y and one_to_one_TE_camber_y:
                 return profile_params
             else:
-                profile_params = profile_params.copy()  # Isolate each attempted fix
+                modified_profile_params = copy.deepcopy(profile_params)  # Isolate each attempted fix
 
             # Handle TE thickness x points
             if not one_to_one_TE_thickness_x:
                 # Adjust the third x control point to enforce x3 = x_2 + feasibility_offset
-                if (profile_params["b_15"] - profile_params["x_t"]) / (1 - profile_params["x_t"]) < 3 * profile_params["x_t"] + 15 * profile_params["b_8"] ** 2 / (4 * profile_params["r_LE"]):
-                    b_15_adjusted_coor = 3 * profile_params["x_t"] + 15 * profile_params["b_8"] ** 2 / (4 * profile_params["r_LE"]) + self.feasibility_offset
-                    b_15_adjusted = profile_params["x_t"] + (1 - profile_params["x_t"]) * b_15_adjusted_coor
+                if (modified_profile_params["b_15"] - modified_profile_params["x_t"]) / (1 - modified_profile_params["x_t"]) < 3 * modified_profile_params["x_t"] + 15 * modified_profile_params["b_8"] ** 2 / (4 * modified_profile_params["r_LE"]):
+                    b_15_adjusted_coor = 3 * modified_profile_params["x_t"] + 15 * modified_profile_params["b_8"] ** 2 / (4 * modified_profile_params["r_LE"]) + self.feasibility_offset
+                    b_15_adjusted = modified_profile_params["x_t"] + (1 - modified_profile_params["x_t"]) * b_15_adjusted_coor
                     b_15_adjusted = np.clip(b_15_adjusted, self.BP_bounds["b_15"][0], self.BP_bounds["b_15"][1])  # Enfoce b_15 to bounds
-                    profile_params["b_15"] = b_15_adjusted
+                    modified_profile_params["b_15"] = b_15_adjusted
 
-                if (3 * profile_params["x_t"] + 15 * profile_params["b_8"] ** 2 / (4 * profile_params["r_LE"])) > profile_params["b_15"]:
+                if (3 * modified_profile_params["x_t"] + 15 * modified_profile_params["b_8"] ** 2 / (4 * modified_profile_params["r_LE"])) > modified_profile_params["b_15"]:
                     # Adjust the second control point to enforce x2 < x3
-                    sqrt_term = -10 * profile_params["x_t"] * profile_params["r_LE"] / 21
+                    sqrt_term = -10 * modified_profile_params["x_t"] * modified_profile_params["r_LE"] / 21
                     # Safety check to avoid sqrt of a negative number
                     b_8_adjusted = np.sqrt(sqrt_term) - 1e-2 if sqrt_term >= 0 else 0
-                    b_8_map = b_8_adjusted / min(profile_params["y_t"], np.sqrt(-2 * profile_params["r_LE"] * profile_params["x_t"] / 3))
+                    b_8_map = b_8_adjusted / min(modified_profile_params["y_t"], np.sqrt(-2 * modified_profile_params["r_LE"] * modified_profile_params["x_t"] / 3))
                     b_8_clipped_map = np.clip(b_8_map, self.BP_bounds["b_8"][0], self.BP_bounds["b_8"][1])
-                    b_8_adjusted_clipped = b_8_clipped_map * min(profile_params["y_t"], np.sqrt(-2 * profile_params["r_LE"] * profile_params["x_t"] / 3))
-                    profile_params["b_8"] = b_8_adjusted_clipped
+                    b_8_adjusted_clipped = b_8_clipped_map * min(modified_profile_params["y_t"], np.sqrt(-2 * modified_profile_params["r_LE"] * modified_profile_params["x_t"] / 3))
+                    modified_profile_params["b_8"] = b_8_adjusted_clipped
             
             # Handle LE camber x points
             if not one_to_one_LE_camber_x:
-                if profile_params["b_2"] < profile_params["b_0"]: 
-                    b_2 = profile_params["b_0"] + self.feasibility_offset
-                    profile_params["b_2"] = np.clip(b_2, self.BP_bounds["b_2"][0], self.BP_bounds["b_2"][1])  # Enforce b_2 to bounds
+                if modified_profile_params["b_2"] < modified_profile_params["b_0"]: 
+                    b_2 = modified_profile_params["b_0"] + self.feasibility_offset
+                    modified_profile_params["b_2"] = np.clip(b_2, self.BP_bounds["b_2"][0], self.BP_bounds["b_2"][1])  # Enforce b_2 to bounds
 
-                if profile_params["b_2"] > profile_params["x_c"]:
-                    b_2 = profile_params["x_c"] - self.feasibility_offset
-                    profile_params["b_2"] = np.clip(b_2, self.BP_bounds["b_2"][0], self.BP_bounds["b_2"][1])  # Enforce b_2 to bounds
+                if modified_profile_params["b_2"] > modified_profile_params["x_c"]:
+                    b_2 = modified_profile_params["x_c"] - self.feasibility_offset
+                    modified_profile_params["b_2"] = np.clip(b_2, self.BP_bounds["b_2"][0], self.BP_bounds["b_2"][1])  # Enforce b_2 to bounds
 
             # Handle TE camber x points
             if not one_to_one_TE_camber_x:
-                if (profile_params["b_17"] - profile_params["x_c"]) / (1 - profile_params["x_c"]) < (-8 * profile_params["y_c"] / np.tan(profile_params["leading_edge_direction"]) + 13 * profile_params["x_c"]) / 6:
-                    b_17_adjusted_coor = (-8 * profile_params["y_c"] / np.tan(profile_params["leading_edge_direction"]) + 13 * profile_params["x_c"]) / 6 + self.feasibility_offset
-                    b_17_adjusted = (1 - profile_params["x_c"]) * b_17_adjusted_coor + profile_params["x_c"]
+                if (modified_profile_params["b_17"] - modified_profile_params["x_c"]) / (1 - modified_profile_params["x_c"]) < (-8 * modified_profile_params["y_c"] / np.tan(modified_profile_params["leading_edge_direction"]) + 13 * modified_profile_params["x_c"]) / 6:
+                    b_17_adjusted_coor = (-8 * modified_profile_params["y_c"] / np.tan(modified_profile_params["leading_edge_direction"]) + 13 * modified_profile_params["x_c"]) / 6 + self.feasibility_offset
+                    b_17_adjusted = (1 - modified_profile_params["x_c"]) * b_17_adjusted_coor + modified_profile_params["x_c"]
                     b_17_adjusted = np.clip(b_17_adjusted, self.BP_bounds["b_17"][0], self.BP_bounds["b_17"][1])  # Enforce b_17 to bounds
-                    profile_params["b_17"] = b_17_adjusted  
+                    modified_profile_params["b_17"] = b_17_adjusted  
 
-                elif profile_params["x_c"] > (3 * profile_params["x_c"] - profile_params["y_c"] / np.tan(profile_params["leading_edge_direction"]))  / 2:
-                    gamma_LE_adjusted_x_based = np.atan(profile_params["y_c"] / (profile_params["x_c"] - 2 * self.feasibility_offset)) + 1e-3
-                    gamma_LE_adjusted_b0_based = np.atan(profile_params["y_c"] / (profile_params["b_0"] * profile_params["x_c"])) - 1e-3  # based on the LE camber y coordinates
+                elif modified_profile_params["x_c"] > (3 * modified_profile_params["x_c"] - modified_profile_params["y_c"] / np.tan(modified_profile_params["leading_edge_direction"]))  / 2:
+                    gamma_LE_adjusted_x_based = np.atan(modified_profile_params["y_c"] / (modified_profile_params["x_c"] - 2 * self.feasibility_offset)) + 1e-3
+                    gamma_LE_adjusted_b0_based = np.atan(modified_profile_params["y_c"] / (modified_profile_params["b_0"] * modified_profile_params["x_c"])) - 1e-3  # based on the LE camber y coordinates
 
                     # gamma_LE must lie somewhere between the two computed values for it to be feasible, so we simply take the middle value.
                     gamma_LE_adjusted = (gamma_LE_adjusted_x_based + gamma_LE_adjusted_b0_based) / 2
                                                    
-                    profile_params["leading_edge_direction"] = np.clip(gamma_LE_adjusted, self.BP_bounds["leading_edge_direction"][0], self.BP_bounds["leading_edge_direction"][1])  # Enforce gamma_LE to bounds
+                    modified_profile_params["leading_edge_direction"] = np.clip(gamma_LE_adjusted, self.BP_bounds["leading_edge_direction"][0], self.BP_bounds["leading_edge_direction"][1])  # Enforce gamma_LE to bounds
 
-                elif profile_params["x_c"] > (-8 * profile_params["y_c"] / np.tan(profile_params["leading_edge_direction"]) + 13 * profile_params["x_c"]) / 6:
-                    y_c_adjusted = 7 / 8 * profile_params["x_c"] * np.tan(profile_params["leading_edge_direction"]) - 1e-3
+                elif modified_profile_params["x_c"] > (-8 * modified_profile_params["y_c"] / np.tan(modified_profile_params["leading_edge_direction"]) + 13 * modified_profile_params["x_c"]) / 6:
+                    y_c_adjusted = 7 / 8 * modified_profile_params["x_c"] * np.tan(modified_profile_params["leading_edge_direction"]) - 1e-3
                     y_c_adjusted = np.clip(y_c_adjusted, self.BP_bounds["y_c"][0], self.BP_bounds["y_c"][1])  # Enforce y_c to bounds
-                    profile_params["y_c"] = y_c_adjusted
+                    modified_profile_params["y_c"] = y_c_adjusted
             
             # Handle TE thickness y points
             if not one_to_one_TE_thickness_y:
                 # Set the TE thickness to the minimum value
-                profile_params["dz_TE"] = 0
+                modified_profile_params["dz_TE"] = 0
                 
                 # Compute the new trailing edge wedge angle
-                beta_TE = np.atan((profile_params["y_t"] + profile_params["b_8"]) / (2 * (1 - profile_params["b_15"]))) - 1e-3
+                beta_TE = np.atan((modified_profile_params["y_t"] + modified_profile_params["b_8"]) / (2 * (1 - modified_profile_params["b_15"]))) - 1e-3
                 beta_TE = np.clip(beta_TE, self.BP_bounds["trailing_wedge_angle"][0], self.BP_bounds["trailing_wedge_angle"][1])  # Enforce beta_TE to bounds
-                profile_params["trailing_wedge_angle"] = beta_TE
+                modified_profile_params["trailing_wedge_angle"] = beta_TE
 
             # Handle LE camber y points
             if not one_to_one_LE_camber_y:
                 # Adjust the b_0 control point
-                b_0_coor = profile_params["y_c"] / np.tan(profile_params["leading_edge_direction"]) - 1e-3
-                b_0 = b_0_coor / profile_params["x_c"]
+                b_0_coor = modified_profile_params["y_c"] / np.tan(modified_profile_params["leading_edge_direction"]) - 1e-3
+                b_0 = b_0_coor / modified_profile_params["x_c"]
                 b_0 = np.clip(b_0, self.BP_bounds["b_0"][0], self.BP_bounds["b_0"][1])  # Enforce b_0 to bounds
-                profile_params["b_0"] = b_0
+                modified_profile_params["b_0"] = b_0
             
             # # Handle TE camber y points
             if not one_to_one_TE_camber_y:
                 # Adjust z_TE to 0 
-                profile_params["z_TE"] = 0
+                modified_profile_params["z_TE"] = 0
 
                 # Compute the new trailing camberline angle
-                alpha_TE = np.atan((5/6 * profile_params["y_c"]) / (1 - profile_params["b_17"])) + 1e-3
+                alpha_TE = np.atan((5/6 * modified_profile_params["y_c"]) / (1 - modified_profile_params["b_17"])) + 1e-3
                 alpha_TE = np.clip(alpha_TE, self.BP_bounds["trailing_camberline_angle"][0], self.BP_bounds["trailing_camberline_angle"][1])  # Enforce alpha_TE to bounds
-                profile_params["trailing_camberline_angle"] = alpha_TE
+                modified_profile_params["trailing_camberline_angle"] = alpha_TE
                            
         return original_params
 
@@ -337,8 +345,6 @@ class RepairIndividuals(Repair):
             The repaired list of design vector dictionaries for all individuals in the population. 
         """
 
-        dvi = DesignVectorInterface()
-
         # Loop over all individuals in the population and repair them if needed
         for i, individual in enumerate(X):
             # First extract the keys of the integer variables in the design vector dictionary to be able to cast them back to integer after repairing
@@ -351,7 +357,7 @@ class RepairIndividuals(Repair):
             duct_variables,
             blade_design_parameters,
             blade_blading_parameters,
-            _) = dvi.DeconstructDesignVector(individual, compute_duct = False)
+            _) = self.dvi.DeconstructDesignVector(individual, compute_duct = False)
             
             if config.OPTIMIZE_CENTERBODY:
                 # Repair the centerbody parameters
@@ -372,12 +378,10 @@ class RepairIndividuals(Repair):
                         blade_design_parameters[j][k] = self._enforce_one2one(blade_design_parameters[j][k])
             
             # Reconstruct the design vector into a singular dictionary
-            x = dvi.ReconstructDesignVector(centerbody_variables,
+            x = self.dvi.ReconstructDesignVector(centerbody_variables,
                                                duct_variables,
                                                blade_design_parameters,
                                                blade_blading_parameters)
-            
-
             
             # Convert design vector into array together with bounds to enforce design variable bounds
             x_array = np.array(list(x.values()))
