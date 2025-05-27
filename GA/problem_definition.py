@@ -123,11 +123,10 @@ class OptimizationProblem(ElementwiseProblem):
 
         Parameters
         ----------
-        - **kwargs : dict[str, Any]
-            Additional keyword arguments
-
         - verbose : bool, optional 
             Bool to determine if error messages should be printed to the console while running.
+        - **kwargs : dict[str, Any]
+            Additional keyword arguments
 
         Returns
         -------
@@ -270,7 +269,7 @@ class OptimizationProblem(ElementwiseProblem):
 
         for file_type, file_path in file_paths.items():
             # Move the state file to the dump folder
-            if file_type == "tdat": 
+            if file_type == "tdat" and config.ARCHIVE_STATEFILES: 
                 if file_path.exists():
                     copied_file = self.dump_folder / file_path.name
                     with contextlib.suppress(FileNotFoundError):

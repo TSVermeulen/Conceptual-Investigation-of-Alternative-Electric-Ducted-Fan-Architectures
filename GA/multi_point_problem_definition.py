@@ -318,7 +318,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         for file_type, file_path in file_paths.items():
             # Move the state file to the dump folder
-            if file_type == "tdat": 
+            if file_type == "tdat" and config.ARCHIVE_STATEFILES: 
                 if file_path.exists():
                     copied_file = self.dump_folder / file_path.name
                     with contextlib.suppress(FileNotFoundError):
