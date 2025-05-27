@@ -318,7 +318,7 @@ class MTSET_call:
                 break
             time.sleep(backoff)
             # Adjust the backoff based on remaining time to avoid overshooting the timeout
-            backoff = min(max_backoff, backoff * 2, timeout-elapsed)
+            backoff = min(max_backoff, backoff * 2)
             elapsed = time.monotonic() - start_time
 
         

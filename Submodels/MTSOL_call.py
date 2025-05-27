@@ -867,7 +867,7 @@ class MTSOL_call:
             max_backoff = 0.1
             timeout = 10
             while not event_handler.is_file_processed() and (time.monotonic() - init_time) <= timeout:
-                backoff = min(max_backoff, backoff * 2, timeout - (time.monotonic() - init_time))
+                backoff = min(max_backoff, backoff * 2)
                 time.sleep(backoff)
             
             # Increase iteration counter by step size
