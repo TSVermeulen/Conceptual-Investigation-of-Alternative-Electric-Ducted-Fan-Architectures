@@ -393,7 +393,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         
         if not output_generated:
             # Set parameters equal to the config values in case of a crash so that the constraint/objective value calculations do not crash
-            self.Lref = copy.copy(config.BLADE_DIAMETERS[0])
+            self.Lref = config.BLADE_DIAMETERS[0]
             self.duct_variables = copy.copy(config.DUCT_VALUES)
             self.centerbody_variables = copy.copy(config.CENTERBODY_VALUES)
             self.blade_blading_parameters = copy.copy(config.STAGE_BLADING_PARAMETERS)
@@ -447,7 +447,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
                     # Extract outputs
                     output_handler = self._output_processing(analysis_name=self.analysis_name)
-                    MTFLOW_outputs[idx] = output_handler.GetAllVariables(output_type=3)
+                    MTFLOW_outputs[idx] = output_handler.GetAllVariables(output_type=0)
                 except Exception as e:
                     exit_flag = ExitFlag.CRASH
                     print(f"[MTFLOW_ERROR] OP={idx}, case={self.analysis_name}: {e}")

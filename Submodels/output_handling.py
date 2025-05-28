@@ -581,7 +581,6 @@ class output_processing:
             - '0' : All outputs
             - '1' : General Output data only
             - '2' : Element output data only
-            - '3' : Optimization output only (equal to 1 and 2 together)
 
         Returns
         -------
@@ -606,8 +605,6 @@ class output_processing:
         number_pattern = r"(?:[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?|[+-]?Infinity)"
 
         # Define regex patterns.
-        Ma_pattern = fr"Ma\s*=\s*({number_pattern})"
-        Re_Ncrit_pattern = fr"Re\s*=\s*({number_pattern})\s+Ncrit\s*=\s*({number_pattern})"
         total_CP_etaP_pattern = fr"CP\s*=\s*({number_pattern})\s+EtaP\s*=\s*({number_pattern})"
         total_CT_pattern = fr"Total force\s+CT\s*=\s*({number_pattern})"
         top_CTV_pattern = fr"top CTV\s*=\s*({number_pattern})"
@@ -623,8 +620,7 @@ class output_processing:
         P_ratio_pattern = fr"Pexit/Po\s*=\s*({number_pattern})"
         wetted_area_pattern = fr"Total\s*:\s*({number_pattern})"
 
-        # Initialise output dictionaries and index counter.
-        oper = {}
+        # Initialise output dictionaries.
         data = {}
         grouped_data = {}
 
@@ -634,21 +630,6 @@ class output_processing:
             
             if idx == 0:
                 continue
-            if idx == 1 and output_type == 0:
-                match = re.search(Ma_pattern, line)
-                if match is not None:
-                    oper["Mach"] = match.group(1)
-                else:
-                    oper["Mach"] = 0
-
-            elif idx == 2 and output_type == 0:
-                match = re.search(Re_Ncrit_pattern, line)
-                if match is not None:
-                    oper["Re"] = match.group(1)
-                    oper["Ncrit"] = match.group(2)
-                else:
-                    oper["Re"] = 0
-                    oper["Ncrit"] = 0
 
             elif idx == 3 and output_type in (0, 1, 3):
                 match = re.search(total_CP_etaP_pattern, line)
@@ -751,25 +732,20 @@ class output_processing:
                     data["Wetted Area"] = 0
 
         # Convert contents of all dictionaries to floats
-        oper = {key: float(value) for key, value in oper.items()}
         data = {key: float(value) for key, value in data.items()}
         grouped_data = {key: {k: float(v) for k, v in value.items()} for key, value in grouped_data.items()}
 
         # Construct output dictionary
         output = {}
         if output_type == 0:
-            output["oper"] = oper
             output["data"] = data
             output["grouped_data"] = grouped_data
         elif output_type == 1:
             output = data
         elif output_type == 2:
             output = grouped_data
-        elif output_type == 3:
-            output["data"] = data
-            output["grouped_data"] = grouped_data
         else:
-            raise ValueError(f"Invalid output type passed to GetAllVariables: {output_type}. output type should be 0-3.")
+            raise ValueError(f"Invalid output type passed to GetAllVariables: {output_type}. output type should be 0-2.")
 
         return output
     
