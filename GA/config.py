@@ -283,7 +283,6 @@ INITIAL_POPULATION_SIZE = 200
 MAX_GENERATIONS = 100
 MAX_EVALUATIONS = 11000
 
-
 # Compute the total number of objectives
 n_objectives = len(objective_IDs) * len(multi_oper) - sum([1 for ID in objective_IDs if ID in (1, 2)]) * (len(multi_oper) - 1)
 
@@ -296,6 +295,8 @@ SPREAD_DISCRETE = (-3, 17)  # Absolute range for discrete variables (referene va
 PROFILE_FEASIBILITY_OFFSET = 0.05  # Offset value to avoid bezier control points lying on x_t/x_c
 MAX_ONE2ONE_ATTEMPTS = 200  # Maximum number of attempts to enforce one-to-one on the profile parameterization. 
 
+# Problem controls
+ARCHIVE_STATEFILES = False  # Bool to control if the statefiles should be archived after each evaluation. 
 PROBLEM_TYPE = "single_point"  # Either "single_point" or "multi_point". Defines the type of problem loaded in the main file. 
 RESERVED_THREADS = 0  # Threads reserved for the operating system and any other programs.
 THREADS_PER_EVALUATION = 2  # Number of threads per MTFLOW evaluation: one for running MTSET/MTSOL/MTFLO and one for polling outputs

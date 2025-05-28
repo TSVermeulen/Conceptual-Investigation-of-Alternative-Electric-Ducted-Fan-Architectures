@@ -41,7 +41,7 @@ Version 1.1
 
 Changelog:
 - V1.0: Initial implementation of plotting capabilities of outputs.
-- V1.1: Added convergence property plotter.
+- V1.1: Added convergence property plotter. Added 3D blade geometry plotting capability. 
 """
 
 # Import standard libraries
@@ -53,6 +53,7 @@ from typing import Any, Optional
 
 # Import 3rd party libraries
 import matplotlib.pyplot as plt
+from matplotlib import colormaps
 import numpy as np
 from pymoo.visualization.scatter import Scatter
 from pymoo.visualization.pcp import PCP
@@ -252,16 +253,17 @@ class PostProcessing:
                 plt.grid(which='both')
                 plt.minorticks_on()
                 plt.tight_layout()
-                plt.xlabel("Axial Coordinate [m]")
-                plt.ylabel("Radial Coordinate [m]")
+                plt.xlabel("Normalised axial coordinate $x/c$ [-]")
+                plt.ylabel("Normalised perpendicular coordinate $y/c$ [-]")
                 plt.show()
                 plt.close()
         
         ax1.grid(which='both')
         ax1.minorticks_on()
-        ax1.set_xlabel("Axial Coordinate [m]")
-        ax1.set_ylabel("Radial Coordinate [m]")
-        ax1.legend(loc='upper left', bbox_to_anchor=(1,1))
+        ax1.set_xlabel("Normalised axial coordinate $x/c$ [-]")
+        ax1.set_ylabel("Normalised perpendicular coordinate $y/c$ [-]")
+        if len(optimised) <= 40:  # Avoid generating the legend if the population size is too big to ensure plots remain somewhat clear
+            ax1.legend(loc='upper left', bbox_to_anchor=(1,1))
         grouped_fig.tight_layout()
 
 
@@ -296,7 +298,7 @@ class PostProcessing:
         return upper_x, upper_y, lower_x, lower_y
     
 
-    def _plot_scalar_blading_parameter(self, x, k, key, reference_value, optimised_blading, stage_idx, base_bar_width):
+    def _plot_scalar_blading_parameter(self, x, k, key, reference_value, optimised_blading, stage_idx, base_bar_width, individual_colors):
         """Helper method to plot scalar blading parameters."""
         ref_val = reference_value
         if key == "ref_blade_angle":
@@ -312,10 +314,10 @@ class PostProcessing:
             if key == "ref_blade_angle":
                 opt_val = np.rad2deg(opt_val)
             plt.bar(x[k] + (j + 1) * base_bar_width, opt_val,
-                    width=base_bar_width, label=f"Individual {j}")
+                    width=base_bar_width, label=f"Individual {j}", color=individual_colors[j])
 
 
-    def _plot_rps_blading_parameter(self, x, k, reference_rps, optimised_blading, stage_idx, base_bar_width):
+    def _plot_rps_blading_parameter(self, x, k, reference_rps, optimised_blading, stage_idx, base_bar_width, individual_colors):
         """Helper method to plot RPS blading parameters."""
         num_rps = len(reference_rps)
         sub_bar_width = base_bar_width / num_rps
@@ -334,10 +336,11 @@ class PostProcessing:
                 offset = (r - (num_rps - 1) / 2) * sub_bar_width
                 plt.bar(x[k] + offset + (j + 1) * base_bar_width, opt_r_val,
                         width=sub_bar_width,
-                        label=f"Individual {j}" if r == 0 else "")
+                        label=f"Individual {j}" if r == 0 else "",
+                        color=individual_colors[j])
 
 
-    def _plot_radial_stations_parameter(self, x, k, reference_value, optimised_blading, stage_idx, base_bar_width):
+    def _plot_radial_stations_parameter(self, x, k, reference_value, optimised_blading, stage_idx, base_bar_width, individual_colors):
         """Helper method to plot radial stations parameters (blade diameter)."""
         plt.bar(x[k], max(reference_value) * 2, width=base_bar_width, 
                 color='black', hatch="//", edgecolor="white")
@@ -346,7 +349,8 @@ class PostProcessing:
             opt_val = opt_vals[stage_idx]["radial_stations"]
             opt_val = max(opt_val) * 2  # Time 2 since the radial stations array is defined over the blade radius. 
             plt.bar(x[k] + (j + 1) * base_bar_width, opt_val,
-                    width=base_bar_width, label=f"Individual {j}")
+                    width=base_bar_width, label=f"Individual {j}",
+                    color=individual_colors[j])
 
 
     def _plot_blading_bar_chart(self, stage_idx, reference_blading, optimised_blading):
@@ -369,27 +373,33 @@ class PostProcessing:
 
         num_indiv = len(optimised_blading)
         x = np.arange(len(keys))
-        base_bar_width = 0.8 / num_indiv
+        base_bar_width = 0.8 / (num_indiv + 1)
+
+        colormap = list(colormaps["tab20"].colors)
+ 
+        indiv_colors = [colormap[i % len(colormap)] for i in range(num_indiv)]
 
         plt.figure(f"Bar Chart with blading parameters for stage {stage_idx}")
 
         for k, key in enumerate(keys):
             if key == "radial_stations":
                 self._plot_radial_stations_parameter(x, k, reference_blading[stage_idx][key], 
-                                                    optimised_blading, stage_idx, base_bar_width)
+                                                    optimised_blading, stage_idx, base_bar_width, indiv_colors)
             elif key == "RPS_lst":
                 self._plot_rps_blading_parameter(x, k, reference_blading[stage_idx][key],
-                                            optimised_blading, stage_idx, base_bar_width)
+                                            optimised_blading, stage_idx, base_bar_width, indiv_colors)
             else:
                 self._plot_scalar_blading_parameter(x, k, key, reference_blading[stage_idx][key],
-                                                optimised_blading, stage_idx, base_bar_width)
+                                                optimised_blading, stage_idx, base_bar_width, indiv_colors)
 
         # Format the plot
         plt.xticks(x + (base_bar_width * num_indiv) / 2, variables, rotation=90)
         plt.title("Comparison of Reference vs Optimized Design Variables")
         handles, labels = plt.gca().get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
-        plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1, 1))
+
+        if len(optimised_blading) <= 40:  # Avoid generating the legend if the population size is too big to ensure plots remain somewhat clear
+            plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1, 1))
         plt.grid(axis='y', which='both')
         plt.yscale('log')
         plt.minorticks_on()
@@ -412,42 +422,43 @@ class PostProcessing:
                 ax[row, col].set_prop_cycle(marker_cycle * color_cycle)
                 ax[row, col].minorticks_on()
                 ax[row, col].grid(which='both')
-                ax[row, col].set_xlabel("Radial coordinate [m]")
+                ax[row, col].set_xlabel("Normalised radial coordinate [-]")
 
         # Plot reference data
-        ax[0,0].plot(reference_blading[stage_idx]["radial_stations"],
+        ax[0,0].plot(reference_blading[stage_idx]["radial_stations"] / reference_blading[stage_idx]["radial_stations"][-1],  # Use the radial location as fraction rather than absolute dimension to remove the effect of different diameters
                     reference_blading[stage_idx]["chord_length"],
-                    label="Reference", color='black', marker="x", ms=3)
+                    "-.", label="Reference", color='black', marker="x", ms=3)
         ax[0,0].set_title("Chord length distribution [m]")
 
-        ax[0,1].plot(reference_blading[stage_idx]["radial_stations"],
+        ax[0,1].plot(reference_blading[stage_idx]["radial_stations"] / reference_blading[stage_idx]["radial_stations"][-1],  # Use the radial location as fraction rather than absolute dimension to remove the effect of different diameters
                     np.rad2deg(reference_blading[stage_idx]["sweep_angle"]),
-                    label="Reference", color='black', marker="x", ms=3)
+                    "-.", label="Reference", color='black', marker="x", ms=3)
         ax[0,1].set_title("Sweep angle distribution [deg]")
 
-        ax[1,0].plot(reference_blading[stage_idx]["radial_stations"],
+        ax[1,0].plot(reference_blading[stage_idx]["radial_stations"] / reference_blading[stage_idx]["radial_stations"][-1],  # Use the radial location as fraction rather than absolute dimension to remove the effect of different diameters
                     np.rad2deg(reference_blading[stage_idx]["blade_angle"]),
-                    label="Reference", color='black', marker="x", ms=3)
+                    "-.", label="Reference", color='black', marker="x", ms=3)
         ax[1,0].set_title("Blade angle distribution [deg]")
 
         # Plot optimised data
         for j, opt_vals in enumerate(optimised_blading):
-            ax[0,0].plot(opt_vals[stage_idx]["radial_stations"],
+            ax[0,0].plot(opt_vals[stage_idx]["radial_stations"] / opt_vals[stage_idx]["radial_stations"][-1],  # Use the radial location as fraction rather than absolute dimension to remove the effect of different diameters
                         opt_vals[stage_idx]["chord_length"],
                         label=f"Individual {j}", ms=3)
             
-            ax[0,1].plot(opt_vals[stage_idx]["radial_stations"],
+            ax[0,1].plot(opt_vals[stage_idx]["radial_stations"] / opt_vals[stage_idx]["radial_stations"][-1],  # Use the radial location as fraction rather than absolute dimension to remove the effect of different diameters
                         np.rad2deg(opt_vals[stage_idx]["sweep_angle"]),
                         label=f"Individual {j}", ms=3)
             
-            ax[1,0].plot(opt_vals[stage_idx]["radial_stations"],
+            ax[1,0].plot(opt_vals[stage_idx]["radial_stations"] / opt_vals[stage_idx]["radial_stations"][-1],  # Use the radial location as fraction rather than absolute dimension to remove the effect of different diameters
                         np.rad2deg(opt_vals[stage_idx]["blade_angle"]),
                         label=f"Individual {j}", ms=3)
 
         # Use bottom-right subplot for legend
         ax[1,1].axis('off')
         handles, labels = ax[0,0].get_legend_handles_labels()
-        ax[1,1].legend(handles, labels, loc='center', ncol=2)
+        if len(optimised_blading) <= 40:  # Avoid generating the legend if the population size is too big to ensure plots remain somewhat clear
+            ax[1,1].legend(handles, labels, loc='center', ncol=2)
 
 
     def CompareBladingData(self,
@@ -653,10 +664,8 @@ class PostProcessing:
         
         if individual == "opt":
             # Handle optimum design case
-            if len(res.X) == 1:
-                # Single optimum design
-                optimum_dict = res.X[0]
-                (_, _, optimised_design, _, _) = DesignVectorInterface().DeconstructDesignVector(optimum_dict)
+            if isinstance(res.X, dict):
+                (_, _, optimised_design, _, _) = DesignVectorInterface().DeconstructDesignVector(res.X)
                 
                 # Plot single optimum for each optimized stage
                 for i in range(len(config.OPTIMIZE_STAGE)):
@@ -1006,6 +1015,24 @@ class PostProcessing:
                 ax3d.minorticks_on()
                 ax3d.grid(which='both')
 
+                # Force the aspect ratio of the axes to be the same
+                x_limits = ax3d.get_xlim3d()
+                y_limits = ax3d.get_ylim3d()
+                z_limits = ax3d.get_zlim3d()
+
+                x_range = abs(x_limits[1] - x_limits[0])
+                y_range = abs(y_limits[1] - y_limits[0])
+                z_range = abs(z_limits[1] - z_limits[0])
+                max_range = max(x_range, y_range, z_range)
+
+                x_mid = np.mean(x_limits)
+                y_mid = np.mean(y_limits)
+                z_mid = np.mean(z_limits)
+
+                ax3d.set_xlim3d([x_mid - max_range/2, x_mid + max_range/2])
+                ax3d.set_ylim3d([y_mid - max_range/2, y_mid + max_range/2])
+                ax3d.set_zlim3d([z_mid - max_range/2, z_mid + max_range/2])
+
             plt.show()
 
 
@@ -1027,8 +1054,8 @@ class PostProcessing:
         self.PlotObjectiveSpace(res)
 
         # Visualise the design space
-        self.AnalyseDesignSpace(res,
-                                [0, 2, 4, 5, 6, 7, 8, 9])
+        # self.AnalyseDesignSpace(res,
+        #                         [0, 2, 4, 5, 6, 7, 8, 9])
 
         # Plot the centerbody designs
         if config.OPTIMIZE_CENTERBODY:
@@ -1087,7 +1114,7 @@ class PostProcessing:
                     plt.close('all')
 
 if __name__ == "__main__":
-    output = Path('Results/res_pop30_eval4000_250523111905788625.dill')
+    output = Path('Results/res_pop100_eval11000_250527193408529023.dill')
 
     processing_class = PostProcessing(fname=output)
     processing_class.main()

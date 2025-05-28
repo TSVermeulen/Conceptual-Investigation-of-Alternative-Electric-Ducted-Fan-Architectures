@@ -79,6 +79,10 @@ class FileCreatedHandling(FileSystemEventHandler):
     Simple class to handle checking if forces.analysis_name file has been modified. 
     """
 
+    # File waiting constants
+    BACKOFF = 0.01
+    MAX_BACKOFF = 0.1
+
     def __init__(self, 
                  file_path: Path, 
                  destination: Path) -> None:
@@ -119,14 +123,13 @@ class FileCreatedHandling(FileSystemEventHandler):
                              timeout: float = 5) -> bool:
         """ Helper function to wait until the file_path has finished being written to, and is available. """
         start_time = time.monotonic()
-        backoff = 0.01
-        max_backoff = 0.1
+        backoff = self.BACKOFF
         while (time.monotonic() - start_time) < timeout:
             if self.is_file_free(file_path):
                 return True
             time.sleep(backoff)
             # Adjust the backoff based on remaining time to avoid overshooting the timeout
-            backoff = min(max_backoff, backoff * 2)
+            backoff = min(self.MAX_BACKOFF, backoff * 2)
         return False
         
 
@@ -311,14 +314,15 @@ class MTSOL_call:
             # Signal the thread to stop
             self.shutdown_event.set()
 
-            # Give the thread some time to exit cleanly before force closing
+            # Give the thread time to notice the shutdown event
             wait_time = 0.01
             max_wait = 0.5
             start = time.monotonic()
-            while self.reader.is_alive() and time.monotonic() - start < 1.0:
+            while self.reader.is_alive() and (time.monotonic() - start) < 1.0:
                 time.sleep(wait_time)
                 wait_time = min(max_wait, wait_time * 2)      
             try:
+                # Only force-close stdout if the thread is still alive after waiting
                 if self.reader.is_alive() and getattr(self, "process", None):
                     self.process.stdout.close()
                 self.reader.join(timeout=5)  
@@ -520,7 +524,7 @@ class MTSOL_call:
             
             # Read the output from the output thread
             try:
-                adaptive_timeout = min(0.025 * (1 + int((time.monotonic() - timer_start) / 5)), 0.25)
+                adaptive_timeout = min(0.025 * (1 + int((time.monotonic() - timer_start) // 5)), 0.25)
                 line = self.output_queue.get(timeout=adaptive_timeout)
             except queue.Empty:
                 if self.process.poll() is not None:
@@ -867,7 +871,7 @@ class MTSOL_call:
             max_backoff = 0.1
             timeout = 10
             while not event_handler.is_file_processed() and (time.monotonic() - init_time) <= timeout:
-                backoff = min(max_backoff, backoff * 2, timeout - (time.monotonic() - init_time))
+                backoff = min(max_backoff, backoff * 2)
                 time.sleep(backoff)
             
             # Increase iteration counter by step size
