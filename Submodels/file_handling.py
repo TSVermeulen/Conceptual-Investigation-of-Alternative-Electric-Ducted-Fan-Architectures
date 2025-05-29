@@ -85,8 +85,8 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 2.0
-Date [dd-mm-yyyy]: 24-05-2025
+Version: 2.1
+Date [dd-mm-yyyy]: 30-05-2025
 
 Changelog
 ---------
@@ -96,7 +96,8 @@ Changelog
 - V1.2.0: Updated class initialization logic and function inputs to enable existing geometry inputs for debugging/validation
 - V1.2.1: Fixed duplicate leading edge coordinate in fileHandlingMTSET.GetProfileCoordinates(). Implemented nondimensionalisation of geometric parameters for both MTSET and MTFLO input files. 
 - V1.3: Significant reworks to help solve bugs and issues found in validation against the X22A ducted propeller case. Added the grid size as optional input in fileHandlingMTSET. Code now automatically determines degree of bivariate interpolants based on number of radial stations provided in input data. Factorized the GenerateMTFLOInput function. Fixed transformation from planar to cylindrical coordinate system based on the implementation found in the BladeX module. Fixed implementation of circumferential blade thickness and blade slope. 
-- V2.0: Removed grouping class to reduce import size in GA optimisation. Updated 1D interpolation to also dynamically change interpolation degree based on input dimension. Updated documentation. Enforced y=0 in rotateProfile since it has no effect on MTFLOW evaluation. 
+- V2.0: Removed grouping class to reduce import size in GA optimisation. Updated 1D interpolation to also dynamically change interpolation degree based on input dimension. Updated documentation. Enforced y=0 in rotateProfile since it has no effect on MTFLOW evaluation.
+- V2.1: Updated fileHandlingMTFLO to remove interpolation errors.
 """
 
 # Import standard libraries
@@ -372,6 +373,9 @@ class fileHandlingMTFLO:
         self.parent_dir = Path(__file__).resolve().parent.parent
         self.submodels_path = self.parent_dir / "Submodels"
 
+        # Create a common airfoil parameterization class
+        self.parameterization = AirfoilParameterization()
+
 
     def ValidateBladeThickness(self, 
                                local_thickness: float, 
@@ -423,13 +427,10 @@ class fileHandlingMTFLO:
             - "camber_distr": An array of the camber distribution along the blade profile.
             - "camber_data_points": An array of the camber data points along the blade profile.
         """
-
-        # Initialize the airfoil parameterization class
-        profileParameterizationClass = AirfoilParameterization()
            
         # Calculate the thickness and blade slope distributions along the blade profiles. 
         # All parameters are nondimensionalized by the chord length
-        thickness_distr, thickness_data_points, camber_distr, camber_data_points = profileParameterizationClass.ComputeBezierCurves(design_params)
+        thickness_distr, thickness_data_points, camber_distr, camber_data_points = self.parameterization.ComputeBezierCurves(design_params)
 
         # Construct output dictionary
         # Output dictionary contains the data points for the thickness and camber distributions
@@ -945,18 +946,14 @@ class fileHandlingMTFLO:
                     
                 # Generate interpolated data to construct the file geometry
                 # The MTFLO code cannot accept an input file with more than 16x16 points in the streamwise and radial directions for each stage
-                # Hence n_points=16
+                # Hence n_points_axial=16
                 # The axial points are spaced using a cosine spacing for increased resolution at the LE and TE
-                # The radial points are spaced using constant spacing. 
+                # The radial points are taken equal to the radial points at which the input data is defined. This is done to avoid interpolation errors in MTFLOW. 
                 # Routine assumed at least 120 chord-wise points were used to construct the initial input curves from which the interpolants were constructed
                 n_points_axial = 16
-                n_points_radial = 16
                 n_data = 120
                 axial_points = (1 - np.cos(np.linspace(0, np.pi, n_data))) / 2
-                radial_points = np.linspace(blading_params[stage]["radial_stations"][0], 
-                                            blading_params[stage]["radial_stations"][-1], 
-                                            n_points_radial,
-                                            )                   
+                radial_points = blading_params[stage]["radial_stations"]             
 
                 # Loop over the radial points and construct the data for each radial point
                 # Each radial point is defined as a "section" within the input file
@@ -971,7 +968,7 @@ class fileHandlingMTFLO:
                     # Create complete airfoil representation from the camber and thickness distributions
                     camber_distribution = blade_geometry["camber_distribution"]((r, axial_points)) * local_chord
                     thickness_distribution = blade_geometry["thickness_distribution"]((r, axial_points)) * local_chord
-                    upper_x, upper_y, lower_x, lower_y = AirfoilParameterization().ConvertBezier2AirfoilCoordinates(axial_coordinates, 
+                    upper_x, upper_y, lower_x, lower_y = self.parameterization.ConvertBezier2AirfoilCoordinates(axial_coordinates, 
                                                                                                                     thickness_distribution, 
                                                                                                                     axial_coordinates, 
                                                                                                                     camber_distribution)
