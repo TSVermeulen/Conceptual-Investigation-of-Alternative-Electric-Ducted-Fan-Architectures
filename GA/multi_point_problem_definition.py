@@ -218,7 +218,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Compute the inlet Reynolds number and write it to self.oper
         # Uses Vinl [m/s], Lref [m], and kinematic_viscosity [m^2/s]
-        self.oper["Inlet_Reynolds"] = float((self.oper["Vinl"] * self.Lref) / config.atmosphere.kinematic_viscosity[0])
+        self.oper["Inlet_Reynolds"] = float((self.oper["Vinl"] * self.Lref) / self.oper["atmos"].kinematic_viscosity[0])
 
 
     def ComputeOmega(self,
