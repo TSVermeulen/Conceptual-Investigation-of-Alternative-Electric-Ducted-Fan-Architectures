@@ -53,8 +53,8 @@ from typing import Any, Optional
 
 # Import 3rd party libraries
 import matplotlib.pyplot as plt
-from matplotlib import colormaps
 import numpy as np
+from matplotlib import colormaps
 from pymoo.visualization.scatter import Scatter
 from pymoo.visualization.pcp import PCP
 
@@ -255,6 +255,7 @@ class PostProcessing:
                 plt.tight_layout()
                 plt.xlabel("Normalised axial coordinate $x/c$ [-]")
                 plt.ylabel("Normalised perpendicular coordinate $y/c$ [-]")
+                plt.axis('equal')
                 plt.show()
                 plt.close()
         
@@ -262,6 +263,7 @@ class PostProcessing:
         ax1.minorticks_on()
         ax1.set_xlabel("Normalised axial coordinate $x/c$ [-]")
         ax1.set_ylabel("Normalised perpendicular coordinate $y/c$ [-]")
+        ax1.axis('equal')
         if len(optimised) <= 40:  # Avoid generating the legend if the population size is too big to ensure plots remain somewhat clear
             ax1.legend(loc='upper left', bbox_to_anchor=(1,1))
         grouped_fig.tight_layout()
@@ -517,6 +519,7 @@ class PostProcessing:
         plt.plot((upper_x + lower_x) / 2,
                 (upper_y + lower_y) / 2,
                 color=color, linestyle=linestyle)
+        plt.axis('equal')
 
 
     def _plot_reference_blade_profile(self, 
@@ -1054,8 +1057,8 @@ class PostProcessing:
         self.PlotObjectiveSpace(res)
 
         # Visualise the design space
-        # self.AnalyseDesignSpace(res,
-        #                         [0, 2, 4, 5, 6, 7, 8, 9])
+        self.AnalyseDesignSpace(res,
+                                [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
 
         # Plot the centerbody designs
         if config.OPTIMIZE_CENTERBODY:
@@ -1112,9 +1115,12 @@ class PostProcessing:
                                                   self.design_data_opt[j])
                     plt.show()
                     plt.close('all')
+                
+                self.CreateBladeGeometryPlots(config.STAGE_BLADING_PARAMETERS,
+                                              config.STAGE_DESIGN_VARIABLES)
 
 if __name__ == "__main__":
-    output = Path('Results/res_pop100_eval11000_250527193408529023.dill')
+    output = Path('Results/res_pop100_eval11000_250601094523924887.dill')
 
     processing_class = PostProcessing(fname=output)
     processing_class.main()

@@ -22,13 +22,14 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.2
+Version: 1.3
 
 Changelog:
 - V1.0: Initial implementation. 
 - V1.1: Removed need for context manager by using absolute paths. 
 - V1.2: Wrapped blading generation routine in LRU cache to avoid 
         re-running the function at every GA worker import. 
+- V1.3: Updated single point operating condition to correspond to endurance cruise condition at approximate mid cruise weight ande ndurance speed of 125kts at 10000ft standard day. 
 """
 
 # Import standard libraries
@@ -50,10 +51,6 @@ from Submodels.Parameterizations import AirfoilParameterization # type: ignore
 
 # Define the seed used for randomisation
 GLOBAL_SEED = 42
-
-# Define the altitude for the analysis and construct an atmosphere object from which atmospheric properties can be extracted. 
-ALTITUDE = 0  # meters
-atmosphere = Atmosphere(ALTITUDE)
 
 # Define the objective IDs used to construct the objective functions
 class ObjectiveID(IntEnum):
@@ -78,11 +75,11 @@ class ObjectiveID(IntEnum):
 objective_IDs = [ObjectiveID.EFFICIENCY]
 
 # Define the multi-point operating conditions
-multi_oper = [{"Inlet_Mach": 0.10285225,
+multi_oper = [{"Inlet_Mach": 0.1958224765292171,
                "N_crit": 9,
-               "atmos": Atmosphere(0),
-               "Omega": -13.963,
-               "RPS": 36.45},
+               "atmos": Atmosphere(3048),
+               "Omega": -11.42397,
+               "RPS": 54.80281},
             #    {"Inlet_Mach": 0.20,
             #     "N_crit": 9,
             #     "atmos": Atmosphere(0),
@@ -93,6 +90,7 @@ multi_oper = [{"Inlet_Mach": 0.10285225,
 # Compute the inlet velocities and write them to the multi-point oper dict
 for oper_dict in multi_oper:
     oper_dict["Vinl"] = oper_dict["atmos"].speed_of_sound[0] * oper_dict["Inlet_Mach"]
+
 
 # Controls for the optimisation vector - CENTERBODY
 OPTIMIZE_CENTERBODY = False  # Control boolean to determine if centerbody should be optimised. If false, code uses the default entry below.
@@ -105,6 +103,7 @@ OPTIMIZE_DUCT = True
 DUCT_VALUES = {'b_0': 0.05, 'b_2': 0.2, 'b_8': 0.0016112203781740767, 'b_15': 0.875, 'b_17': 0.8, 'x_t': 0.28390800787161385, 'y_t': 0.08503466788167842, 'x_c': 0.4, 'y_c': 0.0, 'z_TE': -0.015685, 'dz_TE': 0.0005625060663762559, 'r_LE': -0.06974976321495045, 'trailing_wedge_angle': 0.13161296013687374, 'trailing_camberline_angle': 0.003666809042006104, 'leading_edge_direction': -0.811232599724247, "Chord Length": 1.2446, "Leading Edge Coordinates": (0.093, 1.20968)}
 REF_FRONTAL_AREA = 5.1712  # m^2
 
+
 # Controls for the optimisation vector - BLADES
 OPTIMIZE_STAGE = [True, False, False]
 ROTATING = [True, False, False]
@@ -113,6 +112,7 @@ NUM_STAGES = 3  # Define the number of stages (i.e. total count of rotors + stat
 REFERENCE_BLADE_ANGLES = [np.deg2rad(14.5), 0, 0]  # Reference angles at the reference section, measured at the blade tip. The 14.5 degree angle is equivalent to a 19deg angle at the 75% span location.
 BLADE_DIAMETERS = [2.1336, 2.2098, 2.2098]
 tipGap = 0.01016  # 1.016 cm tip gap
+
 
 @functools.lru_cache(maxsize=None, typed=True)  # Unlimited - adjust if memory becomes a concern. 
 def _load_blading(Omega: float,  
@@ -236,11 +236,11 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
                                                                  REFERENCE_BLADE_ANGLES[0])
 
 # Define the target thrust/power and efficiency for use in constraints
-P_ref_constr = [3.0457 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
-                # 1.5592 * (0.5 * atmosphere.density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
+P_ref_constr = [3.0457 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
+                # 1.5592 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
                 ]  # Reference Power in Watts derived from baseline analysis
-T_ref_constr = [2.0933 * (0.5 * atmosphere.density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
-                # 1.2002 * (0.5 * atmosphere.density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
+T_ref_constr = [2.0933 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
+                # 1.2002 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 ] # Reference Thrust in Newtons derived from baseline analysis
 Eta_ref_constr = 0.68631
 deviation_range = 0.01  # +/- x% of the reference value for the constraints

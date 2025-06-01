@@ -35,6 +35,7 @@ Changelog:
 - V1.2: Improved one-to-one enforcement for Bezier curves.
 - V1.3: Refactored repair logic and updated documentation. Improved robustness of one-to-one enforcing by including additonal equation for gamma_LE.
 - V1.4: Made bounds on repair enforce_one2one a reference to the design vector initialisation to ensure single source of truth. Added explicit repair out of bounds operator. 
+- V1.5: Introduced blade count repair function. 
 """
 
 # Import standard libraries
@@ -51,6 +52,7 @@ ensure_repo_paths()
 
 import config #type: ignore
 from Submodels.Parameterizations import AirfoilParameterization #type: ignore
+from Submodels.file_handling import fileHandlingMTFLO #type: ignore
 from design_vector_interface import DesignVectorInterface #type: ignore
 from init_designvector import DesignVector #type: ignore
 
@@ -302,10 +304,7 @@ class RepairIndividuals(Repair):
 
     def _enforce_blade_LE_positive_sweepback(self, blading_params: dict[str, any]) -> dict[str, any]:
         """
-        Enforce that the leading edge of the blade has a positive sweepback angle along the span. 
-        We require that the leading edge of the blade row has a positive sweepangle distribution along the span, 
-        although its slope may vary. In other works, from root to tip, the sweep angle may increase, 
-        but it may not decrease. 
+        Enforce that the leading edge x-coordinate of the blade is positively increasing along the span.  
 
         Parameters
         ----------
@@ -318,12 +317,90 @@ class RepairIndividuals(Repair):
             Dictionary containing the blading parameters with adjusted values to ensure positive sweepback angle
         """
 
-        # Extract the corresponding sweep angles and make them positive increasing,
-        # and write them back to the blading parameters. 
-        blading_params["sweep_angle"] = np.maximum.accumulate(blading_params["sweep_angle"])  
+        # Compute the LE x-coordinate distribution for each of the radial sections and enforce it to be positively increasing
+        LE_x_coordinate = np.tan(blading_params["sweep_angle"]) * blading_params["radial_stations"] 
+        LE_x_coordinate_corrected = np.maximum.accumulate(LE_x_coordinate)
+
+        # Extract the corrected sweep angles from the corrected X-coordinate distribution. 
+        # Skip the first entry since the root is enforced to have sweep=0
+        blading_params["sweep_angle"][1:] = np.atan(LE_x_coordinate_corrected[1:] / blading_params["radial_stations"][1:])
 
         return blading_params
     
+
+    def _fix_blockage(self, 
+                      blading_params: dict[str, any],
+                      design_params: list[dict[str, any]]) -> dict[str, any]:
+        """
+        Fix the blade circumferential thickness. If limit of complete blockage is exceeded anywhere along the blade span, 
+        we simply decrease the blade-count to fix the blockage. 
+
+        Parameters
+        ----------
+        - blading_params : dict[str, any]
+            Dictionary containing the blading parameters
+        - design_params : list[dict[str, any]]
+            - List of the Bezier-Parsec design parameters for all defined radial profile sections
+
+        Returns
+        -------
+        - blading_params : dict[str, any]
+            The repaired blading parameters dictionary
+        """
+
+        # First precompute the limit of complete blockage at every radial station
+        complete_blockage = 2 * np.pi * blading_params["radial_stations"] / blading_params["blade_count"]
+
+        original_blading_params = copy.deepcopy(blading_params)
+
+        # Use a try-except block to handle cases where the profile shape is infeasible. 
+        try:
+            # Loop over the radial sections
+            for i in range(len(design_params)):
+                # Loop to fix the blockage. Require at least 3 blades (minimum blade count is 2)
+                while blading_params["blade_count"] > 2:      
+                    upper_x, upper_y, lower_x, lower_y = self.airfoil_parameterization.ComputeProfileCoordinates(design_params[i])
+                    upper_x *= blading_params["chord_length"][i]
+                    upper_y *= blading_params["chord_length"][i]
+                    lower_x *= blading_params["chord_length"][i]
+                    lower_y *= blading_params["chord_length"][i]
+
+                    blade_pitch = (blading_params["blade_angle"][i] + blading_params["ref_blade_angle"] - blading_params["reference_section_blade_angle"])
+                    rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y  = fileHandlingMTFLO.RotateProfile(blade_pitch,
+                                                                                                                        upper_x,
+                                                                                                                        lower_x,
+                                                                                                                        upper_y,
+                                                                                                                        lower_y)
+                    
+                    LE_coordinate = blading_params["radial_stations"][i] * np.tan(blading_params["sweep_angle"][i])
+                    rotated_upper_x += LE_coordinate - rotated_upper_x[0]
+                    rotated_lower_x += LE_coordinate - rotated_lower_x[0]
+
+                    y_section_upper, y_section_lower, y_camber, z_section_upper, z_section_lower, z_camber = fileHandlingMTFLO.PlanarToCylindrical(rotated_upper_y,
+                                                                                                                                    rotated_lower_y,
+                                                                                                                                    blading_params["radial_stations"][i])
+                    if blading_params["radial_stations"][i] == 0:
+                        break
+                    # Compute the circumferential blade thickness
+                    if blading_params["radial_stations"][i] != 0:
+                        circumferential_thickness = fileHandlingMTFLO.CircumferentialThickness(y_section_upper,
+                                                                                z_section_upper,
+                                                                                y_section_lower,
+                                                                                z_section_lower,
+                                                                                blading_params["radial_stations"][i])
+                    
+                        # Check if the limit of complete blockage is respected by the design. If not, decrease the blade count by 1
+                        max_circumf_thickness = circumferential_thickness.max()
+                        if max_circumf_thickness >= complete_blockage[i]:
+                            blading_params["blade_count"] -= 1
+                            break
+                        else:
+                            break
+            return blading_params
+        except ValueError:
+            # If the profile shape is infeasible, return the original blading parameters to avoid crashing the algorithm. 
+            return original_blading_params                
+        
 
     def _do(self, 
             problem: object, 
@@ -371,11 +448,13 @@ class RepairIndividuals(Repair):
                 if optimise_stage:
                     # Repair the blading parameters
                     blade_blading_parameters[j] = self._enforce_blade_LE_positive_sweepback(blade_blading_parameters[j])
-
                     # Loop over all the radial sections and repair the profile parameters
                     for k in range(config.NUM_RADIALSECTIONS[j]):
                         # Repair the profile parameters
                         blade_design_parameters[j][k] = self._enforce_one2one(blade_design_parameters[j][k])
+                    
+                    # Repair the blade count
+                    blade_blading_parameters[j] = self._fix_blockage(blade_blading_parameters[j], blade_design_parameters[j])
             
             # Reconstruct the design vector into a singular dictionary
             x = self.dvi.ReconstructDesignVector(centerbody_variables,
@@ -409,14 +488,18 @@ if __name__ == "__main__":
     from init_population import InitPopulation #type: ignore
     from problem_definition import OptimizationProblem #type: ignore
 
+    import time
+
     pop = InitPopulation("biased").GeneratePopulation()
 
     pop_dict = [pop.get("X")[i] for i in range(len(pop))]
 
     # Create an instance of the RepairIndividuals class
     problem = OptimizationProblem() 
+    start = time.monotonic()
     repair = RepairIndividuals()
     repaired_pop = repair._do(problem, pop_dict)
+    print("Repair took:", time.monotonic() - start)
 
     # Validate that repair worked
     dvi = DesignVectorInterface()

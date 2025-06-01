@@ -97,7 +97,7 @@ Changelog
 - V1.2.1: Fixed duplicate leading edge coordinate in fileHandlingMTSET.GetProfileCoordinates(). Implemented nondimensionalisation of geometric parameters for both MTSET and MTFLO input files. 
 - V1.3: Significant reworks to help solve bugs and issues found in validation against the X22A ducted propeller case. Added the grid size as optional input in fileHandlingMTSET. Code now automatically determines degree of bivariate interpolants based on number of radial stations provided in input data. Factorized the GenerateMTFLOInput function. Fixed transformation from planar to cylindrical coordinate system based on the implementation found in the BladeX module. Fixed implementation of circumferential blade thickness and blade slope. 
 - V2.0: Removed grouping class to reduce import size in GA optimisation. Updated 1D interpolation to also dynamically change interpolation degree based on input dimension. Updated documentation. Enforced y=0 in rotateProfile since it has no effect on MTFLOW evaluation.
-- V2.1: Updated fileHandlingMTFLO to remove interpolation errors.
+- V2.1: Updated fileHandlingMTFLO to remove interpolation errors. Switched intermal methods to static methods to avoid needing to create dummy initialisations when specific internal methods are needed. 
 """
 
 # Import standard libraries
@@ -500,7 +500,7 @@ class fileHandlingMTFLO:
         camber_data_points = blade_geometry[0]["camber_points"]
 
         # First determine the appropriate interpolation method based on the number of datapoints provided. 
-        if len(blading_params["radial_stations"]) <= 4:
+        if len(blading_params["radial_stations"]) <= 3:
             method = 'slinear'  # Interpolation method for the 2D interpolators
             degree = 1  # Interpolation degree for the 1D interpolators
         else:
@@ -551,8 +551,8 @@ class fileHandlingMTFLO:
         return constructed_blade
         
 
-    def RotateProfile(self, 
-                      pitch: float,
+    @staticmethod
+    def RotateProfile(pitch: float,
                       x_u: np.typing.NDArray[np.floating],
                       x_l: np.typing.NDArray[np.floating],
                       y_u: np.typing.NDArray[np.floating],
@@ -617,8 +617,8 @@ class fileHandlingMTFLO:
         return rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y 
 
 
-    def PlanarToCylindrical(self,
-                            y_u: np.typing.NDArray[np.floating],
+    @staticmethod
+    def PlanarToCylindrical(y_u: np.typing.NDArray[np.floating],
                             y_l: np.typing.NDArray[np.floating],
                             r: float,
                             ) -> tuple[np.typing.NDArray[np.floating], np.typing.NDArray[np.floating], np.typing.NDArray[np.floating], np.typing.NDArray[np.floating], np.typing.NDArray[np.floating], np.typing.NDArray[np.floating]]:
@@ -675,8 +675,8 @@ class fileHandlingMTFLO:
         return y_section_upper, y_section_lower, y_camber, z_section_upper, z_section_lower, z_camber
         
 
-    def CircumferentialThickness(self, 
-                                 y_u: np.typing.NDArray[np.floating], 
+    @staticmethod
+    def CircumferentialThickness(y_u: np.typing.NDArray[np.floating], 
                                  z_u: np.typing.NDArray[np.floating], 
                                  y_l: np.typing.NDArray[np.floating], 
                                  z_l: np.typing.NDArray[np.floating],
@@ -715,8 +715,8 @@ class fileHandlingMTFLO:
         return r * angle_range
 
 
-    def GeometricBladeSlope(self,
-                            y_camber: np.typing.NDArray[np.floating],
+    @staticmethod
+    def GeometricBladeSlope(y_camber: np.typing.NDArray[np.floating],
                             x_camber: np.typing.NDArray[np.floating],
                             z_camber: np.typing.NDArray[np.floating],
                             ) -> tuple[np.typing.NDArray[np.floating], np.typing.NDArray[np.floating], np.typing.NDArray[np.floating]]:
@@ -948,12 +948,16 @@ class fileHandlingMTFLO:
                 # The MTFLO code cannot accept an input file with more than 16x16 points in the streamwise and radial directions for each stage
                 # Hence n_points_axial=16
                 # The axial points are spaced using a cosine spacing for increased resolution at the LE and TE
-                # The radial points are taken equal to the radial points at which the input data is defined. This is done to avoid interpolation errors in MTFLOW. 
+                # The radial points are defined using a linear spacing
                 # Routine assumed at least 120 chord-wise points were used to construct the initial input curves from which the interpolants were constructed
                 n_points_axial = 16
+                n_points_radial = 16
                 n_data = 120
                 axial_points = (1 - np.cos(np.linspace(0, np.pi, n_data))) / 2
-                radial_points = blading_params[stage]["radial_stations"]             
+                radial_points = np.linspace(blading_params[stage]["radial_stations"][0], 
+                                            blading_params[stage]["radial_stations"][-1], 
+                                            n_points_radial,
+                                            )             
 
                 # Loop over the radial points and construct the data for each radial point
                 # Each radial point is defined as a "section" within the input file
@@ -969,9 +973,9 @@ class fileHandlingMTFLO:
                     camber_distribution = blade_geometry["camber_distribution"]((r, axial_points)) * local_chord
                     thickness_distribution = blade_geometry["thickness_distribution"]((r, axial_points)) * local_chord
                     upper_x, upper_y, lower_x, lower_y = self.parameterization.ConvertBezier2AirfoilCoordinates(axial_coordinates, 
-                                                                                                                    thickness_distribution, 
-                                                                                                                    axial_coordinates, 
-                                                                                                                    camber_distribution)
+                                                                                                                thickness_distribution, 
+                                                                                                                axial_coordinates, 
+                                                                                                                camber_distribution)
 
                     # Rotate the airfoil profile to the correct angle
                     # The blade pitch is defined with respect to the blade pitch angle at the reference radial station, and thus is corrected accordingly. 
