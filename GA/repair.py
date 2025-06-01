@@ -348,9 +348,6 @@ class RepairIndividuals(Repair):
             The repaired blading parameters dictionary
         """
 
-        # First precompute the limit of complete blockage at every radial station
-        complete_blockage = 2 * np.pi * blading_params["radial_stations"] / blading_params["blade_count"]
-
         original_blading_params = copy.deepcopy(blading_params)
 
         # Use a try-except block to handle cases where the profile shape is infeasible. 
@@ -358,7 +355,10 @@ class RepairIndividuals(Repair):
             # Loop over the radial sections
             for i in range(len(design_params)):
                 # Loop to fix the blockage. Require at least 3 blades (minimum blade count is 2)
-                while blading_params["blade_count"] > 2:      
+                while blading_params["blade_count"] > 2: 
+                    # First precompute the limit of complete blockage at every radial station
+                    complete_blockage = 2 * np.pi * blading_params["radial_stations"] / blading_params["blade_count"]  
+
                     upper_x, upper_y, lower_x, lower_y = self.airfoil_parameterization.ComputeProfileCoordinates(design_params[i])
                     upper_x *= blading_params["chord_length"][i]
                     upper_y *= blading_params["chord_length"][i]
