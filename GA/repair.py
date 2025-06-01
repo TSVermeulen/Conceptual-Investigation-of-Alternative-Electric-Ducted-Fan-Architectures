@@ -382,7 +382,7 @@ class RepairIndividuals(Repair):
                     if blading_params["radial_stations"][i] == 0:
                         break
                     # Compute the circumferential blade thickness
-                    if blading_params["radial_stations"][i] != 0:
+                    else:
                         circumferential_thickness = fileHandlingMTFLO.CircumferentialThickness(y_section_upper,
                                                                                 z_section_upper,
                                                                                 y_section_lower,
@@ -395,7 +395,8 @@ class RepairIndividuals(Repair):
                             blading_params["blade_count"] -= 1
                             continue
                         else:
-                            continue
+                            # If thickness is okay, break out of the while loop and move to the next radial section
+                            break
             return blading_params
         except ValueError:
             # If the profile shape is infeasible, return the original blading parameters to avoid crashing the algorithm. 
