@@ -393,9 +393,9 @@ class RepairIndividuals(Repair):
                         max_circumf_thickness = circumferential_thickness.max()
                         if max_circumf_thickness >= complete_blockage[i]:
                             blading_params["blade_count"] -= 1
-                            break
+                            continue
                         else:
-                            break
+                            continue
             return blading_params
         except ValueError:
             # If the profile shape is infeasible, return the original blading parameters to avoid crashing the algorithm. 
