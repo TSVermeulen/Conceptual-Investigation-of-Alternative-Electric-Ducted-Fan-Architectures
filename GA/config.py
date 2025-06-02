@@ -142,9 +142,6 @@ def _load_blading(omega: float,
     """
 
     # Start defining the MTFLO blading inputs
-    # radial_stations = np.array([0.0, 0.5334, 1.0668])  # 0, 0.5, 1
-    # chord_length = np.array([0.3510, 0.2528, 0.2205])
-    # blade_angle = np.array([np.deg2rad(53.6), np.deg2rad(32.3), np.deg2rad(15.5)])
     radial_stations = np.array([0.0, 0.32004, 0.74676, 1.0668])  # 0, 0.3, 0.7, 1
     chord_length = np.array([0.3510, 0.3152, 0.2367, 0.2205])
     blade_angle = np.array([np.deg2rad(38.1), np.deg2rad(30.9), np.deg2rad(16.8), np.deg2rad(0)])

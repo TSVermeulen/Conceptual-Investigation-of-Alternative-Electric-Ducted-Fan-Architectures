@@ -35,10 +35,10 @@ Changelog:
 """
 
 # Import standard libraries
-import numpy as np
 from types import ModuleType
 
 # Import 3rd party libraries
+import numpy as np
 from pymoo.core.variable import Real, Integer
 
 class DesignVector:
@@ -195,3 +195,4 @@ if __name__ == "__main__":
     test = DesignVector()
     vector = test.construct_vector(config)
     print(vector)
+    
