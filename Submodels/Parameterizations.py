@@ -679,7 +679,7 @@ class AirfoilParameterization:
 
     def CheckOptimizedResult(self,
                              airfoil_params: dict,
-                             reference_file: Path,
+                             reference_file: Path = None,
                              ) -> None:
         """
         Check the optimized result by plotting the thickness and camber distributions, and the airfoil shape.
@@ -688,13 +688,14 @@ class AirfoilParameterization:
         ----------
         - airfoil_params : dict
             A dictionary containing the airfoil parameterization parameters. 
-        - reference_file : Path
+        - reference_file : Path, optional
             The path to the reference file against which the optimisation took place. 
         """
 
         # Load in the reference profile shape and obtain the relevant parameters
-        self.GetReferenceThicknessCamber(reference_file)
-        self.airfoil_params = self.GetReferenceParameters()
+        if reference_file is not None:
+            self.GetReferenceThicknessCamber(reference_file)
+            self.airfoil_params = self.GetReferenceParameters()
         
         # Obtain bezier curves
         bezier_thickness, bezier_thickness_x, bezier_camber, bezier_camber_x = self.ComputeBezierCurves(airfoil_params)                                                               
@@ -717,11 +718,12 @@ class AirfoilParameterization:
             axs[0].plot(bezier_thickness_x, bezier_thickness, label="Bezier Thickness", color="blue")
             axs[0].plot(x_LE_thickness_coeff, y_LE_thickness_coeff, '*', color='b', label="Bezier Thickness Coefficients")
             axs[0].plot(x_TE_thickness_coeff, y_TE_thickness_coeff, '*', color='b')
-            axs[0].plot(self.x_points_thickness, self.thickness_distribution, "-.", label="Thickness Input Data")
+            if reference_file is not None:
+                axs[0].plot(self.x_points_thickness, self.thickness_distribution, "-.", label="Thickness Input Data")
+                axs[0].plot(self.x_points_camber, self.camber_distribution, "--", label="Camber Input Data")
             axs[0].plot(bezier_camber_x, bezier_camber, label="Bezier Camber", color="red")
             axs[0].plot(x_LE_camber_coeff, y_LE_camber_coeff, '^', color='r', label="Bezier Camber Coefficients")
             axs[0].plot(x_TE_camber_coeff, y_TE_camber_coeff, '^', color='r')
-            axs[0].plot(self.x_points_camber, self.camber_distribution, "--", label="Camber Input Data")
             axs[0].set_title("Thickness & Camber Distributions")
             axs[0].set_xlabel("x/c [-]")
             axs[0].set_ylabel("y/c [-]")
@@ -731,7 +733,8 @@ class AirfoilParameterization:
             # Second row: Combined airfoil shape
             axs[1].plot(upper_x, upper_y, label="Reconstructed Upper Surface", color="green")
             axs[1].plot(lower_x, lower_y, label="Reconstructed Lower Surface", color="purple")
-            axs[1].plot(self.reference_data[:, 0], self.reference_data[:, 1], "-.", color="gray", label="Reference Input Data")
+            if reference_file is not None:
+                axs[1].plot(self.reference_data[:, 0], self.reference_data[:, 1], "-.", color="gray", label="Reference Input Data")
             axs[1].set_title("Combined Airfoil Shape")
             axs[1].set_xlabel("x/c [-]")
             axs[1].set_ylabel("y/c [-]")
