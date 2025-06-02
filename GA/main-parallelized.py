@@ -49,7 +49,7 @@ import multiprocessing
 from pathlib import Path
 
 # Import 3rd party libraries
-from pymoo.core.mixed import MixedVariableGA
+from pymoo.core.mixed import MixedVariableGA, MixedVariableMating
 from pymoo.core.problem import StarmapParallelization
 from pymoo.optimize import minimize
 
@@ -102,6 +102,7 @@ if __name__ == "__main__":
 
         # Initialize the algorithm
         algorithm = MixedVariableGA(pop_size=config.POPULATION_SIZE,
+                                    mating=MixedVariableMating(repair=RepairIndividuals()),
                                     sampling=InitPopulation(population_type="biased",
                                                             seed=config.GLOBAL_SEED).GeneratePopulation(),
                                     repair=RepairIndividuals())
