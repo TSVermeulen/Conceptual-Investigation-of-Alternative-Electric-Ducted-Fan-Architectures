@@ -115,7 +115,7 @@ tipGap = 0.01016  # 1.016 cm tip gap
 
 
 @functools.lru_cache(maxsize=None, typed=True)  # Unlimited - adjust if memory becomes a concern. 
-def _load_blading(Omega: float,  
+def _load_blading(omega: float,  
                   RPS: float,                      
                   ref_blade_angle: float) -> tuple[list, list]:
     """
@@ -124,7 +124,7 @@ def _load_blading(Omega: float,
 
     Parameters
     ----------
-    - Omega : float
+    - omega : float
         The non-dimensional rotational speed of the rotor, as defined in the MTFLOW documentation in units of Vinl/Lref
     - RPS : float
         The rotational rate of the rotor in rotations per second. 
@@ -149,7 +149,7 @@ def _load_blading(Omega: float,
     chord_length = np.array([0.3510, 0.3152, 0.2367, 0.2205])
     blade_angle = np.array([np.deg2rad(38.1), np.deg2rad(30.9), np.deg2rad(16.8), np.deg2rad(0)])
     propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
-                            "rotational_rate": Omega, 
+                            "rotational_rate": omega, 
                             "RPS": RPS,
                             # "RPS_lst": [RPS, RPS * 3],
                             "RPS_lst": [RPS],
@@ -194,7 +194,7 @@ def _load_blading(Omega: float,
     # Define the sweep angles
     # Note that this is approximate, since the rotation of the chord line is not completely accurate when rotating a complete profile
     sweep_angle = np.zeros_like(blading_parameters[0]["chord_length"])
-    root_blade_angle = (np.deg2rad(38.1) + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0]["reference_section_blade_angle"])
+    root_blade_angle = (blade_angle[0] + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0]["reference_section_blade_angle"])
 
     root_LE = blading_parameters[0]["root_LE_coordinate"] # The location of the root LE is arbitrary for computing the sweep angles.
     root_mid_chord = root_LE + (0.3510 / 2) * np.cos(np.pi / 2 - root_blade_angle)
@@ -284,7 +284,7 @@ MAX_GENERATIONS = 100
 MAX_EVALUATIONS = 11000
 
 # Compute the total number of objectives
-n_objectives = len(objective_IDs) * len(multi_oper) - sum([1 for ID in objective_IDs if ID in (1, 2)]) * (len(multi_oper) - 1)
+n_objectives = len(objective_IDs) * len(multi_oper) - sum(1 for ID in objective_IDs if ID in (1, 2)) * (len(multi_oper) - 1)
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
 SPREAD_CONTINUOUS = 0.25  # Relative spread (+/- %) applied to continous variables around their reference values

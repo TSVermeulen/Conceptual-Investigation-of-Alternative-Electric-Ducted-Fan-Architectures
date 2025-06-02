@@ -26,8 +26,8 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Date [dd-mm-yyyy]: [22-05-2025]
-Version: 1.4
+Date [dd-mm-yyyy]: [01-06-2025]
+Version: 1.5
 
 Changelog:
 - V1.0: Initial implementation of repair operators for profile parameterizations.
@@ -189,10 +189,10 @@ class RepairIndividuals(Repair):
             Dictionary containing the profile parameters with adjusted values to ensure one to one mapping
         """
 
-        # Attempt to enforce one to one mapping of the bezier x-curves for 100 attempts. 
-        # If we fail to find a one to one mapping, we will return the profile parameters as is and accept the infeasibility
-        original_params = copy.deepcopy(profile_params)
+        # Attempt to enforce one to one mapping of the bezier x-curves for 200 attempts. 
         for _ in range(200):
+            # Create a working copy for this iteration
+            modified_profile_params = copy.deepcopy(profile_params)
             
             # Compute the bezier curves for the x-coordinates. x_LE_thickness is always one to one, so we can ignore it.
             ((_, 
@@ -202,7 +202,7 @@ class RepairIndividuals(Repair):
              (_,
               y_TE_thickness,
               y_LE_camber,
-              y_TE_camber)) = self._computebezier(profile_params)
+              y_TE_camber)) = self._computebezier(modified_profile_params)
 
             # Check one to one of all x points
             one_to_one_TE_thickness_x = np.all(np.diff(x_TE_thickness) >= 0)
@@ -216,9 +216,7 @@ class RepairIndividuals(Repair):
 
             # Check if all x points are one to one. If so, we return the updated profile parameters
             if one_to_one_TE_thickness_x and one_to_one_LE_camber_x and one_to_one_TE_camber_x and one_to_one_TE_thickness_y and one_to_one_LE_camber_y and one_to_one_TE_camber_y:
-                return profile_params
-            else:
-                modified_profile_params = copy.deepcopy(profile_params)  # Isolate each attempted fix
+                return modified_profile_params
 
             # Handle TE thickness x points
             if not one_to_one_TE_thickness_x:
@@ -233,7 +231,7 @@ class RepairIndividuals(Repair):
                     # Adjust the second control point to enforce x2 < x3
                     sqrt_term = -10 * modified_profile_params["x_t"] * modified_profile_params["r_LE"] / 21
                     # Safety check to avoid sqrt of a negative number
-                    b_8_adjusted = np.sqrt(sqrt_term) - 1e-2 if sqrt_term >= 0 else 0
+                    b_8_adjusted = np.sqrt(sqrt_term) - 1e-2 if sqrt_term > 0 else 0
                     b_8_map = b_8_adjusted / min(modified_profile_params["y_t"], np.sqrt(-2 * modified_profile_params["r_LE"] * modified_profile_params["x_t"] / 3))
                     b_8_clipped_map = np.clip(b_8_map, self.BP_bounds["b_8"][0], self.BP_bounds["b_8"][1])
                     b_8_adjusted_clipped = b_8_clipped_map * min(modified_profile_params["y_t"], np.sqrt(-2 * modified_profile_params["r_LE"] * modified_profile_params["x_t"] / 3))
@@ -299,7 +297,7 @@ class RepairIndividuals(Repair):
                 alpha_TE = np.clip(alpha_TE, self.BP_bounds["trailing_camberline_angle"][0], self.BP_bounds["trailing_camberline_angle"][1])  # Enforce alpha_TE to bounds
                 modified_profile_params["trailing_camberline_angle"] = alpha_TE
                            
-        return original_params
+        return modified_profile_params
 
 
     def _enforce_blade_LE_positive_sweepback(self, blading_params: dict[str, any]) -> dict[str, any]:
@@ -357,7 +355,7 @@ class RepairIndividuals(Repair):
                 # Loop to fix the blockage. Require at least 3 blades (minimum blade count is 2)
                 while blading_params["blade_count"] > 2: 
                     # First precompute the limit of complete blockage at every radial station
-                    complete_blockage = 2 * np.pi * blading_params["radial_stations"] / blading_params["blade_count"]  
+                    complete_blockage = 2 * np.pi * blading_params["radial_stations"] / blading_params["blade_count"]
 
                     upper_x, upper_y, lower_x, lower_y = self.airfoil_parameterization.ComputeProfileCoordinates(design_params[i])
                     upper_x *= blading_params["chord_length"][i]
@@ -376,9 +374,9 @@ class RepairIndividuals(Repair):
                     rotated_upper_x += LE_coordinate - rotated_upper_x[0]
                     rotated_lower_x += LE_coordinate - rotated_lower_x[0]
 
-                    y_section_upper, y_section_lower, y_camber, z_section_upper, z_section_lower, z_camber = fileHandlingMTFLO.PlanarToCylindrical(rotated_upper_y,
-                                                                                                                                    rotated_lower_y,
-                                                                                                                                    blading_params["radial_stations"][i])
+                    y_section_upper, y_section_lower, _, z_section_upper, z_section_lower, _ = fileHandlingMTFLO.PlanarToCylindrical(rotated_upper_y,
+                                                                                                                                     rotated_lower_y,
+                                                                                                                                     blading_params["radial_stations"][i])
                     if blading_params["radial_stations"][i] == 0:
                         break
                     # Compute the circumferential blade thickness
@@ -397,7 +395,9 @@ class RepairIndividuals(Repair):
                         else:
                             # If thickness is okay, break out of the while loop and move to the next radial section
                             break
+
             return blading_params
+        
         except ValueError:
             # If the profile shape is infeasible, return the original blading parameters to avoid crashing the algorithm. 
             return original_blading_params                

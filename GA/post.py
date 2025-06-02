@@ -127,7 +127,7 @@ class PostProcessing:
         try:
             # Open and load the results file
             with self.results_path.open('rb') as f:
-                # ignore=False ensures we get an error if the object cannot be reconstructed. 
+                # ignore=False ensures we get an error if the object cannot be reconstructed.
                 res = dill.load(f, ignore=False)
                 
             return res
@@ -154,7 +154,7 @@ class PostProcessing:
         return CB_data, duct_data, blading_data, design_data
     
 
-    def ExtractPopulationData(self,
+    def extract_population_data(self,
                               res: object) -> None:
         """
         Extract all population data from the results object, 
@@ -173,7 +173,7 @@ class PostProcessing:
         self.CB_data_opt, self.duct_data_opt, self.blading_data_opt, self.design_data_opt = self._extract_data(res.opt)
     
 
-    def CompareAxisymmetricGeometry(self,
+    def compare_axisymmetric_geometry(self,
                                     reference: dict[str, Any],
                                     optimised: list[dict[str, Any]],
                                     individual: bool = False) -> None:
@@ -199,9 +199,9 @@ class PostProcessing:
         parameterization = AirfoilParameterization()
 
         # Compute the original geometry (x,y) coordinates
-        (original_upper_x, 
-        original_upper_y, 
-        original_lower_x, 
+        (original_upper_x,
+        original_upper_y,
+        original_lower_x,
         original_lower_y) = parameterization.ComputeProfileCoordinates(reference)
         
         # Precompute the concatenated original geometry coordinates to avoid repeated operatings while plotting
@@ -213,17 +213,17 @@ class PostProcessing:
         
         # First plot the original geometry
         ax1.plot(original_x,
-                 original_y, 
-                 "k-.", 
+                 original_y,
+                 "k-.",
                  label="Original Geometry",
                  )
         
         # Loop over all individuals in the final population and plot their geometries
-        for i, geom in enumerate(optimised):                
+        for i, geom in enumerate(optimised):
             # Compute the optimised geometry
-            (opt_upper_x, 
-            opt_upper_y, 
-            opt_lower_x, 
+            (opt_upper_x,
+            opt_upper_y,
+            opt_lower_x,
             opt_lower_y) = parameterization.ComputeProfileCoordinates(geom)
             
             # Compute the concatenated optimised x and y coordinates
@@ -232,21 +232,21 @@ class PostProcessing:
 
             # Plot the optimised geometry
             ax1.plot(opt_x,
-                     opt_y, 
+                     opt_y,
                      label=f"Individual {i}",
                      )
             
-            if individual:     
+            if individual:
                 # Create figure for the individual comparison plot
                 plt.figure(f"Comparison for individual {i}")
                 # plot the original geometry
                 plt.plot(original_x,
-                         original_y, 
-                         "k-.", 
+                         original_y,
+                         "k-.",
                          label="Original Geometry",
                          )
                 plt.plot(opt_x,
-                         opt_y, 
+                         opt_y,
                          label=f"Individual {i}",
                          )
                 plt.legend(bbox_to_anchor=(1,1))
@@ -269,7 +269,7 @@ class PostProcessing:
         grouped_fig.tight_layout()
 
 
-    def ConstructBladeProfile(self,
+    def construct_blade_profile(self,
                               design:list[dict[str, Any]],
                               section_idx: int) -> tuple:
         """
@@ -292,8 +292,8 @@ class PostProcessing:
         """
    
         # Create complete airfoil representation
-        (upper_x, 
-         upper_y, 
+        (upper_x,
+         upper_y,
          lower_x,
          lower_y) = self._airfoil_param.ComputeProfileCoordinates(design[section_idx])
 
@@ -328,7 +328,7 @@ class PostProcessing:
         for r, r_val in enumerate(reference_rps):
             offset = (r - (num_rps - 1) / 2) * sub_bar_width
             plt.bar(x[k] + offset, r_val, width=sub_bar_width,
-                    label="Reference" if r == 0 else "", 
+                    label="Reference" if r == 0 else "",
                     color='black', hatch='//', edgecolor='white')
 
         # Plot optimised RPS values
@@ -344,12 +344,12 @@ class PostProcessing:
 
     def _plot_radial_stations_parameter(self, x, k, reference_value, optimised_blading, stage_idx, base_bar_width, individual_colors):
         """Helper method to plot radial stations parameters (blade diameter)."""
-        plt.bar(x[k], max(reference_value) * 2, width=base_bar_width, 
+        plt.bar(x[k], max(reference_value) * 2, width=base_bar_width,
                 color='black', hatch="//", edgecolor="white")
         
         for j, opt_vals in enumerate(optimised_blading):
             opt_val = opt_vals[stage_idx]["radial_stations"]
-            opt_val = max(opt_val) * 2  # Time 2 since the radial stations array is defined over the blade radius. 
+            opt_val = max(opt_val) * 2  # Time 2 since the radial stations array is defined over the blade radius.
             plt.bar(x[k] + (j + 1) * base_bar_width, opt_val,
                     width=base_bar_width, label=f"Individual {j}",
                     color=individual_colors[j])
@@ -367,7 +367,7 @@ class PostProcessing:
         
         keys = [
             "root_LE_coordinate",
-            "ref_blade_angle", 
+            "ref_blade_angle",
             "blade_count",
             "RPS_lst",
             "radial_stations"
@@ -385,7 +385,7 @@ class PostProcessing:
 
         for k, key in enumerate(keys):
             if key == "radial_stations":
-                self._plot_radial_stations_parameter(x, k, reference_blading[stage_idx][key], 
+                self._plot_radial_stations_parameter(x, k, reference_blading[stage_idx][key],
                                                     optimised_blading, stage_idx, base_bar_width, indiv_colors)
             elif key == "RPS_lst":
                 self._plot_rps_blading_parameter(x, k, reference_blading[stage_idx][key],
@@ -463,7 +463,7 @@ class PostProcessing:
             ax[1,1].legend(handles, labels, loc='center', ncol=2)
 
 
-    def CompareBladingData(self,
+    def compare_blading_data(self,
                         reference_blading: list[dict[str, Any]],
                         optimised_blading: list[list[dict[str, Any]]]) -> None:
         """
@@ -476,6 +476,7 @@ class PostProcessing:
         - optimised_blading : list[dict[str, Any]]
             The optimised blading data. Each nested list corresponds to an individual in the final optimised population.
         """
+
         # Generate bar charts and sectional plots for each optimized stage
         for stage_idx, opt_stage in enumerate(config.OPTIMIZE_STAGE):
             if opt_stage:
@@ -486,11 +487,11 @@ class PostProcessing:
                 self._plot_sectional_blading_data(stage_idx, reference_blading, optimised_blading)
     
     
-    def _plot_single_blade_profile(self, 
-                                   design: list[dict[str, Any]], 
-                                   section_idx: int, 
-                                   label: str, 
-                                   color: str, 
+    def _plot_single_blade_profile(self,
+                                   design: list[dict[str, Any]],
+                                   section_idx: int,
+                                   label: str,
+                                   color: str,
                                    linestyle: str = '-') -> None:
         """
         Helper method to plot a single blade profile with camber line.
@@ -508,7 +509,7 @@ class PostProcessing:
         - linestyle : str, optional
             Line style for the plot. Defaults to '-'
         """
-        upper_x, upper_y, lower_x, lower_y = self.ConstructBladeProfile(design, section_idx)
+        upper_x, upper_y, lower_x, lower_y = self.construct_blade_profile(design, section_idx)
         
         # Plot the blade profile
         plt.plot(np.concatenate((upper_x, np.flip(lower_x))),
@@ -522,9 +523,9 @@ class PostProcessing:
         plt.axis('equal')
 
 
-    def _plot_reference_blade_profile(self, 
-                                      reference_design: list[list[dict[str, Any]]], 
-                                      stage_idx: int, 
+    def _plot_reference_blade_profile(self,
+                                      reference_design: list[list[dict[str, Any]]],
+                                      stage_idx: int,
                                       section_idx: int) -> None:
         """
         Helper method to plot the reference blade profile.
@@ -538,13 +539,13 @@ class PostProcessing:
         - section_idx : int
             The radial section index
         """
-        self._plot_single_blade_profile(reference_design[stage_idx], section_idx, 
+        self._plot_single_blade_profile(reference_design[stage_idx], section_idx,
                                     "Reference", "tab:orange", "-.")
 
 
-    def _format_blade_plot(self, 
-                           radial_coordinate: float, 
-                           stage_idx: int, 
+    def _format_blade_plot(self,
+                           radial_coordinate: float,
+                           stage_idx: int,
                            plot_type: str = "") -> None:
         """
         Helper method to format blade profile plots.
@@ -568,9 +569,9 @@ class PostProcessing:
         plt.tight_layout()
 
 
-    def _plot_multiple_optimum_designs(self, 
-                                       multi_optimum_designs: list, 
-                                       reference_design: list[list[dict[str, Any]]], 
+    def _plot_multiple_optimum_designs(self,
+                                       multi_optimum_designs: list,
+                                       reference_design: list[list[dict[str, Any]]],
                                        stage_idx: int) -> None:
         """
         Helper method to plot multiple optimum designs for a given stage.
@@ -592,7 +593,7 @@ class PostProcessing:
             
             # Plot each optimum design
             for opt_idx, current_opt_design in enumerate(multi_optimum_designs):
-                self._plot_single_blade_profile(current_opt_design[stage_idx], j, 
+                self._plot_single_blade_profile(current_opt_design[stage_idx], j,
                                             f"Optimised (Ind {opt_idx})", colors[opt_idx])
             
             # Plot reference design
@@ -602,10 +603,10 @@ class PostProcessing:
             self._format_blade_plot(radial_coordinate, stage_idx, "Multiple Optima")
 
 
-    def _plot_single_optimum_design(self, 
-                                    optimised_design: list[list[dict[str, Any]]], 
-                                    reference_design: list[list[dict[str, Any]]], 
-                                    stage_idx: int, 
+    def _plot_single_optimum_design(self,
+                                    optimised_design: list[list[dict[str, Any]]],
+                                    reference_design: list[list[dict[str, Any]]],
+                                    stage_idx: int,
                                     individual: int | str) -> None:
         """
         Helper method to plot a single optimum design for a given stage.
@@ -636,11 +637,11 @@ class PostProcessing:
             self._format_blade_plot(radial_coordinate, stage_idx, f"individual: {individual}")
 
 
-    def CompareBladeDesignData(self,
-                            reference_design: list[list[dict[str, Any]]],
-                            res: object,
-                            individual: int | str = "opt",
-                            optimised_design: Optional[list[list[dict[str, Any]]]] = None) -> None:
+    def compare_blade_design_data(self,
+                               reference_design: list[list[dict[str, Any]]],
+                               res: object,
+                               individual: int | str = "opt",
+                               optimised_design: Optional[list[list[dict[str, Any]]]] = None) -> None:
         """
         Compares the blade design data of a reference design with an optimized design 
         and generates plots for visual comparison at various radial sections.
@@ -698,8 +699,8 @@ class PostProcessing:
                     self._plot_single_optimum_design(optimised_design, reference_design, i, individual)
 
     
-    def GenerateConvergenceStatistics(self,
-                                      res : object) -> None:
+    def generate_convergence_statistics(self,
+                                        res : object) -> None:
         """
         Generate some graphs to analyse the convergence behaviour of the optimisation. 
         Analyses:
@@ -711,7 +712,7 @@ class PostProcessing:
 
         # First visualise the convergence of the objective values
         n_evals = [e.evaluator.n_eval for e in res.history]
-        generational_optimum = np.array([e.opt[0].F for e in res.history])       
+        generational_optimum = np.array([e.opt[0].F for e in res.history])
         avg_objectives = np.array([np.mean(e.pop.get("F"), axis=0) for e in res.history])
 
         plt.figure()
@@ -722,7 +723,7 @@ class PostProcessing:
             n_obj = avg_objectives.shape[1]
             for i in range(n_obj):
                 plt.plot(n_evals, generational_optimum[:, i], "-.x", label=f'Generational optimum for objective {i + 1}')
-                plt.plot(n_evals, avg_objectives[:,i], "-*", label=f"Generational average for objective {i + 1}")      
+                plt.plot(n_evals, avg_objectives[:,i], "-*", label=f"Generational average for objective {i + 1}")
         else:
             avg_objectives = avg_objectives.squeeze()
             plt.plot(n_evals, generational_optimum, "-.x", label='Generational optimum')
@@ -760,7 +761,7 @@ class PostProcessing:
         plt.tight_layout()
 
         # Visualise the maximum change in design vectors from one generation to the next
-        max_change = [0]  # First generation has no predecessor so change is zero. 
+        max_change = [0]  # First generation has no predecessor so change is zero.
         for i in range(1, len(res.history)):
             # Get current and previous populations' design vectors
             # Sorts X_current and X_prev based on the x_keys list derived earlier
@@ -770,7 +771,7 @@ class PostProcessing:
             X_prev = np.array([[design_dict[k] for k in x_keys] for design_dict in X_prev])
             
             # For each design vector in the current generation, find the minimum Euclidean distance to any design vector in the previous generation.
-            # This enables us to compute the maximum change even if the population size changes with generations. 
+            # This enables us to compute the maximum change even if the population size changes with generations.
             # Process the design vectors in chunks to improve memory efficiency.
             max_change_value = 0
             for x in X_current:
@@ -791,7 +792,7 @@ class PostProcessing:
         plt.yscale("log")
         plt.tight_layout()
 
-        # Visualise the constraint violation 
+        # Visualise the constraint violation
         CV = []
         for e in res.history:
             constraints = e.pop.get("CV")
@@ -808,7 +809,7 @@ class PostProcessing:
         plt.tight_layout()
 
 
-    def PlotObjectiveSpace(self,
+    def plot_objective_space(self,
                            res: object) -> None:
         """
         Visualise the objective space for all feasible solutions.
@@ -830,7 +831,7 @@ class PostProcessing:
         F_feasible = F_all[feasible_mask]
 
         # Create scatter plot of the objective space
-        plot = Scatter(title="Objective space for the feasible evaluated solution set")	
+        plot = Scatter(title="Objective space for the feasible evaluated solution set")
         plot.add(res.history[0].pop[0].get("F"), marker="x", facecolor="blue", s=35, label="Reference Design")
         plot.add(F_feasible, facecolor='none', edgecolor='black', s=10, label="Evaluated solutions")
         plot.add(res.F, facecolor='red', s=20, label="Optimum solutions")
@@ -838,10 +839,10 @@ class PostProcessing:
         plot.show()
 
 
-    def AnalyseDesignSpace(self,
-                           res: object,
-                           idx_list: list[int]
-                           ) -> None:
+    def analyse_design_space(self,
+                             res: object,
+                             idx_list: list[int]
+                             ) -> None:
         """
         Visualise the feasible design space for the design variables whose indices are given in idx_list. 
 
@@ -861,7 +862,7 @@ class PostProcessing:
         CV_all = np.array([design for gen in res.history for design in gen.pop.get("CV")])
 
         # Convert the feasible solution set to arrays for plotting
-        # Selects only the design variables whose indices are given in idx_list. 
+        # Selects only the design variables whose indices are given in idx_list.
         keys = [f"x{i}" for i in idx_list]
         X_all_arr = np.array([[d[k] for k in keys] for d in X_all_dicts])
         
@@ -880,9 +881,9 @@ class PostProcessing:
         scatter.add(X_feasible_arr).show()
 
 
-    def CreateBladeGeometryPlots(self,
-                                blading: list[list[dict[str, any]]],
-                                design: list[list[list[dict[str, any]]]]) -> None:
+    def create_blade_geometry_plots(self,
+                                    blading: list[list[dict[str, any]]],
+                                    design: list[list[list[dict[str, any]]]]) -> None:
         """
         Generate 2D and 3D plots of blade geometries for each stage the ducted fan design.
         This method visualizes the blade sections by constructing their geometry using provided blading and design data.
@@ -910,31 +911,31 @@ class PostProcessing:
         - Plots are displayed using matplotlib.
         """
 
-        # Define the number of radial sections to generate a plot for, the number of chordwise data points to use 
-        # and their distribution. 
+        # Define the number of radial sections to generate a plot for, the number of chordwise data points to use
+        # and their distribution.
         n_points_radial = 16
         n_data = 120
         axial_points = (1 - np.cos(np.linspace(0, np.pi, n_data))) / 2
 
         # Initialize fileHandlingMTFLO class - we use the methods developed there to construct the blade shape
-        # Initialized with random inputs since we will not be generating any outputs from the class. 
-        # We just use the methods from the class to generate the geometry for plotting. 
-        fh = fileHandlingMTFLO("*", 1)  
+        # Initialized with random inputs since we will not be generating any outputs from the class.
+        # We just use the methods from the class to generate the geometry for plotting.
+        fh = fileHandlingMTFLO("*", 1)
 
         # Create plot for each stage:
         for i in range(len(blading)):
             # Only compute the plots if the stage is to be optimized
             if config.OPTIMIZE_STAGE[i]:
                 # Set up figures for 2D and 3D plotting
-                fig2d, ax2d = plt.subplots(figsize=(12, 8))
+                _, ax2d = plt.subplots(figsize=(12, 8))
                 fig3d = plt.figure(figsize=(12, 8))
                 ax3d = fig3d.add_subplot(111, projection='3d')
 
-                # Construct the radial points at which we obtain the data. 
-                radial_points = np.linspace(blading[i]["radial_stations"][0], 
-                                            blading[i]["radial_stations"][-1], 
+                # Construct the radial points at which we obtain the data.
+                radial_points = np.linspace(blading[i]["radial_stations"][0],
+                                            blading[i]["radial_stations"][-1],
                                             n_points_radial,
-                                            ) 
+                                            )
                 
                 # Define lists to store the section geometries
                 x_data = []
@@ -954,13 +955,13 @@ class PostProcessing:
                     # Create complete airfoil representation from the camber and thickness distributions
                     camber_distribution = blade_geometry["camber_distribution"]((r, axial_points)) * local_chord
                     thickness_distribution = blade_geometry["thickness_distribution"]((r, axial_points)) * local_chord
-                    upper_x, upper_y, lower_x, lower_y = self._airfoil_param.ConvertBezier2AirfoilCoordinates(axial_coordinates, 
-                                                                                                              thickness_distribution, 
-                                                                                                              axial_coordinates, 
+                    upper_x, upper_y, lower_x, lower_y = self._airfoil_param.ConvertBezier2AirfoilCoordinates(axial_coordinates,
+                                                                                                              thickness_distribution,
+                                                                                                              axial_coordinates,
                                                                                                               camber_distribution)
 
                     # Rotate the airfoil profile to the correct angle
-                    # The blade pitch is defined with respect to the blade pitch angle at the reference radial station, and thus is corrected accordingly. 
+                    # The blade pitch is defined with respect to the blade pitch angle at the reference radial station, and thus is corrected accordingly.
                     blade_pitch = (blade_geometry["pitch_distribution"](r) + blading[i]["ref_blade_angle"] - blading[i]["reference_section_blade_angle"])
                     rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y  = fh.RotateProfile(blade_pitch,
                                                                                                             upper_x,
@@ -987,21 +988,21 @@ class PostProcessing:
                     r_data.append(np.full_like(rotated_x, r))
 
                     # Plot the blade section in the 3D plot
-                    ax3d.plot(rotated_x, 
+                    ax3d.plot(rotated_x,
                               rotated_y,
                               np.full_like(rotated_x, r),  # Each section is defined at constant r
                               color='black')
                 
-                # Convert all data to arrays - this is needed to use the plot_surface method. 
+                # Convert all data to arrays - this is needed to use the plot_surface method.
                 x_data = np.array(x_data)
                 y_data = np.array(y_data)
                 r_data = np.array(r_data)
 
                 # Plot the blade surface in 3D
-                ax3d.plot_surface(x_data, 
-                                  y_data, 
-                                  r_data, 
-                                  alpha=0.75)        
+                ax3d.plot_surface(x_data,
+                                  y_data,
+                                  r_data,
+                                  alpha=0.75)
 
                 # Format 2D plot
                 ax2d.set_title("2D Projection of Blade Geometry at Each Radial Section")
@@ -1041,48 +1042,50 @@ class PostProcessing:
 
     def main(self) -> None:
         """
-        Main post-processing method. 
+        Main post-processing method.
         """
         
         # Load in the results object and extract the population data to self
         res = self.load_res()
-        self.ExtractPopulationData(res)
+        self.extract_population_data(res)
 
         # Visualise the convergence behavior of the solution
-        self.GenerateConvergenceStatistics(res)
+        self.generate_convergence_statistics(res)
         plt.show()
         plt.close('all')
        
         # Visualise the objective space
-        self.PlotObjectiveSpace(res)
+        self.plot_objective_space(res)
 
         # Visualise the design space
-        self.AnalyseDesignSpace(res,
-                                [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+        self.analyse_design_space(res,
+                                  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
 
         # Plot the centerbody designs
         if config.OPTIMIZE_CENTERBODY:
             # First plot the complete final population
-            self.CompareAxisymmetricGeometry(config.CENTERBODY_VALUES,
-                                             self.CB_data)
+            self.compare_axisymmetric_geometry(config.CENTERBODY_VALUES,
+                                               self.CB_data)
             plt.show()
             plt.close('all')
+            
             # Plot the optimum solution set
-            self.CompareAxisymmetricGeometry(config.CENTERBODY_VALUES,
-                                             self.CB_data_opt)
+            self.compare_axisymmetric_geometry(config.CENTERBODY_VALUES,
+                                               self.CB_data_opt)
             plt.show()
             plt.close('all')
 
         # Plot the duct designs
         if config.OPTIMIZE_DUCT:
             # First plot the complete final population
-            self.CompareAxisymmetricGeometry(config.DUCT_VALUES,
-                                             self.duct_data)
+            self.compare_axisymmetric_geometry(config.DUCT_VALUES,
+                                               self.duct_data)
             plt.show()
             plt.close('all')
+
             # Plot the optimum solution set
-            self.CompareAxisymmetricGeometry(config.DUCT_VALUES,
-                                             self.duct_data_opt)
+            self.compare_axisymmetric_geometry(config.DUCT_VALUES,
+                                               self.duct_data_opt)
             plt.show()
             plt.close('all')
         
@@ -1091,33 +1094,33 @@ class PostProcessing:
 
             if config.OPTIMIZE_STAGE[i]:
                 # First plot the complete final population
-                self.CompareBladingData(config.STAGE_BLADING_PARAMETERS,
-                                        self.blading_data)
+                self.compare_blading_data(config.STAGE_BLADING_PARAMETERS,
+                                          self.blading_data)
                 plt.show()
                 plt.close('all')
 
                 # Plot the optimum solution set
-                self.CompareBladingData(config.STAGE_BLADING_PARAMETERS,
-                                        self.blading_data_opt)
+                self.compare_blading_data(config.STAGE_BLADING_PARAMETERS,
+                                          self.blading_data_opt)
                 plt.show()
                 plt.close('all')
 
                 # Plot the optimum solution set
-                self.CompareBladeDesignData(reference_design=config.STAGE_DESIGN_VARIABLES,
-                                            res=res,
-                                            individual="opt")
+                self.compare_blade_design_data(reference_design=config.STAGE_DESIGN_VARIABLES,
+                                               res=res,
+                                               individual="opt")
                 plt.show()
                 plt.close('all')
 
                 # Plot the optimum solution set
                 for j in range(len(self.blading_data_opt)):
-                    self.CreateBladeGeometryPlots(self.blading_data_opt[j],
-                                                  self.design_data_opt[j])
+                    self.create_blade_geometry_plots(self.blading_data_opt[j],
+                                                     self.design_data_opt[j])
                     plt.show()
                     plt.close('all')
                 
-                self.CreateBladeGeometryPlots(config.STAGE_BLADING_PARAMETERS,
-                                              config.STAGE_DESIGN_VARIABLES)
+                self.create_blade_geometry_plots(config.STAGE_BLADING_PARAMETERS,
+                                                config.STAGE_DESIGN_VARIABLES)
 
 if __name__ == "__main__":
     output = Path('Results/res_pop100_eval11000_250601094523924887.dill')

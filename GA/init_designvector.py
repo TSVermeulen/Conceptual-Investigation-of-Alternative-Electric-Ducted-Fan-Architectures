@@ -169,7 +169,7 @@ class DesignVector:
             i = stage_config['index']
             vector.append(Real(bounds=(0, 0.4)))  # root_LE_coordinate
             vector.append(Real(bounds=(0.1, np.pi/6)))  # ref_blade_angle from [~5.7deg to 30 deg]
-            vector.append(Integer(bounds=(3, 20)))  # blade_count
+            vector.append(Integer(bounds=(2, 20)))  # blade_count
             if stage_config['is_rotating']:
                 for _ in range(num_operating_points):
                     vector.append(Real(bounds=(20, 80)))  # blade RPS
