@@ -379,22 +379,22 @@ class RepairIndividuals(Repair):
                                                                                                                                      blading_params["radial_stations"][i])
                     if blading_params["radial_stations"][i] == 0:
                         break
-                    # Compute the circumferential blade thickness
-                    else:
-                        circumferential_thickness = fileHandlingMTFLO.CircumferentialThickness(y_section_upper,
-                                                                                z_section_upper,
-                                                                                y_section_lower,
-                                                                                z_section_lower,
-                                                                                blading_params["radial_stations"][i])
 
-                        # Check if the limit of complete blockage is respected by the design. If not, decrease the blade count by 1
-                        max_circumf_thickness = circumferential_thickness.max()
-                        if max_circumf_thickness >= complete_blockage[i]:
-                            blading_params["blade_count"] -= 1
-                            continue
-                        else:
-                            # If thickness is okay, break out of the while loop and move to the next radial section
-                            break
+                    # Compute the circumferential blade thickness
+                    circumferential_thickness = fileHandlingMTFLO.CircumferentialThickness(y_section_upper,
+                                                                            z_section_upper,
+                                                                            y_section_lower,
+                                                                            z_section_lower,
+                                                                            blading_params["radial_stations"][i])
+                    
+                    # Check if the limit of complete blockage is respected by the design. If not, decrease the blade count by 1
+                    max_circumf_thickness = circumferential_thickness.max()
+                    if max_circumf_thickness >= complete_blockage[i]:
+                        blading_params["blade_count"] -= 1
+                        continue
+
+                    # If thickness is okay, break out of the while loop and move to the next radial section
+                    break
 
             return blading_params
 

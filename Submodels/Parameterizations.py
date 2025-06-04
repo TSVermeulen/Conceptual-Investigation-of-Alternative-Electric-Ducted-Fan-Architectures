@@ -1042,10 +1042,10 @@ class AirfoilParameterization:
         airfoil_params_optimized, status = self._slsqp_fitting(reference_file)
         if status == 0:
             return airfoil_params_optimized
-        else:
-            # If SLSQP failed, try a genetic algorithm
-            airfoil_params_optimized = self._GA_fitting(reference_file)
-            return airfoil_params_optimized
+
+        # If SLSQP failed, try a genetic algorithm
+        airfoil_params_optimized = self._GA_fitting(reference_file)
+        return airfoil_params_optimized
 
 
 if __name__ == "__main__":
@@ -1060,5 +1060,5 @@ if __name__ == "__main__":
     print("-----")
     print(airf_params)
 
-    test = call_class.CheckOptimizedResult(airf_params,
-                                           inputfile)
+    call_class.CheckOptimizedResult(airf_params,
+                                    inputfile)

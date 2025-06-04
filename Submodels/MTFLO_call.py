@@ -57,7 +57,6 @@ class MTFLO_call:
 
     def __init__(self,
                  analysis_name: str,
-                 **kwargs : dict,
                  ) -> None:
         """
         Initialize the MTFLO_call class with the file path and analysis name.
@@ -66,8 +65,6 @@ class MTFLO_call:
         ----------
         - analysis_name : str
             The name of the analysis case.
-        - kwargs : dict
-            Additional keyword arguments.
         """
 
         self.analysis_name = analysis_name
@@ -192,6 +189,10 @@ class MTFLO_call:
         Full interfacing function between Python and MTFLO.
 
         Requires that the input file, tflow.xxx, has been made and is available together with the mtflo.exe executable in the local directory.
+
+        Returns
+        -------
+        None
         """
 
         # Create subprocess for the MTFLO tool
@@ -207,8 +208,7 @@ class MTFLO_call:
         while (time.time() - start_time) <= timeout:
             if self.FileStatus(fpath):
                 break
-            else:
-                time.sleep(0.01)
+            time.sleep(0.01)
 
 
 if __name__ == "__main__":

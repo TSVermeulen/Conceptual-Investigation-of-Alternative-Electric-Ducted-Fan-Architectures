@@ -164,9 +164,9 @@ class DesignVectorInterface:
                     blade_blading_parameters[i]["radial_stations"] = blade_blading_parameters[i]["radial_stations"] / r_old * LE_coordinate_duct
                 else:
                     # If the last entry of radial stations is 0, simply set it to the LE coordinate of the duct. This avoids a divide-by-zero error.
-                    blade_blading_parameters[i]["radial_stations"][-1] = np.full_like(blade_blading_parameters[i]["radial_stations"],
-                                                                                      LE_coordinate_duct,
-                                                                                      dtype=float)
+                    blade_blading_parameters[i]["radial_stations"] = np.full_like(blade_blading_parameters[i]["radial_stations"],
+                                                                                  LE_coordinate_duct,
+                                                                                  dtype=float)
 
         # Return the updated data
         return duct_variables, blade_blading_parameters

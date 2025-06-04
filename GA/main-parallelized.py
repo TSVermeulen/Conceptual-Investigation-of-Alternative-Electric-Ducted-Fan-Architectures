@@ -74,22 +74,13 @@ if __name__ == "__main__":
     threads_per_eval = max(1, getattr(config, "THREADS_PER_EVALUATION", 2))
     total_threads_avail = max(0, total_threads - config.RESERVED_THREADS)
 
-    if total_threads_avail < threads_per_eval:
-        # No point spawning processes that will immediately contend for the same cores
-        n_processes = 0
-    else:
-        n_processes = total_threads_avail // threads_per_eval
-
-    # Always fall back to at least one serial worker to ensure the script still runs.
-    n_processes = max(1, n_processes)
-
-    # Do not spawn more processes than the GA can effectively use
-    n_processes = min(n_processes, config.POPULATION_SIZE)
+    # Calculate optimal process count, ensuring at least one worker
+    n_processes = max(1, total_threads_avail // threads_per_eval)
 
     print(f"Spawning {n_processes} worker processes (total threads: {total_threads}, available: {total_threads_avail}, threads per eval: {threads_per_eval})")
     with multiprocessing.Pool(processes=n_processes,
                               initializer=ensure_repo_paths,
-                              maxtasksperchild=100,
+                              maxtasksperchild=100,  # Prevent memory leaks in long optimisations
                               ) as pool:
 
         # Create runner

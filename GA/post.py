@@ -947,9 +947,9 @@ class PostProcessing:
                                                           design[i])
 
                 # Loop over the blade span
-                for r in radial_points:
+                for idx, r in enumerate(radial_points):
                      # All parameters are normalised using the local chord length, so we need to obtain the local chord in order to obtain the dimensional parameters
-                    local_chord = blade_geometry["chord_distribution"](r)
+                    local_chord = blading[i]["chord_length"][idx]
                     axial_coordinates = axial_points * local_chord
 
                     # Create complete airfoil representation from the camber and thickness distributions
@@ -962,7 +962,7 @@ class PostProcessing:
 
                     # Rotate the airfoil profile to the correct angle
                     # The blade pitch is defined with respect to the blade pitch angle at the reference radial station, and thus is corrected accordingly.
-                    blade_pitch = (blade_geometry["pitch_distribution"](r) + blading[i]["ref_blade_angle"] - blading[i]["reference_section_blade_angle"])
+                    blade_pitch = (blading[i]["blade_angle"][idx] + blading[i]["ref_blade_angle"] - blading[i]["reference_section_blade_angle"])
                     rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y  = fh.RotateProfile(blade_pitch,
                                                                                                             upper_x,
                                                                                                             lower_x,
@@ -971,7 +971,7 @@ class PostProcessing:
 
                     # Compute the local leading edge offset at the radial station from the provided interpolant
                     # Use it to offset the x-coordinates of the upper and lower surfaces to the correct position
-                    LE_coordinate = blade_geometry["leading_edge_distribution"](r)
+                    LE_coordinate = r * np.tan(blading[i]["sweep_angle"][idx])
                     rotated_upper_x += LE_coordinate - rotated_upper_x[0]
                     rotated_lower_x += LE_coordinate - rotated_lower_x[0]
 
@@ -1123,7 +1123,7 @@ class PostProcessing:
                                                 config.STAGE_DESIGN_VARIABLES)
 
 if __name__ == "__main__":
-    output = Path('Results/res_pop100_eval11000_250601094523924887.dill')
+    output = Path('Results/res_pop100_eval11000_250604042335351398.dill')
 
     processing_class = PostProcessing(fname=output)
     processing_class.main()
