@@ -4,15 +4,15 @@ init_population
 
 Description
 -----------
-This module provides functionality to initialize populations for optimization problems, 
-either by generating a biased population based on a reference design or by sampling 
+This module provides functionality to initialize populations for optimization problems,
+either by generating a biased population based on a reference design or by sampling
 randomly within the bounds of the design variables.
 
 Classes
 -------
 InitPopulation
-    A class to initialize populations for optimization problems. It supports generating 
-    biased populations with perturbations around a reference design or random populations 
+    A class to initialize populations for optimization problems. It supports generating
+    biased populations with perturbations around a reference design or random populations
     sampled uniformly across the bounds.
 
 Examples
@@ -28,7 +28,7 @@ Examples
 
 Notes
 -----
-This module is designed to work with the pymoo optimization framework and assumes 
+This module is designed to work with the pymoo optimization framework and assumes
 the design vector configuration is provided in the `config` module.
 
 References
@@ -64,7 +64,7 @@ import config # type: ignore
 
 class InitPopulation():
     """
-    Population generation class to handle generation of the starting point for the genetic algorithm optimisation. 
+    Population generation class to handle generation of the starting point for the genetic algorithm optimisation.
     """
 
 
@@ -116,13 +116,13 @@ class InitPopulation():
 
         # Define a helper function to map the b_8 variable
         def map_b8_value(variable_dict: dict):
-            """ 
+            """
             Compute a normalised b_8 mapping variables on [0, 1].
             This normalisation ensures the b_8 variable always matches the constraint:
                              0 <= b_8 <= min(y_t, sqrt(-2*r_LE*x_t/3))
             """
 
-            denominator = min(variable_dict["y_t"], 
+            denominator = min(variable_dict["y_t"],
                               np.sqrt(max(0.0, -2 * variable_dict["x_t"] * variable_dict["r_LE"] / 3)))
             return float(variable_dict["b_8"] / denominator) if denominator > 0 else 0.0
 
@@ -137,7 +137,7 @@ class InitPopulation():
             vector.append(config.CENTERBODY_VALUES["r_LE"])
             vector.append(config.CENTERBODY_VALUES["trailing_wedge_angle"])
             vector.append(config.CENTERBODY_VALUES["Chord Length"])
-        
+
         if config.OPTIMIZE_DUCT:
             # If the duct is to be optimised, read the reference values into the design vector
             vector.append(config.DUCT_VALUES["b_0"])
@@ -184,7 +184,7 @@ class InitPopulation():
             if config.OPTIMIZE_STAGE[i]:
                 # Read the reference values into the design vector
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["root_LE_coordinate"])
-                vector.append(config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle"]) 
+                vector.append(config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle"])
                 vector.append(int(config.STAGE_BLADING_PARAMETERS[i]["blade_count"]))
                 if config.ROTATING[i]:
                     for RPS in config.STAGE_BLADING_PARAMETERS[i]["RPS_lst"]:
@@ -201,11 +201,11 @@ class InitPopulation():
         # Change vector from a list to a dictionary to match the expected structure of pymoo
         keys = list(self.design_vector.keys())
 
-        # Ensure the vector is the same length as the design vector keys        
+        # Ensure the vector is the same length as the design vector keys
         vector = {key: value for key, value in zip(keys, vector)}
 
         return vector
-                                   
+
 
     def GenerateBiasedPopulation(self) -> Population:
         """
@@ -237,14 +237,14 @@ class InitPopulation():
 
         # Generate the initial population equal to the POPULATION_SIZE reference_individuals
         pop_dict = [reference_individual.copy() for _ in range(config.INITIAL_POPULATION_SIZE)]
-        
+
         # Compute masks for the floating point and integer design variables
         real_mask = np.array([np.issubdtype(type(v), np.floating) for v in reference_individual.values()])
         int_mask  = np.array([np.issubdtype(type(v), np.integer)  for v in reference_individual.values()])
         other_mask = ~(real_mask | int_mask)
         if other_mask.any():
             raise TypeError("Non-scalar design variables detected: update initial-population logic.")
-            
+
         # Compute masks to check which values of the floating point variables are zero
         zero_real_mask = real_mask & (ref == 0)
         nonzero_real_mask = real_mask & (ref != 0)
@@ -253,8 +253,8 @@ class InitPopulation():
         for i in range(1, len(pop_dict)):
             # Generate some noise for the floating point variables
             # Use uniform noise to ensure an equal sampling across the design space.
-            noise = self._np_rng.uniform(-1, 1, size=ref.shape)  
-           
+            noise = self._np_rng.uniform(-1, 1, size=ref.shape)
+
             # Apply perturbations
             # For nonzero real values, we use a simple noise perturbation
             perturbed_individual = ref.copy()
@@ -278,40 +278,40 @@ class InitPopulation():
         pop = Population.create(*individuals)
 
         return pop
-    
+
 
     def GeneratePopulation(self) -> Population|MixedVariableSampling:
         """
         Generate the initial population for the optimisation problem.
 
-        Use either: 
+        Use either:
         - A biased population where we introduce some perturbations around a known initial design vector
         - A random population where we sample the design vector uniformly across the bounds
 
         Parameters
         ----------
         None
-        
+
         Returns
         -------
         - pop : Population|MixedVariableSampling
             The initial population for the optimisation problem as a pymoo Population object or a MixedVariableSampling object.
             The type of population is determined by the `type` parameter.
             - For "biased" type: Returns a fully initialised Population object ready for optimisation.
-            - For "random" type: Returns a MixedVariableSampling strategy object that Pymoo will use to generate the population. 
+            - For "random" type: Returns a MixedVariableSampling strategy object that Pymoo will use to generate the population.
         """
 
         if self.type == "biased":
             # Generate a biased population based on an existing solution
             pop = self.GenerateBiasedPopulation()
-        elif self.type == "random":   
+        elif self.type == "random":
             # Generate a random population
             pop = MixedVariableSampling()
         else:
             raise ValueError("Invalid population type. Choose 'biased' or 'random'.")
-            
+
         return pop
-    
+
 
 if __name__ == "__main__":
     test = InitPopulation("biased")

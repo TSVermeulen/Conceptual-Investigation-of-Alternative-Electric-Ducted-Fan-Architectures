@@ -6,7 +6,7 @@ Description
 -----------
 This module defines the main entry point for running a multi-threaded optimization problem using the pymoo framework.
 Uses the starmap parallelization method for flexible parallelization opportunities.
-Uses the Unified-Nondominated Sorting Genetic Algorithm 3 with the mixed-variable implementation. 
+Uses the Unified-Nondominated Sorting Genetic Algorithm 3 with the mixed-variable implementation.
 
 Functionality
 -------------
@@ -20,7 +20,7 @@ Examples
 
 Notes
 -----
-This module integrates with the pymoo framework and requires the problem definition and population initialization modules. 
+This module integrates with the pymoo framework and requires the problem definition and population initialization modules.
 Ensure that all dependencies are installed and properly configured.
 
 References
@@ -36,17 +36,17 @@ Student ID: 4995309
 Version: 1.0
 
 Changelog:
-- V1.0: Initial implementation. 
+- V1.0: Initial implementation.
 """
 
 # Import standard libraries
-import dill
 import datetime
 import os
 import multiprocessing
 from pathlib import Path
 
 # Import 3rd party libraries
+import dill
 from pymoo.core.mixed import MixedVariableMating, MixedVariableDuplicateElimination
 from pymoo.core.problem import StarmapParallelization
 from pymoo.optimize import minimize
@@ -70,19 +70,19 @@ if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
     if os.name == 'nt':
         multiprocessing.set_start_method('spawn', force=True)
-    
+
     """ Initialize the thread pool and create the runner """
     total_threads = multiprocessing.cpu_count()
     threads_per_eval = max(1, getattr(config, "THREADS_PER_EVALUATION", 2))
     total_threads_avail = max(0, total_threads - config.RESERVED_THREADS)
-    
+
     if total_threads_avail < threads_per_eval:
         # No point spawning processes that will immediately contend for the same cores
         n_processes = 0
     else:
         n_processes = total_threads_avail // threads_per_eval
-    
-    # Always fall back to at least one serial worker to ensure the script still runs. 
+
+    # Always fall back to at least one serial worker to ensure the script still runs.
     n_processes = max(1, n_processes)
 
     # Do not spawn more processes than the GA can effectively use
@@ -102,15 +102,15 @@ if __name__ == "__main__":
             from multi_point_problem_definition import MultiPointOptimizationProblem # type: ignore
             problem = MultiPointOptimizationProblem(elementwise_runner=runner,
                                                     seed=config.GLOBAL_SEED)
-        else:        
+        else:
             problem = OptimizationProblem(elementwise_runner=runner,
                                           seed=config.GLOBAL_SEED)
-                
+
         # Create the reference directions to be used for the optimisation
         ref_dirs = get_reference_directions("energy",
                                             n_dim=config.n_objectives,
                                             n_points=calculate_n_reference_points(config))
-        
+
         # Initialize the algorithm
         duplicate_elimination = MixedVariableDuplicateElimination()
         selection_operator = TournamentSelection(func_comp=comp_by_rank_and_ref_line_dist)
@@ -125,7 +125,7 @@ if __name__ == "__main__":
                            selection=selection_operator,
                            repair=RepairIndividuals()
                            )
-        
+
         # Run the optimization
         res = minimize(problem,
                        algorithm,
@@ -137,7 +137,7 @@ if __name__ == "__main__":
 
         # Print some performance metrics
         print(f"Optimization completed in {res.exec_time:.2f} seconds")
-        print("Best solution found: \nX = %s\nF = %s" % (res.X, res.F))
+        print(f"Best solution found: \nX = {res.X}\nF = {res.F}")
 
         """ Save the results to a dill file for future reference """
         # This avoids needing to re-run the optimization if the results are needed later.
@@ -149,7 +149,7 @@ if __name__ == "__main__":
                         parents=True)
 
         now = datetime.datetime.now()
-        timestamp = f"{now:%y%m%d%H%M%S%f}"	
+        timestamp = f"{now:%y%m%d%H%M%S%f}"
         output_name = results_dir / f"res_pop{config.POPULATION_SIZE}_eval{config.MAX_EVALUATIONS}_{timestamp}.dill"
         try:
             with open(output_name, 'wb') as f:

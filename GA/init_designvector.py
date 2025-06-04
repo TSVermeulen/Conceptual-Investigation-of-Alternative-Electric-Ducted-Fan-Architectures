@@ -4,7 +4,7 @@ design_vector_init
 
 Description
 -----------
-This module defines the DesignVector class, which is used to construct the design vector for the pymoo framework 
+This module defines the DesignVector class, which is used to construct the design vector for the pymoo framework
 optimization problem. The design vector supports mixed-variable optimization, including real and integer variables.
 
 Classes
@@ -20,7 +20,7 @@ Examples
 
 Notes
 -----
-This module integrates with the pymoo framework for optimization. Ensure that the configuration module (cfg) is 
+This module integrates with the pymoo framework for optimization. Ensure that the configuration module (cfg) is
 properly set up with the required toggles and parameters for the design vector construction.
 
 Versioning
@@ -46,7 +46,7 @@ class DesignVector:
     This class is used to construct the design vector for the optimisation problem.
     """
 
-    # Define the bounds on the BP3434 parameterization method. 
+    # Define the bounds on the BP3434 parameterization method.
     BP_3434_bounds = {"b_0": (0.05, 0.1),
                       "b_2": (0.125, 0.3),
                       "b_8": (0.05, 0.7),
@@ -69,16 +69,11 @@ class DesignVector:
     # Indices for the thickness parameters for the centerbody parameters
     # We force the centerbody to be symmetric, so camber parameters are not needed
     CENTERBODY_VAR_INDICES = [2, 3, 5, 6, 10, 11, 12]
-
-    def __init__(self) -> None:
-        """
-        Initialisation for the DesignVector class.
-        """
-
+    
 
     @classmethod
     def _create_profile_vars(cls) -> list:
-        """ 
+        """
         Create the profile section variables once and cache them.
         """
         return [Real(bounds=cls.BP_3434_bounds["b_0"]),  # b_0
@@ -99,10 +94,10 @@ class DesignVector:
 
     @classmethod
     def profile_section_vars(cls) -> list:
-        """ 
+        """
         Return the standard 15-var profile section definition.
         Bounds are based on those presented in:
-            Rogalsky T. Acceleration of differential evolution for aerodynamic design. 
+            Rogalsky T. Acceleration of differential evolution for aerodynamic design.
             Ph.D. Thesis, University of Manitoba; 2004.
         """
 
@@ -119,10 +114,10 @@ class DesignVector:
         Parameters
         ----------
         - cls : class
-            The class. used to access the class-attribute BP_3434_bounds. 
+            The class. used to access the class-attribute BP_3434_bounds.
         - cfg : ModuleType
             The config module containing the design vector configuration.
-        
+
         Returns
         -------
         - dict
@@ -162,22 +157,22 @@ class DesignVector:
         # For the stage(s) marked for optimisation, add the profile design variables to the design vector
         for stage_config in stage_configs:
             for _ in range(stage_config['num_radial_sections']):
-                vector.extend(cls.profile_section_vars())             
+                vector.extend(cls.profile_section_vars())
 
         # Add stage-specific variables
         for stage_config in stage_configs:
             i = stage_config['index']
             vector.append(Real(bounds=(0, 0.4)))  # root_LE_coordinate
             vector.append(Real(bounds=(0.1, np.pi/6)))  # ref_blade_angle from [~5.7deg to 30 deg]
-            vector.append(Integer(bounds=(2, 20)))  # blade_count
+            vector.append(Integer(bounds=(3, 20)))  # blade_count
             if stage_config['is_rotating']:
                 for _ in range(num_operating_points):
                     vector.append(Real(bounds=(20, 80)))  # blade RPS
             vector.append(Real(bounds=(1.0, 3.0)))  # blade diameter
 
-            for _ in range(stage_config['num_radial_sections']): 
+            for _ in range(stage_config['num_radial_sections']):
                 vector.append(Real(bounds=(0.1, 0.75)))  # chord length
-            for _ in range(stage_config['num_radial_sections'] - 1):  # Note the -1 since the root section is independent of sweep. 
+            for _ in range(stage_config['num_radial_sections'] - 1):  # Note the -1 since the root section is independent of sweep.
                 vector.append(Real(bounds=(0, np.pi/3)))  # sweep_angle
             for _ in range(stage_config['num_radial_sections'] - 1):  # Note the -1 since the tip has a fixed angle at 0
                 vector.append(Real(bounds=(0, np.pi/3)))  # blade_angle
@@ -186,13 +181,12 @@ class DesignVector:
         # Note that all variables are given a name xi.
         var_names = [f"x{i}" for i in range(len(vector))]
         vector = dict(zip(var_names, vector))
-        
+
         return vector
-    
+
 
 if __name__ == "__main__":
     import  config # type: ignore
     test = DesignVector()
     vector = test.construct_vector(config)
     print(vector)
-    

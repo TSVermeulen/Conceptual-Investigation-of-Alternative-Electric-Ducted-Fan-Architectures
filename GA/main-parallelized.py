@@ -19,7 +19,7 @@ Examples
 
 Notes
 -----
-This module integrates with the pymoo framework and requires the problem definition and population initialization modules. 
+This module integrates with the pymoo framework and requires the problem definition and population initialization modules.
 Ensure that all dependencies are installed and properly configured.
 
 References
@@ -35,20 +35,20 @@ Student ID: 4995309
 Version: 1.3
 
 Changelog:
-- V1.0: Initial implementation. 
+- V1.0: Initial implementation.
 - V1.1: Updated documentation to reflect changes in the main module structure and added examples for usage.
 - V1.2: Updated to include reserved thread for MTSOL output reader.
 - V1.3: Updated to use the utils.ensure_repo_paths function.
 """
 
 # Import standard libraries
-import dill
 import datetime
 import os
 import multiprocessing
 from pathlib import Path
 
 # Import 3rd party libraries
+import dill
 from pymoo.core.mixed import MixedVariableGA, MixedVariableMating
 from pymoo.core.problem import StarmapParallelization
 from pymoo.optimize import minimize
@@ -68,24 +68,24 @@ if __name__ == "__main__":
     multiprocessing.freeze_support() # Required for Windows compatibility when using multiprocessing
     if os.name == 'nt':
         multiprocessing.set_start_method('spawn', force=True)
-    
+
     """ Initialize the thread pool and create the runner """
     total_threads = multiprocessing.cpu_count()
     threads_per_eval = max(1, getattr(config, "THREADS_PER_EVALUATION", 2))
     total_threads_avail = max(0, total_threads - config.RESERVED_THREADS)
-    
+
     if total_threads_avail < threads_per_eval:
         # No point spawning processes that will immediately contend for the same cores
         n_processes = 0
     else:
         n_processes = total_threads_avail // threads_per_eval
-    
-    # Always fall back to at least one serial worker to ensure the script still runs. 
+
+    # Always fall back to at least one serial worker to ensure the script still runs.
     n_processes = max(1, n_processes)
 
     # Do not spawn more processes than the GA can effectively use
     n_processes = min(n_processes, config.POPULATION_SIZE)
-    
+
     print(f"Spawning {n_processes} worker processes (total threads: {total_threads}, available: {total_threads_avail}, threads per eval: {threads_per_eval})")
     with multiprocessing.Pool(processes=n_processes,
                               initializer=ensure_repo_paths,
@@ -106,7 +106,7 @@ if __name__ == "__main__":
                                     sampling=InitPopulation(population_type="biased",
                                                             seed=config.GLOBAL_SEED).GeneratePopulation(),
                                     repair=RepairIndividuals())
-        
+
         # Run the optimization
         res = minimize(problem,
                        algorithm,
@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
         # Print some performance metrics
         print(f"Optimization completed in {res.exec_time:.2f} seconds")
-        print("Best solution found: \nX = %s\nF = %s" % (res.X, res.F))
+        print(f"Best solution found: \nX = {res.X}\nF = {res.F}")
 
         """ Save the results to a dill file for future reference """
         # This avoids needing to re-run the optimization if the results are needed later.
@@ -129,7 +129,7 @@ if __name__ == "__main__":
         results_dir.mkdir(exist_ok=True)
 
         now = datetime.datetime.now()
-        timestamp = f"{now:%y%m%d%H%M%S%f}"	
+        timestamp = f"{now:%y%m%d%H%M%S%f}"
         output_name = results_dir / f"res_pop{config.POPULATION_SIZE}_gen{config.MAX_GENERATIONS}_{timestamp}.dill"
         try:
             with open(output_name, 'wb') as f:

@@ -43,20 +43,20 @@ from scipy import interpolate
 import numpy as np
 
 # Ensure all paths are correctly setup
-from utils import ensure_repo_paths  # type: ignore 
+from utils import ensure_repo_paths  # type: ignore
 ensure_repo_paths()
 
 # Import interfacing modules
-import config  # type: ignore 
-from Submodels.Parameterizations import AirfoilParameterization # type: ignore 
+import config  # type: ignore
+from Submodels.Parameterizations import AirfoilParameterization # type: ignore
 _PARAMETERISATION = AirfoilParameterization()
 
 class DesignVectorInterface:
-    """ 
-    Simple class to provide efficient access to design vector elements without repeated string formatting, 
+    """
+    Simple class to provide efficient access to design vector elements without repeated string formatting,
     and to deconstruct the design vector dictionary x into the expected "sub"-dictionaries required to use the MTFLOW interface """
-    
-    
+
+
     def __init__(self) -> None:
         """
         Initialization of the DesignVectorInterface class
@@ -83,7 +83,7 @@ class DesignVectorInterface:
                                   duct_variables: dict,
                                   blade_blading_parameters: list[dict]) -> tuple[dict, list]:
         """
-        Compute the y-coordinate of the LE of the duct based on the design variables. 
+        Compute the y-coordinate of the LE of the duct based on the design variables.
 
         Parameters
         ----------
@@ -119,14 +119,14 @@ class DesignVectorInterface:
         order = order[mask]
         duct_interpolant = interpolate.CubicSpline(lower_x[order],
                                                    np.abs(lower_y)[order],  # Take absolute value of y-coordinates since we need the distance, not the actual coordinate
-                                                   extrapolate=False) 
+                                                   extrapolate=False)
 
         x_min, x_max = lower_x[order[0]], lower_x[order[-1]]
         tip_gap = config.tipGap
         for i in range(self.num_stages):
             if not self.rotating[i]:
                 continue
-            
+
             # Extract blading and blade radius
             blading = blade_blading_parameters[i]
             y_tip = blading["radial_stations"][-1]
@@ -134,7 +134,7 @@ class DesignVectorInterface:
             # Compute the LE and TE x-coordinates of the tip section
             sweep = np.tan(blading["sweep_angle"][-1])
             x_tip_LE = blading["root_LE_coordinate"] + sweep * y_tip
-            projected_chord = blading["chord_length"][-1] * np.cos(np.pi/2 - 
+            projected_chord = blading["chord_length"][-1] * np.cos(np.pi/2 -
                                                                    (blading["blade_angle"][-1] + blading["ref_blade_angle"] - blading["reference_section_blade_angle"]))
             x_tip_TE = x_tip_LE + projected_chord
 
@@ -154,23 +154,23 @@ class DesignVectorInterface:
         # Update the duct variables
         duct_variables["Leading Edge Coordinates"] = (duct_variables["Leading Edge Coordinates"][0],
                                                       LE_coordinate_duct)
-        
-        # Set the radius of all stators equal to this y coordinate to avoid miss-matches in stator sizes. 
+
+        # Set the radius of all stators equal to this y coordinate to avoid miss-matches in stator sizes.
         for i in range(self.num_stages):
             if not self.rotating[i]:
                 r_old = blade_blading_parameters[i]["radial_stations"][-1]
                 if r_old:
                     # Simple guard against r=0
-                    blade_blading_parameters[i]["radial_stations"] = blade_blading_parameters[i]["radial_stations"] / r_old * LE_coordinate_duct 
+                    blade_blading_parameters[i]["radial_stations"] = blade_blading_parameters[i]["radial_stations"] / r_old * LE_coordinate_duct
                 else:
-                    # If the last entry of radial stations is 0, simply set it to the LE coordinate of the duct. This avoids a divide-by-zero error. 
+                    # If the last entry of radial stations is 0, simply set it to the LE coordinate of the duct. This avoids a divide-by-zero error.
                     blade_blading_parameters[i]["radial_stations"][-1] = np.full_like(blade_blading_parameters[i]["radial_stations"],
                                                                                       LE_coordinate_duct,
                                                                                       dtype=float)
-    
+
         # Return the updated data
         return duct_variables, blade_blading_parameters
-    
+
 
     def SortDesignVector(self,
                          x_dict: dict[str, float | int]) -> list[float | int]:
@@ -198,9 +198,9 @@ class DesignVectorInterface:
 
 
     @staticmethod
-    def Getb8(b_8_map: float, 
-              r_le: float, 
-              x_t: float, 
+    def Getb8(b_8_map: float,
+              r_le: float,
+              x_t: float,
               y_t: float) -> float:
         """
         Helper function to compute the bezier parameter b_8 using the mapping parameter 0 <= b_8_map <= 1
@@ -216,8 +216,8 @@ class DesignVectorInterface:
                                 x_dict: dict[str, float | int],
                                 compute_duct: bool = True) -> tuple:
         """
-        Decompose the design vector x into dictionaries of all the design variables to match the expected input formats for 
-        the MTFLOW code interface. 
+        Decompose the design vector x into dictionaries of all the design variables to match the expected input formats for
+        the MTFLOW code interface.
 
         Parameters
         ----------
@@ -246,18 +246,18 @@ class DesignVectorInterface:
         # Define a pointer to count the number of variable parameters
         centerbody_designvar_count = len(config.CENTERBODY_VALUES)
         duct_designvar_count = len(config.DUCT_VALUES)
-        section_designvar_count = duct_designvar_count - 2  # -2 since the sections do not use chord length or LE x-coordinate as variable. 
+        section_designvar_count = duct_designvar_count - 2  # -2 since the sections do not use chord length or LE x-coordinate as variable.
 
         # Deconstruct the centerbody values if it's variable.
         # If the centerbody is constant, read in the centerbody values from config.
-        # Note that if the centerbody is variable, we keep the LE coordinate fixed, as the LE coordinate of the duct would already be free to move. 
+        # Note that if the centerbody is variable, we keep the LE coordinate fixed, as the LE coordinate of the duct would already be free to move.
         if config.OPTIMIZE_CENTERBODY:
             try:
                 centerbody_vals = [next(it) for _ in range(centerbody_designvar_count)]
             except StopIteration:
                 raise ValueError("Design vector is too short for the expected centerbody variables.") from None
             centerbody_variables = {"b_0": 0,
-                                    "b_2": 0, 
+                                    "b_2": 0,
                                     "b_8": self.Getb8(centerbody_vals[0], centerbody_vals[5], centerbody_vals[2], centerbody_vals[3]),
                                     "b_15": centerbody_vals[1],
                                     "b_17": 0,
@@ -270,7 +270,7 @@ class DesignVectorInterface:
                                     "r_LE": centerbody_vals[5],
                                     "trailing_wedge_angle": centerbody_vals[6],
                                     "trailing_camberline_angle": 0,
-                                    "leading_edge_direction": 0, 
+                                    "leading_edge_direction": 0,
                                     "Chord Length": centerbody_vals[7],
                                     "Leading Edge Coordinates": (0, 0)}
         else:
@@ -284,7 +284,7 @@ class DesignVectorInterface:
             except StopIteration:
                 raise ValueError("Design vector is too short for the expected duct variables.") from None
             duct_variables = {"b_0": duct_vals[0],
-                              "b_2": duct_vals[1], 
+                              "b_2": duct_vals[1],
                               "b_8": self.Getb8(duct_vals[2], duct_vals[11], duct_vals[5], duct_vals[6]),
                               "b_15": duct_vals[3],
                               "b_17": duct_vals[4],
@@ -297,12 +297,12 @@ class DesignVectorInterface:
                               "r_LE": duct_vals[11],
                               "trailing_wedge_angle": duct_vals[12],
                               "trailing_camberline_angle": duct_vals[13],
-                              "leading_edge_direction": duct_vals[14], 
+                              "leading_edge_direction": duct_vals[14],
                               "Chord Length": duct_vals[15],
                               "Leading Edge Coordinates": (duct_vals[16], 0)}
         else:
             duct_variables = copy.deepcopy(config.DUCT_VALUES)
-                
+
         # Deconstruct the rotorblade parameters if they are variable.
         # If the rotorblade parameters are constant, read in the parameters from config.
         blade_design_parameters = []
@@ -318,8 +318,8 @@ class DesignVectorInterface:
                     except StopIteration:
                         raise ValueError("Design vector is too short for the expected blade radial section variables.") from None
                     section_parameters = {"b_0": section_vals[0],
-                                        "b_2": section_vals[1], 
-                                        "b_8": self.Getb8(section_vals[2], section_vals[11], section_vals[5], section_vals[6]), 
+                                        "b_2": section_vals[1],
+                                        "b_8": self.Getb8(section_vals[2], section_vals[11], section_vals[5], section_vals[6]),
                                         "b_15": section_vals[3],
                                         "b_17": section_vals[4],
                                         "x_t": section_vals[5],
@@ -334,7 +334,7 @@ class DesignVectorInterface:
                                         "leading_edge_direction": section_vals[14]}
                     stage_design_parameters.append(section_parameters)
             else:
-                # If the stage is meant to be constant, read it in from config. 
+                # If the stage is meant to be constant, read it in from config.
                 stage_design_parameters = copy.deepcopy(config.STAGE_DESIGN_VARIABLES[stage])
             # Write the stage nested list to blade_design_parameters
             blade_design_parameters.append(stage_design_parameters)
@@ -347,11 +347,11 @@ class DesignVectorInterface:
             if self.optimize_stages[stage]:
                 # If the stage is to be optimized, read in the design vector for the blading parameters
                 stage_blading_parameters["root_LE_coordinate"] = next(it)
-                stage_blading_parameters["ref_blade_angle"] = next(it) 
-                stage_blading_parameters["reference_section_blade_angle"] = 0  # We take the blade tip as reference section, so the angle is zero. 
+                stage_blading_parameters["ref_blade_angle"] = next(it)
+                stage_blading_parameters["reference_section_blade_angle"] = 0  # We take the blade tip as reference section, so the angle is zero.
                 stage_blading_parameters["blade_count"] = int(next(it))
                 stage_blading_parameters["RPS_lst"] = [next(it) if self.rotating[stage] else 0 for _ in range(num_operating_conditions)]
-                stage_blading_parameters["RPS"] = 0  # Initialize the RPS at zero - this will be overwritten later by the appropriate RPS for the operating condition. 
+                stage_blading_parameters["RPS"] = 0  # Initialize the RPS at zero - this will be overwritten later by the appropriate RPS for the operating condition.
                 stage_blading_parameters["rotation_rate"] = 0  # Initialize the MTFLOW non-dimensional rotational rate to zero - this will be overwritten later by the appropriate Omega within the problem definition.
                 stage_blading_parameters["radial_stations"] = np.linspace(0, 0.5 * next(it), self.num_radial[stage])  # Radial stations are defined as fraction of blade radius * local radius
 
@@ -360,17 +360,17 @@ class DesignVectorInterface:
                 sweep_angle = [0]
                 sweep_angle.extend([next(it) for _ in range(self.num_radial[stage] - 1)])  # -1 since the root is independent of sweep
                 stage_blading_parameters["sweep_angle"] = sweep_angle
-                stage_blading_parameters["blade_angle"] = [next(it) for _ in range(self.num_radial[stage] - 1)]  # -1 since we fix the angle at the tip to zero to simplify the design. 
-                stage_blading_parameters["blade_angle"].append(0)  # Append the tip angle of zero to the list     
+                stage_blading_parameters["blade_angle"] = [next(it) for _ in range(self.num_radial[stage] - 1)]  # -1 since we fix the angle at the tip to zero to simplify the design.
+                stage_blading_parameters["blade_angle"].append(0)  # Append the tip angle of zero to the list
             else:
                 stage_blading_parameters = copy.deepcopy(config.STAGE_BLADING_PARAMETERS[stage])
-            
+
             # Append the stage blading parameters to the main list
             blade_blading_parameters.append(stage_blading_parameters)
 
         # Compute the updated duct and blading parameters
         # This must happen after all blade parameters and duct parameters are constructed,
-        # since the radial duct location affects the stator blade "diameter" 
+        # since the radial duct location affects the stator blade "diameter"
         if compute_duct:
             duct_variables, blade_blading_parameters = self.ComputeDuctRadialLocation(duct_variables=duct_variables,
                                                                                       blade_blading_parameters=blade_blading_parameters)
@@ -382,14 +382,14 @@ class DesignVectorInterface:
 
 
     def ReconstructDesignVector(self,
-                                centerbody_variables: dict[str, float], 
+                                centerbody_variables: dict[str, float],
                                 duct_variables: dict[str, float],
                                 blade_design_parameters: list[list[dict[str, float]]],
                                 blade_blading_parameters: list[dict[str, float | int]],
                                 ) -> dict[str, float | int]:
         """
         Based on the design vector dictionaries, reconstruct the design vector dictionary x.
-        This is used to reconstruct the design vector after it has been modified by the repair operator. 
+        This is used to reconstruct the design vector after it has been modified by the repair operator.
 
         Parameters
         ----------
@@ -401,7 +401,7 @@ class DesignVectorInterface:
             A list of lists of dictionaries containing the blade design parameters for each stage.
         - blade_blading_parameters : list[dict[str, float | int]]
             A list of dictionaries containing the blade blading parameters for each stage.
-        
+
         Returns
         -------
         - vector : dict[str, float | int]
@@ -417,10 +417,10 @@ class DesignVectorInterface:
             sqrt_term = 0 if term <= 0 else np.sqrt(term)
             factor = min(params["y_t"], sqrt_term)
             return float(params["b_8"] / factor)
-        
+
 
         def profile_section_vars(profile: dict[str, float]) -> list[float]:
-            """ 
+            """
             Return the standard 15-var profile section definition.
             """
             return [profile["b_0"],  # b_0
@@ -438,12 +438,12 @@ class DesignVectorInterface:
                     profile["trailing_wedge_angle"],  # trailing_wedge_angle
                     profile["trailing_camberline_angle"],  # trailing_camberline_angle
                     profile["leading_edge_direction"]]
-            
+
         # Initialize variable list
         vector = []
 
         if config.OPTIMIZE_CENTERBODY:
-            # If the centerbody is to be optimised, reconstruct the corresponding variable section. 
+            # If the centerbody is to be optimised, reconstruct the corresponding variable section.
             vector.append(extract_b8_map(centerbody_variables))  # b_8_map
             vector.append(centerbody_variables["b_15"])  # b_15
             vector.append(centerbody_variables["x_t"])  # x_t
@@ -464,7 +464,7 @@ class DesignVectorInterface:
             if config.OPTIMIZE_STAGE[i]:
                 for j in range(config.NUM_RADIALSECTIONS[i]):
                     # Loop over the number of radial sections and append each section to stage_design_parameters
-                    vector.extend(profile_section_vars(blade_design_parameters[i][j]))                         
+                    vector.extend(profile_section_vars(blade_design_parameters[i][j]))
 
         for i, opt_stage in enumerate(config.OPTIMIZE_STAGE):
             # Loop over the stages and write the blading parameters to the design vector
@@ -483,5 +483,5 @@ class DesignVectorInterface:
         # For a mixed-variable problem, PyMoo expects the vector to be a dictionary, so we convert vector to a dictionary.
         # Note that all variables are given a name xi.
         vector = {f"x{i}": var for i, var in enumerate(vector)}
-        
+
         return vector

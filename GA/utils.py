@@ -2,7 +2,7 @@
 utils
 =====
 
-Simple utility script to ensure the paths are correctly set up and 
+Simple utility script to ensure the paths are correctly set up and
 compute the required number of points for the appropriate reference directions count
 
 Versioning
@@ -13,9 +13,9 @@ Student ID: 4995309
 Version: 1.1
 
 Changelog:
-- V1.0: Initial implementation. 
-- V1.1: Implemented reference direction point counter to ensure correct number of reference directions are used in the optimisation. 
-        Updated documentation and switched from sys.path.append to sys.path.insert(0, path) to ensure local code wins over any global packages. 
+- V1.0: Initial implementation.
+- V1.1: Implemented reference direction point counter to ensure correct number of reference directions are used in the optimisation.
+        Updated documentation and switched from sys.path.append to sys.path.insert(0, path) to ensure local code wins over any global packages.
 """
 
 # Import standard libraries
@@ -38,15 +38,15 @@ def ensure_repo_paths() -> None:
 
 def calculate_n_reference_points(cfg: object) -> int:
     """
-    Calculate the number of points needed to construct 
-    the right number of reference directions using a 
+    Calculate the number of points needed to construct
+    the right number of reference directions using a
     binomial coefficient
 
     Parameters
     ----------
     - cfg: object
-        Configuration object. 
-        We cannot import config directly in this file, since config already uses ensure_repo_paths, which would result in a circular import error. 
+        Configuration object.
+        We cannot import config directly in this file, since config already uses ensure_repo_paths, which would result in a circular import error.
 
     Returns
     -------
@@ -63,7 +63,7 @@ def calculate_n_reference_points(cfg: object) -> int:
         count = math.comb(p + m - 1, m -1)
         if count >= max(1, cfg.POPULATION_SIZE):
             return p
-    
+
     if m == 1:
         print(f"Unable to find suitable p within {max_iter} iterations for {m} objectives and population size: {cfg.POPULATION_SIZE}. Setting p equal to the number of objectives...")
         return m

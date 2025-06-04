@@ -4,9 +4,9 @@ MTFLO_call
 
 Description
 -----------
-This module provides an interface to interact with the MTFLO executable from Python. 
-It creates a subprocess for the MTFLO executable, loads in the input file tflow.xxx, 
-and writes the output to the tdat.xxx data file for use within MTSOL. 
+This module provides an interface to interact with the MTFLO executable from Python.
+It creates a subprocess for the MTFLO executable, loads in the input file tflow.xxx,
+and writes the output to the tdat.xxx data file for use within MTSOL.
 
 Classes
 -------
@@ -21,9 +21,9 @@ Examples
 
 Notes
 -----
-This module is designed to work with the MTFLO executable. Ensure that the executable and the input file, tflow.xxx, 
-are present in the same directory as this Python file. When executing the file as a standalone, it uses the inputs 
-and calls contained within the if __name__ == "__main__" section. This part also imports the time module to measure 
+This module is designed to work with the MTFLO executable. Ensure that the executable and the input file, tflow.xxx,
+are present in the same directory as this Python file. When executing the file as a standalone, it uses the inputs
+and calls contained within the if __name__ == "__main__" section. This part also imports the time module to measure
 the time needed to perform each file generation call. This is beneficial in runtime optimization.
 
 References
@@ -40,7 +40,7 @@ Version: 1.2
 
 Changelog:
 - V1.0: Initial working version
-- V1.0.5: Cleaned up inputs, removing file_path and changing it to a constant. 
+- V1.0.5: Cleaned up inputs, removing file_path and changing it to a constant.
 - V1.1: Added file status check to ensure that the file has been written before proceeding. Added stdinwrite function to clean up process interactions.
 - V1.2: Updated documentation and removed self.process.returncode return from MTFLO_call().caller()
 """
@@ -55,7 +55,7 @@ class MTFLO_call:
     Class to handle the interface between Python and the MTFLO executable.
     """
 
-    def __init__(self, 
+    def __init__(self,
                  analysis_name: str,
                  **kwargs : dict,
                  ) -> None:
@@ -80,8 +80,8 @@ class MTFLO_call:
         self.process_path = self.submodels_path / 'mtflo.exe'
         if not self.process_path.exists():
             raise FileNotFoundError(f"MTFLO executable not found at {self.process_path}")
-        
-        
+
+
     def StdinWrite(self,
                    command: str) -> None:
         """
@@ -107,23 +107,23 @@ class MTFLO_call:
         Create MTFLO subprocess
 
         Requires that the executable, mtflo.exe, and the input file, tflow.xxx are present in the same directory as this
-        Python file. 
+        Python file.
         """
 
         # Generate the subprocess and write it to self
-        self.process = subprocess.Popen([self.process_path, self.analysis_name], 
-                                        stdin=subprocess.PIPE, 
-                                        stdout=subprocess.PIPE, 
+        self.process = subprocess.Popen([self.process_path, self.analysis_name],
+                                        stdin=subprocess.PIPE,
+                                        stdout=subprocess.PIPE,
                                         stderr=subprocess.DEVNULL,
                                         text=True,
                                         bufsize=1,
                                         )
-        
+
         # Check if subprocess is started successfully
         if self.process.poll() is not None:
             raise ImportError(f"MTFLO or tdat.{self.analysis_name} not found in {self.process_path}") from None
-        
-    
+
+
     def LoadForcingField(self,
                          ) -> None:
         """
@@ -140,17 +140,17 @@ class MTFLO_call:
         self.StdinWrite("")
 
         # Check if file is loaded in successfully.
-        # If error occured, MTFLO will have crashed, so we can check success by checking 
+        # If error occured, MTFLO will have crashed, so we can check success by checking
         # if the subprocess is still alive
         if self.process.poll() is not None:
             raise ImportError(f"Issue with input file tflow.{self.analysis_name}, MTFLO crashed") from None
-        
+
         # Exit the field parameter menu
         self.StdinWrite("")
 
-        # Write to the flowfield file tdat.xxx and check if writing was successful 
+        # Write to the flowfield file tdat.xxx and check if writing was successful
         self.StdinWrite("W")
-        
+
         # Close the MTFLO program
         self.StdinWrite("Q")
 
@@ -165,9 +165,9 @@ class MTFLO_call:
     def FileStatus(self,
                    fpath: Path,
                    ) -> bool:
-        """ 
+        """
         Simple function to check if the file update/write has finished.
-        Check occurs based on the presence of a file "lock" on the file if/when it is being used by another process. 
+        Check occurs based on the presence of a file "lock" on the file if/when it is being used by another process.
 
         Parameters
         ----------
@@ -177,7 +177,7 @@ class MTFLO_call:
         Returns
         -------
         - status : bool
-            A status boolean. True if the file is free, and False if it is still being used by another process. 
+            A status boolean. True if the file is free, and False if it is still being used by another process.
         """
         try:
             with open(fpath, "rb"):
@@ -190,12 +190,12 @@ class MTFLO_call:
                ) -> None:
         """
         Full interfacing function between Python and MTFLO.
-        
+
         Requires that the input file, tflow.xxx, has been made and is available together with the mtflo.exe executable in the local directory.
         """
-        
+
         # Create subprocess for the MTFLO tool
-        self.GenerateProcess()  
+        self.GenerateProcess()
 
         # Load the numerical grid
         self.LoadForcingField()
@@ -208,7 +208,7 @@ class MTFLO_call:
             if self.FileStatus(fpath):
                 break
             else:
-                time.sleep(0.01)  
+                time.sleep(0.01)
 
 
 if __name__ == "__main__":

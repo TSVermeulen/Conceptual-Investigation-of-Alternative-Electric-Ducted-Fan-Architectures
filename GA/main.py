@@ -4,7 +4,7 @@ main
 
 Description
 -----------
-This module defines the main entry point for running a single-threaded optimization problem using the pymoo framework. 
+This module defines the main entry point for running a single-threaded optimization problem using the pymoo framework.
 
 Functionality
 -------------
@@ -18,7 +18,7 @@ Examples
 
 Notes
 -----
-This module integrates with the pymoo framework and requires the problem definition and population initialization modules. 
+This module integrates with the pymoo framework and requires the problem definition and population initialization modules.
 Ensure that all dependencies are installed and properly configured.
 
 References
@@ -34,19 +34,19 @@ Student ID: 4995309
 Version: 1.3
 
 Changelog:
-- V1.0: Initial implementation. 
+- V1.0: Initial implementation.
 - V1.1: Updated documentation to reflect changes in the main module structure and added examples for usage.
 - V1.2: Updated to match structure of main-parallelized, but with n_processes = 1.
-- V1.3: Removed shared cache as it is no longer implemented. Sorted imports, and formalised termination criteria. 
+- V1.3: Removed shared cache as it is no longer implemented. Sorted imports, and formalised termination criteria.
         Switched code from MixedVariableGA to use the UNSGA3 algorithm with mixed variable support.
 """
 
 # Import standard libaries
-import dill
 import datetime
 from pathlib import Path
 
 # Import 3rd party libraries
+import dill
 from pymoo.core.mixed import MixedVariableMating, MixedVariableDuplicateElimination
 from pymoo.optimize import minimize
 from pymoo.util.ref_dirs import get_reference_directions
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     if hasattr(config, "PROBLEM_TYPE") and config.PROBLEM_TYPE == "multi_point":
         from multi_point_problem_definition import MultiPointOptimizationProblem # type: ignore
         problem = MultiPointOptimizationProblem(seed=config.GLOBAL_SEED)
-    else:        
+    else:
         problem = OptimizationProblem(seed=config.GLOBAL_SEED)
 
     # Create the reference directions to be used for the optimisation
@@ -92,7 +92,7 @@ if __name__ == "__main__":
                        selection=selection_operator,
                        repair=RepairIndividuals()
                        )
-        
+
     # Run the optimization
     res = minimize(problem,
                    algorithm,
@@ -104,7 +104,7 @@ if __name__ == "__main__":
 
     # Print some performance metrics
     print(f"Optimization completed in {res.exec_time:.2f} seconds")
-    print("Best solution found: \nX = %s\nF = %s" % (res.X, res.F))
+    print(f"Best solution found: \nX = {res.X}\nF = {res.F}")
 
     """ Save the results to a dill file for future reference """
     # This avoids needing to re-run the optimization if the results are needed later.
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     results_dir.mkdir(exist_ok=True, parents=True)
 
     now = datetime.datetime.now()
-    timestamp = f"{now:%y%m%d%H%M%S%f}"	
+    timestamp = f"{now:%y%m%d%H%M%S%f}"
     output_name = results_dir / f"res_pop{config.POPULATION_SIZE}_gen{config.MAX_GENERATIONS}_{timestamp}.dill"
     try:
         with open(output_name, 'wb') as f:

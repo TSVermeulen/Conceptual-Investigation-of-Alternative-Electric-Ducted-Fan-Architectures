@@ -4,7 +4,7 @@ problem_definition-multistage
 
 Description
 -----------
-This module defines an optimization problem for a multi-point optimisation at n operating points for the pymoo framework, based on the ElementwiseProblem parent class. 
+This module defines an optimization problem for a multi-point optimisation at n operating points for the pymoo framework, based on the ElementwiseProblem parent class.
 The model is based on the single-point optimisation routine in the problem_definition.py file
 
 Classes
@@ -20,8 +20,8 @@ Examples
 
 Notes
 -----
-This module integrates with the MTFLOW executable for aerodynamic analysis. Ensure that the executable and required 
-input files are present in the appropriate directories. The module is designed to handle mixed-variable optimization 
+This module integrates with the MTFLOW executable for aerodynamic analysis. Ensure that the executable and required
+input files are present in the appropriate directories. The module is designed to handle mixed-variable optimization
 problems, including real and integer variables.
 
 References
@@ -37,7 +37,7 @@ Student ID: 4995309
 Version: 1.0
 
 Changelog:
-- V1.0: Initial implementation. 
+- V1.0: Initial implementation.
 """
 
 # Import standard libraries
@@ -64,7 +64,7 @@ import config # type: ignore
 
 class MultiPointOptimizationProblem(ElementwiseProblem):
     """
-    Class definition of the optimization problem to be solved using the genetic algorithm. 
+    Class definition of the optimization problem to be solved using the genetic algorithm.
     Inherits from the ElementwiseProblem class from pymoo.core.problem.
     """
 
@@ -75,40 +75,40 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                       "flowfield": "flowfield.{}",
                       "boundary_layer": "boundary_layer.{}",
                       "tdat": "tdat.{}"}
-    
-    # Initialize output dictionary to use in case of an infeasible design. 
-    # This equals the outputs of the output_handling.output_processing.GetAllVariables(3) method, 
+
+    # Initialize output dictionary to use in case of an infeasible design.
+    # This equals the outputs of the output_handling.output_processing.GetAllVariables(3) method,
     # but is quicker as it does not involve reading a file.
     CRASH_OUTPUTS: dict[str, dict[str, float] | dict[str, dict[str, float]]] = {'data':
-                                                                                {'Total power CP': 0.00000, 
-                                                                                 'EtaP': 0.00000, 
-                                                                                 'Total force CT': 0.00000, 
-                                                                                 'Element 2 top CTV': 0.00000, 
-                                                                                 'Element 2 bot CTV': 0.00000, 
-                                                                                 'Axis body CTV': 0.00000, 
-                                                                                 'Viscous CTv': 0.00000, 
-                                                                                 'Inviscid CTi': 0.00000, 
-                                                                                 'Friction CTf': 0.00000, 
-                                                                                 'Pressure CTp': 0.00000, 
-                                                                                 'Pressure Ratio': 0.00000}, 
-                                                                                'grouped_data': 
-                                                                                {'Element 2': 
-                                                                                 {'CTf': 0.00000, 
-                                                                                  'CTp': 0.00000, 
-                                                                                  'top Xtr': 0.00000, 
-                                                                                  'bot Xtr': 0.00000}, 
-                                                                                 'Axis Body': 
-                                                                                 {'CTf': 0.00000, 
-                                                                                  'CTp': 0.00000, 
+                                                                                {'Total power CP': 0.00000,
+                                                                                 'EtaP': 0.00000,
+                                                                                 'Total force CT': 0.00000,
+                                                                                 'Element 2 top CTV': 0.00000,
+                                                                                 'Element 2 bot CTV': 0.00000,
+                                                                                 'Axis body CTV': 0.00000,
+                                                                                 'Viscous CTv': 0.00000,
+                                                                                 'Inviscid CTi': 0.00000,
+                                                                                 'Friction CTf': 0.00000,
+                                                                                 'Pressure CTp': 0.00000,
+                                                                                 'Pressure Ratio': 0.00000},
+                                                                                'grouped_data':
+                                                                                {'Element 2':
+                                                                                 {'CTf': 0.00000,
+                                                                                  'CTp': 0.00000,
+                                                                                  'top Xtr': 0.00000,
+                                                                                  'bot Xtr': 0.00000},
+                                                                                 'Axis Body':
+                                                                                 {'CTf': 0.00000,
+                                                                                  'CTp': 0.00000,
                                                                                   'Xtr': 0.00000}}}
-    
+
     _DESIGN_VARS = DesignVector.construct_vector(config)
-    
+
 
     def __init__(self,
                  **kwargs) -> None:
         """
-        Initialization of the OptimizationProblem class. 
+        Initialization of the OptimizationProblem class.
 
         Returns
         -------
@@ -132,7 +132,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                          n_ieq_constr=n_inequality_constraints,
                          n_eq_constr=n_equality_constraints,
                          **kwargs)
-        
+
         # Define key paths/directories
         self.parent_dir = Path(__file__).resolve().parent.parent
         self.submodels_path = self.parent_dir / "Submodels"
@@ -140,7 +140,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Validate critical submodels_path exist
         if not self.submodels_path.exists():
             raise SystemError(f"Missing submodels path: {self.submodels_path}")
-        
+
         # Create folder path to store statefiles
         self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
         # Check existance of dump folder
@@ -170,13 +170,13 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Load base operating conditions
         self.multi_oper = copy.deepcopy(config.multi_oper)
         self._base_oper = copy.deepcopy(self.multi_oper[0])
-                        
+
 
     def SetAnalysisName(self) -> None:
         """
         Generate a unique analysis name.
         This is required to enable multi-threading of the optimization problem, and log each state file,
-        since each evaluation of MTFLOW requires a unique set of files. 
+        since each evaluation of MTFLOW requires a unique set of files.
 
         Returns
         -------
@@ -195,7 +195,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         process_id = os.getpid() % 10000  # 4 chars max
 
         # The analysis name is formatted as: <MMDDHHMMSS>_<process_ID>_<unique_id>.
-        # Analysis name has a length of 28 characters, satisfying the maximum length of 32 characters accepted by MTFLOW. 
+        # Analysis name has a length of 28 characters, satisfying the maximum length of 32 characters accepted by MTFLOW.
         self.analysis_name = self.analysis_name_template.format(timestamp, process_id, unique_id)
 
         # Additionally set the tflow file path
@@ -230,7 +230,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         Parameters
         ----------
         - idx : int
-            The index of the operating condition in the multi_oper dictionary. 
+            The index of the operating condition in the multi_oper dictionary.
             This is used to extract the correct RPS from the blading dictionary.
 
         Returns
@@ -243,7 +243,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Compute the non-dimensional rotational rate Omega for MTFLOW and write it to the blading parameters
         # Multiplied by -1 to comply with sign convention in MTFLOW.
-        #  
+
         # First compute the constant non-dimensionalisation factor
         factor = -2 * np.pi * self.Lref / self.oper["Vinl"]
 
@@ -262,7 +262,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         Parameters
         ----------
         - oper_idx : int
-            The index of the operating condition in the multi_oper dictionary. 
+            The index of the operating condition in the multi_oper dictionary.
             This is used to extract the correct RPS from the blading dictionary.
 
         Returns
@@ -272,7 +272,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Compute / update the rotational rates in the blading dictionaries
         self.ComputeOmega(idx=oper_idx)
-        
+
         with open(self._tflow_file_path, "r+") as file:
             lines = file.readlines()
 
@@ -280,7 +280,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             if not hasattr(self, "_omega_line_ids"):
                 # We assume that the line directly after the one starting with "OMEGA" is the one to update.
                 self._omega_line_ids = [i for i, line in enumerate(lines) if line.lstrip().startswith("OMEGA")]
-    
+
             # Use a local alias to avoid repeated attribute lookups in the loop.
             blade_params = self.blade_blading_parameters
 
@@ -302,9 +302,9 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         This method:
         1. Moves the tdat statefile to a persistent archive folder.
         2. Removes all temporary MTFLOW input/output files, including the original statefile.
-        
+
         Note that the output files can always be regenerated from the statefile.
-    
+
         Returns
         -------
         None
@@ -318,7 +318,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         for file_type, file_path in file_paths.items():
             # Move the state file to the dump folder
-            if file_type == "tdat" and config.ARCHIVE_STATEFILES: 
+            if file_type == "tdat" and config.ARCHIVE_STATEFILES:
                 if file_path.exists():
                     copied_file = self.dump_folder / file_path.name
                     with contextlib.suppress(FileNotFoundError):
@@ -334,12 +334,12 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                              x: dict[str, int | float]) -> bool:
         """
         Generates the input files required for the MTFLOW simulation.
-        This method creates the necessary input files for the MTFLOW simulation by utilizing the 
+        This method creates the necessary input files for the MTFLOW simulation by utilizing the
         `fileHandlingMTSET/MTFLO` classes from the `Submodels.file_handling` module. It generates two input files:
         - walls.analysis_name: The MTSET input file, which contains the axisymmetric geometries.
         - tflow.analysis_name: The MTFLO blading input file, which contains the blading and design parameters.
 
-        By generating the input files, validation of the design vector is performed, since an infeasible design vector 
+        By generating the input files, validation of the design vector is performed, since an infeasible design vector
         will raise a ValueError (somewhere) in the input generation method.
 
         Parameters
@@ -350,17 +350,17 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         Returns
         -------
         - output_generated: bool
-            - True if the input files were successfully generated, False if a ValueError occurred 
+            - True if the input files were successfully generated, False if a ValueError occurred
               during the process (indicating potential interpolation issues or infeasible axisymmetric bodies).
-        """   
+        """
 
         # Generate the MTSET input file containing the axisymmetric geometries and the MTFLO blading input file
         try:
             # Deconstruct the design vector
-            (self.centerbody_variables, 
-            self.duct_variables, 
-            self.blade_design_parameters, 
-            self.blade_blading_parameters, 
+            (self.centerbody_variables,
+            self.duct_variables,
+            self.blade_design_parameters,
+            self.blade_blading_parameters,
             self.Lref) = self.design_vector_interface.DeconstructDesignVector(x_dict=x)
 
             # Set the initial non-dimensional omega rates
@@ -371,17 +371,17 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                                     params_duct=self.duct_variables,
                                     analysis_name=self.analysis_name,
                                     ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
-            
+
             self._fileHandlingMTFLO(analysis_name=self.analysis_name,
                                     ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
                                                                              design_params=self.blade_design_parameters,
                                                                              plot=False)  # Generate the MTFLO input file
-            
+
             output_generated =  True  # If both input generation routines succeeded, set output_generated to True
 
         except ValueError as e:
-            # Any value error that might occur while generating the MTSET input file will be caused by interpolation issues arising from the input values, so 
-            # this is an efficient and simple method to check if the axisymmetric bodies are feasible. 
+            # Any value error that might occur while generating the MTSET input file will be caused by interpolation issues arising from the input values, so
+            # this is an efficient and simple method to check if the axisymmetric bodies are feasible.
             output_generated = False  # If any of the input generation routines raised an error, set output_generated to False
             error_code = "INVALID_DESIGN"
             print(f"[{error_code}] Invalid design vector encountered: {e}")
@@ -390,7 +390,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             output_generated = False
             error_code = f"UNEXPECTED_{type(e).__name__}"
             print(f"[{error_code}] Unexpected error in input generation: {e}")
-        
+
         if not output_generated:
             # Set parameters equal to the config values in case of a crash so that the constraint/objective value calculations do not crash
             self.Lref = config.BLADE_DIAMETERS[0]
@@ -400,26 +400,26 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self.blade_design_parameters = copy.copy(config.STAGE_DESIGN_VARIABLES)
 
         return output_generated
-                  
 
-    def _evaluate(self, 
-                  x:dict, 
-                  out:dict, 
-                  *args, 
+
+    def _evaluate(self,
+                  x:dict,
+                  out:dict,
+                  *args,
                   **kwargs) -> None:
         """
         Element-wise evaluation function.
         """
-        
+
         # Generate a unique analysis name
         self.SetAnalysisName()
-        
+
         # Generate the MTFLOW input files.
-        # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector. 
+        # If design_okay is false, this indicates an error in the input file generation caused by an infeasible design vector.
         design_okay = self.GenerateMTFLOWInputs(x)
 
         # Only perform the MTFLOW analyses if the input generation has succeeded.
-        # Initialise the MTFLOW output list of dictionaries. Use the crash outputs in 
+        # Initialise the MTFLOW output list of dictionaries. Use the crash outputs in
         # initialisation to pre-populate them in case of a crash or infeasible design vector
         MTFLOW_outputs = [self.CRASH_OUTPUTS for _ in range(len(self.multi_oper))]
 
@@ -439,7 +439,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                                                        analysis_name=self.analysis_name,
                                                        grid_checked=valid_grid,
                                                        **kwargs)
-                
+
                 try:
                     # Run MTFLOW
                     exit_flag = MTFLOW_interface.caller(external_inputs=True,
@@ -476,7 +476,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Cleanup the generated files
         with contextlib.suppress(Exception):
             self.CleanUpFiles()
-    
+
 
 if __name__ == "__main__":
     # Disable parameterizations to allow for testing with empty design vector

@@ -4,8 +4,8 @@ objectives
 
 Description
 -----------
-This module provides an interface to define and compute objectives for optimization problems. 
-It includes methods to calculate various sub-objectives such as efficiency, weight, frontal area, 
+This module provides an interface to define and compute objectives for optimization problems.
+It includes methods to calculate various sub-objectives such as efficiency, weight, frontal area,
 pressure ratio, and multi-point objectives.
 
 Classes
@@ -23,7 +23,7 @@ Examples
 
 Notes
 -----
-This module is designed to work with optimization frameworks such as PyMoo. 
+This module is designed to work with optimization frameworks such as PyMoo.
 The objectives are structured to be compatible with PyMoo's minimization-based approach.
 
 Versioning
@@ -68,7 +68,7 @@ class Objectives:
         ----------
         - duct_variables: dict[str, any]
             The duct design varaible dictionary.
-        
+
         Returns
         -------
         None
@@ -95,7 +95,7 @@ class Objectives:
         Parameters
         ----------
         - outputs : AnalysisOutputs
-            A dictionary containing the outputs from the forces.xxx file. 
+            A dictionary containing the outputs from the forces.xxx file.
             outputs should be structured based on output mode 3 of output_handling.output_processing.GetAllVariables().
 
         Returns
@@ -116,7 +116,7 @@ class Objectives:
         Parameters
         ----------
         - _outputs : AnalysisOutputs
-            A dictionary containing the outputs from the forces.xxx file. 
+            A dictionary containing the outputs from the forces.xxx file.
             _outputs should be structured based on output mode 3 of output_handling.output_processing.GetAllVariables().
 
         Returns
@@ -126,7 +126,7 @@ class Objectives:
         """
 
         # To compute the frontal area, we need the maximum radius of the ducted propeller/fan.
-        # This can be computed based on the radial LE coordinate of the duct, 
+        # This can be computed based on the radial LE coordinate of the duct,
         # together with the maximum y-coordinate of the duct profile.
 
         # Compute the airfoil coordinates
@@ -143,9 +143,9 @@ class Objectives:
         frontal_area = np.pi * max_radius ** 2
 
         # Return the frontal area normalised by the reference frontal area in config
-        # This is needed to ensure all objectives are of the same order of magnitude and thus have equal weight to the GA optimiser. 
+        # This is needed to ensure all objectives are of the same order of magnitude and thus have equal weight to the GA optimiser.
         return frontal_area / config.REF_FRONTAL_AREA
-    
+
 
     def WettedArea(self,
                     outputs: AnalysisOutputs) -> float:
@@ -156,7 +156,7 @@ class Objectives:
         Parameters
         ----------
         - outputs : AnalysisOutputs
-            A dictionary containing the outputs from the forces.xxx file. 
+            A dictionary containing the outputs from the forces.xxx file.
             outputs should be structured based on output mode 3 of output_handling.output_processing.GetAllVariables().
 
         Returns
@@ -177,7 +177,7 @@ class Objectives:
         Parameters
         ----------
         - outputs : AnalysisOutputs
-            A dictionary containing the outputs from the forces.xxx file. 
+            A dictionary containing the outputs from the forces.xxx file.
             outputs should be structured based on output mode 3 of output_handling.output_processing.GetAllVariables().
 
         Returns
@@ -195,22 +195,22 @@ class Objectives:
                          out: dict) -> None:
         """
         Computes the objectives for optimization based on the provided analysis outputs.
-        This method evaluates a list of objective functions, specified by their IDs in the 
-        configuration, and returns their computed values. The objectives are negated to 
-        convert maximization objectives (e.g., maximize efficiency) into minimization 
+        This method evaluates a list of objective functions, specified by their IDs in the
+        configuration, and returns their computed values. The objectives are negated to
+        convert maximization objectives (e.g., maximize efficiency) into minimization
         objectives, as required by the PyMoo optimization framework.
-                        
+
         Parameters
         ----------
         - analysis_outputs : dict
-            A dictionary containing the outputs of the analysis 
+            A dictionary containing the outputs of the analysis
             required for computing the objectives.
         - out : dict
-            A dictionary to store the computed objectives. 
+            A dictionary to store the computed objectives.
 
         Returns
         -------
-        None, the out dictionary is updated in place with the computed objectives.                
+        None, the out dictionary is updated in place with the computed objectives.
         """
 
         objectives = [self.objectivelist[i] for i in objective_IDs]
@@ -226,29 +226,29 @@ class Objectives:
         # Check dimension of objectives
         assert out["F"].ndim == 1, "ElementwiseProblem needs a 1-D objective array"
 
-    
+
     def ComputeMultiPointObjectives(self,
                                     analysis_outputs: list[dict],
                                     objective_IDs: list[int],
                                     out: dict) -> None:
         """
         Computes the objectives for a multi-point optimization based on the provided analysis outputs.
-        This method evaluates a list of objective functions, specified by their IDs in the 
-        configuration, and returns their computed values. The objectives are negated to 
-        convert maximization objectives (e.g., maximize efficiency) into minimization 
+        This method evaluates a list of objective functions, specified by their IDs in the
+        configuration, and returns their computed values. The objectives are negated to
+        convert maximization objectives (e.g., maximize efficiency) into minimization
         objectives, as required by the PyMoo optimization framework.
-                        
+
         Parameters
         ----------
         - analysis_outputs : list[dict]
-            A list of dictionaries containing the outputs of the analysis 
+            A list of dictionaries containing the outputs of the analysis
             required for computing the objectives.
         - out : dict
-            A dictionary to store the computed objectives. 
+            A dictionary to store the computed objectives.
 
         Returns
         -------
-        None, the out dictionary is updated in place with the computed objectives.                
+        None, the out dictionary is updated in place with the computed objectives.
         """
 
         variable_IDs = [oid for oid in objective_IDs if oid not in self.constant_objectiveIDs]  # Identifiers for the variable objective functions
@@ -268,21 +268,21 @@ class Objectives:
             for j, objective in enumerate(variable_objectives):
                 # Rounds the objective values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
                 computed_objectives[i * num_varobjectives + j] =  round(objective(outputs), 5)
-        
+
         # Now compute the constant objectives
-        # Since the objectives are independent of analysis condition, we simply use the first analysis to compute the objectives. 
+        # Since the objectives are independent of analysis condition, we simply use the first analysis to compute the objectives.
         # Validate that the first analysis output contains the required wetted area data
         if "Wetted Area" not in analysis_outputs[0]["data"]:
             raise ValueError("The first analysis output does not contain the required 'Wetted Area' data for the constant objectives.")
-        
+
         for i, objective in enumerate(constant_objectives):
             computed_objectives[num_varobjectives * num_outputs + i] = round(objective(analysis_outputs[0]), 5)
 
         out["F"] = computed_objectives
-        
+
         # Check dimension of objectives
         assert out["F"].ndim == 1, "ElementwiseProblem needs a 1-D objective array"
-        
+
 if __name__ == "__main__":
     # Run a test of the objectives class
 
@@ -300,5 +300,5 @@ if __name__ == "__main__":
     output = {}
     objectives_class.ComputeObjective(output_processing('initial_analysis').GetAllVariables(3),
                                       config.objective_IDs,
-                                      output) 
-    print(output)       
+                                      output)
+    print(output)
