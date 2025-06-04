@@ -86,7 +86,7 @@ Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
 Version: 2.1
-Date [dd-mm-yyyy]: 30-05-2025
+Date [dd-mm-yyyy]: 03-06-2025
 
 Changelog
 ---------
@@ -95,9 +95,13 @@ Changelog
 - V1.1.5: Fixed import logic of the Parameterizations module to handle local versus global file execution. 
 - V1.2.0: Updated class initialization logic and function inputs to enable existing geometry inputs for debugging/validation
 - V1.2.1: Fixed duplicate leading edge coordinate in fileHandlingMTSET.GetProfileCoordinates(). Implemented nondimensionalisation of geometric parameters for both MTSET and MTFLO input files. 
-- V1.3: Significant reworks to help solve bugs and issues found in validation against the X22A ducted propeller case. Added the grid size as optional input in fileHandlingMTSET. Code now automatically determines degree of bivariate interpolants based on number of radial stations provided in input data. Factorized the GenerateMTFLOInput function. Fixed transformation from planar to cylindrical coordinate system based on the implementation found in the BladeX module. Fixed implementation of circumferential blade thickness and blade slope. 
-- V2.0: Removed grouping class to reduce import size in GA optimisation. Updated 1D interpolation to also dynamically change interpolation degree based on input dimension. Updated documentation. Enforced y=0 in rotateProfile since it has no effect on MTFLOW evaluation.
-- V2.1: Updated fileHandlingMTFLO to remove interpolation errors. Switched intermal methods to static methods to avoid needing to create dummy initialisations when specific internal methods are needed. 
+- V1.3: Significant reworks to help solve bugs and issues found in validation against the X22A ducted propeller case. Added the grid size as optional input in fileHandlingMTSET. 
+        Code now automatically determines degree of bivariate interpolants based on number of radial stations provided in input data. Factorized the GenerateMTFLOInput function. 
+        Fixed transformation from planar to cylindrical coordinate system based on the implementation found in the BladeX module. Fixed implementation of circumferential blade thickness and blade slope. 
+- V2.0: Removed grouping class to reduce import size in GA optimisation. Updated 1D interpolation to also dynamically change interpolation degree based on input dimension. 
+        Updated documentation. Enforced y=0 in rotateProfile since it has no effect on MTFLOW evaluation.
+- V2.1: Updated fileHandlingMTFLO to remove interpolation errors by reducing the number of interpolations and only generating inputs at the radial sections where geometry is being defined as input. 
+        Switched internal methods to static methods to avoid needing to create dummy initialisations when specific internal methods are needed. 
 """
 
 # Import standard libraries
@@ -346,7 +350,7 @@ class fileHandlingMTFLO:
     """
 
 
-    def __init__(self, 
+    def __init__(self,
                  analysis_name: str,
                  ref_length: float,
                  centerbody_rotor_thickness: float = 0.18,
@@ -362,7 +366,7 @@ class fileHandlingMTFLO:
         - ref_length : float
             The reference length used by MTFLOW to non-dimensionalise all the dimensions.
         - centerbody_rotor_thickness : float, optional
-            The cutoff radius in meters below which we do not check the circumferential thickness limit to avoid numerical false triggers. 
+            The cutoff radius in meters below which we do not check the circumferential thickness limit to avoid numerical false triggers.
         """
 
         self.analysis_name= analysis_name
@@ -377,13 +381,13 @@ class fileHandlingMTFLO:
         self.parameterization = AirfoilParameterization()
 
 
-    def ValidateBladeThickness(self, 
-                               local_thickness: float, 
-                               local_radius: float, 
+    def ValidateBladeThickness(self,
+                               local_thickness: float,
+                               local_radius: float,
                                blade_count: int) -> None:
         """
         Validate that blade thickness doesn't exceed the complete blockage limit.
-        If radius is less than self.CENTERBODY_ROTOR_THICKNESS, the function does nothing. 
+        If radius is less than self.CENTERBODY_ROTOR_THICKNESS, the function does nothing.
 
         Parameters
         ----------
@@ -400,7 +404,7 @@ class fileHandlingMTFLO:
             raise ValueError(f"The cumulative blade thickness exceeds the complete blockage limit of 2PIr at r={local_radius}")
 
 
-    def GetBladeParameters(self, 
+    def GetBladeParameters(self,
                            design_params: dict,
                            ) -> dict:
         """
@@ -428,7 +432,7 @@ class fileHandlingMTFLO:
             - "camber_data_points": An array of the camber data points along the blade profile.
         """
            
-        # Calculate the thickness and blade slope distributions along the blade profiles. 
+        # Calculate the thickness and blade slope distributions along the blade profiles.
         # All parameters are nondimensionalized by the chord length
         thickness_distr, thickness_data_points, camber_distr, camber_data_points = self.parameterization.ComputeBezierCurves(design_params)
 
@@ -450,7 +454,7 @@ class fileHandlingMTFLO:
                         ) -> dict:
         """
         Construct interpolants for the blade geometry using the x, r, thickness and camber distributions.
-        Uses the principle of superposition to split out the blade design into separate interpolations of parameters. 
+        Uses the principle of superposition to split out the blade design into separate interpolations of parameters.
 
         Parameters:
         -----------
@@ -458,15 +462,14 @@ class fileHandlingMTFLO:
             Dictionary containing the blading parameters for the blade. The dictionary should include the following keys:
                 - "rotational_rate": The rotational rate of the blade.
                 - "blade_count": Integer of the number of blades.
-                - "reference_section_blade_angle": The blade angle at the reference section of the blade span. This is used as the value on which the other blade angles are computed. 
-                - "ref_blade_angle": The set angle of the blades. 
+                - "reference_section_blade_angle": The blade angle at the reference section of the blade span. This is used as the value on which the other blade angles are computed.
+                - "ref_blade_angle": The set angle of the blades.
                 - "radial_stations": Numpy array of the radial stations along the blade span.
                 - "chord_length": Numpy array of the chord length distribution along the blade span.
                 - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
                 - "blade_angle": Numpy array of the blade angle distribution along the blade span.
         - design_params : list[dict]
-            Numpy array containing an equal number of dictionary entries as there are radial stations. Each dictionary must contain 
-            the following keys:
+            Numpy array containing an equal number of dictionary entries as there are radial stations. Each dictionary must contain the following keys:
                 - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
                 - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
                 - "z_TE", "dz_TE": Trailing edge parameters.
@@ -499,54 +502,30 @@ class fileHandlingMTFLO:
         thickness_data_points = blade_geometry[0]["thickness_points"]
         camber_data_points = blade_geometry[0]["camber_points"]
 
-        # First determine the appropriate interpolation method based on the number of datapoints provided. 
-        if len(blading_params["radial_stations"]) <= 3:
-            method = 'slinear'  # Interpolation method for the 2D interpolators
-            degree = 1  # Interpolation degree for the 1D interpolators
+        # First determine the appropriate interpolation method for the thickness and camber interpolations based on the number of datapoints provided. 
+        if len(blading_params["radial_stations"]) <= 4:
+            method = 'slinear'
         else:
-            method = 'cubic'  # Interpolation method for the 2D interpolators
-            degree = 3  # Interpolation degree for the 1D interpolators
-
-        # Construct the chord length distribution
-        chord_distribution = interpolate.make_interp_spline(blading_params["radial_stations"], 
-                                                            blading_params["chord_length"], 
-                                                            k=degree,
-                                                            )
-    
-        # Construct the leading edge distribution, measured from the origin
-        LE_distribution = interpolate.make_interp_spline(blading_params["radial_stations"],
-                                                         blading_params["root_LE_coordinate"] + blading_params["radial_stations"] * np.tan(blading_params["sweep_angle"]),
-                                                         k=degree,
-                                                         )
-        
-        # Construct the blade angle (pitch) distribution
-        pitch_distribution = interpolate.make_interp_spline(blading_params["radial_stations"],
-                                                            blading_params["blade_angle"],
-                                                            k=degree,
-                                                            )
-                    
+            method = 'cubic'
+                                
         # Construct the thickness and camber bivariate spline interpolations
         thickness_distribution = interpolate.RegularGridInterpolator((blading_params["radial_stations"],
                                                                       thickness_data_points),
                                                                      thickness_profile_distributions,
                                                                      method=method,
                                                                      bounds_error=True,
-                                                                     ) 
+                                                                     )
         
         camber_distribution = interpolate.RegularGridInterpolator((blading_params["radial_stations"],
                                                                    camber_data_points),
                                                                   camber_profile_distributions,
                                                                   method=method,
                                                                   bounds_error=True,
-                                                                  )  
+                                                                  )
         
         # Construct output data
-        constructed_blade = {"chord_distribution": chord_distribution,
-                             "leading_edge_distribution": LE_distribution,
-                             "thickness_distribution": thickness_distribution,
-                             "camber_distribution": camber_distribution,
-                             "pitch_distribution": pitch_distribution,
-                             }
+        constructed_blade = {"thickness_distribution": thickness_distribution,
+                             "camber_distribution": camber_distribution}
             
         return constructed_blade
         
@@ -614,7 +593,7 @@ class fileHandlingMTFLO:
         rotated_upper_y -= rotated_upper_y[0]
         rotated_lower_y -= rotated_lower_y[0]
         
-        return rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y 
+        return rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y
 
 
     @staticmethod
@@ -655,7 +634,7 @@ class fileHandlingMTFLO:
                 
         # Compute the theta angles
         if r == 0:
-            # Ensure proper handling of calculations at the centerline where the radius is zero. 
+            # Ensure proper handling of calculations at the centerline where the radius is zero.
             theta_up = y_u
             theta_low = y_l
             theta_camber = camber
@@ -676,9 +655,9 @@ class fileHandlingMTFLO:
         
 
     @staticmethod
-    def CircumferentialThickness(y_u: np.typing.NDArray[np.floating], 
-                                 z_u: np.typing.NDArray[np.floating], 
-                                 y_l: np.typing.NDArray[np.floating], 
+    def CircumferentialThickness(y_u: np.typing.NDArray[np.floating],
+                                 z_u: np.typing.NDArray[np.floating],
+                                 y_l: np.typing.NDArray[np.floating],
                                  z_l: np.typing.NDArray[np.floating],
                                  r: float) -> np.typing.NDArray[np.floating]:
         """
@@ -748,12 +727,12 @@ class fileHandlingMTFLO:
         # Compute the radius of the meridional plane
         r = np.sqrt(np.square(y_camber) + np.square(z_camber))
 
-        # Compute the m' coordinate. 
-        m_prime = np.zeros_like(r) # Initialize m_prime as array of zeros. 
-        dr = np.diff(r) 
+        # Compute the m' coordinate.
+        m_prime = np.zeros_like(r) # Initialize m_prime as array of zeros.
+        dr = np.diff(r)
         dx = np.diff(x_camber)
-        radius_factor = r[:-1] + r[1:] # Equivalent to r[j] + r[j-1] 
-        distance = np.sqrt(np.square(dr) + np.square(dx)) 
+        radius_factor = r[:-1] + r[1:] # Equivalent to r[j] + r[j-1]
+        distance = np.sqrt(np.square(dr) + np.square(dx))
 
         if np.all(r == 0):
             # Handle the case where r=0, i.e. the centerline.
@@ -762,11 +741,11 @@ class fileHandlingMTFLO:
             m_prime[1:] = np.cumsum(2 / radius_factor * distance)
 
         # Construct a cubic spline of the theta-m' curve
-        # The blade slope is then found simply by evaluating the gradient of the spline. 
+        # The blade slope is then found simply by evaluating the gradient of the spline.
         spline = interpolate.make_splrep(m_prime,
                                          theta,
                                          k=3,
-                                         s=0) 
+                                         s=0)
                                              
         blade_slope = spline(m_prime,
                              nu=1)
@@ -941,32 +920,27 @@ class fileHandlingMTFLO:
                 file.write('END\n \n')
 
                 # Collect the blade geometry interpolations
-                blade_geometry: dict = self.ConstructBlades(blading_params[stage], 
+                blade_geometry: dict = self.ConstructBlades(blading_params[stage],
                                                             design_params[stage])
                     
                 # Generate interpolated data to construct the file geometry
                 # The MTFLO code cannot accept an input file with more than 16x16 points in the streamwise and radial directions for each stage
                 # Hence n_points_axial=16
                 # The axial points are spaced using a cosine spacing for increased resolution at the LE and TE
-                # The radial points are defined using a linear spacing
                 # Routine assumed at least 120 chord-wise points were used to construct the initial input curves from which the interpolants were constructed
                 n_points_axial = 16
-                n_points_radial = 16
                 n_data = 120
                 axial_points = (1 - np.cos(np.linspace(0, np.pi, n_data))) / 2
-                radial_points = np.linspace(blading_params[stage]["radial_stations"][0], 
-                                            blading_params[stage]["radial_stations"][-1], 
-                                            n_points_radial,
-                                            )             
+                radial_points = blading_params[stage]["radial_stations"]
 
                 # Loop over the radial points and construct the data for each radial point
                 # Each radial point is defined as a "section" within the input file
-                for r in radial_points: 
+                for idx, r in enumerate(radial_points): 
                     # Create a section in the input file
                     file.write('SECTION\n')
 
                     # All parameters are normalised using the local chord length, so we need to obtain the local chord in order to obtain the dimensional parameters
-                    local_chord = blade_geometry["chord_distribution"](r)
+                    local_chord = blading_params[stage]["chord_length"][idx]
                     axial_coordinates = axial_points * local_chord
                    
                     # Create complete airfoil representation from the camber and thickness distributions
@@ -979,7 +953,7 @@ class fileHandlingMTFLO:
 
                     # Rotate the airfoil profile to the correct angle
                     # The blade pitch is defined with respect to the blade pitch angle at the reference radial station, and thus is corrected accordingly. 
-                    blade_pitch = (blade_geometry["pitch_distribution"](r) + blading_params[stage]["ref_blade_angle"] - blading_params[stage]["reference_section_blade_angle"])
+                    blade_pitch = (blading_params[stage]["blade_angle"][idx] + blading_params[stage]["ref_blade_angle"] - blading_params[stage]["reference_section_blade_angle"])
                     rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y  = self.RotateProfile(blade_pitch,
                                                                                                              upper_x,
                                                                                                              lower_x,
@@ -988,7 +962,7 @@ class fileHandlingMTFLO:
 
                     # Compute the local leading edge offset at the radial station from the provided interpolant
                     # Use it to offset the x-coordinates of the upper and lower surfaces to the correct position
-                    LE_coordinate = blade_geometry["leading_edge_distribution"](r)
+                    LE_coordinate = blading_params[stage]["root_LE_coordinate"] + r * np.tan(blading_params[stage]["sweep_angle"][idx])
                     rotated_upper_x += LE_coordinate - rotated_upper_x[0]
                     rotated_lower_x += LE_coordinate - rotated_lower_x[0]
 
