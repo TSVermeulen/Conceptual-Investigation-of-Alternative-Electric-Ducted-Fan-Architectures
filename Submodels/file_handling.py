@@ -925,12 +925,11 @@ class fileHandlingMTFLO:
                     
                 # Generate interpolated data to construct the file geometry
                 # The MTFLO code cannot accept an input file with more than 16x16 points in the streamwise and radial directions for each stage
-                # Hence n_points_axial=16
-                # The axial points are spaced using a cosine spacing for increased resolution at the LE and TE
+                # Hence n_points_axial=10
                 # Routine assumed at least 120 chord-wise points were used to construct the initial input curves from which the interpolants were constructed
-                n_points_axial = 16
+                n_points_axial = 10
                 n_data = 120
-                axial_points = (1 - np.cos(np.linspace(0, np.pi, n_data))) / 2
+                axial_points = np.linspace(0, 1, n_data)
                 radial_points = blading_params[stage]["radial_stations"]
 
                 # Loop over the radial points and construct the data for each radial point
@@ -1006,11 +1005,8 @@ class fileHandlingMTFLO:
                                              m_prime,
                                              theta)
 
-                    # Compute the sampling indices for the axial points with higher densities near the LE and TE
-                    angle = np.linspace(0, np.pi, n_points_axial)
-                    # Use cosine distribution to concentrate points near ends
-                    normalized_indices = (1 - np.cos(angle)) / 2
-                    sampling_indices = np.floor(normalized_indices * (len(x_points) - 1)).astype(int)
+                    # Compute the sampling indices for the axial points
+                    sampling_indices = np.linspace(0, len(x_points) - 1, n_points_axial).astype(int)
                                                   
                     # Loop over the streamwise points and construct the data for each streamwise point
                     # Each data point consists of the data [x / Lref, r / Lref, T / Lref, Srel]
