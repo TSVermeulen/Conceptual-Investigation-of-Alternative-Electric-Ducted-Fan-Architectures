@@ -75,16 +75,21 @@ class ObjectiveID(IntEnum):
 objective_IDs = [ObjectiveID.EFFICIENCY]
 
 # Define the multi-point operating conditions
-multi_oper = [{"Inlet_Mach": 0.1958224765292171,
+multi_oper = [#{"Inlet_Mach": 0.1958224765292171,  # Loiter condition at 125kts
+#                "N_crit": 9,
+#                "atmos": Atmosphere(3048),
+#                "Omega": -11.42397,
+#                "RPS": 54.80281},
+               {"Inlet_Mach": 0.148140,  # Stall condition at 98kts
                "N_crit": 9,
-               "atmos": Atmosphere(3048),
+               "atmos": Atmosphere(0),
                "Omega": -11.42397,
-               "RPS": 54.80281},
-            #    {"Inlet_Mach": 0.20,
-            #     "N_crit": 9,
-            #     "atmos": Atmosphere(0),
-            #     "Omega": -20,
-            #     "RPS": 0},
+               "RPS": 46.69870812},
+            #    {"Inlet_Mach": 0.2898172649952647,  # Combat condition at 185kts
+            #    "N_crit": 9,
+            #    "atmos": Atmosphere(3048),
+            #    "Omega": -11.42397,
+            #    "RPS": 54.80281},
                 ]
 
 # Compute the inlet velocities and write them to the multi-point oper dict
@@ -142,6 +147,9 @@ def _load_blading(omega: float,
     """
 
     # Start defining the MTFLO blading inputs
+    # radial_stations = np.array([0.0, 0.32004, 0.5334, 0.74676, 1.0668])  # 0, 0.3, 0.5, 0.7, 1
+    # chord_length = np.array([0.3510, 0.3152, 0.2528, 0.2367, 0.2205])
+    # blade_angle = np.array([np.deg2rad(38.1), np.deg2rad(30.9), np.deg2rad(26.8), np.deg2rad(16.8), np.deg2rad(0)])
     radial_stations = np.array([0.0, 0.32004, 0.74676, 1.0668])  # 0, 0.3, 0.7, 1
     chord_length = np.array([0.3510, 0.3152, 0.2367, 0.2205])
     blade_angle = np.array([np.deg2rad(38.1), np.deg2rad(30.9), np.deg2rad(16.8), np.deg2rad(0)])
@@ -203,7 +211,7 @@ def _load_blading(omega: float,
 
     # Obtain the parameterizations for the profile sections. 
     profile_dir_path = Path(__file__).parent.parent / 'Validation/Profiles'
-    file_names = ['X22_02R.dat', 'X22_03R.dat', 'X22_07R.dat', 'X22_10R.dat', 'Hstrut.dat', 'Dstrut.dat']
+    file_names = ['X22_02R.dat', 'X22_03R.dat', 'X22_05R.dat', 'X22_07R.dat', 'X22_10R.dat', 'Hstrut.dat', 'Dstrut.dat']
     filenames = [profile_dir_path / stem for stem in file_names]
     
     # First check if all files are present
@@ -215,10 +223,11 @@ def _load_blading(omega: float,
     param = AirfoilParameterization()
     R00_section = param.FindInitialParameterization(reference_file=filenames[0])
     R03_section = param.FindInitialParameterization(reference_file=filenames[1])
-    R07_section = param.FindInitialParameterization(reference_file=filenames[2])
-    R10_section = param.FindInitialParameterization(reference_file=filenames[3])
-    Hstrut_section = param.FindInitialParameterization(reference_file=filenames[4])
-    Dstrut_section = param.FindInitialParameterization(reference_file=filenames[5])
+    # R05_section = param.FindInitialParameterization(reference_file=filenames[2])
+    R07_section = param.FindInitialParameterization(reference_file=filenames[3])
+    R10_section = param.FindInitialParameterization(reference_file=filenames[4])
+    Hstrut_section = param.FindInitialParameterization(reference_file=filenames[5])
+    Dstrut_section = param.FindInitialParameterization(reference_file=filenames[6])
 
     # Construct blading list
     design_parameters = [[R00_section, R03_section, R07_section, R10_section],
