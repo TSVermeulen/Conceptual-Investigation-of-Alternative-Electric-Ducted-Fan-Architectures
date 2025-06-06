@@ -932,10 +932,7 @@ class PostProcessing:
                 ax3d = fig3d.add_subplot(111, projection='3d')
 
                 # Construct the radial points at which we obtain the data.
-                radial_points = np.linspace(blading[i]["radial_stations"][0],
-                                            blading[i]["radial_stations"][-1],
-                                            n_points_radial,
-                                            )
+                radial_points = blading[i]["radial_stations"]
 
                 # Define lists to store the section geometries
                 x_data = []
@@ -1123,7 +1120,7 @@ class PostProcessing:
                                                 config.STAGE_DESIGN_VARIABLES)
 
 if __name__ == "__main__":
-    output = Path('Results/res_pop100_eval11000_250604042335351398.dill')
+    output = Path('Results/res_pop100_eval11000_250606011743550320.dill')
 
     processing_class = PostProcessing(fname=output)
     processing_class.main()
