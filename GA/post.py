@@ -45,13 +45,13 @@ Changelog:
 """
 
 # Import standard libraries
-import dill
 import copy
 from pathlib import Path
 from cycler import cycler
 from typing import Any, Optional
 
 # Import 3rd party libraries
+import dill
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colormaps
@@ -61,7 +61,6 @@ from pymoo.visualization.pcp import PCP
 # Ensure all paths are correctly setup
 from utils import ensure_repo_paths
 ensure_repo_paths()
-
 
 # Import interfacing modules
 import config # type: ignore
@@ -882,8 +881,8 @@ class PostProcessing:
 
 
     def create_blade_geometry_plots(self,
-                                    blading: list[list[dict[str, any]]],
-                                    design: list[list[list[dict[str, any]]]]) -> None:
+                                    blading: list[list[dict[str, Any]]],
+                                    design: list[list[list[dict[str, Any]]]]) -> None:
         """
         Generate 2D and 3D plots of blade geometries for each stage the ducted fan design.
         This method visualizes the blade sections by constructing their geometry using provided blading and design data.
@@ -897,10 +896,10 @@ class PostProcessing:
 
         Parameters
         ----------
-        - blading : list[list[dict[str, any]]]
+        - blading : list[list[dict[str, Any]]]
             A list containing blading data for each stage. Each stage is represented as a list of dictionaries
             with geometric and aerodynamic properties at various radial stations.
-        - design : list[list[list[dict[str, any]]]]
+        - design : list[list[list[dict[str, Any]]]]
             A list containing design data for each stage. Each stage is represented as a list of lists of dictionaries
             with design parameters for the blade sections.
 
@@ -913,7 +912,6 @@ class PostProcessing:
 
         # Define the number of radial sections to generate a plot for, the number of chordwise data points to use
         # and their distribution.
-        n_points_radial = 16
         n_data = 120
         axial_points = (1 - np.cos(np.linspace(0, np.pi, n_data))) / 2
 

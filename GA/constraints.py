@@ -44,6 +44,7 @@ Changelog:
 
 # Import standard libraries
 import copy
+from typing import Any
 
 # Import 3rd party libraries
 import numpy as np
@@ -314,7 +315,7 @@ class Constraints:
     def ComputeConstraints(self,
                            analysis_outputs: AnalysisOutputs,
                            Lref: float,
-                           oper: dict[str, float],
+                           oper: dict[str, Any],
                            out: dict) -> None:
         """
         Compute the inequality and equality constraints based on the provided analysis outputs
@@ -327,7 +328,7 @@ class Constraints:
             which are used as inputs to the constraint functions.
         - Lref : float
             A reference length used in the computation of constraints.
-        - oper : dict[str, float]
+        - oper : dict[str, Any]
             The operating conditions dictionary.
         - out : dict
             A dictionary to store the computed constraints. The keys "G" and "H"
@@ -415,7 +416,7 @@ class Constraints:
     def ComputeMultiPointConstraints(self,
                                      analysis_outputs: list[AnalysisOutputs],
                                      Lref: float,
-                                     oper: list[dict[str, float]],
+                                     oper: list[dict[str, Any]],
                                      out: dict) -> None:
         """
         Compute the inequality and equality constraints for a multi-point analysis based on the provided analysis outputs
