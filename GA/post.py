@@ -47,7 +47,6 @@ Changelog:
 # Import standard libraries
 import copy
 from pathlib import Path
-from cycler import cycler
 from typing import Any, Optional
 
 # Import 3rd party libraries
@@ -55,6 +54,7 @@ import dill
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colormaps
+from cycler import cycler
 from pymoo.visualization.scatter import Scatter
 from pymoo.visualization.pcp import PCP
 
