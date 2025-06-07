@@ -1,10 +1,10 @@
-""" 
+"""
 X22A_validation
 ===============
 
 Description
 -----------
-This file is an implementation of all classes and functions to validate the MTFLOW codes and input generation routines against 
+This file is an implementation of all classes and functions to validate the MTFLOW codes and input generation routines against
 experimental wind tunnel data for the X22A ducted propeller powertrain unit, contained in NASA TN-D-4142.
 
 Notes
@@ -13,9 +13,9 @@ N/A
 
 References
 ----------
-[1] - https://ntrs.nasa.gov/api/citations/19670025554/downloads/19670025554.pdf 
-[2] - https://apps.dtic.mil/sti/tr/pdf/AD0447814.pdf?form=MG0AV3 
-[3] - https://arc.aiaa.org/doi/10.2514/1.C037541 
+[1] - https://ntrs.nasa.gov/api/citations/19670025554/downloads/19670025554.pdf
+[2] - https://apps.dtic.mil/sti/tr/pdf/AD0447814.pdf?form=MG0AV3
+[3] - https://arc.aiaa.org/doi/10.2514/1.C037541
 
 Versioning
 ----------
@@ -25,7 +25,7 @@ Student ID 4995309
 Version: 1.0
 
 Changelog:
-- V1.0: Initial complete validated version. 
+- V1.0: Initial complete validated version.
 - V1.1: Added documentation and type hinting.
 """
 
@@ -40,16 +40,16 @@ import matplotlib.pyplot as plt
 from scipy import interpolate
 from ambiance import Atmosphere
 
-# Enable submodel relative imports 
+# Enable submodel relative imports
 sys.path.append(str(Path(__file__).resolve().parent))
 
 # Import interfacing modules
-from Submodels.Parameterizations import AirfoilParameterization # type: ignore 
-from Submodels.file_handling import fileHandlingMTFLO, fileHandlingMTSET # type: ignore 
-from Submodels.output_handling import output_processing # type: ignore 
-from Submodels.MTSOL_call import MTSOL_call # type: ignore 
-from Submodels.MTSET_call import MTSET_call # type: ignore 
-from Submodels.MTFLO_call import MTFLO_call # type: ignore 
+from Submodels.Parameterizations import AirfoilParameterization # type: ignore
+from Submodels.file_handling import fileHandlingMTFLO, fileHandlingMTSET # type: ignore
+from Submodels.output_handling import output_processing # type: ignore
+from Submodels.MTSOL_call import MTSOL_call # type: ignore
+from Submodels.MTSET_call import MTSET_call # type: ignore
+from Submodels.MTFLO_call import MTFLO_call # type: ignore
 
 # Define key paths/directories
 submodels_path = Path(__file__).resolve().parent / "Submodels"
@@ -63,7 +63,7 @@ FAN_DIAMETER = 7 * 0.3048  # m, taken from [3] and converted to meters from feet
 L_REF = FAN_DIAMETER  # m, reference length for use by MTFLOW
 
 
-def GenerateMTFLOBlading(Omega: float,                        
+def GenerateMTFLOBlading(Omega: float,
                          ref_blade_angle: float,
                          plot : bool,
                          ) -> tuple[list, list]:
@@ -76,10 +76,10 @@ def GenerateMTFLOBlading(Omega: float,
     - Omega : float
         The non-dimensional rotational speed of the rotor, as defined in the MTFLOW documentation in units of Vinl/Lref
     - ref_blade_angle : float
-        The blade set angle, in radians. 
+        The blade set angle, in radians.
     - plot : bool
         A control boolean to determine whether the propeller blade geometry is plotted.
-    
+
     Returns
     -------
     - (list, list):
@@ -91,55 +91,55 @@ def GenerateMTFLOBlading(Omega: float,
     """
 
     # Start defining the MTFLO blading inputs
-    propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, "reference_section_blade_angle": np.deg2rad(20), "blade_count": 3, "radial_stations": np.array([0, 
+    propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, "rotational_rate": Omega, "ref_blade_angle": ref_blade_angle, "reference_section_blade_angle": np.deg2rad(20), "blade_count": 3, "radial_stations": np.array([0,
                                                                                                                                                                                                                       0.2,
-                                                                                                                                                                                                                      0.3, 
+                                                                                                                                                                                                                      0.3,
                                                                                                                                                                                                                       0.4,
                                                                                                                                                                                                                       0.5,
                                                                                                                                                                                                                       0.6,
-                                                                                                                                                                                                                      0.7, 
+                                                                                                                                                                                                                      0.7,
                                                                                                                                                                                                                       0.8,
                                                                                                                                                                                                                       0.9,
-                                                                                                                                                                                                                      1]).astype(float) * FAN_DIAMETER / 2, 
+                                                                                                                                                                                                                      1]).astype(float) * FAN_DIAMETER / 2,
                                                                                                                                                                                     "chord_length": np.array([0.3510,
                                                                                                                                                                                                               0.3510,
                                                                                                                                                                                                               0.3152,
-                                                                                                                                                                                                              0.2794, 
+                                                                                                                                                                                                              0.2794,
                                                                                                                                                                                                               0.2528,
-                                                                                                                                                                                                              0.2413, 
+                                                                                                                                                                                                              0.2413,
                                                                                                                                                                                                               0.2367,
                                                                                                                                                                                                               0.2309,
                                                                                                                                                                                                               0.2251,
-                                                                                                                                                                                                              0.2205]).astype(float), 
+                                                                                                                                                                                                              0.2205]).astype(float),
                                                                                                                                                                                     "blade_angle": np.array([np.deg2rad(53.6),
-                                                                                                                                                                                                             np.deg2rad(53.6), 
+                                                                                                                                                                                                             np.deg2rad(53.6),
                                                                                                                                                                                                              np.deg2rad(46.8),
                                                                                                                                                                                                              np.deg2rad(39.5),
                                                                                                                                                                                                              np.deg2rad(32.3),
-                                                                                                                                                                                                             np.deg2rad(26.4), 
+                                                                                                                                                                                                             np.deg2rad(26.4),
                                                                                                                                                                                                              np.deg2rad(22.3),
                                                                                                                                                                                                              np.deg2rad(19.1),
                                                                                                                                                                                                              np.deg2rad(16.8),
                                                                                                                                                                                                              np.deg2rad(15.5)]).astype(float)}
-    
-    horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 4, "radial_stations": np.array([0.05, 
-                                                                                                                                                                                    1]) * 1.15, 
+
+    horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 4, "radial_stations": np.array([0.05,
+                                                                                                                                                                                    1]) * 1.15,
                                                                                                                                                                                     "chord_length": np.array([0.57658,
-                                                                                                                                                                                                              0.14224]), 
+                                                                                                                                                                                                              0.14224]),
                                                                                                                                                                                     "blade_angle": np.array([np.deg2rad(90),
                                                                                                                                                                                                              np.deg2rad(90)]),
                                                                                                                                                                                     "sweep_angle": np.array([0,
                                                                                                                                                                                                              0])}
-    
-    diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 2, "radial_stations": np.array([0.05, 
-                                                                                                                                                                                    1]) * 1.15, 
+
+    diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, "rotational_rate": 0, "ref_blade_angle": 0, "reference_section_blade_angle": 0, "blade_count": 2, "radial_stations": np.array([0.05,
+                                                                                                                                                                                    1]) * 1.15,
                                                                                                                                                                                     "chord_length": np.array([0.10287,
-                                                                                                                                                                                                              0.10287]), 
+                                                                                                                                                                                                              0.10287]),
                                                                                                                                                                                     "blade_angle": np.array([np.deg2rad(90),
                                                                                                                                                                                                              np.deg2rad(90)]),
                                                                                                                                                                                     "sweep_angle": np.array([0,
                                                                                                                                                                                                              0])}
-    
+
     # Construct blading list
     blading_parameters = [propeller_parameters,
                           horizontal_strut_parameters,
@@ -164,9 +164,9 @@ def GenerateMTFLOBlading(Omega: float,
         else:
             sweep_angle[i] = 0
     blading_parameters[0]["sweep_angle"] = sweep_angle
-    
+
     # Create plot of the propeller blade
-    # Chord lengths are approximate due to the incomplete rotation implementation. 
+    # Chord lengths are approximate due to the incomplete rotation implementation.
     if plot:
         x_LE_arr = np.zeros_like(blading_parameters[0]["chord_length"])
         x_TE_arr = np.zeros_like(x_LE_arr)
@@ -175,7 +175,7 @@ def GenerateMTFLOBlading(Omega: float,
         for section in range(len(blading_parameters[0]["radial_stations"])):
             rotation_angle = np.pi/2 - (blading_parameters[0]["blade_angle"][section] + blading_parameters[0]["ref_blade_angle"] - blading_parameters[0]["reference_section_blade_angle"])
             x_LE = root_LE + blading_parameters[0]["radial_stations"][section] * np.tan(blading_parameters[0]["sweep_angle"][section])
-            
+
             x_TE = x_LE + blading_parameters[0]["chord_length"][section] * np.cos(rotation_angle)
             x_mid_arr[section] = (x_LE + x_TE) / 2
             x_LE_arr[section] = x_LE
@@ -193,9 +193,9 @@ def GenerateMTFLOBlading(Omega: float,
         plt.tight_layout()
         plt.show()
 
-    
 
-    # Obtain the parameterizations for the profile sections. 
+
+    # Obtain the parameterizations for the profile sections.
     local_dir_path = Path(__file__).resolve().parent / 'Validation/Profiles'
     R02_fpath = local_dir_path / 'X22_02R.dat'
     R03_fpath = local_dir_path / 'X22_03R.dat'
@@ -267,7 +267,7 @@ def GenerateMTFLOInput(blading_parameters: list,
     -------
     None
     """
-    
+
     fileHandlingMTFLO(analysis_name=ANALYSIS_NAME,
                       ref_length=L_REF).GenerateMTFLOInput(blading_params=blading_parameters,
                                                            design_params=design_parameters,
@@ -276,7 +276,7 @@ def GenerateMTFLOInput(blading_parameters: list,
 
 def GenerateMTSETGeometry() -> None:
     """
-    Generate the duct and center body geometry. Uses a combination of analytical representation, and smoothing interpolations to obtain the axisymmetric geometries. 
+    Generate the duct and center body geometry. Uses a combination of analytical representation, and smoothing interpolations to obtain the axisymmetric geometries.
     """
 
     # --------------------
@@ -303,19 +303,19 @@ def GenerateMTSETGeometry() -> None:
     b = C[1] - P2[1]
     h, k = C
 
-    # Construct an array of x values along which to reconstruct the leading edge nose shape, 
+    # Construct an array of x values along which to reconstruct the leading edge nose shape,
     # and use it to calculate the corresponding y values
     # Both x_nose and y_nose are still in inches
     x_nose = np.linspace(P1[0], C[0], 30)
-    y_nose = (k - b * np.sqrt(1 - ((x_nose - h) ** 2 / a ** 2))) 
+    y_nose = (k - b * np.sqrt(1 - ((x_nose - h) ** 2 / a ** 2)))
 
     lower_x = np.append(lower_x, x_nose)
     lower_y = np.append(lower_y, y_nose)
 
     # Raw approximated data for aft section of the lower surface
     # Data taken from a graph digitized by Bram Meijerink.
-    # Note that the y values are not matching the graph from [1], so the data is scaled. 
-    # After scaling, a smoothing interpolation using a univariatespline is used to create a more physical curve.  
+    # Note that the y values are not matching the graph from [1], so the data is scaled.
+    # After scaling, a smoothing interpolation using a univariatespline is used to create a more physical curve.
     aft_x_raw = np.array([17.75, 21.4, 24.2, 28, 31.1, 33.4, 35.9, 38, 39.6, 41.7, 43.9, 45.5, 47.2, 48.4, 49])
     aft_y_raw = np.array([42.375, 42.4562, 42.6226, 42.8506, 43.1218, 43.3298, 43.5878, 43.7874, 43.9954, 44.2618, 44.4946, 44.661, 44.869, 44.9938, 45.05])
     scale_factor = (46.65 - lower_y[-1]) / (aft_y_raw[-1] - lower_y[-1])
@@ -350,25 +350,25 @@ def GenerateMTSETGeometry() -> None:
 
     # Perform smoothing interpolation on the centerbody geometry
     interpolated_centerbody_x = centerbody_x[0] + ((1 - np.cos(np.linspace(0, np.pi, 30))) / 2) * (centerbody_x[-1] - centerbody_x[0])  #  cosine spacing for increased resolution at LE and TE
-    
+
 
     interpolated_centerbody_y = interpolate.UnivariateSpline(centerbody_x,
                                                              centerbody_y,
                                                              k=3,
                                                              s=5
-                                                             )(interpolated_centerbody_x)  
-    
+                                                             )(interpolated_centerbody_x)
+
     # Transform the data to the correct format
-    # Ensures leading edge data point only occurs once to make sure a smooth spline is constructed, in accordance with the MTFLOW documentation.    
+    # Ensures leading edge data point only occurs once to make sure a smooth spline is constructed, in accordance with the MTFLOW documentation.
     centerbody_x_complete = np.concatenate((np.flip(interpolated_centerbody_x), interpolated_centerbody_x[1:]), axis=0)
     centerbody_y_complete = np.concatenate((np.flip(interpolated_centerbody_y), -interpolated_centerbody_y[1:]), axis=0)
-    xy_centerbody = np.vstack((centerbody_x_complete, centerbody_y_complete)).T  
+    xy_centerbody = np.vstack((centerbody_x_complete, centerbody_y_complete)).T
 
     # Write the coordinates to a file
     with open("centerbody_coordinates.dat", "w") as file:
         file.write("Centerbody coords\n")
         for x, y in xy_centerbody:
-            file.write(f"{x}    {y}\n")  
+            file.write(f"{x}    {y}\n")
 
     # Generate MTSET input file walls.X22A_validation
     # To run the GenerateMTSETInput() function, we need to define the params_CB and params_duct dictionaries, so fill them with the minimum required inputs
@@ -386,13 +386,13 @@ def GenerateMTSETGeometry() -> None:
 
 def ChangeOMEGA(omega: float) -> None:
     """
-    Rather than generating the tflow file for each advance ratio from scratch, 
-    simply change omega in the tflow file. 
+    Rather than generating the tflow file for each advance ratio from scratch,
+    simply change omega in the tflow file.
 
     Parameters
     ----------
     - omega : float
-        The non-dimensional rotational speed to be entered into the tflow input file. 
+        The non-dimensional rotational speed to be entered into the tflow input file.
     """
 
     # Open the tflow.analysis_name file
@@ -446,22 +446,22 @@ def ExecuteParameterSweep(omega: np.typing.NDArray[np.floating],
     # Create the MTSET geometry and write the input file walls.ANALYSIS_NAME
     GenerateMTSETGeometry()
 
-    # Construct the MTFLO blading using omega=0 and reference blade angle. 
+    # Construct the MTFLO blading using omega=0 and reference blade angle.
     # Perform parameterization can be optionally set to true in case different profiles are used compared to the default inputs
     blading_parameters, design_parameters = GenerateMTFLOBlading(Omega=0,
                                                                  ref_blade_angle=reference_angle,
                                                                  plot=generate_plots)
-    
+
     # Change working directory to the submodels folder
     try:
         current_dir = Path.cwd()
         os.chdir(submodels_path)
-    
+
         # Generate the MTFLO input file
         GenerateMTFLOInput(blading_parameters,
                         design_parameters,
                         display_plot=generate_plots)
-        
+
         # Perform analysis for all omega, Mach, and Re combinations defined at the top of the file
         CT_outputs = np.zeros_like(omega)
         CP_outputs = np.zeros_like(omega)
@@ -472,47 +472,46 @@ def ExecuteParameterSweep(omega: np.typing.NDArray[np.floating],
             MTSET_call(analysis_name=ANALYSIS_NAME,
                     streamwise_points=streamwise_points,
                     ).caller()
-            
-            # Update the blade parameters to the correct omega 
-            ChangeOMEGA(omega[i])      
 
-            #Load in the blade row(s) from MTFLO 
-            MTFLO_call(ANALYSIS_NAME).caller() 
+            # Update the blade parameters to the correct omega
+            ChangeOMEGA(omega[i])
+
+            #Load in the blade row(s) from MTFLO
+            MTFLO_call(ANALYSIS_NAME).caller()
 
             # Define operating conditions
             oper = {"Inlet_Mach": inlet_mach[i],
                     "Inlet_Reynolds": reynolds_inlet[i],
                     "N_crit": 9,
                     }
-            
+
             # Execute MTSOL
             MTSOL_call(operating_conditions=oper,
                     analysis_name=ANALYSIS_NAME,
                     ).caller(run_viscous=True,
-                                generate_output=True,
-                                )
+                                generate_output=True)
 
             # Collect outputs from the forces.xxx file
             CT, CP, etaP = output_processing(ANALYSIS_NAME).GetCTCPEtaP()
             print(f"Omega: {omega[i]}, CT: {CT}, CP: {CP}, etaP: {etaP}")
-            
+
             CT_outputs[i] = CT
-            CP_outputs[i] = CP 
+            CP_outputs[i] = CP
             EtaP_outputs[i] = etaP
-    
+
     except OSError as e:
         raise OSError from e
     finally:
         # Return back to current dir
         os.chdir(current_dir)
-    
+
     return CT_outputs, CP_outputs, EtaP_outputs
 
 
 if __name__ == "__main__":
     # Advance ratio range to be used for the validation, together with freestream velocity.
     J = np.array([0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.35, 0.3])  # -
-    FREESTREAM_VELOCITY = np.ones_like(J) * 30  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered. 
+    FREESTREAM_VELOCITY = np.ones_like(J) * 30  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered.
 
     # Compute the rotational speed of the rotor in rotations per second
     RPS = FREESTREAM_VELOCITY / (J * FAN_DIAMETER)  # Hz
@@ -526,7 +525,7 @@ if __name__ == "__main__":
     # These properties can then be used to compute the inlet mach number and reynolds number
     atmosphere = Atmosphere(ALTITUDE)
     inlet_mach = (FREESTREAM_VELOCITY / atmosphere.speed_of_sound)
-    print(f"Mach [-]: {inlet_mach}") 
+    print(f"Mach [-]: {inlet_mach}")
     reynolds_inlet = (FREESTREAM_VELOCITY * L_REF / (atmosphere.kinematic_viscosity))
     print(f"Reynolds [-]: {reynolds_inlet}")
 
@@ -535,7 +534,7 @@ if __name__ == "__main__":
     dyn_press = dyn_press * 0.0208854  # Convert to psf
     print(f"Dynamic pressure (Should be < 106 psf) [psf]: {dyn_press}")
 
-    # Initialize output dictionaries and perform parameter sweep. 
+    # Initialize output dictionaries and perform parameter sweep.
     nrows = len(J)
     ncols = len(REFERENCE_BLADE_ANGLE)
     CT = np.zeros((ncols, nrows))
@@ -550,7 +549,7 @@ if __name__ == "__main__":
                                                         reference_angle=REFERENCE_BLADE_ANGLE[i],
                                                         generate_plots=False,
                                                         streamwise_points=400)
-        
+
         # Store the outputs in the arrays
         CT[i] = CT_out
         CP[i] = CP_out
@@ -568,7 +567,7 @@ if __name__ == "__main__":
 
         plt.figure(power_fig.number)
         plt.plot(J, CP[i], label=f"$\\beta_(75\\%)$={round(np.degrees(REFERENCE_BLADE_ANGLE[i]), 2)} deg", marker=markers[i])
-    
+
     # Format the thrust coefficient figure
     plt.figure(thrust_fig.number)
     plt.grid(which='both')
