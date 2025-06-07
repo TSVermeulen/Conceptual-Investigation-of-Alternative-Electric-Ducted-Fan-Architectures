@@ -150,7 +150,7 @@ def _load_blading(omega: float,
     # radial_stations = np.array([0.0, 0.32004, 0.5334, 0.74676, 1.0668])  # 0, 0.3, 0.5, 0.7, 1
     # chord_length = np.array([0.3510, 0.3152, 0.2528, 0.2367, 0.2205])
     # blade_angle = np.array([np.deg2rad(38.1), np.deg2rad(30.9), np.deg2rad(26.8), np.deg2rad(16.8), np.deg2rad(0)])
-    radial_stations = np.array([0.0, 0.32004, 0.74676, 1.0668])  # 0, 0.3, 0.7, 1
+    radial_stations = np.array([0.05, 0.32004, 0.74676, 1.0668])  # 0.01, 0.3, 0.7, 1
     chord_length = np.array([0.3510, 0.3152, 0.2367, 0.2205])
     blade_angle = np.array([np.deg2rad(38.1), np.deg2rad(30.9), np.deg2rad(16.8), np.deg2rad(0)])
     propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
