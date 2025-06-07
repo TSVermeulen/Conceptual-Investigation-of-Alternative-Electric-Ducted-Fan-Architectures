@@ -26,14 +26,13 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.4
+Version: 1.3
 
 Changelog:
 - V1.0: Initial implementation.
 - V1.1: Updated documentation and added examples for clarity.
 - V1.2: Rework of design vector access. Inclusion of utils.ensure_repo_paths.
 - V1.3: Added type hints for better code clarity and maintainability. Addd reconstructdesignvector method.
-- V1.4: Changed radial sections to run from 0.05-1 rather than 0-1 to fix interpolation of inboard blade sections. 
 """
 
 # Import standard libraries
@@ -354,7 +353,7 @@ class DesignVectorInterface:
                 stage_blading_parameters["RPS_lst"] = [next(it) if self.rotating[stage] else 0 for _ in range(num_operating_conditions)]
                 stage_blading_parameters["RPS"] = 0  # Initialize the RPS at zero - this will be overwritten later by the appropriate RPS for the operating condition.
                 stage_blading_parameters["rotation_rate"] = 0  # Initialize the MTFLOW non-dimensional rotational rate to zero - this will be overwritten later by the appropriate Omega within the problem definition.
-                stage_blading_parameters["radial_stations"] = np.linspace(0.05, 0.5 * next(it), self.num_radial[stage])  # Radial stations are defined as fraction of blade radius * local radius
+                stage_blading_parameters["radial_stations"] = np.linspace(0, 0.5 * next(it), self.num_radial[stage])  # Radial stations are defined as fraction of blade radius * local radius
 
                 # Extract sectional blading parameter lists
                 stage_blading_parameters["chord_length"] = [next(it) for _ in range(self.num_radial[stage])]
