@@ -26,7 +26,7 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Date [dd-mm-yyyy]: [01-06-2025]
+Date [dd-mm-yyyy]: [08-06-2025]
 Version: 1.5
 
 Changelog:
@@ -35,11 +35,12 @@ Changelog:
 - V1.2: Improved one-to-one enforcement for Bezier curves.
 - V1.3: Refactored repair logic and updated documentation. Improved robustness of one-to-one enforcing by including additonal equation for gamma_LE.
 - V1.4: Made bounds on repair enforce_one2one a reference to the design vector initialisation to ensure single source of truth. Added explicit repair out of bounds operator.
-- V1.5: Introduced blade count repair function.
+- V1.5: Introduced blade count repair function. Introduced duct LE location repair function
 """
 
 # Import standard libraries
 import copy
+from typing import Any
 
 # Import 3rd party libraries
 import numpy as np
@@ -300,18 +301,18 @@ class RepairIndividuals(Repair):
         return modified_profile_params
 
 
-    def _enforce_blade_LE_positive_sweepback(self, blading_params: dict[str, any]) -> dict[str, any]:
+    def _enforce_blade_LE_positive_sweepback(self, blading_params: dict[str, Any]) -> dict[str, Any]:
         """
         Enforce that the leading edge x-coordinate of the blade is positively increasing along the span.
 
         Parameters
         ----------
-        - blading_params : dict[str, any]
+        - blading_params : dict[str, Any]
             Dictionary containing the blading parameters
 
         Returns
         -------
-        - blading_params : dict[str, any]
+        - blading_params : dict[str, Any]
             Dictionary containing the blading parameters with adjusted values to ensure positive sweepback angle
         """
 
@@ -324,25 +325,56 @@ class RepairIndividuals(Repair):
         blading_params["sweep_angle"][1:] = np.atan(LE_x_coordinate_corrected[1:] / blading_params["radial_stations"][1:])
 
         return blading_params
+    
+
+    def _enforce_duct_location(self, 
+                               blading_params: dict[str, Any],
+                               duct_params: dict[str, Any]) -> dict[str, Any]:
+        """
+        Enforce the duct leading edge is always positioned at/forward of the blade tip leading edge.
+
+        Parameters
+        ----------
+        - blading_params : dict[str, Any]
+            Dictionary containing the blading parameters
+        - duct_params : dict[str, Any]
+            Dictionary containing the duct parameters
+
+        Returns
+        -------
+        - duct_params : dict[str, Any]
+            Dictionary containing the duct parameters with adjusted LE x coordinate.
+
+        """
+
+        # First compute the tip LE x-coordinate
+        tip_LE_x = blading_params["root_LE_coordinate"] + blading_params["radial_stations"][-1] * np.tan(blading_params["sweep_angle"][-1])
+
+        # If the duct is positioned aft of the LE of the blade tip, move it forward
+        if duct_params["Leading Edge Coordinates"][0] > tip_LE_x:
+            duct_params["Leading Edge Coordinates"] = (tip_LE_x, 
+                                                       duct_params["Leading Edge Coordinates"][1])
+            
+        return duct_params
 
 
     def _fix_blockage(self,
-                      blading_params: dict[str, any],
-                      design_params: list[dict[str, any]]) -> dict[str, any]:
+                      blading_params: dict[str, Any],
+                      design_params: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Fix the blade circumferential thickness. If limit of complete blockage is exceeded anywhere along the blade span,
         we simply decrease the blade-count to fix the blockage.
 
         Parameters
         ----------
-        - blading_params : dict[str, any]
+        - blading_params : dict[str, Any]
             Dictionary containing the blading parameters
-        - design_params : list[dict[str, any]]
+        - design_params : list[dict[str, Any]]
             - List of the Bezier-Parsec design parameters for all defined radial profile sections
 
         Returns
         -------
-        - blading_params : dict[str, any]
+        - blading_params : dict[str, Any]
             The repaired blading parameters dictionary
         """
 
@@ -449,6 +481,11 @@ class RepairIndividuals(Repair):
                 if optimise_stage:
                     # Repair the blading parameters
                     blade_blading_parameters[j] = self._enforce_blade_LE_positive_sweepback(blade_blading_parameters[j])
+                    
+                    # Repair the duct LE location
+                    duct_variables = self._enforce_duct_location(blade_blading_parameters[j],
+                                                                 duct_variables)
+                    
                     # Loop over all the radial sections and repair the profile parameters
                     for k in range(config.NUM_RADIALSECTIONS[j]):
                         # Repair the profile parameters
