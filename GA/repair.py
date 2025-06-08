@@ -95,7 +95,8 @@ class RepairIndividuals(Repair):
 
 
     def _computebezier(self,
-                       profile_params: dict[str, float]) -> tuple[np.typing.NDArray, np.typing.NDArray, np.typing.NDArray, np.typing.NDArray]:
+                       profile_params: dict[str, float]) -> tuple[tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64], np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]], 
+                                                                  tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64], np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]]]:
         """
         Compute the Bezier curves for the x-coordinates and y-coordinates of the leading and trailing edge thickness and camber distributions
         of the airfoil profile.
@@ -380,10 +381,10 @@ class RepairIndividuals(Repair):
         try:
             # Loop over the radial sections
             for i in range(len(design_params)):
-                # Loop to fix the blockage. Require at least 3 blades (minimum blade count is 2)
-                while blading_params["blade_count"] > 2:
-                    # First precompute the limit of complete blockage at every radial station
-                    complete_blockage = 2 * np.pi * blading_params["radial_stations"] / blading_params["blade_count"]
+                # Loop to fix the blockage. Requires at least 4 blades to run (minimum blade count is 3)
+                while blading_params["blade_count"] > 3:
+                    # First precompute the limit of complete blockage at the radial station
+                    complete_blockage = 2 * np.pi * blading_params["radial_stations"][i] / blading_params["blade_count"]
 
                     upper_x, upper_y, lower_x, lower_y = self.airfoil_parameterization.ComputeProfileCoordinates(design_params[i])
                     upper_x *= blading_params["chord_length"][i]
@@ -417,7 +418,7 @@ class RepairIndividuals(Repair):
                     
                     # Check if the limit of complete blockage is respected by the design. If not, decrease the blade count by 1
                     max_circumf_thickness = circumferential_thickness.max()
-                    if max_circumf_thickness >= complete_blockage[i]:
+                    if max_circumf_thickness >= complete_blockage:
                         blading_params["blade_count"] -= 1
                         continue
 
