@@ -344,15 +344,11 @@ class RepairIndividuals(Repair):
         -------
         - duct_params : dict[str, Any]
             Dictionary containing the duct parameters with adjusted LE x coordinate.
-
         """
 
-        # First compute the tip LE x-coordinate
-        tip_LE_x = blading_params["root_LE_coordinate"] + blading_params["radial_stations"][-1] * np.tan(blading_params["sweep_angle"][-1])
-
-        # If the duct is positioned aft of the LE of the blade tip, move it forward
-        if duct_params["Leading Edge Coordinates"][0] > tip_LE_x:
-            duct_params["Leading Edge Coordinates"] = (tip_LE_x, 
+        # If the duct is positioned aft of the LE of the blade root, move it forward
+        if duct_params["Leading Edge Coordinates"][0] > blading_params["root_LE_coordinate"]:
+            duct_params["Leading Edge Coordinates"] = (blading_params["root_LE_coordinate"], 
                                                        duct_params["Leading Edge Coordinates"][1])
             
         return duct_params
