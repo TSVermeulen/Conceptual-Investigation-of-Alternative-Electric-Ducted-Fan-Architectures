@@ -57,15 +57,21 @@ def calculate_n_reference_points(cfg: object) -> int:
     m = cfg.n_objectives
     p = 0
 
+    if m == 1:
+        # Single objective uses only 1 reference point
+        return m
+
     max_iter = 10000 # hard-stop for safety; tweak if needed
     while p < max_iter:
         p += 1
         count = math.comb(p + m - 1, m - 1)
-        if count >= max(1, cfg.POPULATION_SIZE):
+        if count >= 6 * m:
             return p
 
-    if m == 1:
-        print(f"Unable to find suitable p within {max_iter} iterations for {m} objectives and population size: {cfg.POPULATION_SIZE}. Setting p equal to the number of objectives...")
-        return m
     print(f"Unable to find suitable p within {max_iter} iterations for {m} objectives and population size: {cfg.POPULATION_SIZE}. Setting p equal to the population size...")
     return cfg.POPULATION_SIZE
+
+
+if __name__ == "__main__":
+    import config
+    print(calculate_n_reference_points(config))
