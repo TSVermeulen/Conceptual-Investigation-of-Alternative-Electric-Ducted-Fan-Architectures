@@ -381,7 +381,7 @@ class RepairIndividuals(Repair):
         try:
             # Loop over the radial sections
             for i in range(len(design_params)):
-                # Loop to fix the blockage. Requires at least 4 blades to run (minimum blade count is 3)
+                # Loop to fix the blockage: decrement blade_count while > 3 to enforce minimum of 3 blades
                 while blading_params["blade_count"] > 3:
                     # First precompute the limit of complete blockage at the radial station
                     complete_blockage = 2 * np.pi * blading_params["radial_stations"][i] / blading_params["blade_count"]
