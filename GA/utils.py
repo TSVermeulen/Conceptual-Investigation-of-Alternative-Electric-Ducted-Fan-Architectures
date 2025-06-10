@@ -40,13 +40,15 @@ def calculate_n_reference_points(cfg: object) -> int:
     """
     Calculate the number of points needed to construct
     the right number of reference directions using a
-    binomial coefficient
+    binomial coefficient.
 
     Parameters
     ----------
     - cfg: object
         Configuration object.
-        We cannot import config directly in this file, since config already uses ensure_repo_paths, which would result in a circular import error.
+        We cannot import config directly in this file, since config already uses 
+        ensure_repo_paths, which would result in a circular import error.
+        Must have the n_objectives and POPULATION_size attributes.
 
     Returns
     -------
@@ -54,22 +56,25 @@ def calculate_n_reference_points(cfg: object) -> int:
         The number of points needed
     """
 
-    m = cfg.n_objectives
-    p = 0
+    try:
+        m = cfg.n_objectives
+    except AttributeError as e:
+        raise AttributeError(f"Configuration object is missing required attribute: {e}")
 
     if m == 1:
         # Single objective uses only 1 reference point
         return m
 
     max_iter = 10000 # hard-stop for safety; tweak if needed
+    p = 0
+    POPULATION_RATIO = 6  # Ratio used in evaluating the binomial coefficient. Based on some test runs to see which works best. 
     while p < max_iter:
         p += 1
         count = math.comb(p + m - 1, m - 1)
-        if count >= 6 * m:
+        if count >= POPULATION_RATIO * m:
             return p
 
-    print(f"Unable to find suitable p within {max_iter} iterations for {m} objectives and population size: {cfg.POPULATION_SIZE}. Setting p equal to the population size...")
-    return cfg.POPULATION_SIZE
+    return cfg.POPULATION_SIZE / 2
 
 
 if __name__ == "__main__":
