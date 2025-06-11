@@ -510,8 +510,8 @@ def ExecuteParameterSweep(omega: np.typing.NDArray[np.floating],
 
 if __name__ == "__main__":
     # Advance ratio range to be used for the validation, together with freestream velocity.
-    J = np.array([0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.35, 0.3])  # -
-    FREESTREAM_VELOCITY = np.ones_like(J) * 30  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered.
+    J = np.array([0.6, 0.55, 0.5, 0.45, 0.4, 0.35, 0.3])  # -
+    FREESTREAM_VELOCITY = np.ones_like(J) * 26  # m/s, tweaked to get acceptable values of RPS/OMEGA for the advance ratio range considered.
 
     # Compute the rotational speed of the rotor in rotations per second
     RPS = FREESTREAM_VELOCITY / (J * FAN_DIAMETER)  # Hz
