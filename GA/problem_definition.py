@@ -408,7 +408,8 @@ class OptimizationProblem(ElementwiseProblem):
                 output_handler = self._output_processing(analysis_name=self.analysis_name)
                 MTFLOW_outputs = output_handler.GetAllVariables(output_type=0)
             except Exception as e:
-                print(f"[MTFLOW_ERROR] case={self.analysis_name}: {e}")
+                if self.verbose:
+                    print(f"[MTFLOW_ERROR] case={self.analysis_name}: {e}")
                 MTFLOW_outputs = self.CRASH_OUTPUTS
         else:
             # If the design is infeasible, we load the crash outputs
