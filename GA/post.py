@@ -37,11 +37,12 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version 1.1
+Version 1.2
 
 Changelog:
 - V1.0: Initial implementation of plotting capabilities of outputs.
 - V1.1: Added convergence property plotter. Added 3D blade geometry plotting capability.
+- V1.2: Added hypervolume tracker.
 """
 
 # Import standard libraries
@@ -57,6 +58,7 @@ from matplotlib import colormaps
 from cycler import cycler
 from pymoo.visualization.scatter import Scatter
 from pymoo.visualization.pcp import PCP
+from pymoo.indicators.hv import Hypervolume
 
 # Ensure all paths are correctly setup
 from utils import ensure_repo_paths
@@ -836,6 +838,19 @@ class PostProcessing:
         plot.add(res.F, facecolor='red', s=20, label="Optimum solutions")
         plot.legend = True
         plot.show()
+
+        # Create hypervolume plot
+        hv_indicator = Hypervolume(ref_point=res.history[0].pop[0].get("F"))
+        hv_history = [hv_indicator._do(np.atleast_2d(gen.pop.get("F"))) for gen in res.history]  
+        hv_history[0] = 0  # Define initial hypervolume to be zero since the reference design is not generally the dominated solution
+        plt.figure("Hypervolume evolution")
+        plt.plot(hv_history, "-*")
+        plt.xlabel("Generation [-]")
+        plt.ylabel("Hypervolume [-]")
+        plt.minorticks_on()
+        plt.grid(which='both')
+        plt.tight_layout()
+        plt.show()
 
 
     def analyse_design_space(self,

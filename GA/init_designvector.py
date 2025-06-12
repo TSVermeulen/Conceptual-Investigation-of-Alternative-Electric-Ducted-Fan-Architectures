@@ -137,9 +137,9 @@ class DesignVector:
         if cfg.OPTIMIZE_DUCT:
             # If the duct is to be optimised, intialise the variable types
             duct_profile = cls.profile_section_vars()
-            duct_profile[6] = Real(bounds=(0.04, 0.2))  # set y_t for the duct
+            duct_profile[6] = Real(bounds=(0.05, 0.2))  # set y_t for the duct
             vector.extend(duct_profile)
-            vector.append(Real(bounds=(0.75, 1.5)))  # Chord Length
+            vector.append(Real(bounds=(1.0, 1.5)))  # Chord Length
             vector.append(Real(bounds=(-0.5, 0.5)))  # Leading Edge X-Coordinate
 
         # Pre-calculate the stage parameters to avoid repeated calculations

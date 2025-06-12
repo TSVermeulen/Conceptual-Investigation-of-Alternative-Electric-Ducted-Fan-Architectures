@@ -31,13 +31,14 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 2.0
+Version: 2.1
 
 Changelog:
 - V1.0: Initial implementation with basic sub-objectives and placeholders for unimplemented methods.
 - V1.1: Added ComputeObjective method to handle multiple objectives dynamically.
 - V1.2: Improved documentation and added type hints for better clarity.
 - V2.0: Refactored code for better modularity and maintainability. Updated examples and notes.
+- V2.1: Updated efficiency objective for better performance.
 """
 
 # Import standard libraries
@@ -104,7 +105,7 @@ class Objectives:
             A float of the propulsive efficiency objective, defined as 1 - EtaP.
         """
 
-        return 1 - outputs['data']['EtaP']
+        return -outputs['data']['EtaP']
 
 
     def FrontalArea(self,
