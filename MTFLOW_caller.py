@@ -267,21 +267,11 @@ class MTFLOW_caller:
                     grid_x_coeff = self.INITIAL_GRID_X_COEFF
                 elif check_count == 1:
                     # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid   
-                    streamwise_points = 141  
-                    grid_e_coeff = self.INITIAL_GRID_E_COEFF
-                    grid_x_coeff = self.INITIAL_GRID_X_COEFF
-                elif check_count == 2:
-                    # Adjust grid parameters to try and fix the grid, while also keeping the reduced number of streamwise_points
-                    grid_e_coeff = 0.7  
-                    grid_x_coeff = 0.5
-                    streamwise_points = 141
-                elif check_count == 3:
-                    # If the suggested coefficients do not work, we try a random number approach to try to brute-force a grid
-                    grid_e_coeff = self._rng.uniform(0.6, 1.0)
-                    grid_x_coeff = self._rng.uniform(0.2, 0.95)
-                    streamwise_points= 141  # Revert back to the default number of streamwise points - this can help reduce likeliness of self-intersecting grid
+                    streamwise_points = self.INITIAL_STREAMWISE_POINTS  
+                    grid_e_coeff = 0.7
+                    grid_x_coeff = 0.9
                 else: 
-                    exit_flag = ExitFlag.CRASH  # If the grid is still incorrect after 4 tries, we assume that the grid is not fixable and exit the loop
+                    exit_flag = ExitFlag.CRASH  # If the grid is still incorrect after the repair attempt, we assume that the grid is not fixable and exit the loop
                     break
                                     
                 # Generate the grid

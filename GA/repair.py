@@ -35,7 +35,7 @@ Changelog:
 - V1.2: Improved one-to-one enforcement for Bezier curves.
 - V1.3: Refactored repair logic and updated documentation. Improved robustness of one-to-one enforcing by including additonal equation for gamma_LE.
 - V1.4: Made bounds on repair enforce_one2one a reference to the design vector initialisation to ensure single source of truth. Added explicit repair out of bounds operator.
-- V1.5: Introduced blade count repair function. Introduced duct LE location repair function
+- V1.5: Introduced blade count repair function. Introduced duct LE location repair function. Introduced chord distribution repair function. 
 """
 
 # Import standard libraries
@@ -353,6 +353,33 @@ class RepairIndividuals(Repair):
                                                        duct_params["Leading Edge Coordinates"][1])
             
         return duct_params
+    
+
+    def _enforce_chord_distribution(self,
+                                    blading_params: dict[str, Any]) -> dict[str, Any]:
+        """
+        Enforce that the blade chord distribution is continuously decreasing from the blade hub to tip. 
+
+        Parameters
+        ----------
+        - blading_params : dict[str, Any]
+
+        Returns
+        -------
+        - blading_params : dict[str, Any]
+        """
+
+        # Extract the current chord distribution
+        original_chord_distribution = blading_params["chord_length"]
+
+        # Fix the chord distribution and update the blading params
+        fixed_chord_distribution = np.minimum.accumulate(original_chord_distribution)
+        blading_params["chord_length"] = fixed_chord_distribution
+
+        if np.any(fixed_chord_distribution != original_chord_distribution):
+            print("fixed chord dist")
+
+        return blading_params
 
 
     def _fix_blockage(self,
@@ -478,6 +505,7 @@ class RepairIndividuals(Repair):
                 if optimise_stage:
                     # Repair the blading parameters
                     blade_blading_parameters[j] = self._enforce_blade_LE_positive_sweepback(blade_blading_parameters[j])
+                    blade_blading_parameters[j] = self._enforce_chord_distribution(blade_blading_parameters[j])
                     
                     # Repair the duct LE location
                     duct_variables = self._enforce_duct_location(blade_blading_parameters[j],
