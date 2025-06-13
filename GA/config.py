@@ -75,16 +75,16 @@ class ObjectiveID(IntEnum):
 objective_IDs = [ObjectiveID.EFFICIENCY, ObjectiveID.FRONTAL_AREA]
 
 # Define the multi-point operating conditions
-multi_oper = [#{"Inlet_Mach": 0.1958224765292171,  # Loiter condition at 125kts
-#                "N_crit": 9,
-#                "atmos": Atmosphere(3048),
-#                "Omega": -11.42397,
-#                "RPS": 54.80281},
-               {"Inlet_Mach": 0.148140,  # Stall condition at 98kts
+multi_oper = [{"Inlet_Mach": 0.1958224765292171,  # Loiter condition at 125kts
                "N_crit": 9,
-               "atmos": Atmosphere(0),
+               "atmos": Atmosphere(3048),
                "Omega": -11.42397,
-               "RPS": 46.69870812},
+               "RPS": 54.80281},
+            #    {"Inlet_Mach": 0.148140,  # Stall condition at 98kts
+            #    "N_crit": 9,
+            #    "atmos": Atmosphere(0),
+            #    "Omega": -11.42397,
+            #    "RPS": 46.69870812},
             #    {"Inlet_Mach": 0.2898172649952647,  # Combat condition at 185kts
             #    "N_crit": 9,
             #    "atmos": Atmosphere(3048),
@@ -286,7 +286,7 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
 POPULATION_SIZE = 100
 # Larger initial population for better diversity in case of infeasible designs, then reduced to standard size
 INITIAL_POPULATION_SIZE = 100
-MAX_GENERATIONS = 100
+MAX_GENERATIONS = 30
 MAX_EVALUATIONS = 11000
 
 # Compute the total number of objectives

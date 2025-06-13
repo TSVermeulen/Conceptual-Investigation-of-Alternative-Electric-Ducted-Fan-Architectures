@@ -376,9 +376,6 @@ class RepairIndividuals(Repair):
         fixed_chord_distribution = np.minimum.accumulate(original_chord_distribution)
         blading_params["chord_length"] = fixed_chord_distribution
 
-        if np.any(fixed_chord_distribution != original_chord_distribution):
-            print("fixed chord dist")
-
         return blading_params
 
 
