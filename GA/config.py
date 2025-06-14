@@ -58,6 +58,7 @@ class ObjectiveID(IntEnum):
     Enumeration of objective function identifiers for the optimization problem.
     Each member represents a different optimization objective that can be used in the genetic algorithm's fitness evaluation.
     """
+    @staticmethod
     def _generate_next_value_(name, start, count, last_values):
         return count  # This makes the first member 0 rather than the default 1.
 
@@ -147,9 +148,6 @@ def _load_blading(omega: float,
     """
 
     # Start defining the MTFLO blading inputs
-    # radial_stations = np.array([0.0, 0.32004, 0.5334, 0.74676, 1.0668])  # 0, 0.3, 0.5, 0.7, 1
-    # chord_length = np.array([0.3510, 0.3152, 0.2528, 0.2367, 0.2205])
-    # blade_angle = np.array([np.deg2rad(38.1), np.deg2rad(30.9), np.deg2rad(26.8), np.deg2rad(16.8), np.deg2rad(0)])
     radial_stations = np.array([0, 0.32004, 0.74676, 1.0668])  # 0, 0.3, 0.7, 1
     chord_length = np.array([0.3510, 0.3152, 0.2367, 0.2205])
     blade_angle = np.array([np.deg2rad(38.1), np.deg2rad(30.9), np.deg2rad(16.8), np.deg2rad(0)])
@@ -259,6 +257,7 @@ class InEqConstraintID(IntEnum):
     Enumeration of the inequality constraint identifiers for the optimization problem.
     Each member represents a different inequality constraint that can be used in the genetic algorithm's evaluation.
     """
+    @staticmethod
     def _generate_next_value_(name, start, count, last_values):
         return count  # This makes the first member 0 rather than the default 1.
     
@@ -272,6 +271,7 @@ class EqConstraintID(IntEnum):
     Enumeration of the equality constraint identifiers for the optimization problem.
     Each member represents a different equality constraint that can be used in the genetic algorithm's evaluation.
     """
+    @staticmethod
     def _generate_next_value_(name, start, count, last_values):
         return count  # This makes the first member 0 rather than the default 1.
     
@@ -295,7 +295,7 @@ n_objectives = len(objective_IDs) * len(multi_oper) - sum(1 for obj in objective
 # Define the initial population parameter spreads, used to construct a biased initial population 
 SPREAD_CONTINUOUS = 0.25  # Relative spread (+/- %) applied to continous variables around their reference values
 ZERO_NOISE = 0.25  # % noise added to zero values to avoid stagnation
-SPREAD_DISCRETE = (-3, 17)  # Absolute range for discrete variables (referene value -3 to reference value + 6)
+SPREAD_DISCRETE = (-3, 17)  # Absolute range for discrete variables (referene value -3 to reference value + 17)
 
 # Repair operator controls
 PROFILE_FEASIBILITY_OFFSET = 0.05  # Offset value to avoid bezier control points lying on x_t/x_c

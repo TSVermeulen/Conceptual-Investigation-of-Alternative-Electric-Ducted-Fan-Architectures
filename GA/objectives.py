@@ -102,7 +102,7 @@ class Objectives:
         Returns
         -------
         - Propulsive Efficiency: float
-            A float of the propulsive efficiency objective, defined as 1 - EtaP.
+            A float of the propulsive efficiency objective, defined as -EtaP.
         """
 
         return -outputs['data']['EtaP']
@@ -271,11 +271,6 @@ class Objectives:
                 computed_objectives[i * num_varobjectives + j] =  round(objective(outputs), 5)
 
         # Now compute the constant objectives
-        # Since the objectives are independent of analysis condition, we simply use the first analysis to compute the objectives.
-        # Validate that the first analysis output contains the required wetted area data
-        if "Wetted Area" not in analysis_outputs[0]["data"]:
-            raise ValueError("The first analysis output does not contain the required 'Wetted Area' data for the constant objectives.")
-
         for i, objective in enumerate(constant_objectives):
             computed_objectives[num_varobjectives * num_outputs + i] = round(objective(analysis_outputs[0]), 5)
 

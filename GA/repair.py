@@ -192,10 +192,8 @@ class RepairIndividuals(Repair):
         """
 
         # Attempt to enforce one to one mapping of the bezier x-curves for 200 attempts.
+        modified_profile_params = copy.deepcopy(profile_params)
         for _ in range(200):
-            # Create a working copy for this iteration
-            modified_profile_params = copy.deepcopy(profile_params)
-
             # Compute the bezier curves for the x-coordinates. x_LE_thickness is always one to one, so we can ignore it.
             ((_,
               x_TE_thickness,
@@ -299,9 +297,6 @@ class RepairIndividuals(Repair):
                 alpha_TE = np.clip(alpha_TE, self.BP_bounds["trailing_camberline_angle"][0], self.BP_bounds["trailing_camberline_angle"][1])  # Enforce alpha_TE to bounds
                 modified_profile_params["trailing_camberline_angle"] = alpha_TE
             
-            # Propagate the updated dictionary
-            profile_params = modified_profile_params
-
         return modified_profile_params
 
 

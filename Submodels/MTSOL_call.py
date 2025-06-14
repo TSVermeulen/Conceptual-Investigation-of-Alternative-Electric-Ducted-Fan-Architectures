@@ -118,7 +118,6 @@ class FileCreatedHandling(FileSystemEventHandler):
                     fcntl.flock(f, fcntl.LOCK_UN)
             return True
         except (IOError, OSError, PermissionError) as e:
-            print(f"Could not check if file is free in FileCreatedHandling().is_file_free(): {e}")
             return False
 
 
