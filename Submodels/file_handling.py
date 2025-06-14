@@ -720,7 +720,46 @@ class fileHandlingMTFLO:
         by_label = dict(zip(labels, handles))
         plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
         plt.tight_layout()
+
+
+    @staticmethod
+    def _extract_constant_spaced_x_indices(target_array: np.typing.NDArray | list,
+                                           sample_size: int) -> list[int]:
+        """
+        Given a sorted 1D numpy array target_array containing cosine-spaced airfoil x-coordinates,
+        this function extracts sample_size values from x_array with an approximately constant spacing.
+        It does so by generating the ideal target points and then selecting, for each target,
+        the closest value that exists in the original array.
+    
+        Parameters
+        ----------
+            - target_array: np.typing.NDArray | list
+                1D sorted numpy array or list of x-coordinates.
+            - sample_size: int
+                The desired number of evenly spaced output samples.
+      
+        Returns
+        -------
+        - selected_indices : list[int]
+            A list containing the indices corresponding to the constant spaced values.
+        """      
+
+        # Create the target values 
+        x_targets = np.linspace(target_array[0], target_array[-1], sample_size)
+
+        selected_indices = []
+        last_idx = 0  # Ensure selected indices are in order 
+
+        for target in x_targets:
+            idx = np.argmin(np.abs(target_array - target))
+            if idx < last_idx:
+                idx = last_idx  # Avoid traversing the array backwards
             
+            selected_indices.append(idx)
+            last_idx = idx
+        
+        return selected_indices
+    
         
     def GenerateMTFLOInput(self,
                            blading_params: np.ndarray[dict],
@@ -872,7 +911,8 @@ class fileHandlingMTFLO:
                                              theta)
 
                     # Compute the sampling indices for the axial points
-                    sampling_indices = np.linspace(0, len(x_points) - 1, n_points_axial).astype(int)
+                    sampling_indices = self._extract_constant_spaced_x_indices(x_points,
+                                                                               n_points_axial)
                                                   
                     # Loop over the streamwise points and construct the data for each streamwise point
                     # Each data point consists of the data [x / Lref, r / Lref, T / Lref, Srel]

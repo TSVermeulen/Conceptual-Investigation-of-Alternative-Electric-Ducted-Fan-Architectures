@@ -242,10 +242,10 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
                                                                  REFERENCE_BLADE_ANGLES[0])
 
 # Define the target thrust/power and efficiency for use in constraints
-P_ref_constr = [0.48186 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
+P_ref_constr = [1.4461 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
                 # 1.5592 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
                 ]  # Reference Power in Watts derived from baseline analysis
-T_ref_constr = [0.40209 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
+T_ref_constr = [1.0756 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 # 1.2002 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 ] # Reference Thrust in Newtons derived from baseline analysis
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
@@ -308,5 +308,5 @@ RESERVED_THREADS = 0  # Threads reserved for the operating system and any other 
 THREADS_PER_EVALUATION = 2  # Number of threads per MTFLOW evaluation: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
 # Postprocessing visualisation controls
-ref_objectives = np.array([-0.74369,  1.     ])  # ref objective values
+ref_objectives = np.array([-0.74376,  1.     ])  # ref objective values
 objective_strings = []
