@@ -285,7 +285,7 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
 POPULATION_SIZE = 100
 # Larger initial population for better diversity in case of infeasible designs, then reduced to standard size
 INITIAL_POPULATION_SIZE = 100
-MAX_GENERATIONS = 30
+MAX_GENERATIONS = 100
 MAX_EVALUATIONS = 11000
 
 # Compute the total number of objectives
