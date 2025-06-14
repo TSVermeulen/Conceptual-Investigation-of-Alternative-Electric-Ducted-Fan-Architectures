@@ -68,7 +68,7 @@ class Objectives:
         Parameters
         ----------
         - duct_variables: dict[str, any]
-            The duct design varaible dictionary.
+            The duct design variable dictionary.
 
         Returns
         -------

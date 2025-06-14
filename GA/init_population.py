@@ -48,7 +48,7 @@ Changelog:
 - V1.2: Implemented perturbation for zero-valued real design parameters.
 """
 
-# Import standard librariers
+# Import standard libraries
 import numbers
 
 # Import 3rd party libraries

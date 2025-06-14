@@ -84,7 +84,6 @@ Changelog:
 
 # Import standard libraries
 import os
-import random
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -186,9 +185,6 @@ class MTFLOW_caller:
         self.analysis_name = analysis_name
         self.ref_length = ref_length
 
-        # Set the seed for the random number generator to ensure repeatability. 
-        self._rng = random.Random(kwargs.get("seed", 1))
-
         # Define key submodels directory
         self.submodels_path = Path(__file__).resolve().parent / "Submodels"
 
@@ -281,6 +277,7 @@ class MTFLOW_caller:
                            streamwise_points=streamwise_points).caller()
                 
                 if grid_checked:
+                    exit_flag = ExitFlag.SUCCESS
                     break
                 
                 exit_flag  = MTSOL_call(operating_conditions={"Inlet_Mach": 0.15, "Inlet_Reynolds": 0., "N_crit": self.operating_conditions["N_crit"]},

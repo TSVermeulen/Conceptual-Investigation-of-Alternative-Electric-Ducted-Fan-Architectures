@@ -936,10 +936,7 @@ class MTSOL_call:
                                       ).GetCTCPEtaP()
 
         # Return appropriate bool depending on found efficiency
-        if eta > 1.:
-            return False
-        else:
-            return True
+        return eta < 1.
 
 
     def HandleExitFlag(self,

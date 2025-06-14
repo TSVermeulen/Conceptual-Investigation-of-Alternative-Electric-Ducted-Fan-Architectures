@@ -289,7 +289,8 @@ MAX_GENERATIONS = 30
 MAX_EVALUATIONS = 11000
 
 # Compute the total number of objectives
-n_objectives = len(objective_IDs) * len(multi_oper) - sum(1 for ID in objective_IDs if ID in (1, 2)) * (len(multi_oper) - 1)
+_single_point_only = {ObjectiveID.FRONTAL_AREA, ObjectiveID.WETTED_AREA}
+n_objectives = len(objective_IDs) * len(multi_oper) - sum(1 for obj in objective_IDs if obj in _single_point_only) * (len(multi_oper) - 1)
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
 SPREAD_CONTINUOUS = 0.25  # Relative spread (+/- %) applied to continous variables around their reference values

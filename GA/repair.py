@@ -298,6 +298,9 @@ class RepairIndividuals(Repair):
                 alpha_TE = np.atan((5/6 * modified_profile_params["y_c"]) / (1 - modified_profile_params["b_17"])) + 1e-3
                 alpha_TE = np.clip(alpha_TE, self.BP_bounds["trailing_camberline_angle"][0], self.BP_bounds["trailing_camberline_angle"][1])  # Enforce alpha_TE to bounds
                 modified_profile_params["trailing_camberline_angle"] = alpha_TE
+            
+            # Propagate the updated dictionary
+            profile_params = modified_profile_params
 
         return modified_profile_params
 
@@ -539,7 +542,7 @@ class RepairIndividuals(Repair):
             # Convert the array back to a dictionary and write the result to X
             # Casts the integer values back to integers to ensure consistent variable types throughout the evaluation.
             x_dict = dict(zip(x.keys(), x_array))
-            X[i] = {key: (int(val) if key in int_keys else val) for key, val in x_dict.items()}
+            X[i] = {key: (int(round(val)) if key in int_keys else val) for key, val in x_dict.items()}
 
         return X
 
