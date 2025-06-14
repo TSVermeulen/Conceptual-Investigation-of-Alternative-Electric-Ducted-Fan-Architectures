@@ -112,7 +112,7 @@ class Objectives:
                     _outputs: AnalysisOutputs) -> float:
         """
         Define the frontal area (sub-)objective.
-        This sub-objective has identifier 2.
+        This sub-objective has identifier 1.
 
         Parameters
         ----------
@@ -152,7 +152,7 @@ class Objectives:
                     outputs: AnalysisOutputs) -> float:
         """
         Define the wetted area (sub-)objective.
-        This sub-objective has identifier 3.
+        This sub-objective has identifier 2.
 
         Parameters
         ----------
@@ -173,7 +173,7 @@ class Objectives:
                       outputs: AnalysisOutputs) -> float:
         """
         Define the pressure ratio (sub-)objective.
-        This sub-objective has identifier 4.
+        This sub-objective has identifier 3.
 
         Parameters
         ----------

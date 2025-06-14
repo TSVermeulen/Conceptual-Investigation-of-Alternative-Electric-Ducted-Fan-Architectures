@@ -29,7 +29,7 @@ Changelog:
 - V1.1: Removed need for context manager by using absolute paths. 
 - V1.2: Wrapped blading generation routine in LRU cache to avoid 
         re-running the function at every GA worker import. 
-- V1.3: Updated single point operating condition to correspond to endurance cruise condition at approximate mid cruise weight ande ndurance speed of 125kts at 10000ft standard day. 
+- V1.3: Updated single point operating condition to correspond to endurance cruise condition at approximate mid cruise weight and endurance speed of 125kts at 10000ft standard day. 
 """
 
 # Import standard libraries

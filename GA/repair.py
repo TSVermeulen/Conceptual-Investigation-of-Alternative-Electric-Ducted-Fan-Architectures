@@ -528,8 +528,8 @@ class RepairIndividuals(Repair):
                 if problem is None:
                     raise ValueError("'problem' must expose xl/xu when calling RepairIndividuals._do()")
 
-                self.xl = np.array(list(problem.xl.values()))
-                self.xu = np.array(list(problem.xu.values()))
+                self.xl = np.array([problem.xl[k] for k in x.keys()])
+                self.xu = np.array([problem.xu[k] for k in x.keys()])
 
             # Repair the design vector if it is out of bounds
             x_array = set_to_bounds_if_outside(x_array, self.xl, self.xu)

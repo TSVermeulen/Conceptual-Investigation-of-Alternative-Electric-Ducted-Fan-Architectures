@@ -307,30 +307,22 @@ class MTSOL_call:
         """
 
         # Add a shutdown event to signal thread termination or reset the existing one
-        if not hasattr(self, "shutdown_event"):
-            self.shutdown_event = threading.Event()
-        else:
+        if hasattr(self, "shutdown_event"):
             self.shutdown_event.clear()
+        else:
+            self.shutdown_event = threading.Event()
 
         # Stop any orphaned reader threads if they exist before starting the new subprocess
         if getattr(self, "reader", None) and self.reader.is_alive():
             # Signal the thread to stop
             self.shutdown_event.set()
 
-            # Give the thread time to notice the shutdown event
-            wait_time = 0.01
-            max_wait = 0.5
-            start = time.monotonic()
-            while self.reader.is_alive() and (time.monotonic() - start) < 1.0:
-                time.sleep(wait_time)
-                wait_time = min(max_wait, wait_time * 2)
-            try:
-                # Only force-close stdout if the thread is still alive after waiting
-                if self.reader.is_alive() and getattr(self, "process", None):
-                    self.process.stdout.close()
-                self.reader.join(timeout=5)
-            except Exception as e:
-                print(f"Error cleaning up reader thread: {e}")
+            # Close stdout to unblock a blocking readline() call
+            if getattr(self, "process", None) and self.process.stdout:
+                self.process.stdout.close()
+
+            # Wait for the thread to terminate
+            self.reader.join(timeout=5)
 
         # Generate the subprocess and write it to self
         # First check if the process already exists. If it does, close it before starting the new subprocess
@@ -686,7 +678,7 @@ class MTSOL_call:
         exit_flag = ExitFlag.NOT_PERFORMED
 
         # Keep converging until the iteration count exceeds the limit
-        while (self.iter_counter <= self.ITER_LIMIT) and (exit_flag not in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH)):
+        while (self.iter_counter < self.ITER_LIMIT) and (exit_flag not in (ExitFlag.SUCCESS, ExitFlag.CHOKING, ExitFlag.CRASH)):
             #Execute next iteration(s)
             self.StdinWrite(f"x {self.ITER_STEP_SIZE}")
 

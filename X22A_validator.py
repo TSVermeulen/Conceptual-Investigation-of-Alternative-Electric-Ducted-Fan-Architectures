@@ -41,7 +41,8 @@ from scipy import interpolate
 from ambiance import Atmosphere
 
 # Enable submodel relative imports
-sys.path.append(str(Path(__file__).resolve().parent))
+from GA.utils import ensure_repo_paths
+ensure_repo_paths()
 
 # Import interfacing modules
 from Submodels.Parameterizations import AirfoilParameterization # type: ignore
@@ -548,7 +549,7 @@ if __name__ == "__main__":
                                                         reynolds_inlet=reynolds_inlet,
                                                         reference_angle=REFERENCE_BLADE_ANGLE[i],
                                                         generate_plots=False,
-                                                        streamwise_points=400)
+                                                        streamwise_points=200)
 
         # Store the outputs in the arrays
         CT[i] = CT_out
