@@ -41,7 +41,7 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.4.1
+Version: 1.5
 
 Changelog:
 - V0.0: File created with empty class as placeholder.
@@ -53,6 +53,7 @@ Changelog:
 - V1.3: Added crash handling for the inviscid solve. Added a function to set all values to zero in case of a crash during the inviscid solve. Added a function to handle non-convergence by averaging over the last self.SAMPLE_SIZE iterations. Added a function to handle the exit flag of the solver execution. Added a function to handle the convergence of individual surfaces in case of a crash during the viscous solve.
 - V1.4: Full rework of FileCreatedHandling(). Revamped file processing. Cleaned up imports. Removed shell=True from process initialisation. Switched to pathlib for path handling. Revamped individual surface convergence
 - V1.4.1: Removed iter_count from outputs.
+- V1.5: Implemented efficiency check to verify inviscid solution is a physical result. This enables skipping of viscous solve for such cases, which can significantly speed up computations in batch analyses.
 """
 
 # Import standard libraries
@@ -72,6 +73,9 @@ else:
 
 # Import 3rd party libraries
 import numpy as np
+
+# Import custom libraries
+from output_handling import output_processing
 
 
 class FileCreatedHandling(FileSystemEventHandler):
@@ -913,6 +917,31 @@ class MTSOL_call:
             file.unlink(missing_ok=True)
 
 
+    def CheckInviscidOutput(self) -> bool:
+        """
+        Function to check the efficiency of the invisicid output.
+        When interpolatation errors occur in the blade forcing field,
+        they can yield eta > 1.
+        Checking this condition early avoids running the viscous solve,
+        speeding up the solution process.
+
+        Returns
+        -------
+        - valid : bool
+            Boolean to indicate if a feasible result was found.
+        """
+
+        # Extract the efficiency from the forces output file
+        _, _, eta = output_processing(analysis_name=self.analysis_name
+                                      ).GetCTCPEtaP()
+
+        # Return appropriate bool depending on found efficiency
+        if eta > 1.:
+            return False
+        else:
+            return True
+
+
     def HandleExitFlag(self,
                        exit_flag: ExitFlag,
                        handle_type : str,
@@ -1146,7 +1175,8 @@ class MTSOL_call:
         # Theoretically there is the chance a viscous run may be started on a non-converged inviscid solve.
         # This is acceptable, as we assume a steady state residual case has formed at the end of the inviscid case.
         # There is a probability that by then running a viscous case, convergence to the correct solution may still be obtained.
-        if run_viscous and total_exit_flag in (ExitFlag.SUCCESS, ExitFlag.COMPLETED, ExitFlag.NON_CONVERGENCE):
+        # Only runs the viscous case if the exit flag is correct and if the inviscid analysis was physical (i.e. has an efficiency < 100%)
+        if run_viscous and total_exit_flag in (ExitFlag.SUCCESS, ExitFlag.COMPLETED, ExitFlag.NON_CONVERGENCE) and self.CheckInviscidOutput():
             # Toggle viscous on all surfaces
             self.ToggleViscous()  # Set the viscous Reynolds number
             self.SetViscous([1, 3, 4], mode="enable")

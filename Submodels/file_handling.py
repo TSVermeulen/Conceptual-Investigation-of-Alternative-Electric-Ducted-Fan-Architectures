@@ -102,6 +102,7 @@ Changelog
         Updated documentation. Enforced y=0 in rotateProfile since it has no effect on MTFLOW evaluation.
 - V2.1: Updated fileHandlingMTFLO to remove interpolation errors by reducing the number of interpolations and only generating inputs at the radial sections where geometry is being defined as input. 
         Switched internal methods to static methods to avoid needing to create dummy initialisations when specific internal methods are needed. 
+- V2.2: Removed all interpolations in fileHandlingMTFLO in favor of direct geometry manipulation. 
 """
 
 # Import standard libraries
@@ -402,132 +403,6 @@ class fileHandlingMTFLO:
         thickness_limit = 2 * np.pi * local_radius / blade_count
         if local_thickness >= thickness_limit and local_radius > self.CENTERBODY_ROTOR_THICKNESS:
             raise ValueError(f"The cumulative blade thickness exceeds the complete blockage limit of 2PIr at r={local_radius}")
-
-
-    def GetBladeParameters(self,
-                           design_params: dict,
-                           ) -> dict:
-        """
-        Calculate the thickness and blade slope distributions along the blade profile based on the given design parameters.
-
-        Parameters:
-        -----------
-        - design_params : dict
-            A dictionary containing the design parameters for the blade. The dictionary should include the following keys:
-            - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
-            - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
-            - "z_TE", "dz_TE": Trailing edge parameters.
-            - "r_LE": Leading edge radius.
-            - "trailing_wedge_angle": Trailing wedge angle.
-            - "trailing_camberline_angle": Trailing camberline angle.
-            - "leading_edge_direction": Leading edge direction.
-
-        Returns:
-        --------
-        - blade_geometry : dict
-            A dictionary containing the following keys:
-            - "thickness_distr": An array of the thickness distribution along the blade profile.
-            - "thickness_data_points": An array of the thickness data points along the blade profile.
-            - "camber_distr": An array of the camber distribution along the blade profile.
-            - "camber_data_points": An array of the camber data points along the blade profile.
-        """
-           
-        # Calculate the thickness and blade slope distributions along the blade profiles.
-        # All parameters are nondimensionalized by the chord length
-        thickness_distr, thickness_data_points, camber_distr, camber_data_points = self.parameterization.ComputeBezierCurves(design_params)
-
-        # Construct output dictionary
-        # Output dictionary contains the data points for the thickness and camber distributions
-        # No interpolation is done yet, to avoid needing to resample. 
-        blade_geometry = {"thickness_points": thickness_data_points, 
-                          "thickness_data": thickness_distr,
-                          "camber_points": camber_data_points, 
-                          "camber_data": camber_distr,
-                          }
-            
-        return blade_geometry
-
-
-    def ConstructBlades(self,
-                        blading_params: dict,
-                        design_params: list[dict],
-                        ) -> dict:
-        """
-        Construct interpolants for the blade geometry using the x, r, thickness and camber distributions.
-        Uses the principle of superposition to split out the blade design into separate interpolations of parameters.
-
-        Parameters:
-        -----------
-        - blading_params : dict
-            Dictionary containing the blading parameters for the blade. The dictionary should include the following keys:
-                - "rotational_rate": The rotational rate of the blade.
-                - "blade_count": Integer of the number of blades.
-                - "reference_section_blade_angle": The blade angle at the reference section of the blade span. This is used as the value on which the other blade angles are computed.
-                - "ref_blade_angle": The set angle of the blades.
-                - "radial_stations": Numpy array of the radial stations along the blade span.
-                - "chord_length": Numpy array of the chord length distribution along the blade span.
-                - "sweep_angle": Numpy array of the sweep angle distribution along the blade span.
-                - "blade_angle": Numpy array of the blade angle distribution along the blade span.
-        - design_params : list[dict]
-            Numpy array containing an equal number of dictionary entries as there are radial stations. Each dictionary must contain the following keys:
-                - "b_0", "b_2", "b_8", "b_15", "b_17": Coefficients for the airfoil parameterization.
-                - "x_t", "y_t", "x_c", "y_c": Coordinates for the airfoil parameterization.
-                - "z_TE", "dz_TE": Trailing edge parameters.
-                - "r_LE": Leading edge radius.
-                - "trailing_wedge_angle": Trailing wedge angle.
-                - "trailing_camberline_angle": Trailing camberline angle.
-                - "leading_edge_direction": Leading edge direction.
-
-        Returns:
-        --------
-        - constructed_blade : dict
-            Dictionary containing the constructed blade geometry. The dictionary includes the following keys:
-                - "chord_distribution": Cubic spline interpolant for the chord length distribution along the blade span.
-                - "LE_distribution": Cubic spline interpolant for the leading edge x-coordinate distribution along the blade span.
-                - "thickness_distribution": Bivariate spline interpolant for the circumferential thickness distribution along the blade profile.
-                - "camber_distribution": Bivariate spline interpolant for the camber distribution along the blade profile.
-        """
-
-        # Collect blade geometry at each of the radial stations
-        # Note that the blade geometry is a dictionary containing the thickness and camber distributions
-        # Splits out the blade_geometry dictionary into separate lists
-        blade_geometry = [None] * len(design_params)
-        thickness_profile_distributions = [None] * len(design_params)
-        camber_profile_distributions = [None] * len(design_params)
-
-        for station in range(len(design_params)):
-            blade_geometry[station] = self.GetBladeParameters(design_params[station])
-            thickness_profile_distributions[station] = blade_geometry[station]["thickness_data"]
-            camber_profile_distributions[station] = blade_geometry[station]["camber_data"]
-        thickness_data_points = blade_geometry[0]["thickness_points"]
-        camber_data_points = blade_geometry[0]["camber_points"]
-
-        # First determine the appropriate interpolation method for the thickness and camber interpolations based on the number of datapoints provided. 
-        if len(blading_params["radial_stations"]) <= 4:
-            method = 'slinear'
-        else:
-            method = 'cubic'
-                                
-        # Construct the thickness and camber bivariate spline interpolations
-        thickness_distribution = interpolate.RegularGridInterpolator((blading_params["radial_stations"],
-                                                                      thickness_data_points),
-                                                                     thickness_profile_distributions,
-                                                                     method=method,
-                                                                     bounds_error=True,
-                                                                     )
-        
-        camber_distribution = interpolate.RegularGridInterpolator((blading_params["radial_stations"],
-                                                                   camber_data_points),
-                                                                  camber_profile_distributions,
-                                                                  method=method,
-                                                                  bounds_error=True,
-                                                                  )
-        
-        # Construct output data
-        constructed_blade = {"thickness_distribution": thickness_distribution,
-                             "camber_distribution": camber_distribution}
-            
-        return constructed_blade
         
 
     @staticmethod
@@ -918,18 +793,11 @@ class fileHandlingMTFLO:
                 file.write('*' + '    '.join(map(str, multipliers)) + '\n')
                 file.write('+' + '    '.join(map(str, additions)) + '\n')
                 file.write('END\n \n')
-
-                # Collect the blade geometry interpolations
-                blade_geometry: dict = self.ConstructBlades(blading_params[stage],
-                                                            design_params[stage])
                     
                 # Generate interpolated data to construct the file geometry
                 # The MTFLO code cannot accept an input file with more than 16x16 points in the streamwise and radial directions for each stage
-                # Hence n_points_axial=10
-                # Routine assumed at least 120 chord-wise points were used to construct the initial input curves from which the interpolants were constructed
+                # yn_points_axial=10 is used to avoid spline interpolation overshoots internally in MTFLO. 
                 n_points_axial = 10
-                n_data = 120
-                axial_points = np.linspace(0, 1, n_data)
                 radial_points = blading_params[stage]["radial_stations"]
 
                 # Loop over the radial points and construct the data for each radial point
@@ -940,16 +808,14 @@ class fileHandlingMTFLO:
 
                     # All parameters are normalised using the local chord length, so we need to obtain the local chord in order to obtain the dimensional parameters
                     local_chord = blading_params[stage]["chord_length"][idx]
-                    axial_coordinates = axial_points * local_chord
                    
-                    # Create complete airfoil representation from the camber and thickness distributions
-                    camber_distribution = blade_geometry["camber_distribution"]((r, axial_points)) * local_chord
-                    thickness_distribution = blade_geometry["thickness_distribution"]((r, axial_points)) * local_chord
-                    upper_x, upper_y, lower_x, lower_y = self.parameterization.ConvertBezier2AirfoilCoordinates(axial_coordinates, 
-                                                                                                                thickness_distribution, 
-                                                                                                                axial_coordinates, 
-                                                                                                                camber_distribution)
-
+                    # Create complete airfoil representation from BP3434 parameterisation of the radial section
+                    upper_x, upper_y, lower_x, lower_y = self.parameterization.ComputeProfileCoordinates(design_params[stage][idx])
+                    upper_x *= local_chord
+                    upper_y *= local_chord
+                    lower_x *= local_chord
+                    lower_y *= local_chord
+                    
                     # Rotate the airfoil profile to the correct angle
                     # The blade pitch is defined with respect to the blade pitch angle at the reference radial station, and thus is corrected accordingly. 
                     blade_pitch = (blading_params[stage]["blade_angle"][idx] + blading_params[stage]["ref_blade_angle"] - blading_params[stage]["reference_section_blade_angle"])
@@ -973,7 +839,7 @@ class fileHandlingMTFLO:
                     # Compute the circumferential blade thickness
                     if r == 0:
                         # Handle the case at the centerline, where we define the thickness to be zero. 
-                        circumferential_thickness = np.zeros_like(axial_points)
+                        circumferential_thickness = np.zeros_like(upper_x)
                     else:
                         circumferential_thickness = self.CircumferentialThickness(y_section_upper,
                                                                                   z_section_upper,

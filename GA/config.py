@@ -71,8 +71,8 @@ class ObjectiveID(IntEnum):
     # DUCT_OUTER_TRANSITION_LOCATION = auto()
     # DUCT_THRUST_CONTRIBUTION = auto()
     # CENTERBODY_THRUST_CONTRIBUTION = auto()
-     
-objective_IDs = [ObjectiveID.EFFICIENCY, ObjectiveID.FRONTAL_AREA]
+    
+objective_IDs = [ObjectiveID.EFFICIENCY, ObjectiveID.FRONTAL_AREA]  # Must be defined in order of which they exist in the enum! 
 
 # Define the multi-point operating conditions
 multi_oper = [{"Inlet_Mach": 0.1958224765292171,  # Loiter condition at 125kts
@@ -248,7 +248,6 @@ P_ref_constr = [0.48186 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[
 T_ref_constr = [0.40209 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 # 1.2002 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 ] # Reference Thrust in Newtons derived from baseline analysis
-Eta_ref_constr = 0.834453991
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
 
 # Define the constraint IDs used to construct the constraint functions
@@ -306,3 +305,7 @@ ARCHIVE_STATEFILES = False  # Bool to control if the statefiles should be archiv
 PROBLEM_TYPE = "single_point"  # Either "single_point" or "multi_point". Defines the type of problem loaded in the main file. 
 RESERVED_THREADS = 0  # Threads reserved for the operating system and any other programs.
 THREADS_PER_EVALUATION = 2  # Number of threads per MTFLOW evaluation: one for running MTSET/MTSOL/MTFLO and one for polling outputs
+
+# Postprocessing visualisation controls
+ref_objectives = np.array([-0.74369,  1.     ])  # ref objective values
+objective_strings = []

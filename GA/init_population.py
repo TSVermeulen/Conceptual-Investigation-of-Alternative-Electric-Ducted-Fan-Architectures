@@ -318,7 +318,3 @@ if __name__ == "__main__":
 
     biased_pop = test.GeneratePopulation()
     print("Biased Population:", biased_pop)
-
-    test = InitPopulation("random")
-    random_pop = test.GeneratePopulation()
-    print("Random Population:", random_pop)
