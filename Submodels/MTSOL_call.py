@@ -1205,13 +1205,6 @@ class MTSOL_call:
             if hasattr(self, "shutdown_event"):
                 self.shutdown_event.set()
             self.reader.join(timeout=5)
-        # Stop observer if used
-        if getattr(self, "observer", None):
-            try:
-                self.observer.stop()
-                self.observer.join(timeout=5)
-            except Exception:
-                pass
 
         return total_exit_flag
 
