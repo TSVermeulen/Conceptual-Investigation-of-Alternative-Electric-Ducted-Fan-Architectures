@@ -519,7 +519,7 @@ class MTSOL_call:
             except queue.Empty:
                 if self.process.poll() is not None:
                     return ExitFlag.CRASH
-                time.sleep(max(0.01, sleep_time(time.monotonic() - timer_start)))
+                time.sleep(0.01)
                 continue
 
             # Once iteration is complete, return the completed exit flag
