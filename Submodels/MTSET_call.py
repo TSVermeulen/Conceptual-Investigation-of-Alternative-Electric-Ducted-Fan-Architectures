@@ -133,6 +133,7 @@ class MTSET_call:
                                  stderr=subprocess.DEVNULL,
                                  text=True,
                                  bufsize=1,
+                                 cwd=self.submodels_path  # keep all relative I/O in one place
                                  )
 
         # Check if subprocess is started successfully

@@ -409,6 +409,8 @@ def pushd(path: Path):
     """
 
     original_path = Path.cwd()
+    if not path.is_dir():
+        raise FileNotFoundError(f"Cannot change directory - {path} does not exist")
     os.chdir(path)
     try:
         yield

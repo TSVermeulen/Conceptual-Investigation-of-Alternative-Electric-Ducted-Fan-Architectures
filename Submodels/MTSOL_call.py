@@ -342,6 +342,7 @@ class MTSOL_call:
                                         stderr=subprocess.DEVNULL,
                                         text=True,
                                         bufsize=1,
+                                        cwd=self.submodels_path  # keep all relative I/O in one place
                                         )
 
         # Initialize output reader thread.
@@ -524,10 +525,6 @@ class MTSOL_call:
             except queue.Empty:
                 if self.process.poll() is not None:
                     return ExitFlag.CRASH
-                else:
-                    # Exponential back-off to limit CPU usage while the solver is working
-                    elapsed_time = time.monotonic() - timer_start
-                    time.sleep(sleep_time(elapsed_time))
                 continue
 
             # Once iteration is complete, return the completed exit flag

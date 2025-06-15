@@ -215,7 +215,7 @@ class RepairIndividuals(Repair):
             one_to_one_TE_camber_y = np.all(np.diff(y_TE_camber) <= 0)  # <=0 since TE camber should be decreasing
 
             # Check if all x points are one to one. If so, we return the updated profile parameters
-            if one_to_one_TE_thickness_x and one_to_one_LE_camber_x and one_to_one_TE_camber_x and one_to_one_TE_thickness_y and one_to_one_LE_camber_y and one_to_one_TE_camber_y:
+            if np.all([one_to_one_TE_thickness_x, one_to_one_LE_camber_x, one_to_one_TE_camber_x, one_to_one_TE_thickness_y, one_to_one_LE_camber_y, one_to_one_TE_camber_y]):
                 return modified_profile_params
 
             # Handle TE thickness x points
@@ -346,9 +346,10 @@ class RepairIndividuals(Repair):
         """
 
         # If the duct is positioned aft of the LE of the blade root, move it forward
-        if duct_params["Leading Edge Coordinates"][0] > blading_params["root_LE_coordinate"]:
+        x_old, y_old = duct_params["Leading Edge Coordinates"]
+        if x_old > blading_params["root_LE_coordinate"]:
             duct_params["Leading Edge Coordinates"] = (blading_params["root_LE_coordinate"], 
-                                                       duct_params["Leading Edge Coordinates"][1])
+                                                       y_old)
             
         return duct_params
     
@@ -524,12 +525,13 @@ class RepairIndividuals(Repair):
             x_array = np.array(list(x.values()))
 
             # Only extract the bounds of they are not already written in self.
-            if self.xu is None or self.xl is None:
+            keys = list(x.keys())
+            if self.xu is None or self.xl is None or keys != getattr(self, "_bounds_keys", None):
                 if problem is None:
                     raise ValueError("'problem' must expose xl/xu when calling RepairIndividuals._do()")
-
-                self.xl = np.array([problem.xl[k] for k in x])
-                self.xu = np.array([problem.xu[k] for k in x])
+                self._bounds_keys = keys
+                self.xl = np.array([problem.xl[k] for k in keys])
+                self.xu = np.array([problem.xu[k] for k in keys])
 
             # Repair the design vector if it is out of bounds
             x_array = set_to_bounds_if_outside(x_array, self.xl, self.xu)

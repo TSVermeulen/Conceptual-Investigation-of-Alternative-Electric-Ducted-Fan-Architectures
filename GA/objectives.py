@@ -273,9 +273,16 @@ class Objectives:
 
         # First compute the outputs which are a function of operating condition
         for i, outputs in enumerate(analysis_outputs):
-            for j, objective in enumerate(variable_objectives):
-                # Rounds the objective values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
-                computed_objectives[i * num_varobjectives + j] =  round(objective(outputs), 5)
+            # Rounds the objective values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
+            computed_objectives[i * num_varobjectives : (i + 1) * num_varobjectives] = np.fromiter(
+                (round(obj(outputs), 5) for obj in variable_objectives), 
+                dtype=float,
+                count=num_varobjectives
+            )
+
+            # for j, objective in enumerate(variable_objectives):
+                
+                # computed_objectives[i * num_varobjectives + j] =  round(objective(outputs), 5)
 
         # Now compute the constant objectives
         for i, objective in enumerate(constant_objectives):
