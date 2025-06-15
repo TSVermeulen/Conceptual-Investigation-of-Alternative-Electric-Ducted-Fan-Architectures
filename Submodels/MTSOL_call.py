@@ -313,8 +313,6 @@ class MTSOL_call:
 
         # Stop any orphaned reader threads if they exist before starting the new subprocess
         if getattr(self, "reader", None) and self.reader.is_alive():
-            if getattr(self, "process", None) and self.process.stdout:
-                self.process.stdout.close()
             # Signal the thread to stop
             self.shutdown_event.set()
             self.reader.join(timeout=5)
