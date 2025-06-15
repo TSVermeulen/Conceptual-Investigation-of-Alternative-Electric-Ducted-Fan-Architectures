@@ -180,7 +180,7 @@ class MTFLO_call:
         try:
             with open(fpath, "rb"):
                 return True
-        except IOError:
+        except OSError:
             return False
 
 

@@ -426,7 +426,7 @@ def ExecuteParameterSweep(omega: np.typing.NDArray[np.floating],
                           reference_angle: float,
                           generate_plots: bool = False,
                           streamwise_points: int = 400,
-                          ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+                          ) -> tuple[np.typing.NDArray[np.floating], np.typing.NDArray[np.floating], np.typing.NDArray[np.floating]]:
     """
     Perform a parameter sweep over a range of OMEGA, inlet Mach numbers, and Reynolds numbers.
 
@@ -447,12 +447,13 @@ def ExecuteParameterSweep(omega: np.typing.NDArray[np.floating],
 
     Returns
     -------
-    - CT_outputs : np.typing.NDArray[np.floating]
-        Array of thrust coefficients.
-    - CP_outputs : np.typing.NDArray[np.floating]
-        Array of power coefficients.
-    - EtaP_outputs : np.typing.NDArray[np.floating]
-        Array of propulsive efficiencies.
+    - tuple
+        - CT_outputs : np.typing.NDArray[np.floating]
+            Array of thrust coefficients.
+        - CP_outputs : np.typing.NDArray[np.floating]
+            Array of power coefficients.
+        - EtaP_outputs : np.typing.NDArray[np.floating]
+            Array of propulsive efficiencies.
     """
 
     # Create the MTSET geometry and write the input file walls.ANALYSIS_NAME

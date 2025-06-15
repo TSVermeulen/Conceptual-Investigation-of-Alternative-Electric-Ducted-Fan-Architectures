@@ -524,6 +524,7 @@ class MTSOL_call:
             except queue.Empty:
                 if self.process.poll() is not None:
                     return ExitFlag.CRASH
+                time.sleep(sleep_time(time.monotonic() - timer_start))
                 continue
 
             # Once iteration is complete, return the completed exit flag
@@ -853,8 +854,8 @@ class MTSOL_call:
             max_backoff = 0.1
             timeout = 10
             while not event_handler.is_file_processed() and (time.monotonic() - init_time) <= timeout:
-                backoff = min(max_backoff, backoff * 2)
                 time.sleep(backoff)
+                backoff = min(max_backoff, backoff * 2)
 
             # Increase iteration counter by step size
             iter_counter += 1
@@ -1004,7 +1005,7 @@ class MTSOL_call:
                     if hasattr(self, "shutdown_event"):
                         self.shutdown_event.set()
                     try:
-                        self.reader.join(timeout=5)
+                        self.reader.join(timeout=10)
                     except Exception as e:
                         print(f"Error cleaning up reader thread: {e}")
             self.GenerateProcess()

@@ -408,7 +408,7 @@ class RepairIndividuals(Repair):
                     continue
                 # Loop to fix the blockage: decrement blade_count while > 2 to enforce minimum of 2 blades
                 evaluating = True
-                while evaluating:
+                while evaluating and blading_params["blade_count"] > 2:
                     # First precompute the limit of complete blockage at the radial station
                     complete_blockage = 2 * np.pi * blading_params["radial_stations"][i] / blading_params["blade_count"]
 
