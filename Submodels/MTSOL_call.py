@@ -1192,12 +1192,26 @@ class MTSOL_call:
             if not generate_output:
                 self.StdinWrite("\n")
 
+        # --- Cleanup section ---
         # Check that MTSOL has closed successfully. If not, forcefully closes MTSOL
-        if self.process.poll() is None:
+        if getattr(self, "process", None) and self.process.poll() is None:
             try:
+                self.process.terminate()
                 self.process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
+            except Exception:
                 self.process.kill()
+        # Join reader thread if alive
+        if getattr(self, "reader", None) and self.reader.is_alive():
+            if hasattr(self, "shutdown_event"):
+                self.shutdown_event.set()
+            self.reader.join(timeout=5)
+        # Stop observer if used
+        if getattr(self, "observer", None):
+            try:
+                self.observer.stop()
+                self.observer.join(timeout=5)
+            except Exception:
+                pass
 
         return total_exit_flag
 
