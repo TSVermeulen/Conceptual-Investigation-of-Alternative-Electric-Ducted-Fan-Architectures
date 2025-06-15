@@ -313,33 +313,22 @@ class MTSOL_call:
 
         # Stop any orphaned reader threads if they exist before starting the new subprocess
         if getattr(self, "reader", None) and self.reader.is_alive():
+            if getattr(self, "process", None) and self.process.stdout:
+                self.process.stdout.close()
             # Signal the thread to stop
             self.shutdown_event.set()
-
-            # Give the thread time to notice the shutdown event
-            wait_time = 0.01
-            max_wait = 0.5
-            start = time.monotonic()
-            while self.reader.is_alive() and (time.monotonic() - start) < 1.0:
-                time.sleep(wait_time)
-                wait_time = min(max_wait, wait_time * 2)
-            
-            # Only force-close stdout if the thread is still alive after waiting
-            if self.reader.is_alive() and getattr(self, "process", None):
-                self.process.stdout.close()
             self.reader.join(timeout=5)
+            self.reader = None
 
         # Generate the subprocess and write it to self
         # First check if the process already exists. If it does, close it before starting the new subprocess
         if getattr(self, "process", None) and self.process.poll() is None:
             try:
+                self.process.terminate()
                 self.process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 self.process.kill()
-                try:
-                    self.process.wait(timeout=10)  # Wait for the process to terminate after killing
-                except subprocess.TimeoutExpired:
-                    print("Warning: process could not be terminated within timeout")
+                self.process.wait(timeout=10)  # Wait for the process to terminate after killing
 
         self.process = subprocess.Popen([self.fpath, self.analysis_name],
                                         stdin=subprocess.PIPE,
@@ -530,7 +519,7 @@ class MTSOL_call:
             except queue.Empty:
                 if self.process.poll() is not None:
                     return ExitFlag.CRASH
-                time.sleep(sleep_time(time.monotonic() - timer_start))
+                time.sleep(max(0.01, sleep_time(time.monotonic() - timer_start)))
                 continue
 
             # Once iteration is complete, return the completed exit flag
