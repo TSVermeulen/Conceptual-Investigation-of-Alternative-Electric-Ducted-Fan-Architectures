@@ -306,21 +306,27 @@ class MTSOL_call:
         """
 
         # Add a shutdown event to signal thread termination or reset the existing one
-        if hasattr(self, "shutdown_event"):
-            self.shutdown_event.clear()
-        else:
+        if not hasattr(self, "shutdown_event"):
             self.shutdown_event = threading.Event()
+        else:
+            self.shutdown_event.clear()
 
         # Stop any orphaned reader threads if they exist before starting the new subprocess
         if getattr(self, "reader", None) and self.reader.is_alive():
-            # Close stdout to unblock a blocking readline() call
-            if getattr(self, "process", None) and self.process.stdout:
-                self.process.stdout.close()
-
             # Signal the thread to stop
             self.shutdown_event.set()
 
-            # Wait for the thread to terminate
+            # Give the thread time to notice the shutdown event
+            wait_time = 0.01
+            max_wait = 0.5
+            start = time.monotonic()
+            while self.reader.is_alive() and (time.monotonic() - start) < 1.0:
+                time.sleep(wait_time)
+                wait_time = min(max_wait, wait_time * 2)
+            
+            # Only force-close stdout if the thread is still alive after waiting
+            if self.reader.is_alive() and getattr(self, "process", None):
+                self.process.stdout.close()
             self.reader.join(timeout=5)
 
         # Generate the subprocess and write it to self
