@@ -85,7 +85,8 @@ class MTSET_call:
         self.streamwise_points = streamwise_points if (streamwise_points is not None and streamwise_points > 141) else 200
 
         # Define key paths/directories
-        self.submodels_path = Path(__file__).resolve().parent
+        self.parent_dir = Path(__file__).resolve().parent.parent
+        self.submodels_path = self.parent_dir / "Submodels"
 
         # Define constant filepath for the MTSET executable
         self.process_path = self.submodels_path / 'mtset.exe'
@@ -132,7 +133,6 @@ class MTSET_call:
                                  stderr=subprocess.DEVNULL,
                                  text=True,
                                  bufsize=1,
-                                 cwd=self.submodels_path  # keep all relative I/O in one place
                                  )
 
         # Check if subprocess is started successfully

@@ -252,7 +252,8 @@ class MTSOL_call:
         self.ITER_LIMIT_VISC = 50  # Maximum number of iterations to perform before non-convergence is assumed in a viscous solution
 
         # Define key paths/directories
-        self.submodels_path = Path(__file__).resolve().parent
+        self.parent_dir = Path(__file__).resolve().parent.parent
+        self.submodels_path = self.parent_dir / "Submodels"
 
         # Define filepath of MTSOL as being in the same folder as this Python file
         self.fpath = self.submodels_path / 'mtsol.exe'
@@ -334,7 +335,6 @@ class MTSOL_call:
                                         stderr=subprocess.DEVNULL,
                                         text=True,
                                         bufsize=1,
-                                        cwd=self.submodels_path  # keep all relative I/O in one place
                                         )
 
         # Initialize output reader thread.
