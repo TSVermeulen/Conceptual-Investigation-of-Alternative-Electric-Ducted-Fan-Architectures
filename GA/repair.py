@@ -403,8 +403,8 @@ class RepairIndividuals(Repair):
         try:
             # Loop over the radial sections
             for i in range(len(design_params)):
-                # Loop to fix the blockage: decrement blade_count while > 3 to enforce minimum of 3 blades
-                while blading_params["blade_count"] > 3:
+                # Loop to fix the blockage: decrement blade_count while > 2 to enforce minimum of 2 blades
+                while blading_params["blade_count"] > 2:
                     # First precompute the limit of complete blockage at the radial station
                     complete_blockage = 2 * np.pi * blading_params["radial_stations"][i] / blading_params["blade_count"]
 
@@ -528,8 +528,8 @@ class RepairIndividuals(Repair):
                 if problem is None:
                     raise ValueError("'problem' must expose xl/xu when calling RepairIndividuals._do()")
 
-                self.xl = np.array([problem.xl[k] for k in x.keys()])
-                self.xu = np.array([problem.xu[k] for k in x.keys()])
+                self.xl = np.array([problem.xl[k] for k in x])
+                self.xu = np.array([problem.xu[k] for k in x])
 
             # Repair the design vector if it is out of bounds
             x_array = set_to_bounds_if_outside(x_array, self.xl, self.xu)

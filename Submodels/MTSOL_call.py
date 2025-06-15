@@ -117,7 +117,7 @@ class FileCreatedHandling(FileSystemEventHandler):
                     # Release the lock.
                     fcntl.flock(f, fcntl.LOCK_UN)
             return True
-        except (IOError, OSError, PermissionError) as e:
+        except (IOError, OSError, PermissionError):
             return False
 
 
@@ -314,12 +314,12 @@ class MTSOL_call:
 
         # Stop any orphaned reader threads if they exist before starting the new subprocess
         if getattr(self, "reader", None) and self.reader.is_alive():
-            # Signal the thread to stop
-            self.shutdown_event.set()
-
             # Close stdout to unblock a blocking readline() call
             if getattr(self, "process", None) and self.process.stdout:
                 self.process.stdout.close()
+
+            # Signal the thread to stop
+            self.shutdown_event.set()
 
             # Wait for the thread to terminate
             self.reader.join(timeout=5)
@@ -671,7 +671,7 @@ class MTSOL_call:
 
         # Ensure an iteration limit is defined - fall back to the inviscid iteration count as default
         if not hasattr(self, "ITER_LIMIT"):
-            self.ITER_LIMIT = self.ITER_LIMIT_INVISC
+            raise AttributeError("ITER_LIMIT not set before ExecuteSolver()")
 
         # Initialize iteration count and exit flag
         self.iter_counter = 0
@@ -922,12 +922,17 @@ class MTSOL_call:
             Boolean to indicate if a feasible result was found.
         """
 
-        # Extract the efficiency from the forces output file
-        _, _, eta = output_processing(analysis_name=self.analysis_name
-                                      ).GetCTCPEtaP()
+        try:
+            # Extract the efficiency from the forces output file
+            _, _, eta = output_processing(analysis_name=self.analysis_name
+                                          ).GetCTCPEtaP()
 
-        # Return appropriate bool depending on found efficiency
-        return eta < 1.
+            # Return appropriate bool depending on found efficiency
+            return eta < 1.
+        except Exception:
+            # Treat any exception as non-physical to skip viscous runs but keep 
+            # any batch analyses alive
+            return False
 
 
     def HandleExitFlag(self,

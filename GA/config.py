@@ -221,7 +221,6 @@ def _load_blading(omega: float,
     param = AirfoilParameterization()
     R00_section = param.FindInitialParameterization(reference_file=filenames[0])
     R03_section = param.FindInitialParameterization(reference_file=filenames[1])
-    # R05_section = param.FindInitialParameterization(reference_file=filenames[2])
     R07_section = param.FindInitialParameterization(reference_file=filenames[3])
     R10_section = param.FindInitialParameterization(reference_file=filenames[4])
     Hstrut_section = param.FindInitialParameterization(reference_file=filenames[5])

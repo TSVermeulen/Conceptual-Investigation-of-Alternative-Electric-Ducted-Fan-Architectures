@@ -31,8 +31,8 @@ Changelog:
 
 # Import standard libraries
 import os
-import sys
 from pathlib import Path
+from contextlib import contextmanager
 
 # Import 3rd party libraries
 import numpy as np
@@ -335,12 +335,6 @@ def GenerateMTSETGeometry() -> None:
     y_duct = np.concatenate((upper_y, lower_y[1:]), axis=0)
     xy_duct = np.vstack((x_duct, y_duct)).T
 
-    # Write the coordinates to a file
-    with open("duct_coordinates.dat", "w") as file:
-        file.write("Duct coords\n")
-        for x, y in xy_duct:
-            file.write(f"{x}    {y}\n")
-
     # --------------------
     # Generate centre body geometry
     # --------------------
@@ -364,12 +358,6 @@ def GenerateMTSETGeometry() -> None:
     centerbody_x_complete = np.concatenate((np.flip(interpolated_centerbody_x), interpolated_centerbody_x[1:]), axis=0)
     centerbody_y_complete = np.concatenate((np.flip(interpolated_centerbody_y), -interpolated_centerbody_y[1:]), axis=0)
     xy_centerbody = np.vstack((centerbody_x_complete, centerbody_y_complete)).T
-
-    # Write the coordinates to a file
-    with open("centerbody_coordinates.dat", "w") as file:
-        file.write("Centerbody coords\n")
-        for x, y in xy_centerbody:
-            file.write(f"{x}    {y}\n")
 
     # Generate MTSET input file walls.X22A_validation
     # To run the GenerateMTSETInput() function, we need to define the params_CB and params_duct dictionaries, so fill them with the minimum required inputs
@@ -407,6 +395,25 @@ def ChangeOMEGA(omega: float) -> None:
     # Write the updated tflow data back to the file
     with open(f"tflow.{ANALYSIS_NAME}", "w") as file:
         file.writelines(lines)
+
+
+@contextmanager
+def pushd(path: Path):
+    """
+    Context manager to handle the required change in working directory.
+
+    Parameters
+    ----------
+    - path : Path
+        The path to which the working directory must be changed.
+    """
+
+    original_path = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(original_path)
 
 
 def ExecuteParameterSweep(omega: np.typing.NDArray[np.floating],
@@ -454,10 +461,7 @@ def ExecuteParameterSweep(omega: np.typing.NDArray[np.floating],
                                                                  plot=generate_plots)
 
     # Change working directory to the submodels folder
-    try:
-        current_dir = Path.cwd()
-        os.chdir(submodels_path)
-
+    with pushd(submodels_path):
         # Generate the MTFLO input file
         GenerateMTFLOInput(blading_parameters,
                         design_parameters,
@@ -499,12 +503,6 @@ def ExecuteParameterSweep(omega: np.typing.NDArray[np.floating],
             CT_outputs[i] = CT
             CP_outputs[i] = CP
             EtaP_outputs[i] = etaP
-
-    except OSError as e:
-        raise OSError from e
-    finally:
-        # Return back to current dir
-        os.chdir(current_dir)
 
     return CT_outputs, CP_outputs, EtaP_outputs
 
@@ -550,45 +548,3 @@ if __name__ == "__main__":
                                                         reference_angle=REFERENCE_BLADE_ANGLE[i],
                                                         generate_plots=False,
                                                         streamwise_points=200)
-
-        # Store the outputs in the arrays
-        CT[i] = CT_out
-        CP[i] = CP_out
-        etaP[i] = eta_out
-
-    # Generate plot of outputs
-    thrust_fig = plt.figure("Thrust coefficients")
-    power_fig = plt.figure("Power coefficients")
-    markers = ['*', 'o', 's', '^', 'D', 'v', 'x', '+', 'P']
-
-    for i in range(len(REFERENCE_BLADE_ANGLE)):
-        # Add plots to each figure
-        plt.figure(thrust_fig.number)
-        plt.plot(J, CT[i], label=f"$\\beta_(75\\%)$={round(np.degrees(REFERENCE_BLADE_ANGLE[i]), 2)} deg", marker=markers[i])
-
-        plt.figure(power_fig.number)
-        plt.plot(J, CP[i], label=f"$\\beta_(75\\%)$={round(np.degrees(REFERENCE_BLADE_ANGLE[i]), 2)} deg", marker=markers[i])
-
-    # Format the thrust coefficient figure
-    plt.figure(thrust_fig.number)
-    plt.grid(which='both')
-    plt.minorticks_on()
-    plt.xlabel("Advance Ratio J [-]")
-    plt.ylabel("Thrust coefficient $C_T$ [-]")
-    handles, labels = plt.gca().get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
-    plt.tight_layout()
-
-    # Format the power coefficient figure
-    plt.figure(power_fig.number)
-    plt.grid(which='both')
-    plt.minorticks_on()
-    plt.xlabel("Advance Ratio J [-]")
-    plt.ylabel("Power coefficient $C_P$ [-]")
-    handles, labels = plt.gca().get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    plt.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1,1))
-    plt.tight_layout()
-
-    plt.show()

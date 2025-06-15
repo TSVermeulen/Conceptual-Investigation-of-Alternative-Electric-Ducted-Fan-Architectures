@@ -38,7 +38,7 @@ Changelog:
 - V1.1: Added ComputeObjective method to handle multiple objectives dynamically.
 - V1.2: Improved documentation and added type hints for better clarity.
 - V2.0: Refactored code for better modularity and maintainability. Updated examples and notes.
-- V2.1: Updated efficiency objective for better performance.
+- V2.1: Updated efficiency objective for better performance. Improved efficiency of frontal area objective
 """
 
 # Import standard libraries
@@ -77,10 +77,6 @@ class Objectives:
 
         # Write the inputs to self
         self.duct_variables = duct_variables
-
-        # Lazy import and cache the AirfoilParameterization class
-        from Submodels.Parameterizations import AirfoilParameterization #type: ignore
-        self._airfoil_parameterization = AirfoilParameterization()
 
         # Define the objective list, and the subset of objectives which are independent of operating condition
         self.objectivelist = [self.Efficiency, self.FrontalArea, self.WettedArea, self.PressureRatio]
@@ -126,16 +122,27 @@ class Objectives:
             The frontal area normalised by the reference frontal area.
         """
 
+        if not hasattr(self, "_airfoil_parameterization"):
+            # Lazy import and cache the AirfoilParameterization class
+            from Submodels.Parameterizations import AirfoilParameterization #type: ignore
+            self._airfoil_parameterization = AirfoilParameterization()
+
         # To compute the frontal area, we need the maximum radius of the ducted propeller/fan.
         # This can be computed based on the radial LE coordinate of the duct,
         # together with the maximum y-coordinate of the duct profile.
 
-        # Compute the airfoil coordinates
-        # We only care about the upper y coordinates so they are the only ones we store
-        _, upper_y, _, _ = self._airfoil_parameterization.ComputeProfileCoordinates(self.duct_variables)
+        # For a symmetric profile, this is simply equal to y_t, 
+        # so we do not need to compute the airfoil upper surface distribution
+        if self.duct_variables["y_c"] < 1e-3:
+            upper_y = self.duct_variables["y_t"]
+        else:
+            # For a cambered profile, compute the airfoil coordinates
+            # We only care about the upper y coordinates so they are the only ones we store
+            _, upper_y, _, _ = self._airfoil_parameterization.ComputeProfileCoordinates(self.duct_variables)
 
         # Dimensionalise the y coordinates using the chord length
-        upper_y = upper_y * self.duct_variables["Chord Length"]  # avoid side-effects
+        chord = self.duct_variables["Chord Length"]
+        upper_y = upper_y * chord
 
         # Compute the maximum radius
         max_radius = self.duct_variables["Leading Edge Coordinates"][1] + np.max(upper_y)
@@ -294,7 +301,7 @@ if __name__ == "__main__":
 
     objectives_class = Objectives(config.DUCT_VALUES)
     output = {}
-    objectives_class.ComputeObjective(output_processing('initial_analysis').GetAllVariables(3),
+    objectives_class.ComputeObjective(output_processing('x22a_validation').GetAllVariables(0),
                                       config.objective_IDs,
                                       output)
     print(output)
