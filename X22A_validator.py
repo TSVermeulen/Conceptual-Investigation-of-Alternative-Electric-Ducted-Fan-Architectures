@@ -219,27 +219,28 @@ def GenerateMTFLOBlading(Omega: float,
 
     # Compute parameterization for the airfoil section at r=0.2R
     # Note that we keep this section constant for r=0.1R and r=0.15R and equal to that of r=0.2R
-    R01_section = AirfoilParameterization().FindInitialParameterization(reference_file=R02_fpath)
+    param = AirfoilParameterization()
+    R01_section = param.FindInitialParameterization(reference_file=R02_fpath)
     # Compute parameterization for the airfoil section at r=0.3R
-    R03_section = AirfoilParameterization().FindInitialParameterization(reference_file=R03_fpath)
+    R03_section = param.FindInitialParameterization(reference_file=R03_fpath)
     # Compute parameterization for the airfoil section at r=0.4R
-    R04_section = AirfoilParameterization().FindInitialParameterization(reference_file=R04_fpath)
+    R04_section = param.FindInitialParameterization(reference_file=R04_fpath)
     # Compute parameterization for the mid airfoil section
-    R05_section = AirfoilParameterization().FindInitialParameterization(reference_file=R05_fpath)
+    R05_section = param.FindInitialParameterization(reference_file=R05_fpath)
     # Compute parameterization for the airfoil section at r=0.6R
-    R06_section = AirfoilParameterization().FindInitialParameterization(reference_file=R06_fpath)
+    R06_section = param.FindInitialParameterization(reference_file=R06_fpath)
     # Compute parameterization for the airfoil section at r=0.7R
-    R07_section = AirfoilParameterization().FindInitialParameterization(reference_file=R07_fpath)
+    R07_section = param.FindInitialParameterization(reference_file=R07_fpath)
     # Compute parameterization for the airfoil section at r=0.8R
-    R08_section = AirfoilParameterization().FindInitialParameterization(reference_file=R08_fpath)
+    R08_section = param.FindInitialParameterization(reference_file=R08_fpath)
     # Compute parameterization for the airfoil section at r=0.9R
-    R09_section = AirfoilParameterization().FindInitialParameterization(reference_file=R09_fpath)
+    R09_section = param.FindInitialParameterization(reference_file=R09_fpath)
     # Compute parameterization for the tip airfoil section
-    R10_section = AirfoilParameterization().FindInitialParameterization(reference_file=R10_fpath)
+    R10_section = param.FindInitialParameterization(reference_file=R10_fpath)
     # Compute parameterization for the horizontal struts
-    Hstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Hstrut_fpath)
+    Hstrut_section = param.FindInitialParameterization(reference_file=Hstrut_fpath)
     # Compute parameterization for the diagonal struts
-    Dstrut_section = AirfoilParameterization().FindInitialParameterization(reference_file=Dstrut_fpath)
+    Dstrut_section = param.FindInitialParameterization(reference_file=Dstrut_fpath)
 
     # Construct blading list
     design_parameters = [[R01_section, R01_section, R03_section, R04_section, R05_section, R06_section, R07_section, R08_section, R09_section, R10_section],
@@ -385,7 +386,8 @@ def ChangeOMEGA(omega: float) -> None:
     """
 
     # Open the tflow.analysis_name file
-    with open(f"tflow.{ANALYSIS_NAME}", "r") as file:
+    tflow_path = Path(f"tflow.{ANALYSIS_NAME}")
+    with tflow_path.open("r") as file:
         lines = file.readlines()
 
     omega_line = 11  # Line at which the rotational rate is defined
@@ -393,7 +395,7 @@ def ChangeOMEGA(omega: float) -> None:
     lines[omega_line] = updated_omega
 
     # Write the updated tflow data back to the file
-    with open(f"tflow.{ANALYSIS_NAME}", "w") as file:
+    with tflow_path.open("w") as file:
         file.writelines(lines)
 
 

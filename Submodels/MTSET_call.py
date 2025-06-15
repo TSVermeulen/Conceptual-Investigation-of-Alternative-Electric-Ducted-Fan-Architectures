@@ -85,8 +85,7 @@ class MTSET_call:
         self.streamwise_points = streamwise_points if (streamwise_points is not None and streamwise_points > 141) else 200
 
         # Define key paths/directories
-        self.parent_dir = Path(__file__).resolve().parent.parent
-        self.submodels_path = self.parent_dir / "Submodels"
+        self.submodels_path = Path(__file__).resolve().parent
 
         # Define constant filepath for the MTSET executable
         self.process_path = self.submodels_path / 'mtset.exe'
@@ -243,7 +242,7 @@ class MTSET_call:
 
         # Control smoothing process, including detection when further smoothing is no longer needed
         smoothing_pass = 0
-        while smoothing_pass <= 30:
+        while smoothing_pass < 30:
             self.StdinWrite("e")  # Execute elliptic smoothing continue command
 
             # Collect console output from MTSET, stopping when the end of the menu is reached
@@ -292,7 +291,8 @@ class MTSET_call:
         """
 
         # Delete the tdat file, if it already existed.
-        self.fpath.unlink() if self.fpath.exists() else None
+        if self.fpath.exists():
+            self.fpath.unlink(missing_ok=True)
 
         # Create subprocess for the MTSET tool
         self.GenerateProcess()

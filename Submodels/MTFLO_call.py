@@ -46,7 +46,8 @@ Changelog:
 """
 
 # Import standard libraries
-import subprocess, time
+import subprocess
+import time
 from pathlib import Path
 
 
@@ -70,8 +71,7 @@ class MTFLO_call:
         self.analysis_name = analysis_name
 
         # Define key paths/directories
-        self.parent_dir = Path(__file__).resolve().parent.parent
-        self.submodels_path = self.parent_dir / "Submodels"
+        self.submodels_path = Path(__file__).resolve().parent
 
         # Define filepath of MTFLO as being in the same folder as this Python file
         self.process_path = self.submodels_path / 'mtflo.exe'
@@ -216,7 +216,7 @@ if __name__ == "__main__":
     start_time = time.time()
     analysisName = "test_case"
     test = MTFLO_call(analysisName)
-    test = test.caller()
+    test.caller()
     end_time = time.time()
 
     print(f"Execution of MTFLO_call({analysisName}).caller() took {end_time - start_time} seconds")

@@ -252,8 +252,7 @@ class MTSOL_call:
         self.ITER_LIMIT_VISC = 50  # Maximum number of iterations to perform before non-convergence is assumed in a viscous solution
 
         # Define key paths/directories
-        self.parent_dir = Path(__file__).resolve().parent.parent
-        self.submodels_path = self.parent_dir / "Submodels"
+        self.submodels_path = Path(__file__).resolve().parent
 
         # Define filepath of MTSOL as being in the same folder as this Python file
         self.fpath = self.submodels_path / 'mtsol.exe'
@@ -613,13 +612,10 @@ class MTSOL_call:
             self.GenerateProcess()
 
         # Dump the forces data
-        forces_path_str = self.FILE_TEMPLATES['forces'].format(self.analysis_name)
         self.StdinWrite("F")
-        if Path(forces_path_str).exists():
-            self.StdinWrite(forces_path_str)
+        self.StdinWrite(self.FILE_TEMPLATES['forces'].format(self.analysis_name))
+        if self.filepaths["forces"].exists():
             self.StdinWrite("Y")  # Overwrite existing file
-        else:
-            self.StdinWrite(forces_path_str)
 
         # Check if the forces file is written successfully
         self.WaitForCompletion(completion_type=CompletionType.OUTPUT,
@@ -629,26 +625,20 @@ class MTSOL_call:
             return
 
         # Dump the flowfield data
-        flowfield_path_str = self.FILE_TEMPLATES['flowfield'].format(self.analysis_name)
         self.StdinWrite("D")
-        if Path(flowfield_path_str).exists():
-            self.StdinWrite(flowfield_path_str)
+        self.StdinWrite(self.FILE_TEMPLATES['flowfield'].format(self.analysis_name))
+        if self.filepaths["flowfield"].exists():
             self.StdinWrite("Y")  # Overwrite existing file
-        else:
-            self.StdinWrite(flowfield_path_str)
 
         # Check if the flowfield file is written successfully
         self.WaitForCompletion(completion_type=CompletionType.OUTPUT,
                                output_file='flowfield')
 
         # Dump the boundary layer data
-        boundary_layer_path_str = self.FILE_TEMPLATES['boundary_layer'].format(self.analysis_name)
         self.StdinWrite("B")
-        if Path(boundary_layer_path_str).exists():
-            self.StdinWrite(boundary_layer_path_str)
+        self.StdinWrite(self.FILE_TEMPLATES['boundary_layer'].format(self.analysis_name))
+        if self.filepaths["boundary_layer"].exists():
             self.StdinWrite("Y")  # Overwrite existing file
-        else:
-            self.StdinWrite(boundary_layer_path_str)
 
         # Check if the boundary layer file is written successfully
         self.WaitForCompletion(completion_type=CompletionType.OUTPUT,
@@ -925,7 +915,7 @@ class MTSOL_call:
                                           ).GetCTCPEtaP()
 
             # Return appropriate bool depending on found efficiency
-            return eta < 1.
+            return 0 < eta < 1.
         except Exception:
             # Treat any exception as non-physical to skip viscous runs but keep 
             # any batch analyses alive

@@ -404,8 +404,11 @@ class RepairIndividuals(Repair):
         try:
             # Loop over the radial sections
             for i in range(len(design_params)):
+                if blading_params["radial_stations"][i] == 0:
+                    continue
                 # Loop to fix the blockage: decrement blade_count while > 2 to enforce minimum of 2 blades
-                while blading_params["blade_count"] > 2:
+                evaluating = True
+                while evaluating:
                     # First precompute the limit of complete blockage at the radial station
                     complete_blockage = 2 * np.pi * blading_params["radial_stations"][i] / blading_params["blade_count"]
 
@@ -429,8 +432,6 @@ class RepairIndividuals(Repair):
                     y_section_upper, y_section_lower, _, z_section_upper, z_section_lower, _ = fileHandlingMTFLO.PlanarToCylindrical(rotated_upper_y,
                                                                                                                                      rotated_lower_y,
                                                                                                                                      blading_params["radial_stations"][i])
-                    if blading_params["radial_stations"][i] == 0:
-                        break
 
                     # Compute the circumferential blade thickness
                     circumferential_thickness = fileHandlingMTFLO.CircumferentialThickness(y_section_upper,
@@ -446,7 +447,7 @@ class RepairIndividuals(Repair):
                         continue
 
                     # If thickness is okay, break out of the while loop and move to the next radial section
-                    break
+                    evaluating = False
 
             return blading_params
 
