@@ -71,7 +71,8 @@ class MTFLO_call:
         self.analysis_name = analysis_name
 
         # Define key paths/directories
-        self.submodels_path = Path(__file__).resolve().parent
+        self.parent_dir = Path(__file__).resolve().parent.parent
+        self.submodels_path = self.parent_dir / "Submodels"
 
         # Define filepath of MTFLO as being in the same folder as this Python file
         self.process_path = self.submodels_path / 'mtflo.exe'
@@ -114,7 +115,6 @@ class MTFLO_call:
                                         stderr=subprocess.DEVNULL,
                                         text=True,
                                         bufsize=1,
-                                        cwd=self.submodels_path  # keep all relative I/O in one place
                                         )
 
         # Check if subprocess is started successfully
