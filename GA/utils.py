@@ -67,13 +67,22 @@ def calculate_n_reference_points(cfg: object) -> int:
 
     max_iter = 10000 # hard-stop for safety; tweak if needed
     p = 0
-    while p < max_iter:
-        p += 1
+    best_diff = float('inf')
+    best_p = 1
+    m = 5
+
+    for p in range(1, max_iter):
         count = math.comb(p + m - 1, m - 1)
-        if count >= max(1, cfg.POPULATION_SIZE):
-            return p
-        
-    return cfg.POPULATION_SIZE  - 1
+        diff = abs(count - cfg.POPULATION_SIZE)
+        if diff < best_diff:
+            best_diff = diff
+            best_p = p
+
+            if diff == 0:
+                # If an exact match is found, break from the for loop
+                break
+
+    return best_p
 
 
 if __name__ == "__main__":
