@@ -67,7 +67,6 @@ def calculate_n_reference_points(cfg: object) -> int:
 
     max_iter = 10000 # hard-stop for safety; tweak if needed
     p = 0
-    POPULATION_RATIO = 6  # Ratio used in evaluating the binomial coefficient. Based on some test runs to see which works best. 
     while p < max_iter:
         p += 1
         count = math.comb(p + m - 1, m - 1)
