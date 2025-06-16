@@ -252,8 +252,7 @@ class MTSOL_call:
         self.ITER_LIMIT_VISC = 50  # Maximum number of iterations to perform before non-convergence is assumed in a viscous solution
 
         # Define key paths/directories
-        self.parent_dir = Path(__file__).resolve().parent.parent
-        self.submodels_path = self.parent_dir / "Submodels"
+        self.submodels_path = Path(__file__).resolve().parent
 
         # Define filepath of MTSOL as being in the same folder as this Python file
         self.fpath = self.submodels_path / 'mtsol.exe'
@@ -314,6 +313,8 @@ class MTSOL_call:
 
         # Stop any orphaned reader threads if they exist before starting the new subprocess
         if getattr(self, "reader", None) and self.reader.is_alive():
+            if getattr(self, "process", None) and self.process.stdout:
+                self.process.stdout.close()
             # Signal the thread to stop
             self.shutdown_event.set()
             self.reader.join(timeout=5)
@@ -335,6 +336,7 @@ class MTSOL_call:
                                         stderr=subprocess.DEVNULL,
                                         text=True,
                                         bufsize=1,
+                                        cwd=self.submodels_path  # keep all relative I/O in one place
                                         )
 
         # Initialize output reader thread.
@@ -1104,105 +1106,105 @@ class MTSOL_call:
         exit_flag_invisc = ExitFlag.NOT_PERFORMED
         exit_flag_visc = ExitFlag.NOT_PERFORMED
 
-        # Generate MTSOL subprocess
-        self.GenerateProcess()
-
-        # Write operating conditions
-        self.SetOperConditions()
-
-        # Disable all viscous surfaces initially
-        self.SetViscous([1, 3, 4], mode="disable")
-
-        if generate_output:
-            # Update the statefile with the operating conditions
-            self.WriteStateFile()
-
-        # Even if we don't want to generate output, we still need to create the forces file to ensure post-processing of results does not fail
-        self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
-
-        # Execute inviscid solve
         try:
-            self.ITER_LIMIT = self.ITER_LIMIT_INVISC  # Set the appropriate iteration limit
-            exit_flag_invisc = self.ExecuteSolver()
-        except (OSError, BrokenPipeError):
-            # If the inviscid solve crashes, we need to set the exit flag to crash
-            exit_flag_invisc = ExitFlag.CRASH
-        finally:
-            # Handle solver based on exit flag
-            self.HandleExitFlag(exit_flag_invisc,
-                                handle_type='Inviscid',
-                                update_statefile=generate_output)
-            total_exit_flag = exit_flag_invisc
+            # Generate MTSOL subprocess
+            self.GenerateProcess()
+
+            # Write operating conditions
+            self.SetOperConditions()
+
+            # Disable all viscous surfaces initially
+            self.SetViscous([1, 3, 4], mode="disable")
 
             if generate_output:
-                # Generate the requested solver outputs based on output_type
-                self.GenerateSolverOutput(output_type=output_type)
+                # Update the statefile with the operating conditions
+                self.WriteStateFile()
 
-        if not run_viscous:
-            # Using handle_type="inviscid" bypasses the handle non-convergence loop.
-            # This is intentional for a viscous run, as it speeds up the solution process substantially. However, for an inviscid run, we do need to perform this loop.
-            self.HandleExitFlag(total_exit_flag,
-                                handle_type="Viscous",
-                                update_statefile=generate_output)
+            # Even if we don't want to generate output, we still need to create the forces file to ensure post-processing of results does not fail
+            self.GenerateSolverOutput(output_type=OutputType.FORCES_ONLY)
 
-        # Only run a viscous solve if required by the user
-        # Theoretically there is the chance a viscous run may be started on a non-converged inviscid solve.
-        # This is acceptable, as we assume a steady state residual case has formed at the end of the inviscid case.
-        # There is a probability that by then running a viscous case, convergence to the correct solution may still be obtained.
-        # Only runs the viscous case if the exit flag is correct and if the inviscid analysis was physical (i.e. has an efficiency < 100%)
-        if run_viscous and total_exit_flag in (ExitFlag.SUCCESS, ExitFlag.COMPLETED, ExitFlag.NON_CONVERGENCE) and self.CheckInviscidOutput():
-            # Toggle viscous on all surfaces
-            self.ToggleViscous()  # Set the viscous Reynolds number
-            self.SetViscous([1, 3, 4], mode="enable")
-
-            # Update the iteration limit
-            self.ITER_LIMIT = self.ITER_LIMIT_VISC
-
-            # First we try to run a complete viscous case. Only if this doesn't work and causes a crash do we try to converge each surface individually
+            # Execute inviscid solve
             try:
-                exit_flag_visc = self.ExecuteSolver()
-
+                self.ITER_LIMIT = self.ITER_LIMIT_INVISC  # Set the appropriate iteration limit
+                exit_flag_invisc = self.ExecuteSolver()
             except (OSError, BrokenPipeError):
-                # If the complete viscous solve crashed, set the exit flag appropriately
-                exit_flag_visc = ExitFlag.CRASH
-
+                # If the inviscid solve crashes, we need to set the exit flag to crash
+                exit_flag_invisc = ExitFlag.CRASH
             finally:
-                # Try converging individual surfaces if the complete solve crashed
-                if exit_flag_visc == ExitFlag.CRASH:
-                    exit_flag_visc = self.ConvergeIndividualSurfaces()
-
-                # Handle the exit flag
-                total_exit_flag = max([exit_flag_visc, exit_flag_invisc], key=lambda flag: flag.value)
-                self.HandleExitFlag(total_exit_flag,
-                                    handle_type='Viscous',
+                # Handle solver based on exit flag
+                self.HandleExitFlag(exit_flag_invisc,
+                                    handle_type='Inviscid',
                                     update_statefile=generate_output)
+                total_exit_flag = exit_flag_invisc
 
                 if generate_output:
                     # Generate the requested solver outputs based on output_type
                     self.GenerateSolverOutput(output_type=output_type)
 
-        # Close the MTSOL tool
-        # If no output is generated, need to write an additional white line to close MTSOL
-        # Initial newline char to ensure MTSOL remains in main menu
-        if self.process.poll() is None:
-            self.StdinWrite("\n")
-            self.StdinWrite("Q")
-            if not generate_output:
-                self.StdinWrite("\n")
+            if not run_viscous:
+                # Using handle_type="inviscid" bypasses the handle non-convergence loop.
+                # This is intentional for a viscous run, as it speeds up the solution process substantially. However, for an inviscid run, we do need to perform this loop.
+                self.HandleExitFlag(total_exit_flag,
+                                    handle_type="Viscous",
+                                    update_statefile=generate_output)
 
-        # --- Cleanup section ---
-        # Check that MTSOL has closed successfully. If not, forcefully closes MTSOL
-        if getattr(self, "process", None) and self.process.poll() is None:
-            try:
-                self.process.terminate()
-                self.process.wait(timeout=10)
-            except Exception:
-                self.process.kill()
-        # Join reader thread if alive
-        if getattr(self, "reader", None) and self.reader.is_alive():
-            if hasattr(self, "shutdown_event"):
-                self.shutdown_event.set()
-            self.reader.join(timeout=5)
+            # Only run a viscous solve if required by the user
+            # Theoretically there is the chance a viscous run may be started on a non-converged inviscid solve.
+            # This is acceptable, as we assume a steady state residual case has formed at the end of the inviscid case.
+            # There is a probability that by then running a viscous case, convergence to the correct solution may still be obtained.
+            # Only runs the viscous case if the exit flag is correct and if the inviscid analysis was physical (i.e. has an efficiency < 100%)
+            if run_viscous and total_exit_flag in (ExitFlag.SUCCESS, ExitFlag.COMPLETED, ExitFlag.NON_CONVERGENCE) and self.CheckInviscidOutput():
+                # Toggle viscous on all surfaces
+                self.ToggleViscous()  # Set the viscous Reynolds number
+                self.SetViscous([1, 3, 4], mode="enable")
+
+                # Update the iteration limit
+                self.ITER_LIMIT = self.ITER_LIMIT_VISC
+
+                # First we try to run a complete viscous case. Only if this doesn't work and causes a crash do we try to converge each surface individually
+                try:
+                    exit_flag_visc = self.ExecuteSolver()
+
+                except (OSError, BrokenPipeError):
+                    # If the complete viscous solve crashed, set the exit flag appropriately
+                    exit_flag_visc = ExitFlag.CRASH
+
+                finally:
+                    # Try converging individual surfaces if the complete solve crashed
+                    if exit_flag_visc == ExitFlag.CRASH:
+                        exit_flag_visc = self.ConvergeIndividualSurfaces()
+
+                    # Handle the exit flag
+                    total_exit_flag = max([exit_flag_visc, exit_flag_invisc], key=lambda flag: flag.value)
+                    self.HandleExitFlag(total_exit_flag,
+                                        handle_type='Viscous',
+                                        update_statefile=generate_output)
+
+                    if generate_output:
+                        # Generate the requested solver outputs based on output_type
+                        self.GenerateSolverOutput(output_type=output_type)
+
+            # Close the MTSOL tool
+            # If no output is generated, need to write an additional white line to close MTSOL
+            # Initial newline char to ensure MTSOL remains in main menu
+            if self.process.poll() is None:
+                self.StdinWrite("\n")
+                self.StdinWrite("Q")
+                if not generate_output:
+                    self.StdinWrite("\n")
+
+        finally:
+            # Check that MTSOL has closed successfully. If not, forcefully closes MTSOL
+            if self.process.poll() is None:
+                try:
+                    self.process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    self.process.kill()        
+            # Join reader thread if alive
+            if getattr(self, "reader", None) and self.reader.is_alive():
+                if hasattr(self, "shutdown_event"):
+                    self.shutdown_event.set()
+                self.reader.join(timeout=5)
 
         return total_exit_flag
 
