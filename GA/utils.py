@@ -71,10 +71,10 @@ def calculate_n_reference_points(cfg: object) -> int:
     while p < max_iter:
         p += 1
         count = math.comb(p + m - 1, m - 1)
-        if count >= POPULATION_RATIO * m:
+        if count >= max(1, cfg.POPULATION_SIZE):
             return p
-
-    return cfg.POPULATION_SIZE / 2
+        
+    return cfg.POPULATION_SIZE  - 1
 
 
 if __name__ == "__main__":
