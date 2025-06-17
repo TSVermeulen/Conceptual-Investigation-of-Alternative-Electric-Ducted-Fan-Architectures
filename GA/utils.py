@@ -48,7 +48,7 @@ def calculate_n_reference_points(cfg: object) -> int:
         Configuration object.
         We cannot import config directly in this file, since config already uses 
         ensure_repo_paths, which would result in a circular import error.
-        Must have the n_objectives and POPULATION_size attributes.
+        Must have the n_objectives and POPULATION_SIZE attributes.
 
     Returns
     -------
@@ -59,21 +59,20 @@ def calculate_n_reference_points(cfg: object) -> int:
     try:
         m = cfg.n_objectives
     except AttributeError as e:
-        raise AttributeError(f"Configuration object is missing required attribute: {e}")
+        raise AttributeError(f"Configuration object is missing required attribute: {e}") from e
 
     if m == 1:
         # Single objective uses only 1 reference point
         return m
 
     max_iter = 10000 # hard-stop for safety; tweak if needed
-    p = 0
+    population_size = cfg.POPULATION_SIZE
     best_diff = float('inf')
     best_p = 1
-    m = 5
 
     for p in range(1, max_iter):
         count = math.comb(p + m - 1, m - 1)
-        diff = abs(count - cfg.POPULATION_SIZE)
+        diff = abs(count - population_size)
         if diff < best_diff:
             best_diff = diff
             best_p = p
@@ -81,7 +80,6 @@ def calculate_n_reference_points(cfg: object) -> int:
             if diff == 0:
                 # If an exact match is found, break from the for loop
                 break
-
     return best_p
 
 
