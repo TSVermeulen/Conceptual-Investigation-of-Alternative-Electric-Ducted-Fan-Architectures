@@ -833,9 +833,8 @@ class fileHandlingMTFLO:
                 file.write('+' + '    '.join(map(str, additions)) + '\n')
                 file.write('END\n \n')
                     
-                # Generate interpolated data to construct the file geometry
                 # The MTFLO code cannot accept an input file with more than 16x16 points in the streamwise and radial directions for each stage
-                # yn_points_axial=10 is used to avoid spline interpolation overshoots internally in MTFLO. 
+                # n_points_axial=10 is used to avoid spline interpolation overshoots internally in MTFLO. 
                 n_points_axial = 10
                 radial_points = blading_params[stage]["radial_stations"]
 

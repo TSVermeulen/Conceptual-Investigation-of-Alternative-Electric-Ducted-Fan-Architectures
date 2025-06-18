@@ -59,6 +59,7 @@ from cycler import cycler
 from pymoo.visualization.scatter import Scatter
 from pymoo.visualization.pcp import PCP
 from pymoo.indicators.hv import Hypervolume
+from pymoo.util.running_metric import RunningMetricAnimation
 
 # Ensure all paths are correctly setup
 from utils import ensure_repo_paths
@@ -72,6 +73,8 @@ from Submodels.file_handling import fileHandlingMTFLO #type: ignore
 
 # Adjust open figure warning
 plt.rcParams['figure.max_open_warning'] = 50
+plt.rcParams.update({'font.size': 9})
+
 
 class PostProcessing:
     """
@@ -723,17 +726,23 @@ class PostProcessing:
         if avg_objectives.ndim > 1 and avg_objectives.shape[1] >1:
             n_obj = avg_objectives.shape[1]
             for i in range(n_obj):
-                plt.plot(n_evals, generational_optimum[:, i], "-.x", label=f'Generational optimum for objective {i + 1}')
-                plt.plot(n_evals, avg_objectives[:,i], "-*", label=f"Generational average for objective {i + 1}")
+                if i == 0:
+                    plt.plot(n_evals, -generational_optimum[:, i], "-.x", label=f'Generational optimum for objective {i + 1}')
+                    plt.plot(n_evals, -avg_objectives[:,i], "-*", label=f"Generational average for objective {i + 1}")
+                else:
+                    plt.plot(n_evals, generational_optimum[:, i], "-.x", label=f'Generational optimum for objective {i + 1}')
+                    plt.plot(n_evals, avg_objectives[:,i], "-*", label=f"Generational average for objective {i + 1}")
+
         else:
             avg_objectives = avg_objectives.squeeze()
-            plt.plot(n_evals, generational_optimum, "-.x", label='Generational optimum')
-            plt.plot(n_evals, avg_objectives, "-*", label="Generational average")
+            plt.plot(n_evals, -generational_optimum, "-.x", label='Generational optimum')
+            plt.plot(n_evals, -avg_objectives, "-*", label="Generational average")
 
         plt.grid(which='both')
-        plt.yscale('log')
+        # plt.yscale('log')
         plt.xlabel("Total number of function evaluations [-]")
         plt.ylabel("Objective value [-]")
+        plt.ylim(bottom=0)
         plt.legend()
         plt.minorticks_on()
         plt.tight_layout()
@@ -793,22 +802,6 @@ class PostProcessing:
         plt.yscale("log")
         plt.tight_layout()
 
-        # Visualise the constraint violation
-        CV = []
-        for e in res.history:
-            constraints = e.pop.get("CV")
-            max_violation = np.max(constraints)
-            CV.append(max_violation)
-
-        plt.figure()
-        plt.title("Maximum constraint violation between generations")
-        plt.plot(n_evals, CV, "-x")
-        plt.grid(which='both')
-        plt.minorticks_on()
-        plt.xlabel("Total number of function evaluations [-]")
-        plt.ylabel("Maximum normalised constraint violation [-]")
-        plt.tight_layout()
-
 
     def plot_objective_space(self,
                            res: object) -> None:
@@ -831,26 +824,49 @@ class PostProcessing:
         feasible_mask = np.all(CV_all <= 0, axis=1)
         F_feasible = F_all[feasible_mask]
 
-        # Create scatter plot of the objective space
+        # Extract the initial population for plotting to show the improvement
+        F_initial = res.history[0].pop.get("F")
+        CV_initial = res.history[0].pop.get("CV")
+        feasible_mask = np.all(CV_initial <= 0, axis=1)
+        F_initial_feasible = F_initial[feasible_mask]
+
+        # Create scatter plot of the feasible objective space
         plot = Scatter(title="Objective space for the feasible evaluated solution set")
-        plot.add(res.history[0].pop[0].get("F"), marker="x", facecolor="blue", s=35, label="Reference Design")
+        plot.add(config.ref_objectives, marker="x", facecolor="blue", s=35, label="Reference Design")
+        plot.add(F_initial_feasible[1:], marker="^", facecolor="green", s=35, label="Initial Population")
         plot.add(F_feasible, facecolor='none', edgecolor='black', s=10, label="Evaluated solutions")
         plot.add(res.F, facecolor='red', s=20, label="Optimum solutions")
         plot.legend = True
         plot.show()
 
         # Create hypervolume plot
-        hv_indicator = Hypervolume(ref_point=res.history[0].pop[0].get("F"))
+        hv_indicator = Hypervolume(ref_point=config.ref_objectives)
         hv_history = [hv_indicator._do(np.atleast_2d(gen.pop.get("F"))) for gen in res.history]  
         hv_history[0] = 0  # Define initial hypervolume to be zero since the reference design is not generally the dominated solution
         plt.figure("Hypervolume evolution")
         plt.plot(hv_history, "-*")
         plt.xlabel("Generation [-]")
         plt.ylabel("Hypervolume [-]")
+        plt.yscale('log')
         plt.minorticks_on()
         plt.grid(which='both')
         plt.tight_layout()
         plt.show()
+
+    
+    def RunningMetricAnalysis(self,
+                              res) -> None:
+        """
+        
+        """
+
+        running = RunningMetricAnimation(delta_gen=1,
+                                         n_plots=3,
+                                         key_press=False,
+                                         do_show=True)
+        
+        for algorithm in res.history:
+            running.update(algorithm)
 
 
     def analyse_design_space(self,
@@ -897,9 +913,11 @@ class PostProcessing:
 
     def create_blade_geometry_plots(self,
                                     blading: list[list[dict[str, Any]]],
-                                    design: list[list[list[dict[str, Any]]]]) -> None:
+                                    design: list[list[list[dict[str, Any]]]],
+                                    reference_blading: list[list[dict[str,Any]]],
+                                    reference_design: list[list[list[dict[str, Any]]]]) -> None:
         """
-        Generate 2D and 3D plots of blade geometries for each stage the ducted fan design.
+        Generate 2D and 3D comparison plots of blade geometries for each optimised stage compared to the reference in the ducted fan design.
         This method visualizes the blade sections by constructing their geometry using provided blading and design data.
 
         For each stage marked for optimization, it creates:
@@ -917,23 +935,17 @@ class PostProcessing:
         - design : list[list[list[dict[str, Any]]]]
             A list containing design data for each stage. Each stage is represented as a list of lists of dictionaries
             with design parameters for the blade sections.
+        - reference_blading : list[list[dict[str, Any]]]
+            A list containing the reference blading data for each stage. Each stage is represented as a list of dictionaries
+            with geometric and aerodynamic properties at various radial stations.
+        - reference_design : list[list[list[dict[str, Any]]]]
+            A list containing the reference design data for each stage. Each stage is represented as a list of lists of dictionaries
+            with design parameters for the blade sections.
 
         Notes
         -----
         - Only stages specified in the global config.OPTIMIZE_STAGE list are plotted.
-        - The method assumes the existence of external classes and configuration, such as fileHandlingMTFLO and config.
-        - Plots are displayed using matplotlib.
         """
-
-        # Define the number of radial sections to generate a plot for, the number of chordwise data points to use
-        # and their distribution.
-        n_data = 120
-        axial_points = (1 - np.cos(np.linspace(0, np.pi, n_data))) / 2
-
-        # Initialize fileHandlingMTFLO class - we use the methods developed there to construct the blade shape
-        # Initialized with random inputs since we will not be generating any outputs from the class.
-        # We just use the methods from the class to generate the geometry for plotting.
-        fh = fileHandlingMTFLO("*", 1)
 
         # Create plot for each stage:
         for i in range(len(blading)):
@@ -942,46 +954,37 @@ class PostProcessing:
                 # Set up figures for 2D and 3D plotting
                 _, ax2d = plt.subplots(figsize=(12, 8))
                 fig3d = plt.figure(figsize=(12, 8))
-                ax3d = fig3d.add_subplot(111, projection='3d')
+                ax3d = fig3d.add_subplot(111, projection='3d')              
 
-                # Construct the radial points at which we obtain the data.
-                radial_points = blading[i]["radial_stations"]
-
-                # Define lists to store the section geometries
+                # Compute the data for the optimised design
                 x_data = []
                 y_data = []
                 r_data = []
-
-                # Compute the blade geometry interpolations
-                blade_geometry: dict = fh.ConstructBlades(blading[i],
-                                                          design[i])
-
-                # Loop over the blade span
+                radial_points = blading[i]["radial_stations"]
+                colors = plt.cm.tab10(np.linspace(0, 1, len(radial_points)))
                 for idx, r in enumerate(radial_points):
-                     # All parameters are normalised using the local chord length, so we need to obtain the local chord in order to obtain the dimensional parameters
+                    # All parameters are normalised using the local chord length, so we need to obtain the local chord in order to obtain the dimensional parameters
                     local_chord = blading[i]["chord_length"][idx]
-                    axial_coordinates = axial_points * local_chord
 
-                    # Create complete airfoil representation from the camber and thickness distributions
-                    camber_distribution = blade_geometry["camber_distribution"]((r, axial_points)) * local_chord
-                    thickness_distribution = blade_geometry["thickness_distribution"]((r, axial_points)) * local_chord
-                    upper_x, upper_y, lower_x, lower_y = self._airfoil_param.ConvertBezier2AirfoilCoordinates(axial_coordinates,
-                                                                                                              thickness_distribution,
-                                                                                                              axial_coordinates,
-                                                                                                              camber_distribution)
-
+                    # Create complete airfoil representation from BP3434 parameterisation of the radial section
+                    upper_x, upper_y, lower_x, lower_y = self._airfoil_param.ComputeProfileCoordinates(design[i][idx])
+                    upper_x *= local_chord
+                    upper_y *= local_chord
+                    lower_x *= local_chord
+                    lower_y *= local_chord
+                    
                     # Rotate the airfoil profile to the correct angle
-                    # The blade pitch is defined with respect to the blade pitch angle at the reference radial station, and thus is corrected accordingly.
+                    # The blade pitch is defined with respect to the blade pitch angle at the reference radial station, and thus is corrected accordingly. 
                     blade_pitch = (blading[i]["blade_angle"][idx] + blading[i]["ref_blade_angle"] - blading[i]["reference_section_blade_angle"])
-                    rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y  = fh.RotateProfile(blade_pitch,
-                                                                                                            upper_x,
-                                                                                                            lower_x,
-                                                                                                            upper_y,
-                                                                                                            lower_y)
+                    rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y  = fileHandlingMTFLO.RotateProfile(blade_pitch,
+                                                                                                                          upper_x,
+                                                                                                                          lower_x,
+                                                                                                                          upper_y,
+                                                                                                                          lower_y)
 
                     # Compute the local leading edge offset at the radial station from the provided interpolant
                     # Use it to offset the x-coordinates of the upper and lower surfaces to the correct position
-                    LE_coordinate = r * np.tan(blading[i]["sweep_angle"][idx])
+                    LE_coordinate = blading[i]["root_LE_coordinate"] + r * np.tan(blading[i]["sweep_angle"][idx])
                     rotated_upper_x += LE_coordinate - rotated_upper_x[0]
                     rotated_lower_x += LE_coordinate - rotated_lower_x[0]
 
@@ -990,7 +993,7 @@ class PostProcessing:
                     rotated_y = np.concatenate((rotated_upper_y, np.flip(rotated_lower_y)), axis=0)
 
                     # Plot the 2D profile on 2D axes
-                    ax2d.plot(rotated_x, rotated_y)
+                    ax2d.plot(rotated_x, rotated_y, color=colors[idx], label="Optimised")
 
                     # Append the section to the list for 3d plotting
                     x_data.append(rotated_x)
@@ -1002,17 +1005,71 @@ class PostProcessing:
                               rotated_y,
                               np.full_like(rotated_x, r),  # Each section is defined at constant r
                               color='black')
+                
+                # Compute the data for the reference design
+                reference_x_data = []
+                reference_y_data = []
+                reference_r_data = []
+                reference_radial_points = reference_blading[i]["radial_stations"]
+                for idx, r in enumerate(reference_radial_points):
+                    # All parameters are normalised using the local chord length, so we need to obtain the local chord in order to obtain the dimensional parameters
+                    local_chord = reference_blading[i]["chord_length"][idx]
+
+                    # Create complete airfoil representation from BP3434 parameterisation of the radial section
+                    upper_x, upper_y, lower_x, lower_y = self._airfoil_param.ComputeProfileCoordinates(reference_design[i][idx])
+                    upper_x *= local_chord
+                    upper_y *= local_chord
+                    lower_x *= local_chord
+                    lower_y *= local_chord
+                    
+                    # Rotate the airfoil profile to the correct angle
+                    # The blade pitch is defined with respect to the blade pitch angle at the reference radial station, and thus is corrected accordingly. 
+                    blade_pitch = (blading[i]["blade_angle"][idx] + blading[i]["ref_blade_angle"] - blading[i]["reference_section_blade_angle"])
+                    rotated_upper_x, rotated_upper_y, rotated_lower_x, rotated_lower_y  = fileHandlingMTFLO.RotateProfile(blade_pitch,
+                                                                                                                          upper_x,
+                                                                                                                          lower_x,
+                                                                                                                          upper_y,
+                                                                                                                          lower_y)
+
+                    # Compute the local leading edge offset at the radial station from the provided interpolant
+                    # Use it to offset the x-coordinates of the upper and lower surfaces to the correct position
+                    LE_coordinate = blading[i]["root_LE_coordinate"] + r * np.tan(blading[i]["sweep_angle"][idx])
+                    rotated_upper_x += LE_coordinate - rotated_upper_x[0]
+                    rotated_lower_x += LE_coordinate - rotated_lower_x[0]
+
+                    # Concatenate the upper and lower data sets
+                    rotated_x = np.concatenate((rotated_upper_x, np.flip(rotated_lower_x)), axis=0)
+                    rotated_y = np.concatenate((rotated_upper_y, np.flip(rotated_lower_y)), axis=0)
+
+                    # Plot the 2D profile on 2D axes
+                    ax2d.plot(rotated_x, rotated_y, "-.", color=colors[idx], label="Reference")
+
+                    # Append the section to the list for 3d plotting
+                    reference_x_data.append(rotated_x)
+                    reference_y_data.append(rotated_y)
+                    reference_r_data.append(np.full_like(rotated_x, r))
 
                 # Convert all data to arrays - this is needed to use the plot_surface method.
                 x_data = np.array(x_data)
                 y_data = np.array(y_data)
                 r_data = np.array(r_data)
+                reference_x_data = np.array(reference_x_data)
+                reference_y_data = np.array(reference_y_data)
+                reference_r_data = np.array(reference_r_data)
 
-                # Plot the blade surface in 3D
+                # Plot the optimised and reference blade surfaces in 3D
                 ax3d.plot_surface(x_data,
                                   y_data,
                                   r_data,
-                                  alpha=0.75)
+                                  color='tab:blue',
+                                  label="Optimised")
+                ax3d.plot_surface(reference_x_data,
+                                  reference_y_data,
+                                  reference_r_data,
+                                  alpha=0.5,
+                                  color='tab:orange',
+                                  label="Reference")
+                
 
                 # Format 2D plot
                 ax2d.set_title("2D Projection of Blade Geometry at Each Radial Section")
@@ -1020,6 +1077,11 @@ class PostProcessing:
                 ax2d.set_ylabel("Thickness/Height Coordinate [m]")
                 ax2d.minorticks_on()
                 ax2d.grid(which='both')
+                handles, labels = ax2d.get_legend_handles_labels()
+                unique = dict(zip(labels, handles))
+                legend2d = ax2d.legend(unique.values(), unique.keys())
+                for line in legend2d.get_lines():
+                    line.set_color("black")
 
                 # Format 3D plot
                 ax3d.set_title("3D Blade Geometry")
@@ -1028,6 +1090,7 @@ class PostProcessing:
                 ax3d.set_zlabel("Radial Coordinate [m]")
                 ax3d.minorticks_on()
                 ax3d.grid(which='both')
+                ax3d.legend()
 
                 # Force the aspect ratio of the axes to be the same
                 x_limits = ax3d.get_xlim3d()
@@ -1064,12 +1127,16 @@ class PostProcessing:
         plt.show()
         plt.close('all')
 
+        if config.n_objectives != 1:
+            # Running metric is only defined for multi-objective optimisation
+            self.RunningMetricAnalysis(res)
+
         # Visualise the objective space
         self.plot_objective_space(res)
 
         # Visualise the design space
-        self.analyse_design_space(res,
-                                  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+        # self.analyse_design_space(res,
+        #                           [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
 
         # Plot the centerbody designs
         if config.OPTIMIZE_CENTERBODY:
@@ -1125,15 +1192,14 @@ class PostProcessing:
                 # Plot the optimum solution set
                 for j in range(len(self.blading_data_opt)):
                     self.create_blade_geometry_plots(self.blading_data_opt[j],
-                                                     self.design_data_opt[j])
+                                                     self.design_data_opt[j],
+                                                     config.STAGE_BLADING_PARAMETERS,
+                                                     config.STAGE_DESIGN_VARIABLES)
                     plt.show()
                     plt.close('all')
 
-                self.create_blade_geometry_plots(config.STAGE_BLADING_PARAMETERS,
-                                                config.STAGE_DESIGN_VARIABLES)
-
 if __name__ == "__main__":
-    output = Path('Results/res_pop100_eval11000_250606011743550320.dill')
+    output = Path('Results/res_pop100_eval11000_250619000424678730.dill')
 
     processing_class = PostProcessing(fname=output)
     processing_class.main()

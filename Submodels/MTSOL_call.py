@@ -347,10 +347,18 @@ class MTSOL_call:
             """ Helper function to read the output on a separate thread """
             try:
                 while not getattr(self, "shutdown_event", threading.Event()).is_set():
+                    if self.process.poll() is not None: 
+                        # Check if the process is still running before reading stdout. 
+                        break    
                     line = out.readline()
                     if not line:
                         break
                     q.put(line)
+            except ValueError:
+                # Catch value errors separately to avoid spamming console out 
+                # with "I/O operation on closed file" errors during MTSOl 
+                # crashes/restarts
+                pass        
             except Exception as e:
                 print(e)
 

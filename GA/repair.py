@@ -35,7 +35,7 @@ Changelog:
 - V1.2: Improved one-to-one enforcement for Bezier curves.
 - V1.3: Refactored repair logic and updated documentation. Improved robustness of one-to-one enforcing by including additonal equation for gamma_LE.
 - V1.4: Made bounds on repair enforce_one2one a reference to the design vector initialisation to ensure single source of truth. Added explicit repair out of bounds operator.
-- V1.5: Introduced blade count repair function. Introduced duct LE location repair function. Introduced chord distribution repair function. 
+- V1.5: Introduced blade count repair function. Introduced duct LE location repair function. Introduced chord distribution repair function.
 """
 
 # Import standard libraries
@@ -95,7 +95,7 @@ class RepairIndividuals(Repair):
 
 
     def _computebezier(self,
-                       profile_params: dict[str, float]) -> tuple[tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64], np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]], 
+                       profile_params: dict[str, float]) -> tuple[tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64], np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]],
                                                                   tuple[np.typing.NDArray[np.float64], np.typing.NDArray[np.float64], np.typing.NDArray[np.float64], np.typing.NDArray[np.float64]]]:
         """
         Compute the Bezier curves for the x-coordinates and y-coordinates of the leading and trailing edge thickness and camber distributions
@@ -296,7 +296,7 @@ class RepairIndividuals(Repair):
                 alpha_TE = np.atan((5/6 * modified_profile_params["y_c"]) / (1 - modified_profile_params["b_17"])) + 1e-3
                 alpha_TE = np.clip(alpha_TE, self.BP_bounds["trailing_camberline_angle"][0], self.BP_bounds["trailing_camberline_angle"][1])  # Enforce alpha_TE to bounds
                 modified_profile_params["trailing_camberline_angle"] = alpha_TE
-            
+
         return modified_profile_params
 
 
@@ -324,9 +324,9 @@ class RepairIndividuals(Repair):
         blading_params["sweep_angle"][1:] = np.atan(LE_x_coordinate_corrected[1:] / blading_params["radial_stations"][1:])
 
         return blading_params
-    
 
-    def _enforce_duct_location(self, 
+
+    def _enforce_duct_location(self,
                                blading_params: dict[str, Any],
                                duct_params: dict[str, Any]) -> dict[str, Any]:
         """
@@ -348,16 +348,16 @@ class RepairIndividuals(Repair):
         # If the duct is positioned aft of the LE of the blade root, move it forward
         x_old, y_old = duct_params["Leading Edge Coordinates"]
         if x_old > blading_params["root_LE_coordinate"]:
-            duct_params["Leading Edge Coordinates"] = (blading_params["root_LE_coordinate"], 
+            duct_params["Leading Edge Coordinates"] = (blading_params["root_LE_coordinate"],
                                                        y_old)
-            
+
         return duct_params
-    
+
 
     def _enforce_chord_distribution(self,
                                     blading_params: dict[str, Any]) -> dict[str, Any]:
         """
-        Enforce that the blade chord distribution is continuously decreasing from the blade hub to tip. 
+        Enforce that the blade chord distribution is continuously decreasing from the blade hub to tip.
 
         Parameters
         ----------
@@ -368,12 +368,18 @@ class RepairIndividuals(Repair):
         - blading_params : dict[str, Any]
         """
 
-        # Extract the current chord distribution
-        original_chord_distribution = blading_params["chord_length"]
+        # Extract the current chord distribution and radial stations
+        radial_stations = blading_params["radial_stations"]
+        chord_distribution = blading_params["chord_length"]
 
-        # Fix the chord distribution and update the blading params
-        fixed_chord_distribution = np.minimum.accumulate(original_chord_distribution)
-        blading_params["chord_length"] = fixed_chord_distribution
+        # Determine midspan value
+        midspan_radius = 0.5 * radial_stations[-1]
+        midspan_idx = max(i for i, r in enumerate(radial_stations) if r <= midspan_radius)
+
+        # Fix the chord length distribution from the midspan onwards
+        chord_distribution[midspan_idx:] = np.minimum.accumulate(chord_distribution[midspan_idx:])
+        # Update the blading params
+        blading_params["chord_length"] = chord_distribution
 
         return blading_params
 
@@ -404,6 +410,7 @@ class RepairIndividuals(Repair):
         try:
             # Loop over the radial sections
             for i in range(len(design_params)):
+
                 if blading_params["radial_stations"][i] == 0:
                     continue
                 # Loop to fix the blockage: decrement blade_count while > 2 to enforce minimum of 2 blades
@@ -439,7 +446,7 @@ class RepairIndividuals(Repair):
                                                                             y_section_lower,
                                                                             z_section_lower,
                                                                             blading_params["radial_stations"][i])
-                    
+
                     # Check if the limit of complete blockage is respected by the design. If not, decrease the blade count by 1
                     max_circumf_thickness = circumferential_thickness.max()
                     if max_circumf_thickness >= complete_blockage:
@@ -503,11 +510,11 @@ class RepairIndividuals(Repair):
                     # Repair the blading parameters
                     blade_blading_parameters[j] = self._enforce_blade_LE_positive_sweepback(blade_blading_parameters[j])
                     blade_blading_parameters[j] = self._enforce_chord_distribution(blade_blading_parameters[j])
-                    
+
                     # Repair the duct LE location
                     duct_variables = self._enforce_duct_location(blade_blading_parameters[j],
                                                                  duct_variables)
-                    
+
                     # Loop over all the radial sections and repair the profile parameters
                     for k in range(config.NUM_RADIALSECTIONS[j]):
                         # Repair the profile parameters

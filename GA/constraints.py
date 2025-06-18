@@ -180,7 +180,7 @@ class Constraints:
                                _thrust: float,
                                _power: float) -> float:
         """
-        Compute the inequality constraint for the efficiency. Enforces that eta < 0.99.
+        Compute the inequality constraint for the efficiency. Enforces that eta < 0.9.
 
         Parameters
         ----------
@@ -203,7 +203,7 @@ class Constraints:
         """
 
         # Compute the inequality constraint for the efficiency.
-        return analysis_outputs["data"]["EtaP"] - 0.99
+        return analysis_outputs["data"]["EtaP"] - 0.9
 
 
     def KeepEfficiencyFeasibleLower(self,
