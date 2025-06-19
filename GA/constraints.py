@@ -48,6 +48,7 @@ from typing import Any
 
 # Import 3rd party libraries
 import numpy as np
+from scipy import interpolate
 
 # Import analysis configuration and Parameterization class
 import config # type: ignore
@@ -72,7 +73,7 @@ class Constraints:
     def __init__(self,
                  centerbody_values: dict[str, float],
                  duct_values: dict[str, float],
-                 blade_design_values: list[list[dict[str, float]]],
+                 blade_blading_values: list[dict[str, float]],
                  design_okay: bool = False,
                  ) -> None:
         """
@@ -82,7 +83,7 @@ class Constraints:
         # Write the design variable dictionaries to self
         self.centerbody_values = centerbody_values.copy()
         self.duct_values = duct_values.copy()
-        self.blade_design_values = copy.deepcopy(blade_design_values)  # Use deepcopy due to the nested structure of the design values
+        self.blade_blading_values = copy.deepcopy(blade_blading_values)  # Use deepcopy due to the nested structure of the design values
 
         # Define lists of all inequality and equality constraints
         self.ineq_constraints_list = [self.KeepEfficiencyFeasibleLower, self.KeepEfficiencyFeasibleUpper, self.MinimumThrust, self.MaximumThrust]
@@ -141,6 +142,48 @@ class Constraints:
         return analysis_outputs["data"]["Total force CT"] * (0.5 * self.oper["atmos"].density[0] * self.oper["Vinl"] ** 2 * Lref ** 2)
 
 
+    def _calculate_theoretical_efficiency_limit(self,
+                                                thrust: float) -> float:
+        """
+        Calculate the theoretical efficiency limit based on the operating condition and the design parameters.
+        This method computes the theoretical efficiency limit based on actuator disk theory.
+
+        Parameters
+        ----------
+        - thrust : float
+            The thrust in Newtons.
+        
+        Returns
+        -------
+        - eta_theoretical : float
+            The theoretical efficiency limit of the ducted fan.
+        """
+
+        # First compute the annular area occupied by the fan
+        if not hasattr(self, "_airfoil_parameterization"):
+            # Lazy import and cache the AirfoilParameterization class
+            from Submodels.Parameterizations import AirfoilParameterization #type: ignore
+            self._airfoil_parameterization = AirfoilParameterization()
+
+        # Compute the profile coordinates of the upper surface of the centerbody
+        upper_x, upper_y, _, _ = self._airfoil_parameterization.ComputeProfileCoordinates(self.centerbody_values)
+
+        # Dimensionalise the coordinates using the chord length
+        chord = self.centerbody_values["Chord Length"]
+        upper_y = upper_y * chord
+        upper_x = upper_x * chord
+
+        # We use the LE of the root as x coordinate at which to compute the actuator disk area.
+        closest_index = np.abs(upper_x - self.blade_blading_values[0]["root_LE_coordinate"]).argmin()
+        centerbody_radius = upper_y[closest_index]
+
+        # Compute the annular area occupied by the fan and use it to find the theoretical efficiency limit.
+        A_disk = np.pi * self.blade_blading_values[0]["radial_stations"][-1] ** 2 - np.pi * centerbody_radius ** 2
+        eta_theoretical = 2 / (1 + (thrust / (0.5 * self.oper["atmos"].density[0] * self.oper["Vinl"] ** 2 * A_disk) + 1) ** 0.5)
+
+        return eta_theoretical
+
+
     def ConstantPower(self,
                       _analysis_outputs: AnalysisOutputs,
                       _Lref: float,
@@ -177,10 +220,12 @@ class Constraints:
     def KeepEfficiencyFeasibleUpper(self,
                                analysis_outputs: AnalysisOutputs,
                                _Lref: float,
-                               _thrust: float,
+                               thrust: float,
                                _power: float) -> float:
         """
-        Compute the inequality constraint for the efficiency. Enforces that eta < 0.9.
+        Compute the inequality constraint for the efficiency. Enforces that 
+        eta < eta_theoretical, i.e. the theoretical upper efficiency as obtained 
+        from actuator disk theory.
 
         Parameters
         ----------
@@ -191,8 +236,8 @@ class Constraints:
         - _Lref : float
             The reference length of the analysis. Corresponds to the propeller/fan diameter.
             Not used in this method, but required for a uniform constraint function signature.
-        - _thrust : float
-            The thrust in Newtons. Not used here but included to force constant signature.
+        - thrust : float
+            The thrust in Newtons.
         - _power : float
             The power in Watts. Not used here but included to force constant signature.
 
@@ -203,7 +248,7 @@ class Constraints:
         """
 
         # Compute the inequality constraint for the efficiency.
-        return analysis_outputs["data"]["EtaP"] - 0.9
+        return analysis_outputs["data"]["EtaP"] - self._calculate_theoretical_efficiency_limit(thrust)
 
 
     def KeepEfficiencyFeasibleLower(self,
@@ -294,7 +339,7 @@ class Constraints:
         - float
             The computed normalised thrust constraint.
         """
-        return (config.deviation_range * self.ref_thrust - thrust) / self.ref_thrust # Normalized thrust constraint
+        return (thrust - (1 + config.deviation_range) * self.ref_thrust) / self.ref_thrust # Normalized thrust constraint
 
 
     def _get_filtered_constraints(self):
@@ -356,6 +401,8 @@ class Constraints:
         # Compute thrust and power
         thrust = self._calculate_thrust(analysis_outputs, Lref)
         power = self._calculate_power(analysis_outputs, Lref)
+
+        self._calculate_theoretical_efficiency_limit(thrust)
 
         # Set the reference values to self
         # Uses only the first entries in th elist since this is a single-point evaluation.

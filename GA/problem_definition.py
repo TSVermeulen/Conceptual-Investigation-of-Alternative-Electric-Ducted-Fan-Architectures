@@ -426,7 +426,7 @@ class OptimizationProblem(ElementwiseProblem):
         # The out dictionary is updated in-place
         Constraints(self.centerbody_variables,
                     self.duct_variables,
-                    self.blade_design_parameters,
+                    self.blade_blading_parameters,
                     design_okay).ComputeConstraints(analysis_outputs=MTFLOW_outputs,
                                                     Lref=self.Lref,
                                                     oper=self.oper,
