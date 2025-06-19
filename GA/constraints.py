@@ -31,7 +31,7 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.5
+Version: 1.6
 
 Changelog:
 - V1.0: Initial implementation with basic equality and inequality constraints.
@@ -40,6 +40,7 @@ Changelog:
 - V1.3: Implemented multi-point constraint evaluator. Updated documentation. Fixed type hinting.
 - V1.4: Implemented constraints on profile parameterizations.
 - V1.5: Fixed bug in minimum thrust constraint. Performance improvements by avoiding repeated construction/lookup of data.
+- V1.6: Implemented theoretical efficiency limit calculation based on actuator disk theory. Improved efficiency calculations.
 """
 
 # Import standard libraries
@@ -48,7 +49,6 @@ from typing import Any
 
 # Import 3rd party libraries
 import numpy as np
-from scipy import interpolate
 
 # Import analysis configuration and Parameterization class
 import config # type: ignore
@@ -179,7 +179,12 @@ class Constraints:
 
         # Compute the annular area occupied by the fan and use it to find the theoretical efficiency limit.
         A_disk = np.pi * self.blade_blading_values[0]["radial_stations"][-1] ** 2 - np.pi * centerbody_radius ** 2
-        eta_theoretical = 2 / (1 + (thrust / (0.5 * self.oper["atmos"].density[0] * self.oper["Vinl"] ** 2 * A_disk) + 1) ** 0.5)
+        term = (0.5 * self.oper["atmos"].density[0] * self.oper["Vinl"] ** 2 * A_disk)
+        if thrust < 0:
+            # If thrust is negative, we cannot compute a theoretical efficiency limit, so we set it to 0.01 to enable the optimiser to still work
+            eta_theoretical = 0.01
+        else:
+            eta_theoretical = 2 / (1 + (thrust / term + 1) ** 0.5)
 
         return eta_theoretical
 
@@ -308,7 +313,7 @@ class Constraints:
         - float
             The computed normalised thrust constraint.
         """
-        return -thrust / self.ref_thrust + (1 - config.deviation_range)  # Normalized thrust constraint. <=0 indicates freasible.
+        return -thrust / self.ref_thrust + (1 - config.deviation_range)  # Normalized thrust constraint. <=0 indicates feasible.
 
 
     def MaximumThrust(self,
