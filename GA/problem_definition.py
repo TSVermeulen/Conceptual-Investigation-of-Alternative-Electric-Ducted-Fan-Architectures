@@ -439,17 +439,17 @@ class OptimizationProblem(ElementwiseProblem):
 
 if __name__ == "__main__":
     """
-    Test Block: disable parameterizations to allow for testing using the reference data.
+    Test Block
     """
 
-    # Disable parameterizations to allow for testing with empty design vector
-    config.OPTIMIZE_CENTERBODY = False
-    config.OPTIMIZE_DUCT = False
-    config.OPTIMIZE_STAGE = [False] * len(config.OPTIMIZE_STAGE)
-
+    # Create a reference vector for testing
+    from init_population import InitPopulation  # type: ignore
+    ref_pop = InitPopulation(population_type="biased").GeneratePopulation()
+    ref_vector = ref_pop[0].get("X")
     test = OptimizationProblem()
-
+    
+    # Create an output dictionary to store the results
     output = {}
-    test._evaluate({}, output)
+    test._evaluate(ref_vector, output)
 
     print(output)

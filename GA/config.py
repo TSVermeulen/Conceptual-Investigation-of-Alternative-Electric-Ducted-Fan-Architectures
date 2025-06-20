@@ -73,20 +73,15 @@ class ObjectiveID(IntEnum):
     # DUCT_THRUST_CONTRIBUTION = auto()
     # CENTERBODY_THRUST_CONTRIBUTION = auto()
     
-objective_IDs = [ObjectiveID.EFFICIENCY, ObjectiveID.FRONTAL_AREA]  # Must be defined in order of which they exist in the enum! 
+objective_IDs = [ObjectiveID.EFFICIENCY]  # Must be defined in order of which they exist in the enum! 
 
 # Define the multi-point operating conditions
-multi_oper = [{"Inlet_Mach": 0.1958224765292171,  # Loiter condition at 125kts
-               "N_crit": 9,
-               "atmos": Atmosphere(3048),
-               "Omega": -11.42397,
-               "RPS": 54.80281},
-            #    {"Inlet_Mach": 0.148140,  # Stall condition at 98kts
+multi_oper = [#{"Inlet_Mach": 0.1958224765292171,  # Loiter condition at 125kts
             #    "N_crit": 9,
-            #    "atmos": Atmosphere(0),
+            #    "atmos": Atmosphere(3048),
             #    "Omega": -11.42397,
             #    "RPS": 54.80281},
-               {"Inlet_Mach": 0.148140,  # ~Stall condition at 98kts
+               {"Inlet_Mach": 0.15,  # ~Stall condition at 100kts
                "N_crit": 9,
                "atmos": Atmosphere(0),
                "Omega": -11.42397,
@@ -245,11 +240,11 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
 
 # Define the target thrust/power and efficiency for use in constraints
 P_ref_constr = [#1.4461 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
-                0.65137 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # Stall condition power
+                0.55564 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # Stall condition power
                 # 1.5592 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
                 ]  # Reference Power in Watts derived from baseline analysis
 T_ref_constr = [#1.0756 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
-                0.51820 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # Stall condition thrust
+                0.44651 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # Stall condition thrust
                 # 1.2002 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 ] # Reference Thrust in Newtons derived from baseline analysis
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
@@ -283,7 +278,7 @@ class EqConstraintID(IntEnum):
     
     CONSTANT_POWER = auto()
 
-constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICIENCY_LEQ_ONE, InEqConstraintID.MINIMUM_THRUST, InEqConstraintID.MAXIMUM_THRUST],
+constraint_IDs = [[InEqConstraintID.EFFICIENCY_LEQ_ONE, InEqConstraintID.MINIMUM_THRUST, InEqConstraintID.MAXIMUM_THRUST],
                   []]
 
 
@@ -291,7 +286,7 @@ constraint_IDs = [[InEqConstraintID.EFFICIENCY_GTE_ZERO, InEqConstraintID.EFFICI
 POPULATION_SIZE = 100
 # Larger initial population for better diversity in case of infeasible designs, then reduced to standard size
 INITIAL_POPULATION_SIZE = 100
-MAX_GENERATIONS = 100
+MAX_GENERATIONS = 50
 MAX_EVALUATIONS = 11000
 
 # Compute the total number of objectives
@@ -314,5 +309,5 @@ RESERVED_THREADS = 0  # Threads reserved for the operating system and any other 
 THREADS_PER_EVALUATION = 2  # Number of threads per MTFLOW evaluation: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
 # Postprocessing visualisation controls
-ref_objectives = np.array([-0.74376,  1.     ])  # ref objective values
+ref_objectives = np.array([-0.74376])  # ref objective values
 objective_strings = []
