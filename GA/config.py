@@ -85,7 +85,12 @@ multi_oper = [{"Inlet_Mach": 0.1958224765292171,  # Loiter condition at 125kts
             #    "N_crit": 9,
             #    "atmos": Atmosphere(0),
             #    "Omega": -11.42397,
-            #    "RPS": 46.69870812},
+            #    "RPS": 54.80281},
+               {"Inlet_Mach": 0.148140,  # ~Stall condition at 98kts
+               "N_crit": 9,
+               "atmos": Atmosphere(0),
+               "Omega": -11.42397,
+               "RPS": 35},
             #    {"Inlet_Mach": 0.2898172649952647,  # Combat condition at 185kts
             #    "N_crit": 9,
             #    "atmos": Atmosphere(3048),
@@ -239,10 +244,12 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
                                                                  REFERENCE_BLADE_ANGLES[0])
 
 # Define the target thrust/power and efficiency for use in constraints
-P_ref_constr = [1.4461 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
+P_ref_constr = [#1.4461 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
+                0.65137 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # Stall condition power
                 # 1.5592 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
                 ]  # Reference Power in Watts derived from baseline analysis
-T_ref_constr = [1.0756 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
+T_ref_constr = [#1.0756 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
+                0.51820 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # Stall condition thrust
                 # 1.2002 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 ] # Reference Thrust in Newtons derived from baseline analysis
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
