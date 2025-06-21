@@ -31,7 +31,7 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.6
+Version: 1.7
 
 Changelog:
 - V1.0: Initial implementation with basic equality and inequality constraints.
@@ -41,6 +41,7 @@ Changelog:
 - V1.4: Implemented constraints on profile parameterizations.
 - V1.5: Fixed bug in minimum thrust constraint. Performance improvements by avoiding repeated construction/lookup of data.
 - V1.6: Implemented theoretical efficiency limit calculation based on actuator disk theory. Improved efficiency calculations.
+- V1.7: Added unified thrust bound constraint to replace the minimum and maximum thrust constraints.
 """
 
 # Import standard libraries
@@ -86,7 +87,7 @@ class Constraints:
         self.blade_blading_values = copy.deepcopy(blade_blading_values)  # Use deepcopy due to the nested structure of the design values
 
         # Define lists of all inequality and equality constraints
-        self.ineq_constraints_list = [self.KeepEfficiencyFeasibleLower, self.KeepEfficiencyFeasibleUpper, self.MinimumThrust, self.MaximumThrust]
+        self.ineq_constraints_list = [self.KeepEfficiencyFeasibleLower, self.KeepEfficiencyFeasibleUpper, self.MinimumThrust, self.MaximumThrust, self.ThrustBound]
         self.eq_constraints_list = [self.ConstantPower]
 
         self.design_okay = design_okay
@@ -159,14 +160,8 @@ class Constraints:
             The theoretical efficiency limit of the ducted fan.
         """
 
-        # First compute the annular area occupied by the fan
-        if not hasattr(self, "_airfoil_parameterization"):
-            # Lazy import and cache the AirfoilParameterization class
-            from Submodels.Parameterizations import AirfoilParameterization #type: ignore
-            self._airfoil_parameterization = AirfoilParameterization()
-
         # Compute the profile coordinates of the upper surface of the centerbody
-        upper_x, upper_y, _, _ = self._airfoil_parameterization.ComputeProfileCoordinates(self.centerbody_values)
+        upper_x, upper_y, _, _ = self.airfoil_parameterization.ComputeProfileCoordinates(self.centerbody_values)
 
         # Dimensionalise the coordinates using the chord length
         chord = self.centerbody_values["Chord Length"]
@@ -180,11 +175,9 @@ class Constraints:
         # Compute the annular area occupied by the fan and use it to find the theoretical efficiency limit.
         A_disk = np.pi * self.blade_blading_values[0]["radial_stations"][-1] ** 2 - np.pi * centerbody_radius ** 2
         term = (0.5 * self.oper["atmos"].density[0] * self.oper["Vinl"] ** 2 * A_disk)
-        if thrust < 0:
-            # If thrust is negative, we cannot compute a theoretical efficiency limit, so we set it to 0.01 to enable the optimiser to still work
-            eta_theoretical = 0.01
-        else:
-            eta_theoretical = 2 / (1 + (thrust / term + 1) ** 0.5)
+
+        # If thrust is negative, we cannot compute a theoretical efficiency limit, so we set it to 0.01 to enable the optimiser to still work
+        eta_theoretical = 0.01 if thrust <= 0 else 2 / (1 + (thrust / term + 1) ** 0.5)
 
         return eta_theoretical
 
@@ -287,6 +280,37 @@ class Constraints:
         return -analysis_outputs["data"]["EtaP"]
 
 
+    def ThrustBound(self,
+                    _analysis_outputs: AnalysisOutputs,
+                    _Lref: float,
+                    thrust: float,
+                    _power: float) -> float:
+        """
+        Compute the inequality constraint for the thrust. Enforces that -delta < T/T_ref - 1 <delta.
+
+        Parameters
+        ----------
+        - _analysis_outputs : AnalysisOutputs
+            A dictionary containing the outputs from the MTFLOW forces output file.
+            Must contain all entries corresponding to an execution of
+            output_handling.output_processing().GetAllVariables(3).
+        - _Lref : float
+            The reference length of the analysis. Corresponds to the propeller/fan diameter.
+            Not used here but included to force constant signature.
+        - thrust : float
+            The thrust in Newtons.
+        - _power : float
+            The power in Watts. Not used here but included to force constant signature.
+        
+        Returns
+        -------
+        - float
+            The computed normalised thrust constraint. This is a scalar value representing the deviation of the thrust of the system from the reference value.
+        """
+
+        return abs(thrust / self.ref_thrust - 1) - config.deviation_range
+
+
     def MinimumThrust(self,
                       _analysis_outputs: AnalysisOutputs,
                       _Lref: float,
@@ -294,6 +318,7 @@ class Constraints:
                       _power: float) -> float:
         """
         Compute the inequality constraint for the thrust. Enforces that T > (1 - delta) * T_ref.
+        Equivalent to a one-sided version of the ThrustBound constraint.
 
         Parameters
         ----------
@@ -323,6 +348,7 @@ class Constraints:
                       _power: float) -> float:
         """
         Compute the upper bound for the thrust. Enforces that T < T_ref + delta.
+        Equivalent to the one-sided version of the ThrustBound constraint.
 
         Parameters
         ----------
@@ -406,8 +432,6 @@ class Constraints:
         # Compute thrust and power
         thrust = self._calculate_thrust(analysis_outputs, Lref)
         power = self._calculate_power(analysis_outputs, Lref)
-
-        self._calculate_theoretical_efficiency_limit(thrust)
 
         # Set the reference values to self
         # Uses only the first entries in th elist since this is a single-point evaluation.

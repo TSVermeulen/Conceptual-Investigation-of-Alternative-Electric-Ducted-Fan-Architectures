@@ -85,7 +85,7 @@ multi_oper = [#{"Inlet_Mach": 0.1958224765292171,  # Loiter condition at 125kts
                "N_crit": 9,
                "atmos": Atmosphere(0),
                "Omega": -11.42397,
-               "RPS": 35},
+               "RPS": 37},
             #    {"Inlet_Mach": 0.2898172649952647,  # Combat condition at 185kts
             #    "N_crit": 9,
             #    "atmos": Atmosphere(3048),
@@ -240,11 +240,11 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
 
 # Define the target thrust/power and efficiency for use in constraints
 P_ref_constr = [#1.4461 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
-                0.55564 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # Stall condition power
+                0.67198 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # Stall condition power
                 # 1.5592 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
                 ]  # Reference Power in Watts derived from baseline analysis
 T_ref_constr = [#1.0756 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
-                0.44651 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # Stall condition thrust
+                0.52927 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # Stall condition thrust
                 # 1.2002 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 ] # Reference Thrust in Newtons derived from baseline analysis
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
@@ -266,6 +266,7 @@ class InEqConstraintID(IntEnum):
     EFFICIENCY_LEQ_ONE = auto()
     MINIMUM_THRUST = auto()
     MAXIMUM_THRUST = auto()
+    THRUST_FEASIBILITY = auto()
     
 class EqConstraintID(IntEnum):
     """
@@ -278,15 +279,15 @@ class EqConstraintID(IntEnum):
     
     CONSTANT_POWER = auto()
 
-constraint_IDs = [[InEqConstraintID.EFFICIENCY_LEQ_ONE, InEqConstraintID.MINIMUM_THRUST, InEqConstraintID.MAXIMUM_THRUST],
+constraint_IDs = [[InEqConstraintID.EFFICIENCY_LEQ_ONE, InEqConstraintID.THRUST_FEASIBILITY],
                   []]
 
 
 # Define the population size
 POPULATION_SIZE = 100
 # Larger initial population for better diversity in case of infeasible designs, then reduced to standard size
-INITIAL_POPULATION_SIZE = 100
-MAX_GENERATIONS = 50
+INITIAL_POPULATION_SIZE = 200
+MAX_GENERATIONS = 100
 MAX_EVALUATIONS = 11000
 
 # Compute the total number of objectives
@@ -294,7 +295,7 @@ _single_point_only = {ObjectiveID.FRONTAL_AREA, ObjectiveID.WETTED_AREA}
 n_objectives = len(objective_IDs) * len(multi_oper) - sum(1 for obj in objective_IDs if obj in _single_point_only) * (len(multi_oper) - 1)
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
-SPREAD_CONTINUOUS = 0.25  # Relative spread (+/- %) applied to continous variables around their reference values
+SPREAD_CONTINUOUS = 0.5  # Relative spread (+/- %) applied to continous variables around their reference values
 ZERO_NOISE = 0.25  # % noise added to zero values to avoid stagnation
 SPREAD_DISCRETE = (-3, 17)  # Absolute range for discrete variables (referene value -3 to reference value + 17)
 
@@ -309,5 +310,6 @@ RESERVED_THREADS = 0  # Threads reserved for the operating system and any other 
 THREADS_PER_EVALUATION = 2  # Number of threads per MTFLOW evaluation: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
 # Postprocessing visualisation controls
-ref_objectives = np.array([-0.74376])  # ref objective values
+ref_objectives = np.array([-0.74376])  # ref objective values for endurance cruise condition
+# ref_objectives = np.array([-0.78763])  # ref objective values for stall condition
 objective_strings = []
