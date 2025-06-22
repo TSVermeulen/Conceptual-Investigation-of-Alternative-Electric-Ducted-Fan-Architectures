@@ -81,16 +81,16 @@ multi_oper = [#{"Inlet_Mach": 0.1958224765292171,  # Loiter condition at 125kts
             #    "atmos": Atmosphere(3048),
             #    "Omega": -11.42397,
             #    "RPS": 54.80281},
-               {"Inlet_Mach": 0.15,  # ~Stall condition at 100kts
-               "N_crit": 9,
-               "atmos": Atmosphere(0),
-               "Omega": -11.42397,
-               "RPS": 37},
-            #    {"Inlet_Mach": 0.2898172649952647,  # Combat condition at 185kts
+            #    {"Inlet_Mach": 0.15,  # ~Stall condition at 100kts
             #    "N_crit": 9,
-            #    "atmos": Atmosphere(3048),
+            #    "atmos": Atmosphere(0),
             #    "Omega": -11.42397,
-            #    "RPS": 54.80281},
+            #    "RPS": 37},
+               {"Inlet_Mach": 0.3,  # Combat condition at ~185kts
+               "N_crit": 9,
+               "atmos": Atmosphere(3048),
+               "Omega": -11.42397,
+               "RPS": 58.5},
                 ]
 
 # Compute the inlet velocities and write them to the multi-point oper dict
@@ -240,12 +240,12 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
 
 # Define the target thrust/power and efficiency for use in constraints
 P_ref_constr = [#1.4461 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
-                0.67198 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # Stall condition power
-                # 1.5592 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
+                # 0.67198 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # Stall condition power
+                0.21720 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
                 ]  # Reference Power in Watts derived from baseline analysis
 T_ref_constr = [#1.0756 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
-                0.52927 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # Stall condition thrust
-                # 1.2002 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
+                # 0.52927 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # Stall condition thrust
+                0.16605 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 ] # Reference Thrust in Newtons derived from baseline analysis
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
 
@@ -310,6 +310,7 @@ RESERVED_THREADS = 0  # Threads reserved for the operating system and any other 
 THREADS_PER_EVALUATION = 2  # Number of threads per MTFLOW evaluation: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
 # Postprocessing visualisation controls
-ref_objectives = np.array([-0.74376])  # ref objective values for endurance cruise condition
+# ref_objectives = np.array([-0.74376])  # ref objective values for endurance cruise condition
 # ref_objectives = np.array([-0.78763])  # ref objective values for stall condition
+ref_objectives = np.array([-0.7645])  # ref objective values for combat condition
 objective_strings = []
