@@ -87,7 +87,7 @@ class Constraints:
         self.blade_blading_values = copy.deepcopy(blade_blading_values)  # Use deepcopy due to the nested structure of the design values
 
         # Define lists of all inequality and equality constraints
-        self.ineq_constraints_list = [self.KeepEfficiencyFeasibleLower, self.KeepEfficiencyFeasibleUpper, self.MinimumThrust, self.MaximumThrust, self.ThrustBound]
+        self.ineq_constraints_list = [self.KeepEfficiencyFeasibleLower, self.KeepEfficiencyFeasibleUpper, self.MinimumThrust, self.MaximumThrust, self.ThrustBound, self.FrontalArea]
         self.eq_constraints_list = [self.ConstantPower]
 
         self.design_okay = design_okay
@@ -371,6 +371,50 @@ class Constraints:
             The computed normalised thrust constraint.
         """
         return thrust / self.ref_thrust - (1 + config.deviation_range)  # Normalized thrust constraint
+
+
+    def FrontalArea(self,
+                    _analysis_outputs: AnalysisOutputs,
+                    _Lref: float,
+                    _thrust: float,
+                    _power: float
+                    ) -> float:
+        """
+        Compute the frontal area of the ducted propeller/fan. 
+        Enforces that the normalised frontal area is less than config.MAX_FRONTAL_AREA_RATIO.
+
+        Returns
+        -------
+        - float
+            A scalar value representing the frontal area constraint.
+        """
+
+        # To compute the frontal area, we need the maximum radius of the ducted propeller/fan.
+        # This can be computed based on the radial LE coordinate of the duct,
+        # together with the maximum y-coordinate of the duct profile.
+
+        # For a symmetric profile, this is simply equal to y_t, 
+        # so we do not need to compute the airfoil upper surface distribution
+        if self.duct_values["y_c"] < 1e-3:
+            upper_y = self.duct_values["y_t"]
+        else:
+            # For a cambered profile, compute the airfoil coordinates
+            # We only care about the upper y coordinates so they are the only ones we store
+            _, upper_y, _, _ = self.airfoil_parameterization.ComputeProfileCoordinates(self.duct_values)
+
+        # Dimensionalise the y coordinates using the chord length
+        chord = self.duct_values["Chord Length"]
+        upper_y = upper_y * chord
+
+        # Compute the maximum radius
+        max_radius = self.duct_values["Leading Edge Coordinates"][1] + np.max(upper_y)
+
+        # Since we deal with axisymmetric geometry, the frontal area is then simply the area of a circle
+        frontal_area = np.pi * max_radius ** 2
+
+        # Return the frontal area normalised by the reference frontal area in config
+        # This is needed to ensure all objectives are of the same order of magnitude and thus have equal weight to the GA optimiser.
+        return frontal_area / config.REF_FRONTAL_AREA - config.MAX_FRONTAL_AREA_RATIO  # Normalized frontal area constraint. <=0 indicates feasible.
 
 
     def _get_filtered_constraints(self):

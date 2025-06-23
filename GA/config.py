@@ -107,7 +107,7 @@ CENTERBODY_VALUES = {"b_0": 0.05, "b_2": 0.125, "b_8": 7.52387039e-02, "b_15": 7
 OPTIMIZE_DUCT = True
 # DUCT_VALUES = {'b_0': 0., 'b_2': 0., 'b_8': 0.004081758291374328, 'b_15': 0.735, 'b_17': 0.8, 'x_t': 0.2691129541223092, 'y_t': 0.084601317961794, 'x_c': 0.5, 'y_c': 0., 'z_TE': -0.015685, 'dz_TE': 0.0005638524603968335, 'r_LE': -0.06953901280141099, 'trailing_wedge_angle': 0.16670974950670672, 'trailing_camberline_angle': 0.003666809042006104, 'leading_edge_direction': -0.811232599724247, 'Chord Length': 1.2446, "Leading Edge Coordinates": (0.093, 1.20968)}
 DUCT_VALUES = {'b_0': 0.05, 'b_2': 0.2, 'b_8': 0.0016112203781740767, 'b_15': 0.875, 'b_17': 0.8, 'x_t': 0.28390800787161385, 'y_t': 0.08503466788167842, 'x_c': 0.4, 'y_c': 0.0, 'z_TE': -0.015685, 'dz_TE': 0.0005625060663762559, 'r_LE': -0.06974976321495045, 'trailing_wedge_angle': 0.13161296013687374, 'trailing_camberline_angle': 0.003666809042006104, 'leading_edge_direction': -0.811232599724247, "Chord Length": 1.2446, "Leading Edge Coordinates": (0.093, 1.20968)}
-REF_FRONTAL_AREA = 5.171148288  # m^2
+REF_FRONTAL_AREA = 5.172389364  # m^2
 
 
 # Controls for the optimisation vector - BLADES
@@ -241,13 +241,14 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
 # Define the target thrust/power and efficiency for use in constraints
 P_ref_constr = [#1.4461 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
                 # 0.67198 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # Stall condition power
-                0.21720 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
+                0.21720 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # combat condition power
                 ]  # Reference Power in Watts derived from baseline analysis
 T_ref_constr = [#1.0756 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 # 0.52927 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # Stall condition thrust
-                0.16605 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
+                0.16605 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # combat condition thrust
                 ] # Reference Thrust in Newtons derived from baseline analysis
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
+MAX_FRONTAL_AREA_RATIO = 1.05  # Maximum ratio of the frontal area to the reference frontal area
 
 # Define the constraint IDs used to construct the constraint functions
 # constraint IDs are structured as a nested list, of the form:
@@ -267,6 +268,7 @@ class InEqConstraintID(IntEnum):
     MINIMUM_THRUST = auto()
     MAXIMUM_THRUST = auto()
     THRUST_FEASIBILITY = auto()
+    MAXIMUM_FRONTAL_AREA = auto()
     
 class EqConstraintID(IntEnum):
     """
@@ -279,7 +281,7 @@ class EqConstraintID(IntEnum):
     
     CONSTANT_POWER = auto()
 
-constraint_IDs = [[InEqConstraintID.EFFICIENCY_LEQ_ONE, InEqConstraintID.THRUST_FEASIBILITY],
+constraint_IDs = [[InEqConstraintID.EFFICIENCY_LEQ_ONE, InEqConstraintID.THRUST_FEASIBILITY, InEqConstraintID.MAXIMUM_FRONTAL_AREA],
                   []]
 
 

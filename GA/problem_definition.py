@@ -43,7 +43,7 @@ Changelog:
 - V1.2: Extracted design vector handling to separate file/class.
 - V1.3: Removed troublesome cache implementation. Cleaned up _evaluate method. Created default crash output dictionary to avoid repeated reading of crash_outputs forces file. Adjusted GenerateAnalysisName method to use 8-char uuid.
         Updated ComputeOmega method to write omega to the blading lists rather than to the oper dictionary.
-- V1.4: Improved robustness of crash handling in MTFLOW.
+- V1.4: Improved robustness of crash handling in MTFLOW. Added conditional dump folder generation to avoid unnecessary folder creation.
 """
 
 # Import standard libraries
@@ -162,12 +162,13 @@ class OptimizationProblem(ElementwiseProblem):
             raise SystemError(f"Missing submodels path: {self.submodels_path}")
 
         # Create folder path to store statefiles
-        self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
-        # Check existance of dump folder
-        try:
-            self.dump_folder.mkdir(exist_ok=True)
-        except PermissionError as e:
-            raise PermissionError(f"Unable to create dump folder: {self.dump_folder}. Check permissions") from e
+        if config.ARCHIVE_STATEFILES:
+            self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
+            # Check existance of dump folder
+            try:
+                self.dump_folder.mkdir(exist_ok=True)
+            except PermissionError as e:
+                raise PermissionError(f"Unable to create dump folder: {self.dump_folder}. Check permissions") from e
 
         # Define analysisname template
         self.timestamp_format = "%m%d%H%M%S"
@@ -397,6 +398,7 @@ class OptimizationProblem(ElementwiseProblem):
             MTFLOW_interface = self._MTFLOW_caller(operating_conditions=self.oper,
                                                    ref_length=self.Lref,
                                                    analysis_name=self.analysis_name,
+                                                   run_viscous=True,
                                                    **kwargs)
 
             try:
