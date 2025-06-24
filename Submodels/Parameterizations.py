@@ -6,19 +6,19 @@ Description
 -----------
 This module provides methods for calculating the profile coordinates (x,y)
 based on a Bezier-Parsec (BP) 3434 parameterization. It includes methods for
-calculating the leading edge and trailing edge thickness and camber 
-distributions, obtaining reference thickness and camber distributions from a 
+calculating the leading edge and trailing edge thickness and camber
+distributions, obtaining reference thickness and camber distributions from a
 reference airfoil shape, and extracting key parameters from these distributions.
 
-Additionally, a non-linear least-squares minimization method is included to 
+Additionally, a non-linear least-squares minimization method is included to
 obtain the parameterization for a given input coordinate file.
 
 Classes
 -------
 AirfoilParameterization
-    A class to calculate airfoil parameterizations using Bezier curves. This 
-    module provides a class for airfoil parameterization using Bezier curves. 
-    Contains full parameterization, including fitting the parameterization to 
+    A class to calculate airfoil parameterizations using Bezier curves. This
+    module provides a class for airfoil parameterization using Bezier curves.
+    Contains full parameterization, including fitting the parameterization to
     an existing airfoil coordinate file.
 
 Examples
@@ -29,22 +29,22 @@ Examples
 
 Notes
 -----
-The generation of a BP3434 parameterization from a reference airfoil is prone 
-to errors/invalid parameterizations. It is important to (visually) check the 
-obtained parameterization, and to confirm the control points fall within 
+The generation of a BP3434 parameterization from a reference airfoil is prone
+to errors/invalid parameterizations. It is important to (visually) check the
+obtained parameterization, and to confirm the control points fall within
 0 <= x/c <= 1.
 
-When executing the file as a standalone, obtaining the initial parameterization 
-will take anywhere between 30 second to a minute, depending on the closeness of 
+When executing the file as a standalone, obtaining the initial parameterization
+will take anywhere between 30 second to a minute, depending on the closeness of
 the initial guess.
 
 References
 ----------
-The BP 3434 parameterization is documented in 
+The BP 3434 parameterization is documented in
 https://www.sciencedirect.com/science/article/abs/pii/S0965997810000529.
-The derivation of the method, including reasoning for each of the bounds/inputs, 
+The derivation of the method, including reasoning for each of the bounds/inputs,
 is included in the PhD Thesis of Tim Rogalsky:
-"Acceleration of Differential Evolution for Aerodynamic Design", 
+"Acceleration of Differential Evolution for Aerodynamic Design",
 dated March 2004
 
 Versioning
@@ -57,20 +57,20 @@ Date [dd-mm-yyyy]: 24-06-2025
 
 Changelog:
 - V1.1: Updated with comments from coderabbitAI.
-- V1.0: Adapted version of a parameterization using only the bezier coefficients 
+- V1.0: Adapted version of a parameterization using only the bezier coefficients
         to give an improved fit to the reference data.
-- V1.1: Updated docstring, and working implementation for symmetric profiles 
+- V1.1: Updated docstring, and working implementation for symmetric profiles
         (i.e. zero camber)
-- V1.2: Updated FindInitialParameterization method to use SLSQP optimization 
+- V1.2: Updated FindInitialParameterization method to use SLSQP optimization
         rather than least squares to enable correct constraint handling.
-- V1.2.1: Previously increased the number of points in the u-vectors for the 
-          bezier curves to 200. This yields too many in the walls.xxx input file 
-          for MTSET to handle, causing a crash. Number of points has been 
+- V1.2.1: Previously increased the number of points in the u-vectors for the
+          bezier curves to 200. This yields too many in the walls.xxx input file
+          for MTSET to handle, causing a crash. Number of points has been
           reduced to 100.
-- V1.3: Fixed type hinting. Fixed issue in internal handling/definition of 
-    	b_15 & b_17. Improved accuracy. Updated documentation. 
+- V1.3: Fixed type hinting. Fixed issue in internal handling/definition of
+        b_15 & b_17. Improved accuracy. Updated documentation.
         Refactored findInitialParameterization.
-- V1.3.1: Implemented get_figsize method to ensure plot sizes are consistent for LaTeX thesis document. 
+- V1.3.1: Implemented get_figsize method to ensure plot sizes are consistent for LaTeX thesis document.
 """
 
 # Import standard libraries
@@ -91,10 +91,10 @@ class AirfoilParameterization:
     """
     This class calculates airfoil parameterizations using Bezier curves.
 
-    It provides methods to calculate the leading edge and trailing edge 
-    thickness and camber distributions using Bezier curves. It also includes 
-    methods to obtain reference thickness and camber distributions from a 
-    reference airfoil shape and to extract key parameters from these 
+    It provides methods to calculate the leading edge and trailing edge
+    thickness and camber distributions using Bezier curves. It also includes
+    methods to obtain reference thickness and camber distributions from a
+    reference airfoil shape and to extract key parameters from these
     distributions.
 
     Methods
@@ -106,29 +106,29 @@ class AirfoilParameterization:
     - GetCamberAngleDistribution(X, Y)
         Calculate the camber angle distribution over the length of the airfoil.
     - GetReferenceThicknessCamber(reference_file)
-        Obtain the thickness and camber distributions from the reference airfoil 
+        Obtain the thickness and camber distributions from the reference airfoil
         shape.
     - GetReferenceParameters()
-        Extract key parameters of the reference profile from the thickness and 
+        Extract key parameters of the reference profile from the thickness and
         camber distributions.
     - GetThicknessControlPoints(b_8, b_15, r_LE, trailing_wedge_angle)
-        Calculate the control points for the thickness distribution Bezier 
+        Calculate the control points for the thickness distribution Bezier
         curves.
-    - GetCamberControlPoints(b_0, b_2, b_17, leading_edge_direction, 
+    - GetCamberControlPoints(b_0, b_2, b_17, leading_edge_direction,
                              trailing_camberline_angle)
         Calculate the control points for the camber distribution Bezier curves.
     - ConvertBezier2AirfoilCoordinates(thickness_x, thickness, camber_x, camber)
         Convert Bezier curves to airfoil coordinates.
     - FindInitialParameterization(reference_file)
-        Find the initial parameterization for the airfoil provided in the 
+        Find the initial parameterization for the airfoil provided in the
         reference_file.
     """
 
     # Constants
     N_BEZIER_POINTS = 100
-    GA_UPPER_BOUNDS = np.array([0.1, 0.3, 0.7, 0.9, 0.9, 0.5, 0.3, 0.5, 0.2, 
+    GA_UPPER_BOUNDS = np.array([0.1, 0.3, 0.7, 0.9, 0.9, 0.5, 0.3, 0.5, 0.2,
                                 0.05, 0.005, -0.001, 0.4, 0.3, 0.3])
-    GA_LOWER_BOUNDS = np.array([0.01, 0.1, 0, 0, 0, 0.15, 0.01, 0.25, 0, 0, 
+    GA_LOWER_BOUNDS = np.array([0.01, 0.1, 0, 0, 0, 0.15, 0.01, 0.25, 0, 0,
                                 0, -0.2, 0.001, 0.001, 0.001])
 
 
@@ -149,11 +149,11 @@ class AirfoilParameterization:
         Returns
         -------
         - y : np.typing.NDArray[np.floating]
-            An array of the Bezier curve values evaluated at each of the 
+            An array of the Bezier curve values evaluated at each of the
             points in u.
         """
 
-        #Input checking
+        # Input checking
         if len(coefficients) != 4:
             raise ValueError(f"Coefficient list must contain exactly 4 elements. Coefficient list contains {len(coefficients)} elements")
 
@@ -178,7 +178,7 @@ class AirfoilParameterization:
         Returns
         -------
         y : np.typing.NDArray[np.floating]
-            An array of the Bezier curve values evaluated at each of the 
+            An array of the Bezier curve values evaluated at each of the
             points in u.
         """
 
@@ -218,7 +218,7 @@ class AirfoilParameterization:
                                     reference_file: Path,
                                     ) -> None:
         """
-        Obtain the thickness and camber distributions from the reference airfoil 
+        Obtain the thickness and camber distributions from the reference airfoil
         coordinate file.
 
         Parameters
@@ -239,7 +239,7 @@ class AirfoilParameterization:
 
         # Find index of LE coordinate and compute the camber and thickness distributions.
         # LE coordinate index must be the index for x = 0.
-        self.idx_LE = (np.abs(reference_coordinates[:,0] - 0)).argmin()
+        self.idx_LE = (np.abs(reference_coordinates[:, 0] - 0)).argmin()
 
         if len(reference_coordinates[:self.idx_LE + 1, 0]) > len(reference_coordinates[self.idx_LE:, 0]):
             # If there are more upper coordinates than lower coordinates
@@ -291,7 +291,7 @@ class AirfoilParameterization:
 
     def GetReferenceParameters(self) -> dict[str, np.floating]:
         """
-        Extract key parameters of the reference profile from the thickness and 
+        Extract key parameters of the reference profile from the thickness and
         camber distributions.
 
         Calculates the leading edge radius, leading edge direction,
@@ -466,16 +466,16 @@ class AirfoilParameterization:
         Returns
         -------
         - x_leading_edge_camber_coeff : np.typing.NDArray[np.floating]
-            X-coordinates of the control points for the leading edge camber 
+            X-coordinates of the control points for the leading edge camber
             Bezier curve.
         - y_leading_edge_camber_coeff : np.typing.NDArray[np.floating]
-            Y-coordinates of the control points for the leading edge camber 
+            Y-coordinates of the control points for the leading edge camber
             Bezier curve.
         - x_trailing_edge_camber_coeff : np.typing.NDArray[np.floating]
-            X-coordinates of the control points for the trailing edge camber 
+            X-coordinates of the control points for the trailing edge camber
             Bezier curve.
         - y_trailing_edge_camber_coeff : np.typing.NDArray[np.floating]
-            Y-coordinates of the control points for the trailing edge camber 
+            Y-coordinates of the control points for the trailing edge camber
             Bezier curve.
         """
 
@@ -625,9 +625,9 @@ class AirfoilParameterization:
 
         # Construct full curves by combining LE and TE data
         bezier_thickness = np.concatenate((y_LE_thickness, y_TE_thickness),
-                                          axis = 0)  # Construct complete thickness curve over length of profile
+                                          axis=0)  # Construct complete thickness curve over length of profile
         bezier_thickness_x = np.concatenate((x_LE_thickness, x_TE_thickness),
-                                            axis = 0)  # Construct complete array of x-coordinates over length of profile
+                                            axis=0)  # Construct complete array of x-coordinates over length of profile
 
         # Check the sorting of the thickness curve - if the arrays are not sorted we raise a valueerror as it indicates an infeasible parameterization
         if not np.all(np.diff(bezier_thickness_x) >= 0):
@@ -650,9 +650,9 @@ class AirfoilParameterization:
                                             u_trailing_edge[1:])  # Trailing edge camber bezier x-coordinates, represented by a 4th order curve
 
             bezier_camber = np.concatenate((y_LE_camber, y_TE_camber),
-                                        axis = 0)  # Construct complete camber curve over length of profile
+                                           axis=0)  # Construct complete camber curve over length of profile
             bezier_camber_x = np.concatenate((x_LE_camber, x_TE_camber),
-                                            axis = 0)  # Construct complete array of x-coordinates over length of profile
+                                             axis=0)  # Construct complete array of x-coordinates over length of profile
 
             # Check the sorting of the camber curve - if the arrays are not sorted sort them to attempt to fix the profile
             if not np.all(np.diff(bezier_camber_x) >= 0):
@@ -706,7 +706,7 @@ class AirfoilParameterization:
                              reference_file: Path = None,
                              ) -> None:
         """
-        Check the optimized result by plotting the thickness and camber 
+        Check the optimized result by plotting the thickness and camber
         distributions, and the airfoil shape.
 
         Parameters
@@ -714,7 +714,7 @@ class AirfoilParameterization:
         - airfoil_params : dict
             A dictionary containing the airfoil parameterization parameters.
         - reference_file : Path, optional
-            The path to the reference file against which the fitting took 
+            The path to the reference file against which the fitting took
             place.
         """
 
@@ -742,12 +742,12 @@ class AirfoilParameterization:
             - wf [float]:  width fraction in columnwidth units
             - hf [float]:  height fraction in columnwidth units.
                             Set by default to golden ratio.
-            - columnwidth [float]: width of the column in pt in latex. Get this from LaTeX 
+            - columnwidth [float]: width of the column in pt in latex. Get this from LaTeX
                                     using \\showthe\\columnwidth
             Returns:  [fig_width,fig_height]: that should be given to matplotlib
             """
 
-            fig_width_pt = columnwidth*wf 
+            fig_width_pt = columnwidth*wf
             inches_per_pt = 1.0/72.27               # Convert pt to inch
             fig_width = fig_width_pt*inches_per_pt  # width in inches
             fig_height = fig_width*hf      # height in inches
@@ -771,7 +771,7 @@ class AirfoilParameterization:
             axs[0].set_title("Thickness and Camber Distributions")
             axs[0].set_xlabel("x/c [-]")
             axs[0].set_ylabel("y/c [-]")
-            axs[0].legend(bbox_to_anchor=(1,1))
+            axs[0].legend(bbox_to_anchor=(1, 1))
             axs[0].grid(True)
 
             # Second row: Combined airfoil shape
@@ -782,7 +782,7 @@ class AirfoilParameterization:
             axs[1].set_title("Combined Airfoil Shape")
             axs[1].set_xlabel("x/c [-]")
             axs[1].set_ylabel("y/c [-]")
-            axs[1].legend(bbox_to_anchor=(1,1))
+            axs[1].legend(bbox_to_anchor=(1, 1))
             axs[1].grid(True)
 
             # Set main figure title
@@ -798,18 +798,17 @@ class AirfoilParameterization:
 
     def Objective(self,
                   x: np.typing.NDArray[np.floating],
-                  reference_file: Path = None,
-                      ) -> float:
+                  reference_file: Path = None) -> float:
         """
         Objective function for minimization.
 
         Parameters
         ----------
         - x : np.typing.NDArray[np.floating]
-            Array of normalised design variables, which are denormalised using 
+            Array of normalised design variables, which are denormalised using
             the guess design vector given by self.guess_design_vector.
         - reference_file : Path, Optional
-            The path to the reference file against which the optimisation is to 
+            The path to the reference file against which the optimisation is to
             take place.
 
         Returns
@@ -903,6 +902,7 @@ class AirfoilParameterization:
         def x1_constraint_lower_thickness(x):
             x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
             return (7 * x[5] + 9 * x[2] / (2 * x[11])) / 4 - x[5]
+        
         def x1_constraint_upper_thickness(x):
             x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
             return 1 - (7 * x[5] + 9 * x[2] / (2 * x[11])) / 4
@@ -911,6 +911,7 @@ class AirfoilParameterization:
         def x2_constraint_lower_thickness(x):
             x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
             return 2 * x[5] + 15 * x[2] ** 2 / (4 * x[11])
+        
         def x2_constraint_upper_thickness(x):
             x = np.multiply(x, self.guess_design_vector)  # Denormalise design vector
             return 1 - 2 * x[5] + 15 * x[2] ** 2 / (4 * x[11])
@@ -944,13 +945,13 @@ class AirfoilParameterization:
                 {'type': 'ineq', 'fun': constraint_7_upper}]
 
         optimized_coefficients = optimize.minimize(self.Objective,
-                                np.ones_like(self.guess_design_vector),
-                                method="SLSQP",
-                                bounds= optimize.Bounds(0.95, 1.05),  # Assume the initial guess is reasonably close to the true values, so +/- 5% on the variables should work.
-                                constraints=cons,
-                                options={'maxiter': 500,
-                                        'disp': False},
-                                        jac='3-point')
+                                                   np.ones_like(self.guess_design_vector),
+                                                   method="SLSQP",
+                                                   bounds= optimize.Bounds(0.95, 1.05),  # Assume the initial guess is reasonably close to the true values, so +/- 5% on the variables should work.
+                                                   constraints=cons,
+                                                   options={'maxiter': 500,
+                                                           'disp': False},
+                                                           jac='3-point')
 
         # Denormalise the found coefficients and write them to the output dictionary
         optimized_coefficients.x = optimized_coefficients.x.astype(float)
@@ -1042,7 +1043,7 @@ class AirfoilParameterization:
                                     reference_file: Path) -> dict[str, float]:
         """
         Find the initial parameterization for the profile.
-        Uses a genetic algorithm to minimize the squared fit error between the 
+        Uses a genetic algorithm to minimize the squared fit error between the
         input reference file and the reconstructed profile shape.
 
         Parameters

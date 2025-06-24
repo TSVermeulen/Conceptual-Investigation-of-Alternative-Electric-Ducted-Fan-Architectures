@@ -353,7 +353,7 @@ if __name__ == "__main__":
     from Submodels.output_handling import output_processing #type: ignore
     import config #type: ignore
 
-    objectives_class = Objectives(config.DUCT_VALUES)
+    objectives_class = Objectives(config.DUCT_VALUES, config.multi_oper, config.BLADE_DIAMETERS[0])
     output = {}
     objectives_class.ComputeObjective(output_processing('x22a_validation').GetAllVariables(0),
                                       config.objective_IDs,

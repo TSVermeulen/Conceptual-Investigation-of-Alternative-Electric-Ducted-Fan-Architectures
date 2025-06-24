@@ -88,27 +88,27 @@ class OptimizationProblem(ElementwiseProblem):
     # This equals the outputs of the output_handling.output_processing.GetAllVariables(3) method,
     # but is quicker as it does not involve reading a file.
     CRASH_OUTPUTS: dict[str, dict[str, float] | dict[str, dict[str, float]]] = {'data':
-                                                        	                    {'Total power CP': 0.00000,
-                                                        	                     'EtaP': 0.00000,
-                                                        	                     'Total force CT': 0.00000,
-                                                        	                     'Element 2 top CTV': 0.00000,
-                                                        	                     'Element 2 bot CTV': 0.00000,
-                                                        	                     'Axis body CTV': 0.00000,
-                                                        	                     'Viscous CTv': 0.00000,
-                                                        	                     'Inviscid CTi': 0.00000,
-                                                        	                     'Friction CTf': 0.00000,
-                                                        	                     'Pressure CTp': 0.00000,
-                                                        	                     'Pressure Ratio': 0.00000},
+                                                                                {'Total power CP': 0.00000,
+                                                                                'EtaP': 0.00000,
+                                                                                'Total force CT': 0.00000,
+                                                                                'Element 2 top CTV': 0.00000,
+                                                                                'Element 2 bot CTV': 0.00000,
+                                                                                'Axis body CTV': 0.00000,
+                                                                                'Viscous CTv': 0.00000,
+                                                                                'Inviscid CTi': 0.00000,
+                                                                                'Friction CTf': 0.00000,
+                                                                                'Pressure CTp': 0.00000,
+                                                                                'Pressure Ratio': 0.00000},
                                                         	                    'grouped_data':
-                                                        	                    {'Element 2':
-                                                        	                     {'CTf': 0.00000,
-                                                        	                      'CTp': 0.00000,
-                                                        	                      'top Xtr': 0.00000,
-                                                        	                      'bot Xtr': 0.00000},
-                                                        	                     'Axis Body':
-                                                        	                     {'CTf': 0.00000,
-                                                        	                      'CTp': 0.00000,
-                                                        	                      'Xtr': 0.00000}}}
+                                                                                {'Element 2':
+                                                                                {'CTf': 0.00000,
+                                                                                'CTp': 0.00000,
+                                                                                'top Xtr': 0.00000,
+                                                                                'bot Xtr': 0.00000},
+                                                                                'Axis Body':
+                                                                                {'CTf': 0.00000,
+                                                                                'CTp': 0.00000,
+                                                                                'Xtr': 0.00000}}}
 
     _DESIGN_VARS = DesignVector.construct_vector(config)
 
@@ -330,7 +330,7 @@ class OptimizationProblem(ElementwiseProblem):
                                                                              design_params=self.blade_design_parameters,
                                                                              plot=False)  # Generate the MTFLO input file
 
-            output_generated =  True  # If both input generation routines succeeded, set output_generated to True
+            output_generated = True  # If both input generation routines succeeded, set output_generated to True
 
         except ValueError as e:
             # Any value error that might occur while generating the MTSET input file will be caused by interpolation issues arising from the input values, so

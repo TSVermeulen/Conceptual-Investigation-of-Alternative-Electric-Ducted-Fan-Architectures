@@ -65,7 +65,7 @@ def calculate_n_reference_points(cfg: object) -> int:
         # Single objective uses only 1 reference point
         return m
 
-    max_iter = 10000 # hard-stop for safety; tweak if needed
+    max_iter = 10000  # hard-stop for safety; tweak if needed
     population_size = cfg.POPULATION_SIZE
     best_diff = float('inf')
     best_p = 1

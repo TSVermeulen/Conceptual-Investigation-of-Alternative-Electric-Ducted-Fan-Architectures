@@ -84,26 +84,26 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
     # but is quicker as it does not involve reading a file.
     CRASH_OUTPUTS: dict[str, dict[str, float] | dict[str, dict[str, float]]] = {'data':
                                                                                 {'Total power CP': 0.00000,
-                                                                                 'EtaP': 0.00000,
-                                                                                 'Total force CT': 0.00000,
-                                                                                 'Element 2 top CTV': 0.00000,
-                                                                                 'Element 2 bot CTV': 0.00000,
-                                                                                 'Axis body CTV': 0.00000,
-                                                                                 'Viscous CTv': 0.00000,
-                                                                                 'Inviscid CTi': 0.00000,
-                                                                                 'Friction CTf': 0.00000,
-                                                                                 'Pressure CTp': 0.00000,
-                                                                                 'Pressure Ratio': 0.00000},
-                                                                                'grouped_data':
+                                                                                'EtaP': 0.00000,
+                                                                                'Total force CT': 0.00000,
+                                                                                'Element 2 top CTV': 0.00000,
+                                                                                'Element 2 bot CTV': 0.00000,
+                                                                                'Axis body CTV': 0.00000,
+                                                                                'Viscous CTv': 0.00000,
+                                                                                'Inviscid CTi': 0.00000,
+                                                                                'Friction CTf': 0.00000,
+                                                                                'Pressure CTp': 0.00000,
+                                                                                'Pressure Ratio': 0.00000},
+                                                        	                    'grouped_data':
                                                                                 {'Element 2':
-                                                                                 {'CTf': 0.00000,
-                                                                                  'CTp': 0.00000,
-                                                                                  'top Xtr': 0.00000,
-                                                                                  'bot Xtr': 0.00000},
-                                                                                 'Axis Body':
-                                                                                 {'CTf': 0.00000,
-                                                                                  'CTp': 0.00000,
-                                                                                  'Xtr': 0.00000}}}
+                                                                                {'CTf': 0.00000,
+                                                                                'CTp': 0.00000,
+                                                                                'top Xtr': 0.00000,
+                                                                                'bot Xtr': 0.00000},
+                                                                                'Axis Body':
+                                                                                {'CTf': 0.00000,
+                                                                                'CTp': 0.00000,
+                                                                                'Xtr': 0.00000}}}
 
     _DESIGN_VARS = DesignVector.construct_vector(config)
 
