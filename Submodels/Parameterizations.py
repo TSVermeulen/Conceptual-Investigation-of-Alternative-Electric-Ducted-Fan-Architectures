@@ -947,11 +947,11 @@ class AirfoilParameterization:
         optimized_coefficients = optimize.minimize(self.Objective,
                                                    np.ones_like(self.guess_design_vector),
                                                    method="SLSQP",
-                                                   bounds= optimize.Bounds(0.95, 1.05),  # Assume the initial guess is reasonably close to the true values, so +/- 5% on the variables should work.
+                                                   bounds=optimize.Bounds(0.95, 1.05),  # Assume the initial guess is reasonably close to the true values, so +/- 5% on the variables should work.
                                                    constraints=cons,
                                                    options={'maxiter': 500,
                                                            'disp': False},
-                                                           jac='3-point')
+                                                   jac='3-point')
 
         # Denormalise the found coefficients and write them to the output dictionary
         optimized_coefficients.x = optimized_coefficients.x.astype(float)

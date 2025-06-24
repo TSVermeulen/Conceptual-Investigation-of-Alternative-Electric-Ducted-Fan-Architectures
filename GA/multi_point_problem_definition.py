@@ -44,7 +44,7 @@ Changelog:
 import os
 import uuid
 import datetime
-import copy 
+import copy
 import contextlib
 from pathlib import Path
 
@@ -53,16 +53,16 @@ import numpy as np
 from pymoo.core.problem import ElementwiseProblem
 
 # Ensure all paths are correctly setup
-from utils import ensure_repo_paths # type: ignore
+from utils import ensure_repo_paths  # type: ignore
 ensure_repo_paths()
 
 # Import interface submodels and other dependencies
-from Submodels.MTSOL_call import OutputType, ExitFlag # type: ignore
-from objectives import Objectives # type: ignore
-from constraints import Constraints # type: ignore
-from init_designvector import DesignVector # type: ignore
-from design_vector_interface import DesignVectorInterface # type: ignore
-import config # type: ignore
+from Submodels.MTSOL_call import OutputType, ExitFlag  # type: ignore
+from objectives import Objectives  # type: ignore
+from constraints import Constraints  # type: ignore
+from init_designvector import DesignVector  # type: ignore
+from design_vector_interface import DesignVectorInterface  # type: ignore
+import config  # type: ignore
 
 
 class MultiPointOptimizationProblem(ElementwiseProblem):
@@ -173,9 +173,9 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Use lazy-loaded modules (initialized at first use)
         if not hasattr(self, "_lazy_modules_loaded"):
-            from MTFLOW_caller import MTFLOW_caller # type: ignore
-            from Submodels.output_handling import output_processing # type: ignore
-            from Submodels.file_handling import fileHandlingMTSET, fileHandlingMTFLO # type: ignore
+            from MTFLOW_caller import MTFLOW_caller  # type: ignore
+            from Submodels.output_handling import output_processing  # type: ignore
+            from Submodels.file_handling import fileHandlingMTSET, fileHandlingMTFLO  # type: ignore
             self._MTFLOW_caller = MTFLOW_caller
             self._output_processing = output_processing
             self._fileHandlingMTSET = fileHandlingMTSET
@@ -455,7 +455,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # Only perform the MTFLOW analyses if the input generation has succeeded.
         # Initialise the MTFLOW output list of dictionaries. Use the crash outputs in
         # initialisation to pre-populate them in case of a crash or infeasible design vector
-        MTFLOW_outputs = [self.CRASH_OUTPUTS for _ in range(len(self.multi_oper))]
+        MTFLOW_outputs = [copy.deepcopy(self.CRASH_OUTPUTS) for _ in range(len(self.multi_oper))]
 
         if design_okay:
             valid_grid = False
@@ -487,7 +487,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                     exit_flag = ExitFlag.CRASH
                     MTFLOW_outputs[idx] = self.CRASH_OUTPUTS
                     if self.verbose:
-                        print(f"[MTFLOW_ERROR] OP={idx}, case={self.analysis_name}: {e}")  
+                        print(f"[MTFLOW_ERROR] OP={idx}, case={self.analysis_name}: {e}")
 
                 # Set valid_grid to true to skip the grid checking routines for the next operating point if the solver exited with a converged/non-converged solution.
                 if exit_flag in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE, ExitFlag.CHOKING):

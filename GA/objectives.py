@@ -351,7 +351,6 @@ if __name__ == "__main__":
     sys.path.extend([str(parent_dir), str(submodels_path)])
 
     from Submodels.output_handling import output_processing #type: ignore
-    import config #type: ignore
 
     objectives_class = Objectives(config.DUCT_VALUES, config.multi_oper, config.BLADE_DIAMETERS[0])
     output = {}
