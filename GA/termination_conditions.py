@@ -25,11 +25,12 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.1
+Version: 1.2
 
 Changelog:
 - V1.0: Initial implementation.
 - V1.1: Updated termination conditions for much needed improvement in multi-objective optimisation.
+- V1.2: Updated consistency in multi-objective termination conditions. 
 """
 
 # Import 3rd party libraries
@@ -38,7 +39,6 @@ from pymoo.termination.ftol import SingleObjectiveSpaceTermination, MultiObjecti
 from pymoo.termination.cv import ConstraintViolationTermination
 from pymoo.termination.xtol import DesignSpaceTermination
 from pymoo.termination import get_termination
-from pymoo.core.termination import TerminateIfAny
 from pymoo.termination.collection import TerminationCollection
 
 # Import configuration module
@@ -58,25 +58,18 @@ def GetTerminationConditions():
                                                                   period=10),  # Maximum change in design vector termination condition
                                                 RobustTermination(ConstraintViolationTermination(tol=1E-8, terminate_when_feasible=False),
                                                                   period=10)  # Maximum change in constriant violation termination condition
-                                                )        
+                                                )
     else:
         # Set termination conditions for a multiobjective optimisation
-        # term_conditions = TerminationCollection(RobustTermination(MultiObjectiveSpaceTermination(tol=1E-3,
-        #                                                                                          only_feas=True),
-        #                                                                                          period=10),  # Chance in objective value termination condition
-        #                                         get_termination("n_gen", config.MAX_GENERATIONS),  # Maximum generation count termination condition
-        #                                         RobustTermination(DesignSpaceTermination(tol=1E-3),
-        #                                                           period=10),  # Maximum change in design vector termination condition
-        #                                         RobustTermination(ConstraintViolationTermination(tol=1E-8, terminate_when_feasible=False),
-        #                                                           period=10)  # Maximum change in constraint violation termination condition
-        #                                         )
-        
-        term_conditions = TerminateIfAny(RobustTermination(MultiObjectiveSpaceTermination(tol=5E-3,
+        term_conditions = TerminationCollection(RobustTermination(MultiObjectiveSpaceTermination(tol=1E-3,
                                                                                           only_feas=True),
-                                                                                          period=5),  # Chance in objective value termination condition
-                                         get_termination("n_gen", 
-                                                         config.MAX_GENERATIONS),  # Maximum generation count termination condition
-                                         RobustTermination(DesignSpaceTermination(tol=1E-3),
-                                                           period=5),  # Maximum change in design vector termination condition
-                                         )
+                                                                                          period=10),  # Chance in objective value termination condition
+                                                get_termination("n_gen", config.MAX_GENERATIONS),  # Maximum generation count termination condition
+                                                RobustTermination(DesignSpaceTermination(tol=1E-3),
+                                                                  period=10),  # Maximum change in design vector termination condition
+                                                RobustTermination(ConstraintViolationTermination(tol=1E-8, terminate_when_feasible=False),
+                                                                  period=10)  # Maximum change in constriant violation termination condition
+                                                )
+
+
     return term_conditions
