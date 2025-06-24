@@ -61,6 +61,8 @@ class Objectives:
 
     def __init__(self,
                  duct_variables : dict[str, Any],
+                 oper: list[dict[str, Any]],
+                 Lref: float,
                  **kwargs) -> None:
         """
         Initialisation of the Objectives class.
@@ -77,6 +79,8 @@ class Objectives:
 
         # Write the inputs to self
         self.duct_variables = duct_variables
+        self.oper = oper
+        self.Lref = Lref
 
         # Define the objective list, and the subset of objectives which are independent of operating condition
         self.objectivelist = [self.Efficiency, self.FrontalArea, self.WettedArea, self.PressureRatio]
@@ -171,9 +175,11 @@ class Objectives:
         -------
         - wetted_area : float
             The wetted area as taken from the output file forces.analysis_name.
+            The wetted area is computed in the normalised coordinate system of MTFLOW, 
+            so it is multiplied by Lref^2 to obtain the dimensional form.
         """
 
-        return outputs["data"]["Wetted Area"]
+        return outputs["data"]["Wetted Area"] * self.Lref ** 2
 
 
     def PressureRatio(self,
@@ -191,10 +197,44 @@ class Objectives:
         Returns
         -------
         - Pressure Ratio : float
-            A float of the exit pressure ratio.
+            A float of the exit pressure ratio objective.
         """
 
-        return 1 - outputs["data"]["Pressure Ratio"]
+        return - outputs["data"]["Pressure Ratio"]
+
+    
+    def FlightPhaseEnergy(self,
+                          outputs: list[AnalysisOutputs] | AnalysisOutputs) -> float:
+        """
+        Compute the energy used to power the ducted fan during the flight phase. 
+        Works for both single-point and multi-point optimisation problems. 
+        This sub-objective has identifier 4.
+
+        Parameters
+        ----------
+        - outputs : AnalysisOutputs
+            A dictionary or list of dictionaries containing the outputs from the forces.xxx file.
+            outputs should be structured based on output mode 3 of output_handling.output_processing.GetAllVariables().
+
+        Returns
+        -------
+        - Energy : float
+            A float of the energy used to power the ducted fan during the flight phase.
+            This is computed as the product of the power and the time spent in the flight phase.
+        """
+
+        if isinstance(outputs, list):
+            # If outputs is a list, we are solving for a multi-point optimisation problem, so we sum the total energ for all points.
+            energy = 0
+            for idx, output in enumerate(outputs):
+                power = output["data"]["Total power CP"] * (0.5 * self.oper[idx]["atmos"].density[0] * self.oper[idx]["Vinl"] ** 3 * self.Lref ** 2)
+                energy += power * self.oper[idx]["flight_phase_time"]
+        else:
+            # If outputs is a single dictionary, we are solving for a single-point optimisation problem.
+            power =  outputs["data"]["Total power CP"] * (0.5 * self.oper["atmos"].density[0] * self.oper["Vinl"] ** 3 * self.Lref ** 2)
+            energy = power * self.oper["flight_phase_time"]
+
+        return energy
 
 
     def ComputeObjective(self,
@@ -228,6 +268,12 @@ class Objectives:
             dtype=float,
             count=len(objectives),
         )
+
+        if 4 in objective_IDs:
+            # If the flight phase energy objective is requested, compute it separately
+            # and append it to the computed objectives.
+            flight_phase_energy = self.FlightPhaseEnergy(analysis_outputs)
+            computed_objectives = np.append(computed_objectives, flight_phase_energy)
 
         out["F"] = computed_objectives
 
@@ -280,13 +326,14 @@ class Objectives:
                 count=num_varobjectives
             )
 
-            # for j, objective in enumerate(variable_objectives):
-                
-                # computed_objectives[i * num_varobjectives + j] =  round(objective(outputs), 5)
-
         # Now compute the constant objectives
         for i, objective in enumerate(constant_objectives):
             computed_objectives[num_varobjectives * num_outputs + i] = round(objective(analysis_outputs[0]), 5)
+
+        # If the flight phase energy objective is requested, compute it separately
+        if 4 in objective_IDs:
+            flight_phase_energy = self.FlightPhaseEnergy(analysis_outputs)
+            computed_objectives = np.append(computed_objectives, flight_phase_energy)
 
         out["F"] = computed_objectives
 

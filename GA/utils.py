@@ -90,7 +90,7 @@ def get_figsize(columnwidth=448.1309, wf=0.5, hf=(5.**0.5-1.0)/2.0, ):
       - hf [float]:  height fraction in columnwidth units.
                      Set by default to golden ratio.
       - columnwidth [float]: width of the column in pt in latex. Get this from LaTeX 
-                             using \showthe\columnwidth
+                             using \\showthe\\columnwidth
     Returns:  [fig_width,fig_height]: that should be given to matplotlib
     """
 

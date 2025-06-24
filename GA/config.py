@@ -22,7 +22,7 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.3
+Version: 1.4
 
 Changelog:
 - V1.0: Initial implementation. 
@@ -30,6 +30,7 @@ Changelog:
 - V1.2: Wrapped blading generation routine in LRU cache to avoid 
         re-running the function at every GA worker import. 
 - V1.3: Updated single point operating condition to correspond to endurance cruise condition at approximate mid cruise weight and endurance speed of 125kts at 10000ft standard day. 
+- V1.4: Updated operating conditions. Improved consistency. Added additional inputs.
 """
 
 # Import standard libraries
@@ -66,36 +67,41 @@ class ObjectiveID(IntEnum):
     FRONTAL_AREA = auto()
     WETTED_AREA = auto()
     PRESSURE_RATIO = auto()
-    MULTIPOINT_TO_CRUISE = auto()
-    # CENTERBODY_TRANSITION_LOCATION = auto()
-    # DUCT_INNER_TRANSITION_LOCATION = auto()
-    # DUCT_OUTER_TRANSITION_LOCATION = auto()
-    # DUCT_THRUST_CONTRIBUTION = auto()
-    # CENTERBODY_THRUST_CONTRIBUTION = auto()
+    ENERGY = auto()
     
-objective_IDs = [ObjectiveID.EFFICIENCY]  # Must be defined in order of which they exist in the enum! 
-
 # Define the multi-point operating conditions
 multi_oper = [#{"Inlet_Mach": 0.1958224765292171,  # Loiter condition at 125kts
             #    "N_crit": 9,
             #    "atmos": Atmosphere(3048),
             #    "Omega": -11.42397,
-            #    "RPS": 54.80281},
+            #    "RPS": 54.80281,
+            #    "flight_phase_time": 3600},
             #    {"Inlet_Mach": 0.15,  # ~Stall condition at 100kts
             #    "N_crit": 9,
             #    "atmos": Atmosphere(0),
             #    "Omega": -11.42397,
-            #    "RPS": 37},
+            #    "RPS": 37,
+            #    "flight_phase_time": 3600},
                {"Inlet_Mach": 0.3,  # Combat condition at ~185kts
                "N_crit": 9,
                "atmos": Atmosphere(3048),
                "Omega": -11.42397,
-               "RPS": 58.5},
+               "RPS": 58.5,
+               "flight_phase_time": 3600},
                 ]
 
 # Compute the inlet velocities and write them to the multi-point oper dict
 for oper_dict in multi_oper:
     oper_dict["Vinl"] = oper_dict["atmos"].speed_of_sound[0] * oper_dict["Inlet_Mach"]
+
+
+# Calculate total objectives: base objectives × operating points, 
+# minus single-point-only objectives for additional operating points
+# Define the objective IDS and their order
+objective_IDs = [ObjectiveID.EFFICIENCY]  # Must be defined in order of which they exist in the enum! 
+_single_point_only = {ObjectiveID.FRONTAL_AREA, ObjectiveID.WETTED_AREA}
+n_objectives = len(objective_IDs) * len(multi_oper) \
+               - sum(1 for obj in objective_IDs if obj in _single_point_only) * (len(multi_oper) - 1)
 
 
 # Controls for the optimisation vector - CENTERBODY
@@ -209,7 +215,7 @@ def _load_blading(omega: float,
 
     # Obtain the parameterizations for the profile sections. 
     profile_dir_path = Path(__file__).parent.parent / 'Validation/Profiles'
-    file_names = ['X22_02R.dat', 'X22_03R.dat', 'X22_05R.dat', 'X22_07R.dat', 'X22_10R.dat', 'Hstrut.dat', 'Dstrut.dat']
+    file_names = ['X22_02R.dat', 'X22_03R.dat', 'X22_07R.dat', 'X22_10R.dat', 'Hstrut.dat', 'Dstrut.dat']
     filenames = [profile_dir_path / stem for stem in file_names]
     
     # First check if all files are present
@@ -221,10 +227,10 @@ def _load_blading(omega: float,
     param = AirfoilParameterization()
     R00_section = param.FindInitialParameterization(reference_file=filenames[0])
     R03_section = param.FindInitialParameterization(reference_file=filenames[1])
-    R07_section = param.FindInitialParameterization(reference_file=filenames[3])
-    R10_section = param.FindInitialParameterization(reference_file=filenames[4])
-    Hstrut_section = param.FindInitialParameterization(reference_file=filenames[5])
-    Dstrut_section = param.FindInitialParameterization(reference_file=filenames[6])
+    R07_section = param.FindInitialParameterization(reference_file=filenames[2])
+    R10_section = param.FindInitialParameterization(reference_file=filenames[3])
+    Hstrut_section = param.FindInitialParameterization(reference_file=filenames[4])
+    Dstrut_section = param.FindInitialParameterization(reference_file=filenames[5])
 
     # Construct blading list
     design_parameters = [[R00_section, R03_section, R07_section, R10_section],
@@ -239,11 +245,11 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
                                                                  REFERENCE_BLADE_ANGLES[0])
 
 # Define the target thrust/power and efficiency for use in constraints
-P_ref_constr = [#1.4461 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
+P_ref_constr = [#1.3040 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
                 # 0.67198 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # Stall condition power
                 0.21720 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # combat condition power
                 ]  # Reference Power in Watts derived from baseline analysis
-T_ref_constr = [#1.0756 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
+T_ref_constr = [#0.99625 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 # 0.52927 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # Stall condition thrust
                 0.16605 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # combat condition thrust
                 ] # Reference Thrust in Newtons derived from baseline analysis
@@ -263,10 +269,7 @@ class InEqConstraintID(IntEnum):
     def _generate_next_value_(name, start, count, last_values):
         return count  # This makes the first member 0 rather than the default 1.
     
-    EFFICIENCY_GTE_ZERO = auto()
-    EFFICIENCY_LEQ_ONE = auto()
-    MINIMUM_THRUST = auto()
-    MAXIMUM_THRUST = auto()
+    EFFICIENCY_LEQ_THEOR_LIMIT = auto()
     THRUST_FEASIBILITY = auto()
     MAXIMUM_FRONTAL_AREA = auto()
     
@@ -281,7 +284,7 @@ class EqConstraintID(IntEnum):
     
     CONSTANT_POWER = auto()
 
-constraint_IDs = [[InEqConstraintID.EFFICIENCY_LEQ_ONE, InEqConstraintID.THRUST_FEASIBILITY, InEqConstraintID.MAXIMUM_FRONTAL_AREA],
+constraint_IDs = [[InEqConstraintID.EFFICIENCY_LEQ_THEOR_LIMIT, InEqConstraintID.THRUST_FEASIBILITY, InEqConstraintID.MAXIMUM_FRONTAL_AREA],
                   []]
 
 
@@ -291,10 +294,6 @@ POPULATION_SIZE = 100
 INITIAL_POPULATION_SIZE = 200
 MAX_GENERATIONS = 100
 MAX_EVALUATIONS = 11000
-
-# Compute the total number of objectives
-_single_point_only = {ObjectiveID.FRONTAL_AREA, ObjectiveID.WETTED_AREA}
-n_objectives = len(objective_IDs) * len(multi_oper) - sum(1 for obj in objective_IDs if obj in _single_point_only) * (len(multi_oper) - 1)
 
 # Define the initial population parameter spreads, used to construct a biased initial population 
 SPREAD_CONTINUOUS = 0.5  # Relative spread (+/- %) applied to continous variables around their reference values
@@ -312,7 +311,7 @@ RESERVED_THREADS = 0  # Threads reserved for the operating system and any other 
 THREADS_PER_EVALUATION = 2  # Number of threads per MTFLOW evaluation: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
 # Postprocessing visualisation controls
-# ref_objectives = np.array([-0.74376])  # ref objective values for endurance cruise condition
+ref_objectives = np.array([-0.74376, 1])  # ref objective values for endurance cruise condition
 # ref_objectives = np.array([-0.78763])  # ref objective values for stall condition
-ref_objectives = np.array([-0.7645])  # ref objective values for combat condition
+# ref_objectives = np.array([-0.7645])  # ref objective values for combat condition
 objective_strings = []

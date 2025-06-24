@@ -52,8 +52,8 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID 4995309
-Version: 1.3
-Date [dd-mm-yyyy]: 16-05-2025
+Version: 1.3.1
+Date [dd-mm-yyyy]: 24-06-2025
 
 Changelog:
 - V1.1: Updated with comments from coderabbitAI.
@@ -70,6 +70,7 @@ Changelog:
 - V1.3: Fixed type hinting. Fixed issue in internal handling/definition of 
     	b_15 & b_17. Improved accuracy. Updated documentation. 
         Refactored findInitialParameterization.
+- V1.3.1: Implemented get_figsize method to ensure plot sizes are consistent for LaTeX thesis document. 
 """
 
 # Import standard libraries
@@ -735,29 +736,47 @@ class AirfoilParameterization:
         x_LE_thickness_coeff, y_LE_thickness_coeff, x_TE_thickness_coeff, y_TE_thickness_coeff = self.GetThicknessControlPoints(airfoil_params)
         x_LE_camber_coeff, y_LE_camber_coeff, x_TE_camber_coeff, y_TE_camber_coeff = self.GetCamberControlPoints(airfoil_params)
 
+        def get_figsize(columnwidth=448.1309, wf=0.5, hf=(5.**0.5-1.0)/2.0, ):
+            """
+            Parameters
+            - wf [float]:  width fraction in columnwidth units
+            - hf [float]:  height fraction in columnwidth units.
+                            Set by default to golden ratio.
+            - columnwidth [float]: width of the column in pt in latex. Get this from LaTeX 
+                                    using \\showthe\\columnwidth
+            Returns:  [fig_width,fig_height]: that should be given to matplotlib
+            """
+
+            fig_width_pt = columnwidth*wf 
+            inches_per_pt = 1.0/72.27               # Convert pt to inch
+            fig_width = fig_width_pt*inches_per_pt  # width in inches
+            fig_height = fig_width*hf      # height in inches
+            return [fig_width, fig_height]
+
         try:
+            plt.rcParams.update({'font.size': 9})
             # Create a single figure with subplots
-            fig, axs = plt.subplots(2, 1, figsize=(8, 6), gridspec_kw={'height_ratios': [1, 1.2]})
+            fig, axs = plt.subplots(2, 1, figsize=get_figsize(wf=0.95), gridspec_kw={'height_ratios': [1, 1.2]})
 
             # First row: Thickness and Camber distributions
-            axs[0].plot(bezier_thickness_x, bezier_thickness, label="Bezier Thickness", color="blue")
-            axs[0].plot(x_LE_thickness_coeff, y_LE_thickness_coeff, '*', color='b', label="Bezier Thickness Coefficients")
+            axs[0].plot(bezier_thickness_x, bezier_thickness, label="BP thickness", color="blue")
+            axs[0].plot(x_LE_thickness_coeff, y_LE_thickness_coeff, '*', color='b', label="BP thickness coefficients")
             axs[0].plot(x_TE_thickness_coeff, y_TE_thickness_coeff, '*', color='b')
             if reference_file is not None:
-                axs[0].plot(self.x_points_thickness, self.thickness_distribution, "-.", label="Thickness Input Data")
-                axs[0].plot(self.x_points_camber, self.camber_distribution, "--", label="Camber Input Data")
-            axs[0].plot(bezier_camber_x, bezier_camber, label="Bezier Camber", color="red")
-            axs[0].plot(x_LE_camber_coeff, y_LE_camber_coeff, '^', color='r', label="Bezier Camber Coefficients")
+                axs[0].plot(self.x_points_thickness, self.thickness_distribution, "-.", label="Reference thickness")
+                axs[0].plot(self.x_points_camber, self.camber_distribution, "--", label="Reference camber")
+            axs[0].plot(bezier_camber_x, bezier_camber, label="BP camber", color="red")
+            axs[0].plot(x_LE_camber_coeff, y_LE_camber_coeff, '^', color='r', label="BP camber coefficients")
             axs[0].plot(x_TE_camber_coeff, y_TE_camber_coeff, '^', color='r')
-            axs[0].set_title("Thickness & Camber Distributions")
+            axs[0].set_title("Thickness and Camber Distributions")
             axs[0].set_xlabel("x/c [-]")
             axs[0].set_ylabel("y/c [-]")
             axs[0].legend(bbox_to_anchor=(1,1))
             axs[0].grid(True)
 
             # Second row: Combined airfoil shape
-            axs[1].plot(upper_x, upper_y, label="Reconstructed Upper Surface", color="green")
-            axs[1].plot(lower_x, lower_y, label="Reconstructed Lower Surface", color="purple")
+            axs[1].plot(upper_x, upper_y, label="Modelled profile", color="tab:red")
+            axs[1].plot(lower_x, lower_y, color="tab:red")
             if reference_file is not None:
                 axs[1].plot(self.reference_data[:, 0], self.reference_data[:, 1], "-.", color="gray", label="Reference Input Data")
             axs[1].set_title("Combined Airfoil Shape")
@@ -767,7 +786,7 @@ class AirfoilParameterization:
             axs[1].grid(True)
 
             # Set main figure title
-            fig.suptitle("BP 3434 Parameterization for the Airfoil", fontsize=14)
+            fig.suptitle("BP 3434 Parameterisation for the profile", fontsize=14)
 
             # Adjust layout
             plt.tight_layout()

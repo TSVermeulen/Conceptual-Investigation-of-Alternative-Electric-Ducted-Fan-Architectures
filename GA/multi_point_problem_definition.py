@@ -41,17 +41,20 @@ Changelog:
 """
 
 # Import standard libraries
-import os, uuid, datetime, copy, contextlib
+import os
+import uuid
+import datetime
+import copy 
+import contextlib
 from pathlib import Path
 
 # Import 3rd party libraries
 import numpy as np
 from pymoo.core.problem import ElementwiseProblem
 
-# Ensure all paths are correctly setup if executing the script as standalone
-if __name__ == "__main__":
-    from utils import ensure_repo_paths # type: ignore
-    ensure_repo_paths()
+# Ensure all paths are correctly setup
+from utils import ensure_repo_paths # type: ignore
+ensure_repo_paths()
 
 # Import interface submodels and other dependencies
 from Submodels.MTSOL_call import OutputType, ExitFlag # type: ignore
@@ -104,16 +107,28 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
     _DESIGN_VARS = DesignVector.construct_vector(config)
 
+    _base_oper = copy.deepcopy(config.multi_oper[0])
+
 
     def __init__(self,
+                 verbose: bool = False,
                  **kwargs) -> None:
         """
         Initialization of the OptimizationProblem class.
+
+        Parameters
+        ----------
+        - verbose : bool, optional
+            Bool to determine if error messages should be printed to the console while running.
+        - **kwargs : dict[str, Any]
+            Additional keyword arguments.
 
         Returns
         -------
         None
         """
+
+        self.verbose = verbose
 
         # Import control variables
         self.num_radial = config.NUM_RADIALSECTIONS
@@ -122,7 +137,6 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Calculate the number of objectives and constraints of the optimization problem
         n_objectives = config.n_objectives
-
         n_inequality_constraints = len(config.constraint_IDs[0]) * len(config.multi_oper)
         n_equality_constraints = len(config.constraint_IDs[1]) * len(config.multi_oper)
 
@@ -142,12 +156,13 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             raise SystemError(f"Missing submodels path: {self.submodels_path}")
 
         # Create folder path to store statefiles
-        self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
-        # Check existance of dump folder
-        try:
-            self.dump_folder.mkdir(exist_ok=True)
-        except PermissionError as e:
-            raise PermissionError(f"Unable to create dump folder: {self.dump_folder}. Check permissions") from e
+        if config.ARCHIVE_STATEFILES:
+            self.dump_folder = self.submodels_path / "Evaluated_tdat_state_files"
+            # Check existance of dump folder
+            try:
+                self.dump_folder.mkdir(exist_ok=True)
+            except PermissionError as e:
+                raise PermissionError(f"Unable to create dump folder: {self.dump_folder}. Check permissions") from e
 
         # Define analysisname template
         self.timestamp_format = "%m%d%H%M%S"
@@ -169,12 +184,11 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Load base operating conditions
         self.multi_oper = copy.deepcopy(config.multi_oper)
-        self._base_oper = copy.deepcopy(self.multi_oper[0])
 
 
     def SetAnalysisName(self) -> None:
         """
-        Generate a unique analysis name.
+        Generate a unique analysis name and write it to self.
         This is required to enable multi-threading of the optimization problem, and log each state file,
         since each evaluation of MTFLOW requires a unique set of files.
 
@@ -364,7 +378,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self.Lref) = self.design_vector_interface.DeconstructDesignVector(x_dict=x)
 
             # Set the initial non-dimensional omega rates
-            self.oper =  copy.deepcopy(self._base_oper)
+            self.oper = copy.deepcopy(self._base_oper)
             self.ComputeOmega(idx=0)
 
             self._fileHandlingMTSET(params_CB=self.centerbody_variables,
@@ -383,13 +397,17 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             # Any value error that might occur while generating the MTSET input file will be caused by interpolation issues arising from the input values, so
             # this is an efficient and simple method to check if the axisymmetric bodies are feasible.
             output_generated = False  # If any of the input generation routines raised an error, set output_generated to False
-            error_code = "INVALID_DESIGN"
-            print(f"[{error_code}] Invalid design vector encountered: {e}")
+            if self.verbose:
+                error_code = "INVALID_DESIGN"
+                print(f"[{error_code}] Invalid design vector encountered: {e}")
         except Exception as e:
             # If any unexpected errors occur, log them as well
             output_generated = False
-            error_code = f"UNEXPECTED_{type(e).__name__}"
-            print(f"[{error_code}] Unexpected error in input generation: {e}")
+            if self.verbose:
+                import traceback
+                traceback.print_exc()
+                error_code = f"UNEXPECTED_{type(e).__name__}"
+                print(f"[{error_code}] Traceback:\n{traceback.format_exc()}")  # Use traceback for more specific error information.
 
         if not output_generated:
             # Set parameters equal to the config values in case of a crash so that the constraint/objective value calculations do not crash
@@ -408,7 +426,23 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                   *args,
                   **kwargs) -> None:
         """
-        Element-wise evaluation function.
+        Element-wise evaluation function for the multi-point optimisation problem.
+
+        Parameters
+        ----------
+        - x : dict
+            The pymoo design vector dictionary.
+        - out : dict
+            The pymoo elementwise evaluation output dictionary.
+        - *args : tuple
+            Additional arguments.
+        - **kwargs : dict[str, Any]
+            Additional keyword arguments.
+
+        Returns
+        -------
+        - None
+            The output dictionary is modified in-place.
         """
 
         # Generate a unique analysis name
@@ -438,6 +472,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                                                        ref_length=self.Lref,
                                                        analysis_name=self.analysis_name,
                                                        grid_checked=valid_grid,
+                                                       run_viscous=True,
                                                        **kwargs)
 
                 try:
@@ -450,8 +485,9 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                     MTFLOW_outputs[idx] = output_handler.GetAllVariables(output_type=0)
                 except Exception as e:
                     exit_flag = ExitFlag.CRASH
-                    print(f"[MTFLOW_ERROR] OP={idx}, case={self.analysis_name}: {e}")
                     MTFLOW_outputs[idx] = self.CRASH_OUTPUTS
+                    if self.verbose:
+                        print(f"[MTFLOW_ERROR] OP={idx}, case={self.analysis_name}: {e}")  
 
                 # Set valid_grid to true to skip the grid checking routines for the next operating point if the solver exited with a converged/non-converged solution.
                 if exit_flag in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE, ExitFlag.CHOKING):
@@ -459,9 +495,11 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
         # Obtain objective(s)
         # The out dictionary is updated in-place
-        Objectives(self.duct_variables).ComputeMultiPointObjectives(analysis_outputs=MTFLOW_outputs,
-                                                                    objective_IDs=config.objective_IDs,
-                                                                    out=out)
+        Objectives(duct_variables=self.duct_variables,
+                   oper=self.multi_oper,
+                   Lref=self.Lref).ComputeMultiPointObjectives(analysis_outputs=MTFLOW_outputs,
+                                                               objective_IDs=config.objective_IDs,
+                                                               out=out)
 
         # Compute constraints
         # The out dictionary is updated in-place
@@ -479,14 +517,22 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
 
 if __name__ == "__main__":
-    # Disable parameterizations to allow for testing with empty design vector
-    config.OPTIMIZE_CENTERBODY = False
-    config.OPTIMIZE_DUCT = False
-    config.OPTIMIZE_STAGE = [False] * len(config.OPTIMIZE_STAGE)
+    """
+    Test Block
+    """
 
     test = MultiPointOptimizationProblem()
 
-    output = {}
-    test._evaluate({}, output)
+    # Create a reference vector for testing
+    from init_population import InitPopulation  # type: ignore
+    from repair import RepairIndividuals  # type: ignore
 
+    ref_pop = InitPopulation(population_type="biased").GeneratePopulation()
+    ref_vectors = ref_pop.get("X")
+    ref_vectors = RepairIndividuals()._do(test, ref_vectors)
+    ref_vector = ref_vectors[0]  # Use the first vector for testing
+
+    # Create an output dictionary to store the results
+    output = {}
+    test._evaluate(ref_vector, output)
     print(output)

@@ -126,7 +126,7 @@ class OptimizationProblem(ElementwiseProblem):
         - verbose : bool, optional
             Bool to determine if error messages should be printed to the console while running.
         - **kwargs : dict[str, Any]
-            Additional keyword arguments
+            Additional keyword arguments.
 
         Returns
         -------
@@ -141,10 +141,9 @@ class OptimizationProblem(ElementwiseProblem):
         self.optimize_stages = config.OPTIMIZE_STAGE
 
         # Calculate the number of objectives and constraints of the optimization problem
-        n_objectives = len(config.objective_IDs) * len(config.multi_oper)
-
-        n_inequality_constraints = len(config.constraint_IDs[0])
-        n_equality_constraints = len(config.constraint_IDs[1])
+        n_objectives = config.n_objectives
+        n_inequality_constraints = len(config.constraint_IDs[0]) * len(config.multi_oper)
+        n_equality_constraints = len(config.constraint_IDs[1]) * len(config.multi_oper)
 
         # Initialize the parent class
         super().__init__(vars=self._DESIGN_VARS,
@@ -178,6 +177,7 @@ class OptimizationProblem(ElementwiseProblem):
         self.design_vector_interface = DesignVectorInterface()
 
         # Use lazy-loaded modules (initialized at first use)
+        # Prevents circular imports and speeds up initial loading time.
         if not hasattr(self, "_lazy_modules_loaded"):
             from MTFLOW_caller import MTFLOW_caller  # type: ignore
             from Submodels.output_handling import output_processing  # type: ignore
@@ -274,7 +274,9 @@ class OptimizationProblem(ElementwiseProblem):
                 if file_path.exists():
                     copied_file = self.dump_folder / file_path.name
                     with contextlib.suppress(FileNotFoundError):
-                        # Atomic operation to improve edge case handling
+                        # Atomic operation (on same file system only) to improve 
+                        # edge case handling. Prevents corruption during 
+                        # concurrent access.
                         file_path.replace(copied_file)
             else:
                 # Cleanup all temporary files
@@ -338,10 +340,10 @@ class OptimizationProblem(ElementwiseProblem):
                 error_code = "INVALID_DESIGN"
                 print(f"[{error_code}] Invalid design vector encountered: {e}")
         except Exception as e:
-            import traceback
             # If any unexpected errors occur, log them as well
             output_generated = False
             if self.verbose:
+                import traceback
                 error_code = f"UNEXPECTED_{type(e).__name__}"
                 print(f"[{error_code}] Traceback:\n{traceback.format_exc()}")  # Use traceback for more specific error information.
 
@@ -362,7 +364,7 @@ class OptimizationProblem(ElementwiseProblem):
                   *args,
                   **kwargs) -> None:
         """
-        Element-wise evaluation function.
+        Element-wise evaluation function for a single-point optimisation problem.
 
         Parameters
         ----------
@@ -371,9 +373,9 @@ class OptimizationProblem(ElementwiseProblem):
         - out : dict
             The pymoo elementwise evaluation output dictionary.
         - *args : tuple
-            Additional arguments
+            Additional arguments.
         - **kwargs : dict[str, Any]
-            Additional keyword arguments
+            Additional keyword arguments.
 
         Returns
         -------
@@ -420,9 +422,11 @@ class OptimizationProblem(ElementwiseProblem):
 
         # Obtain objective(s)
         # The out dictionary is updated in-place
-        Objectives(self.duct_variables).ComputeObjective(analysis_outputs=MTFLOW_outputs,
-                                                         objective_IDs=config.objective_IDs,
-                                                         out=out)
+        Objectives(duct_variables=self.duct_variables,
+                   oper=self.oper,
+                   Lref=self.Lref).ComputeObjective(analysis_outputs=MTFLOW_outputs,
+                                                    objective_IDs=config.objective_IDs,
+                                                    out=out)
 
         # Compute constraints
         # The out dictionary is updated in-place
@@ -458,5 +462,4 @@ if __name__ == "__main__":
     # Create an output dictionary to store the results
     output = {}
     test._evaluate(ref_vector, output)
-
     print(output)

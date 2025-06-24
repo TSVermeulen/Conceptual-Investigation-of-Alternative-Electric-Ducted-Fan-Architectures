@@ -41,7 +41,7 @@ Changelog:
 - V1.4: Implemented constraints on profile parameterizations.
 - V1.5: Fixed bug in minimum thrust constraint. Performance improvements by avoiding repeated construction/lookup of data.
 - V1.6: Implemented theoretical efficiency limit calculation based on actuator disk theory. Improved efficiency calculations.
-- V1.7: Added unified thrust bound constraint to replace the minimum and maximum thrust constraints.
+- V1.7: Added unified thrust bound constraint to replace the minimum and maximum thrust constraints. Removed deprecated constraints.
 """
 
 # Import standard libraries
@@ -87,7 +87,7 @@ class Constraints:
         self.blade_blading_values = copy.deepcopy(blade_blading_values)  # Use deepcopy due to the nested structure of the design values
 
         # Define lists of all inequality and equality constraints
-        self.ineq_constraints_list = [self.KeepEfficiencyFeasibleLower, self.KeepEfficiencyFeasibleUpper, self.MinimumThrust, self.MaximumThrust, self.ThrustBound, self.FrontalArea]
+        self.ineq_constraints_list = [self.KeepEfficiencyFeasibleUpper, self.ThrustBound, self.FrontalArea]
         self.eq_constraints_list = [self.ConstantPower]
 
         self.design_okay = design_okay
@@ -249,37 +249,6 @@ class Constraints:
         return analysis_outputs["data"]["EtaP"] - self._calculate_theoretical_efficiency_limit(thrust)
 
 
-    def KeepEfficiencyFeasibleLower(self,
-                               analysis_outputs: AnalysisOutputs,
-                               _Lref: float,
-                               _thrust: float,
-                               _power: float) -> float:
-        """
-        Compute the inequality constraint for the efficiency. Enforces that eta > 0.
-
-        Parameters
-        ----------
-        - analysis_outputs : AnalysisOutputs
-            A dictionary containing the outputs from the MTFLOW forces output file.
-            Must contain all entries corresponding to an execution of
-            output_handling.output_processing().GetAllVariables(3).
-        - _Lref : float
-            The reference length of the analysis. Corresponds to the propeller/fan diameter.
-        - _thrust : float
-            The thrust in Newtons.
-        - _power : float
-            The power in Watts.
-
-        Returns
-        -------
-        - float
-            The computed efficiency constraint. This is a scalar value representing the efficiency of the system.
-        """
-
-        # Compute the inequality constraint for the efficiency.
-        return -analysis_outputs["data"]["EtaP"]
-
-
     def ThrustBound(self,
                     _analysis_outputs: AnalysisOutputs,
                     _Lref: float,
@@ -309,68 +278,6 @@ class Constraints:
         """
 
         return abs(thrust / self.ref_thrust - 1) - config.deviation_range
-
-
-    def MinimumThrust(self,
-                      _analysis_outputs: AnalysisOutputs,
-                      _Lref: float,
-                      thrust: float,
-                      _power: float) -> float:
-        """
-        Compute the inequality constraint for the thrust. Enforces that T > (1 - delta) * T_ref.
-        Equivalent to a one-sided version of the ThrustBound constraint.
-
-        Parameters
-        ----------
-        - _analysis_outputs : AnalysisOutputs
-            A dictionary containing the outputs from the MTFLOW forces output file.
-            Must contain all entries corresponding to an execution of
-            output_handling.output_processing().GetAllVariables(3).
-        - _Lref : float
-            The reference length of the analysis. Corresponds to the propeller/fan diameter.
-        - thrust : float
-            The thrust in Newtons.
-        - _power : float
-            The power in Watts. Not used here but included to force constant signature.
-
-        Returns
-        -------
-        - float
-            The computed normalised thrust constraint.
-        """
-        return -thrust / self.ref_thrust + (1 - config.deviation_range)  # Normalized thrust constraint. <=0 indicates feasible.
-
-
-    def MaximumThrust(self,
-                      _analysis_outputs: AnalysisOutputs,
-                      _Lref: float,
-                      thrust: float,
-                      _power: float) -> float:
-        """
-        Compute the upper bound for the thrust. Enforces that T < T_ref + delta.
-        Equivalent to the one-sided version of the ThrustBound constraint.
-
-        Parameters
-        ----------
-        - _analysis_outputs : AnalysisOutputs
-            A dictionary containing the outputs from the MTFLOW forces output file.
-            Must contain all entries corresponding to an execution of
-            output_handling.output_processing().GetAllVariables(3)
-            Not used here but included to force constant signature.
-        - _Lref : float
-            The reference length of the analysis. Corresponds to the propeller/fan diameter.
-            Not used here but included to force constant signature.
-        - _thrust : float
-            The thrust in Newtons.
-        - _power : float
-            The power in Watts. Not used here but included to force constant signature.
-
-        Returns
-        -------
-        - float
-            The computed normalised thrust constraint.
-        """
-        return thrust / self.ref_thrust - (1 + config.deviation_range)  # Normalized thrust constraint
 
 
     def FrontalArea(self,
