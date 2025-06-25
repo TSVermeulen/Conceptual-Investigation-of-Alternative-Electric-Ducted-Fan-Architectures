@@ -236,7 +236,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
 
     def ComputeOmega(self,
-                     idx : int) -> None:
+                     idx: int) -> None:
         """
         A simple function to compute the non-dimensional MTFLOW rotational rate Omega,
         and write it to the oper dictionary.
@@ -505,7 +505,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # The out dictionary is updated in-place
         Constraints(self.centerbody_variables,
                     self.duct_variables,
-                    self.blade_design_parameters,
+                    self.blade_blading_parameters,
                     design_okay).ComputeMultiPointConstraints(analysis_outputs=MTFLOW_outputs,
                                                               Lref=self.Lref,
                                                               oper=self.multi_oper,

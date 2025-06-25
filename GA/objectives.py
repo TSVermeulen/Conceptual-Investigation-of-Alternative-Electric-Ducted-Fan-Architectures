@@ -305,8 +305,8 @@ class Objectives:
         None, the out dictionary is updated in place with the computed objectives.
         """
 
-        variable_IDs = [oid for oid in objective_IDs if oid not in self.constant_objectiveIDs]  # Identifiers for the variable objective functions
-        constant_IDs = [oid for oid in objective_IDs if oid in self.constant_objectiveIDs]  # Identifiers for the constant variable objective functions
+        variable_IDs = [oid for oid in objective_IDs if oid not in self.constant_objectiveIDs and oid !=4]  # Identifiers for the variable objective functions
+        constant_IDs = [oid for oid in objective_IDs if oid in self.constant_objectiveIDs and oid !=4]  # Identifiers for the constant variable objective functions
 
         variable_objectives = [self.objectivelist[i] for i in variable_IDs]  # The variable objectives
         constant_objectives = [self.objectivelist[i] for i in constant_IDs]  # The constant objectives

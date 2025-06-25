@@ -540,7 +540,7 @@ if __name__ == "__main__":
     # Create an instance of the Constraints class
     test = Constraints(config.CENTERBODY_VALUES,
                        config.DUCT_VALUES,
-                       config.STAGE_DESIGN_VARIABLES,
+                       config.STAGE_BLADING_PARAMETERS,
                        design_okay=True)
 
     # Compute the constraints - single point constraint analysis
