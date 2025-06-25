@@ -111,7 +111,7 @@ for oper_dict in multi_oper:
 # minus single-point-only objectives for additional operating points
 # Define the objective IDS and their order
 objective_IDs = [ObjectiveID.ENERGY]  # Must be defined in order of which they exist in the enum! 
-_single_point_only = {ObjectiveID.FRONTAL_AREA, ObjectiveID.WETTED_AREA}
+_single_point_only = {ObjectiveID.FRONTAL_AREA, ObjectiveID.WETTED_AREA, ObjectiveID.ENERGY}
 n_objectives = len(objective_IDs) * len(multi_oper) \
                - sum(1 for obj in objective_IDs if obj in _single_point_only) * (len(multi_oper) - 1)
 
