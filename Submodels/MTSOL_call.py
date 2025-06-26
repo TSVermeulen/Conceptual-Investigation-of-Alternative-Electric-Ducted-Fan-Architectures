@@ -1145,16 +1145,16 @@ class MTSOL_call:
                                     update_statefile=generate_output)
                 total_exit_flag = exit_flag_invisc
 
-                if generate_output:
-                    # Generate the requested solver outputs based on output_type
-                    self.GenerateSolverOutput(output_type=output_type)
-
             if not run_viscous:
                 # Using handle_type="inviscid" bypasses the handle non-convergence loop.
                 # This is intentional for a viscous run, as it speeds up the solution process substantially. However, for an inviscid run, we do need to perform this loop.
                 self.HandleExitFlag(total_exit_flag,
                                     handle_type="Viscous",
                                     update_statefile=generate_output)
+                
+                if generate_output:
+                    # Generate the requested solver outputs based on output_type
+                    self.GenerateSolverOutput(output_type=output_type)
 
             # Only run a viscous solve if required by the user
             # Theoretically there is the chance a viscous run may be started on a non-converged inviscid solve.
