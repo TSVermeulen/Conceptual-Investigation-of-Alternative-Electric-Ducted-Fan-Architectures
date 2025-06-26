@@ -347,18 +347,18 @@ class MTSOL_call:
             """ Helper function to read the output on a separate thread """
             try:
                 while not getattr(self, "shutdown_event", threading.Event()).is_set():
-                    if self.process.poll() is not None: 
-                        # Check if the process is still running before reading stdout. 
-                        break    
+                    if self.process.poll() is not None:
+                        # Check if the process is still running before reading stdout.
+                        break
                     line = out.readline()
                     if not line:
                         break
                     q.put(line)
             except ValueError:
-                # Catch value errors separately to avoid spamming console out 
-                # with "I/O operation on closed file" errors during MTSOl 
+                # Catch value errors separately to avoid spamming console out
+                # with "I/O operation on closed file" errors during MTSOl
                 # crashes/restarts
-                pass        
+                pass
             except Exception as e:
                 print(e)
 
@@ -921,7 +921,7 @@ class MTSOL_call:
             # Return appropriate bool depending on found efficiency
             return 0 < eta < 1.
         except Exception:
-            # Treat any exception as non-physical to skip viscous runs but keep 
+            # Treat any exception as non-physical to skip viscous runs but keep
             # any batch analyses alive
             return False
 
@@ -1145,16 +1145,17 @@ class MTSOL_call:
                                     update_statefile=generate_output)
                 total_exit_flag = exit_flag_invisc
 
+                if generate_output:
+                    # Generate the requested solver outputs based on output_type
+                    self.GenerateSolverOutput(output_type=output_type)
+
             if not run_viscous:
                 # Using handle_type="inviscid" bypasses the handle non-convergence loop.
                 # This is intentional for a viscous run, as it speeds up the solution process substantially. However, for an inviscid run, we do need to perform this loop.
                 self.HandleExitFlag(total_exit_flag,
                                     handle_type="Viscous",
                                     update_statefile=generate_output)
-                
-                if generate_output:
-                    # Generate the requested solver outputs based on output_type
-                    self.GenerateSolverOutput(output_type=output_type)
+
 
             # Only run a viscous solve if required by the user
             # Theoretically there is the chance a viscous run may be started on a non-converged inviscid solve.
@@ -1207,7 +1208,7 @@ class MTSOL_call:
                 try:
                     self.process.wait(timeout=10)
                 except subprocess.TimeoutExpired:
-                    self.process.kill()        
+                    self.process.kill()
             # Join reader thread if alive
             if getattr(self, "reader", None) and self.reader.is_alive():
                 if hasattr(self, "shutdown_event"):
