@@ -272,6 +272,9 @@ T_ref_constr = [#0.99625 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
 MAX_FRONTAL_AREA_RATIO = 1.05  # Maximum ratio of the frontal area to the reference frontal area
 
+for i in range(len(multi_oper)):
+    multi_oper[i]["ref_energy"] = P_ref_constr[i] * multi_oper[i]["flight_phase_time"]
+
 # Define the constraint IDs used to construct the constraint functions
 # constraint IDs are structured as a nested list, of the form:
 # [[inequality constraint 1, inequality constraint 2, ...],

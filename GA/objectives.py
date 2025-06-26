@@ -219,21 +219,20 @@ class Objectives:
         Returns
         -------
         - Energy : float
-            A float of the energy metric used to power the ducted fan during the flight phase.
-            This is computed as the product of the power metric and the time spent in the flight phase.
-            Note that the power metric does not include the 0.5 * rho * v^3 factor in order to reduce the magnitude. 
+            A float of the energy used to power the ducted fan during the flight phase.
+            This is computed as the product of the power and the time spent in the flight phase.
         """
 
         if isinstance(outputs, list):
             # If outputs is a list, we are solving for a multi-point optimisation problem, so we sum the total energ for all points.
             energy = 0
             for idx, output in enumerate(outputs):
-                power_metric = output["data"]["Total power CP"] * self.Lref ** 2
-                energy += power_metric * self.oper[idx]["flight_phase_time"]
+                power = output["data"]["Total power CP"] * (0.5 * self.oper[idx]["atmos"].density[0] * self.oper[idx]["Vinl"] ** 3 * self.Lref ** 2)
+                energy += power * self.oper[idx]["flight_phase_time"] / self.oper[idx]["reference_energy"]
         else:
             # If outputs is a single dictionary, we are solving for a single-point optimisation problem.
-            power_metric =  outputs["data"]["Total power CP"] * self.Lref ** 2
-            energy = power_metric * self.oper["flight_phase_time"]
+            power =  outputs["data"]["Total power CP"] * (0.5 * self.oper["atmos"].density[0] * self.oper["Vinl"] ** 3 * self.Lref ** 2)
+            energy = power * self.oper["flight_phase_time"] / self.oper["ref_energy"]
 
         return energy
 
@@ -274,7 +273,7 @@ class Objectives:
             # If the flight phase energy objective is requested, compute it separately
             # and append it to the computed objectives.
             flight_phase_energy = self.FlightPhaseEnergy(analysis_outputs)
-            computed_objectives = np.append(computed_objectives, flight_phase_energy)
+            computed_objectives = np.append(computed_objectives, round(flight_phase_energy, 5))
 
         out["F"] = computed_objectives
 
@@ -334,7 +333,7 @@ class Objectives:
         # If the flight phase energy objective is requested, compute it separately
         if 4 in objective_IDs:
             flight_phase_energy = self.FlightPhaseEnergy(analysis_outputs)
-            computed_objectives = np.append(computed_objectives, flight_phase_energy)
+            computed_objectives = np.append(computed_objectives, round(flight_phase_energy, 5))
 
         out["F"] = computed_objectives
 
