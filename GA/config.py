@@ -92,7 +92,7 @@ multi_oper = [#{"Inlet_Mach": 0.1958224765292171,  # Loiter condition high thrus
                  "N_crit": 9,
                  "atmos": Atmosphere(3048),
                  "Omega": -11.42397,
-                 "RPS": 45,
+                 "RPS": 44,
                  "flight_phase_time": 1.7*3600},
             #    {"Inlet_Mach": 0.3,  # Combat condition at ~185kts
             #    "N_crit": 9,
@@ -261,19 +261,20 @@ P_ref_constr = [#1.3040 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[
                 # 0.67198 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # Stall condition power
                 # 0.21720 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # combat condition power
                 2.2361 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # take-off multi-point condition power
-                0.50628 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # endurance multi-point condition power
+                0.46250 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # endurance multi-point condition power
                 ]  # Reference Power in Watts derived from baseline analysis
 T_ref_constr = [#0.99625 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
                 # 0.52927 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # Stall condition thrust
                 # 0.16605 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # combat condition thrust
                 1.5972 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # take-off condition thrust
-                0.41092 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2)  # endurance multi-point condition thrust
+                0.36832 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2)  # endurance multi-point condition thrust
                 ] # Reference Thrust in Newtons derived from baseline analysis
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
 MAX_FRONTAL_AREA_RATIO = 1.05  # Maximum ratio of the frontal area to the reference frontal area
 
+reference_energy = 0
 for i in range(len(multi_oper)):
-    multi_oper[i]["ref_energy"] = P_ref_constr[i] * multi_oper[i]["flight_phase_time"]
+    reference_energy += P_ref_constr[i] * multi_oper[i]["flight_phase_time"]
 
 # Define the constraint IDs used to construct the constraint functions
 # constraint IDs are structured as a nested list, of the form:

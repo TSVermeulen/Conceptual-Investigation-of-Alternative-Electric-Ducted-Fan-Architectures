@@ -43,6 +43,7 @@ Changelog:
 
 # Import standard libraries
 import re
+import time
 from pathlib import Path
 
 # Import 3rd party libraries
@@ -591,6 +592,9 @@ class output_processing:
             - grouped_data : A dictionary containing the element breakdowns for the duct and centerbody
         """
 
+        # Short sleep to ensure file has finished reading/writing to
+        time.sleep(0.25)
+
         try:
             with open(self.forces_path, 'r') as file:
                 # Read the file contents, and replace the newline characters with empty strings.
@@ -775,11 +779,14 @@ class output_processing:
 
 if __name__ == "__main__":
     # Example usage for the output_visualisation class
-    test = output_visualisation(analysis_name='x22a_validation')
+    # test = output_visualisation(analysis_name='x22a_validation')
 
-    create_individual_plots = True
-    test.PlotOutputs(plot_individual=create_individual_plots)
+    # create_individual_plots = True
+    # test.PlotOutputs(plot_individual=create_individual_plots)
 
     # Example usage for the output_processing class
-    test = output_processing(analysis_name='test_case')
+    start = time.monotonic()
+    test = output_processing(analysis_name='f')
+    test.GetAllVariables(0)
+    print(time.monotonic() - start)
     test.GetCTCPEtaP()

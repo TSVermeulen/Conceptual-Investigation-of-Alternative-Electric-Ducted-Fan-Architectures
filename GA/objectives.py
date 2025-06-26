@@ -228,11 +228,11 @@ class Objectives:
             energy = 0
             for idx, output in enumerate(outputs):
                 power = output["data"]["Total power CP"] * (0.5 * self.oper[idx]["atmos"].density[0] * self.oper[idx]["Vinl"] ** 3 * self.Lref ** 2)
-                energy += power * self.oper[idx]["flight_phase_time"] / self.oper[idx]["reference_energy"]
+                energy += power * self.oper[idx]["flight_phase_time"] / config.reference_energy
         else:
             # If outputs is a single dictionary, we are solving for a single-point optimisation problem.
             power =  outputs["data"]["Total power CP"] * (0.5 * self.oper["atmos"].density[0] * self.oper["Vinl"] ** 3 * self.Lref ** 2)
-            energy = power * self.oper["flight_phase_time"] / self.oper["ref_energy"]
+            energy = power * self.oper["flight_phase_time"] / config.reference_energy
 
         return energy
 
