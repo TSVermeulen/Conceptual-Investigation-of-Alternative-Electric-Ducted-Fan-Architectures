@@ -128,14 +128,14 @@ class Objectives:
 
         if not hasattr(self, "_airfoil_parameterization"):
             # Lazy import and cache the AirfoilParameterization class
-            from Submodels.Parameterizations import AirfoilParameterization #type: ignore
+            from Submodels.Parameterizations import AirfoilParameterization  # type: ignore
             self._airfoil_parameterization = AirfoilParameterization()
 
         # To compute the frontal area, we need the maximum radius of the ducted propeller/fan.
         # This can be computed based on the radial LE coordinate of the duct,
         # together with the maximum y-coordinate of the duct profile.
 
-        # For a symmetric profile, this is simply equal to y_t, 
+        # For a symmetric profile, this is simply equal to y_t,
         # so we do not need to compute the airfoil upper surface distribution
         if self.duct_variables["y_c"] < 1e-3:
             upper_y = self.duct_variables["y_t"]
@@ -175,7 +175,7 @@ class Objectives:
         -------
         - wetted_area : float
             The wetted area as taken from the output file forces.analysis_name.
-            The wetted area is computed in the normalised coordinate system of MTFLOW, 
+            The wetted area is computed in the normalised coordinate system of MTFLOW,
             so it is multiplied by Lref^2 to obtain the dimensional form.
         """
 
@@ -202,12 +202,12 @@ class Objectives:
 
         return - outputs["data"]["Pressure Ratio"]
 
-    
+
     def FlightPhaseEnergy(self,
                           outputs: list[AnalysisOutputs] | AnalysisOutputs) -> float:
         """
-        Compute the energy used to power the ducted fan during the flight phase. 
-        Works for both single-point and multi-point optimisation problems. 
+        Compute the energy used to power the ducted fan during the flight phase.
+        Works for both single-point and multi-point optimisation problems.
         This sub-objective has identifier 4.
 
         Parameters
@@ -231,7 +231,7 @@ class Objectives:
                 energy += power * self.oper[idx]["flight_phase_time"] / config.reference_energy
         else:
             # If outputs is a single dictionary, we are solving for a single-point optimisation problem.
-            power =  outputs["data"]["Total power CP"] * (0.5 * self.oper["atmos"].density[0] * self.oper["Vinl"] ** 3 * self.Lref ** 2)
+            power = outputs["data"]["Total power CP"] * (0.5 * self.oper["atmos"].density[0] * self.oper["Vinl"] ** 3 * self.Lref ** 2)
             energy = power * self.oper["flight_phase_time"] / config.reference_energy
 
         return energy
@@ -321,7 +321,7 @@ class Objectives:
         for i, outputs in enumerate(analysis_outputs):
             # Rounds the objective values to 5 decimal figures to match the number of sigfigs given by the MTFLOW outputs to avoid rounding errors.
             computed_objectives[i * num_varobjectives : (i + 1) * num_varobjectives] = np.fromiter(
-                (round(obj(outputs), 5) for obj in variable_objectives), 
+                (round(obj(outputs), 5) for obj in variable_objectives),
                 dtype=float,
                 count=num_varobjectives
             )
