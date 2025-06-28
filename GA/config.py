@@ -317,5 +317,5 @@ THREADS_PER_EVALUATION = 2  # Number of threads per MTFLOW evaluation: one for r
 
 # Postprocessing visualisation controls
 # ref_objectives = np.array([-0.74376, 1])  # ref objective values for endurance cruise condition
-# ref_objectives = np.array([-0.78763])  # ref objective values for take-off condition
+# ref_objectives = np.array([-0.66469])  # ref objective values for take-off condition
 ref_objectives = np.array([-0.7645])  # ref objective values for combat condition
