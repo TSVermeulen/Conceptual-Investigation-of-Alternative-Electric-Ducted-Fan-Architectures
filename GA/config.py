@@ -245,13 +245,13 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
                                                                  REFERENCE_BLADE_ANGLES[0])
 
 # Define the target thrust/power and efficiency for use in constraints
-P_ref_constr = [# 0.21720 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # combat condition power
-                3.5043 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # take-off condition power
-                0.46250 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # endurance condition power
+P_ref_constr = [3.5043 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # take-off power
+                0.46250 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # endurance power
+                0.21720 * (0.5 * multi_oper[2]["atmos"].density[0] * multi_oper[2]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # combat power
                 ]  # Reference Power in Watts derived from baseline analysis
-T_ref_constr = [# 0.16605 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # combat condition thrust
-                2.3293 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # take-off thrust
-                0.36832 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2)  # endurance condition thrust
+T_ref_constr = [2.3293 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # take-off thrust
+                0.36832 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # endurance thrust
+                0.16605 * (0.5 * multi_oper[2]["atmos"].density[0] * multi_oper[2]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # combat thrust
                 ] # Reference Thrust in Newtons derived from baseline analysis
 
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
