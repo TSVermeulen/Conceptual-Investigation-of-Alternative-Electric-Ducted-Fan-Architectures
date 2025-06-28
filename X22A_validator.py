@@ -41,7 +41,7 @@ from scipy import interpolate
 from ambiance import Atmosphere
 
 # Enable submodel relative imports
-from GA.utils import ensure_repo_paths
+from GA.utils import ensure_repo_paths, get_figsize
 ensure_repo_paths()
 
 # Import interfacing modules
@@ -54,6 +54,9 @@ from Submodels.MTFLO_call import MTFLO_call # type: ignore
 
 # Define key paths/directories
 submodels_path = Path(__file__).resolve().parent / "Submodels"
+
+# Define plot formatting
+plt.rcParams.update({'font.size': 9, "pgf.texsystem": "xelatex", "text.usetex":  True, "pgf.rcfonts": False})
 
 
 # First we define some constants and the operating conditions which will be analysed
@@ -353,6 +356,29 @@ def GenerateMTSETGeometry() -> None:
                                                              k=3,
                                                              s=5
                                                              )(interpolated_centerbody_x)
+
+
+    CENTERBODY_VALUES = {"b_0": 0.05, "b_2": 0.125, "b_8": 7.52387039e-02, "b_15": 7.46448823e-01, "b_17": 0.8, 'x_t': 0.29842005729819904, 'y_t': 0.12533559300869632, 'x_c': 0.3, 'y_c': 0., 'z_TE': 0., 'dz_TE': 0.00277173368735548, 'r_LE': -0.06946118699675888, 'trailing_wedge_angle': 0.27689037361278407, 'trailing_camberline_angle': 0., 'leading_edge_direction': 0., "Chord Length": 1.5, "Leading Edge Coordinates": (0., 0.)}
+    
+    plt.figure("cb geometry", figsize=get_figsize(wf=0.75))
+    naca_x, naca_y, _, _, = AirfoilParameterization().ComputeProfileCoordinates(CENTERBODY_VALUES)
+    naca_x *= CENTERBODY_VALUES["Chord Length"]
+    naca_y *= CENTERBODY_VALUES["Chord Length"]
+
+    plt.plot((centerbody_x[:14] - centerbody_x[0]), centerbody_y[:14] , "x", label="True profile coordinates")
+    plt.plot((interpolated_centerbody_x - interpolated_centerbody_x[0]), interpolated_centerbody_y , "-.", label="Smoothed representation")
+    plt.plot(naca_x, naca_y, label="NACA0025 representation")
+    plt.xlabel("Axial coordinate $x$ [m]")
+    plt.ylabel("Radial coordinate $z$ [m]")
+    plt.grid(which='major')
+    plt.grid(which='minor', linewidth=0.25)
+    plt.minorticks_on()
+    plt.legend()
+    plt.tight_layout()
+    plt.ylim(bottom=0)
+    plt.show()
+
+
 
     # Transform the data to the correct format
     # Ensures leading edge data point only occurs once to make sure a smooth spline is constructed, in accordance with the MTFLOW documentation.
