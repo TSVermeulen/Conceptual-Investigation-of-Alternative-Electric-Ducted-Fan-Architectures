@@ -69,32 +69,20 @@ class ObjectiveID(IntEnum):
     PRESSURE_RATIO = auto()
     ENERGY = auto()
     
-# Define the multi-point operating conditions
-multi_oper = [#{"Inlet_Mach": 0.1958224765292171,  # Loiter condition high thrust at 125kts
-            #    "N_crit": 9,
-            #    "atmos": Atmosphere(3048),
-            #    "Omega": -11.42397,
-            #    "RPS": 54.80281,
-            #    "flight_phase_time": 3600},
-            #    {"Inlet_Mach": 0.15,  # ~Stall condition at 100kts
-            #    "N_crit": 9,
-            #    "atmos": Atmosphere(0),
-            #    "Omega": -11.42397,
-            #    "RPS": 37,
-            #    "flight_phase_time": 3600},
-                # {"Inlet_Mach": 0.15,  # ~take-off condition multi-point
-                #  "N_crit": 9,
-                #  "atmos": Atmosphere(0),
-                #  "Omega": -11.42397,
-                #  "RPS": 50,
-                #  "flight_phase_time": 30*60},
-                #  {"Inlet_Mach": 0.2,  # ~loiter condition multi-point
-                #  "N_crit": 9,
-                #  "atmos": Atmosphere(3048),
-                #  "Omega": -11.42397,
-                #  "RPS": 44,
-                #  "flight_phase_time": 1.7*3600},
-               {"Inlet_Mach": 0.3,  # Combat condition at ~185kts
+# Define the (multi-point) operating conditions
+multi_oper = [{"Inlet_Mach": 0.125,  # ~take-off condition
+               "N_crit": 9,
+               "atmos": Atmosphere(0),
+               "Omega": -11.42397,
+               "RPS": 47,
+               "flight_phase_time": 15*60},
+              {"Inlet_Mach": 0.2,  # loiter condition at ~125kts
+               "N_crit": 9,
+               "atmos": Atmosphere(3048),
+               "Omega": -11.42397,
+               "RPS": 44,
+               "flight_phase_time": 1.7*3600},
+              {"Inlet_Mach": 0.3,  # Combat condition at ~185kts
                "N_crit": 9,
                "atmos": Atmosphere(3048),
                "Omega": -11.42397,
@@ -257,18 +245,15 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
                                                                  REFERENCE_BLADE_ANGLES[0])
 
 # Define the target thrust/power and efficiency for use in constraints
-P_ref_constr = [#1.3040 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),
-                # 0.67198 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # Stall condition power
-                0.21720 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # combat condition power
-                # 2.2361 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # take-off multi-point condition power
-                # 0.46250 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # endurance multi-point condition power
+P_ref_constr = [# 0.21720 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # combat condition power
+                3.5043 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # take-off condition power
+                0.46250 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # endurance condition power
                 ]  # Reference Power in Watts derived from baseline analysis
-T_ref_constr = [#0.99625 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),
-                # 0.52927 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # Stall condition thrust
-                0.16605 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # combat condition thrust
-                # 1.5972 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # take-off condition thrust
-                # 0.36832 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2)  # endurance multi-point condition thrust
+T_ref_constr = [# 0.16605 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # combat condition thrust
+                2.3293 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # take-off thrust
+                0.36832 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2)  # endurance condition thrust
                 ] # Reference Thrust in Newtons derived from baseline analysis
+
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
 MAX_FRONTAL_AREA_RATIO = 1.05  # Maximum ratio of the frontal area to the reference frontal area
 
@@ -332,5 +317,5 @@ THREADS_PER_EVALUATION = 2  # Number of threads per MTFLOW evaluation: one for r
 
 # Postprocessing visualisation controls
 # ref_objectives = np.array([-0.74376, 1])  # ref objective values for endurance cruise condition
-# ref_objectives = np.array([-0.78763])  # ref objective values for stall condition
+# ref_objectives = np.array([-0.78763])  # ref objective values for take-off condition
 ref_objectives = np.array([-0.7645])  # ref objective values for combat condition

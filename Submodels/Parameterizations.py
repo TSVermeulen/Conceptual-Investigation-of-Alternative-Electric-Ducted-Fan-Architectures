@@ -754,7 +754,8 @@ class AirfoilParameterization:
             return [fig_width, fig_height]
 
         try:
-            plt.rcParams.update({'font.size': 9})
+            plt.rcParams.update({'font.size': 9, "pgf.texsystem": "xelatex", "text.usetex":  True, "pgf.rcfonts": False})
+
             # Create a single figure with subplots
             fig, axs = plt.subplots(2, 1, figsize=get_figsize(wf=0.95), gridspec_kw={'height_ratios': [1, 1.2]})
 
@@ -769,24 +770,25 @@ class AirfoilParameterization:
             axs[0].plot(x_LE_camber_coeff, y_LE_camber_coeff, '^', color='r', label="BP camber coefficients")
             axs[0].plot(x_TE_camber_coeff, y_TE_camber_coeff, '^', color='r')
             axs[0].set_title("Thickness and Camber Distributions")
-            axs[0].set_xlabel("x/c [-]")
-            axs[0].set_ylabel("y/c [-]")
+            axs[0].set_xlabel("Axial coordinate $x/c$ [-]")
+            axs[0].set_ylabel("Thickness and Camber [-]")
             axs[0].legend(bbox_to_anchor=(1, 1))
-            axs[0].grid(True)
+            axs[0].grid(which='major')
+            axs[0].minorticks_on()
+            axs[0].grid(which='minor', linewidth=0.25)
 
             # Second row: Combined airfoil shape
             axs[1].plot(upper_x, upper_y, label="Modelled profile", color="tab:red")
             axs[1].plot(lower_x, lower_y, color="tab:red")
             if reference_file is not None:
-                axs[1].plot(self.reference_data[:, 0], self.reference_data[:, 1], "-.", color="gray", label="Reference Input Data")
+                axs[1].plot(self.reference_data[:, 0], self.reference_data[:, 1], "-.", color="gray", label="Reference profile")
             axs[1].set_title("Combined Airfoil Shape")
-            axs[1].set_xlabel("x/c [-]")
-            axs[1].set_ylabel("y/c [-]")
+            axs[1].set_xlabel("Axial coordinate $x/c$ [-]")
+            axs[1].set_ylabel("Vertical coordinate $y/c$ [-]")
             axs[1].legend(bbox_to_anchor=(1, 1))
-            axs[1].grid(True)
-
-            # Set main figure title
-            fig.suptitle("BP 3434 Parameterisation for the profile", fontsize=14)
+            axs[1].grid(which='major')
+            axs[1].minorticks_on()
+            axs[1].grid(which='minor', linewidth=0.25)
 
             # Adjust layout
             plt.tight_layout()
@@ -1073,7 +1075,7 @@ if __name__ == "__main__":
     call_class = AirfoilParameterization()
 
     start_time = time.time()
-    inputfile = Path(__file__).resolve().parent / 'Test Airfoils/n2414.dat'
+    inputfile = Path(__file__).resolve().parent / 'Test Airfoils/duct.dat'
     airf_params = call_class.FindInitialParameterization(inputfile)
     end_time = time.time()
     print(f"Execution of FindInitialParameterization({inputfile}) took {end_time-start_time} seconds")
