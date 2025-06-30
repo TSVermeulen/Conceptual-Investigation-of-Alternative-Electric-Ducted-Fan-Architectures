@@ -28,10 +28,11 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.0
+Version: 1.1
 
 Changelog:
 - V1.0: Initial implementation. Extracted from the problem_definition.py file for better modularity and readability.
+- V1.1: Implemented optional variable pitch handling.
 """
 
 # Import standard libraries
@@ -151,7 +152,8 @@ class DesignVector:
                 stage_configs.append({
                     'index': i,
                     'num_radial_sections': num_radial_sections,
-                    'is_rotating': cfg.ROTATING[i]
+                    'is_rotating': cfg.ROTATING[i],
+                    'pitch_angles': len(cfg.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle_lst"])
                 })
 
         # For the stage(s) marked for optimisation, add the profile design variables to the design vector
@@ -163,7 +165,8 @@ class DesignVector:
         for stage_config in stage_configs:
             i = stage_config['index']
             vector.append(Real(bounds=(0, 0.4)))  # root_LE_coordinate
-            vector.append(Real(bounds=(0.1, np.pi/6)))  # ref_blade_angle from [~5.7deg to 30 deg]
+            for _ in range(stage_config["pitch_angles"]):  # Assign each pitch angle to in case of variable pitch
+                vector.append(Real(bounds=(0.1, 5 * np.pi/18)))  # ref_blade_angle from [~5.7deg to 50 deg]
             vector.append(Integer(bounds=(3, 20)))  # blade_count
             if stage_config['is_rotating']:
                 for _ in range(num_operating_points):

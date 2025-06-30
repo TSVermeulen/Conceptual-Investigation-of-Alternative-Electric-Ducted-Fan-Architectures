@@ -347,7 +347,13 @@ class DesignVectorInterface:
             if self.optimize_stages[stage]:
                 # If the stage is to be optimized, read in the design vector for the blading parameters
                 stage_blading_parameters["root_LE_coordinate"] = next(it)
-                stage_blading_parameters["ref_blade_angle"] = next(it)
+
+                ref_blade_angle_lst = []
+                for _ in range(len(config.STAGE_BLADING_PARAMETERS[stage]["ref_blade_angle_lst"])):
+                    ref_blade_angle_lst.append(next(it))  # Allow for multi-point variable pitch
+                stage_blading_parameters["ref_blade_angle_lst"] = ref_blade_angle_lst
+                stage_blading_parameters["ref_blade_angle"] = ref_blade_angle_lst[0]  # Initialise to the first pitch angle
+
                 stage_blading_parameters["reference_section_blade_angle"] = 0  # We take the blade tip as reference section, so the angle is zero.
                 stage_blading_parameters["blade_count"] = int(next(it))
                 stage_blading_parameters["RPS_lst"] = [next(it) if self.rotating[stage] else 0 for _ in range(num_operating_conditions)]
@@ -471,7 +477,10 @@ class DesignVectorInterface:
             if opt_stage:
                 # If the stage is to be optimised, read in the design vector for the blading parameters
                 vector.append(blade_blading_parameters[i]["root_LE_coordinate"])  # root_LE_coordinate
-                vector.append(blade_blading_parameters[i]["ref_blade_angle"])  # ref_blade_angle
+                for angle in blade_blading_parameters[i]["ref_blade_angle_lst"]:
+                    vector.append(angle)  # Enables variable pitch to be used. 
+
+                # vector.append(blade_blading_parameters[i]["ref_blade_angle"])  # ref_blade_angle
                 vector.append(int(blade_blading_parameters[i]["blade_count"]))  # blade_count
                 vector.extend([blade_blading_parameters[i]["RPS_lst"][j] for j in range(len(blade_blading_parameters[i]["RPS_lst"]))])  # blade RPS
                 vector.append(blade_blading_parameters[i]["radial_stations"][-1] * 2)  # blade diameter

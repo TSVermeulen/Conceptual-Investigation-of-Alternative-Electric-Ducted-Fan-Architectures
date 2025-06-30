@@ -40,12 +40,13 @@ Versioning
 Author: T.S. Vermeulen
 Email: T.S.Vermeulen@student.tudelft.nl
 Student ID: 4995309
-Version: 1.2
+Version: 1.3
 
 Changelog:
 - V1.0: Initial version with tested biased population generation and basic random population generation functionality.
 - V1.1: Added support for configurable random seed for reproducibility and improved documentation. Reworked GenerateBiasedPopulation to improve speed using NumPy.
 - V1.2: Implemented perturbation for zero-valued real design parameters.
+- V1.3: Implemented optional variable pitch handling. 
 """
 
 # Import standard libraries
@@ -184,11 +185,12 @@ class InitPopulation():
             if config.OPTIMIZE_STAGE[i]:
                 # Read the reference values into the design vector
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["root_LE_coordinate"])
-                vector.append(config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle"])
+                for angle in config.STAGE_BLADING_PARAMETERS[i]["ref_blade_angle_lst"]:
+                    vector.append(angle)  # Allow for variable pitch by giving each operating point a separate blade angle
                 vector.append(int(config.STAGE_BLADING_PARAMETERS[i]["blade_count"]))
                 if config.ROTATING[i]:
                     for RPS in config.STAGE_BLADING_PARAMETERS[i]["RPS_lst"]:
-                        vector.append(RPS)
+                        vector.append(RPS)  # Required for multipoint analysis
                 vector.append(config.STAGE_BLADING_PARAMETERS[i]["radial_stations"][-1] * 2)  # The interfaces uses the radial locations, but the design varable is the blade diameter!
 
                 for j in range(config.NUM_RADIALSECTIONS[i]):
@@ -317,4 +319,3 @@ if __name__ == "__main__":
     test = InitPopulation("biased")
 
     biased_pop = test.GeneratePopulation()
-    print("Biased Population:", biased_pop)

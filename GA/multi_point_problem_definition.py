@@ -379,18 +379,13 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
             # Set the initial non-dimensional omega rates
             self.oper = copy.deepcopy(self._base_oper)
-            self.ComputeOmega(idx=0)
 
             self._fileHandlingMTSET(params_CB=self.centerbody_variables,
                                     params_duct=self.duct_variables,
                                     analysis_name=self.analysis_name,
                                     ref_length=self.Lref).GenerateMTSETInput()  # Generate the MTSET input file
 
-            self._fileHandlingMTFLO(analysis_name=self.analysis_name,
-                                    ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
-                                                                             design_params=self.blade_design_parameters,
-                                                                             plot=False)  # Generate the MTFLO input file
-
+            self.ComputeMTFLOInputs(oper_idx=0)
             output_generated =  True  # If both input generation routines succeeded, set output_generated to True
 
         except ValueError as e:
@@ -418,6 +413,30 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self.blade_design_parameters = copy.copy(config.STAGE_DESIGN_VARIABLES)
 
         return output_generated
+
+
+    def ComputeMTFLOInputs(self,
+                           oper_idx: int) -> None:
+        """
+        Compute the correct MTFLO input file based on the operating condition, accounting for the 
+        possible presence of variable pitch. 
+        """
+
+        # Set the correct pitch angle in the blading params dictionary
+        # Loop over all stages
+        for blading_params in self.blade_blading_parameters:
+            if len(blading_params["ref_blade_angle_lst"]) == len(self.multi_oper):
+                # Only update variable pitch if it is used, otherwise leave it as constant. 
+                blading_params["ref_blade_angle"] = blading_params["ref_blade_angle_lst"][oper_idx]
+
+        # Overwrite the MTFLOW input file to the correect inputs
+        # First set the correct nondimensional rotational rate
+        self.ComputeOmega(oper_idx)
+
+        self._fileHandlingMTFLO(analysis_name=self.analysis_name,
+                                ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
+                                                                         design_params=self.blade_design_parameters,
+                                                                         plot=False)  # Generate the MTFLO input file
 
 
     def _evaluate(self,
@@ -466,7 +485,8 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
                 if idx != 0:
                     # Only update tflow file for the second-onward point, since the initial point is written when first generating the input files
-                    self.SetOmega(oper_idx=idx)
+                    self.ComputeMTFLOInputs(oper_idx=idx)
+                    # self.SetOmega(oper_idx=idx)
 
                 MTFLOW_interface = self._MTFLOW_caller(operating_conditions=self.oper,
                                                        ref_length=self.Lref,
