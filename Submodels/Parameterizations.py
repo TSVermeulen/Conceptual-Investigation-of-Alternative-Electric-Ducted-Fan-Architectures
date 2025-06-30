@@ -760,15 +760,15 @@ class AirfoilParameterization:
             fig, axs = plt.subplots(2, 1, figsize=get_figsize(wf=0.95), gridspec_kw={'height_ratios': [1, 1.2]})
 
             # First row: Thickness and Camber distributions
-            axs[0].plot(bezier_thickness_x, bezier_thickness, label="BP thickness", color="blue")
-            axs[0].plot(x_LE_thickness_coeff, y_LE_thickness_coeff, '*', color='b', label="BP thickness coefficients")
-            axs[0].plot(x_TE_thickness_coeff, y_TE_thickness_coeff, '*', color='b')
+            axs[0].plot(bezier_thickness_x, bezier_thickness, label="BP thickness", color="tab:blue")
+            axs[0].plot(x_LE_thickness_coeff, y_LE_thickness_coeff, '*', color='tab:blue', label="BP thickness coefficients")
+            axs[0].plot(x_TE_thickness_coeff, y_TE_thickness_coeff, '*', color='tab:blue')
             if reference_file is not None:
-                axs[0].plot(self.x_points_thickness, self.thickness_distribution, "-.", label="Reference thickness")
-                axs[0].plot(self.x_points_camber, self.camber_distribution, "--", label="Reference camber")
-            axs[0].plot(bezier_camber_x, bezier_camber, label="BP camber", color="red")
-            axs[0].plot(x_LE_camber_coeff, y_LE_camber_coeff, '^', color='r', label="BP camber coefficients")
-            axs[0].plot(x_TE_camber_coeff, y_TE_camber_coeff, '^', color='r')
+                axs[0].plot(self.x_points_thickness, self.thickness_distribution, "-.", color="tab:blue", label="Reference thickness")
+                axs[0].plot(self.x_points_camber, self.camber_distribution, "-.", color="tab:orange", label="Reference camber")
+            axs[0].plot(bezier_camber_x, bezier_camber, "--", label="BP camber", color="tab:orange")
+            axs[0].plot(x_LE_camber_coeff, y_LE_camber_coeff, '^', color='tab:orange', label="BP camber coefficients")
+            axs[0].plot(x_TE_camber_coeff, y_TE_camber_coeff, '^', color='tab:orange')
             axs[0].set_title("Thickness and Camber Distributions")
             axs[0].set_xlabel("Axial coordinate $x/c$ [-]")
             axs[0].set_ylabel("Thickness and Camber [-]")
@@ -778,10 +778,10 @@ class AirfoilParameterization:
             axs[0].grid(which='minor', linewidth=0.25)
 
             # Second row: Combined airfoil shape
-            axs[1].plot(upper_x, upper_y, label="Modelled profile", color="tab:red")
-            axs[1].plot(lower_x, lower_y, color="tab:red")
+            axs[1].plot(upper_x, upper_y, label="Modelled profile", color="tab:green")
+            axs[1].plot(lower_x, lower_y, color="tab:green")
             if reference_file is not None:
-                axs[1].plot(self.reference_data[:, 0], self.reference_data[:, 1], "-.", color="gray", label="Reference profile")
+                axs[1].plot(self.reference_data[:, 0], self.reference_data[:, 1], "-.", color="tab:gray", label="Reference profile")
             axs[1].set_title("Combined Airfoil Shape")
             axs[1].set_xlabel("Axial coordinate $x/c$ [-]")
             axs[1].set_ylabel("Vertical coordinate $y/c$ [-]")

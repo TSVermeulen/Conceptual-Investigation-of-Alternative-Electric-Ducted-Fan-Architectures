@@ -367,7 +367,7 @@ def GenerateMTSETGeometry() -> None:
 
     plt.plot((centerbody_x[:14] - centerbody_x[0]), centerbody_y[:14] , "x", label="True profile coordinates")
     plt.plot((interpolated_centerbody_x - interpolated_centerbody_x[0]), interpolated_centerbody_y , "-.", label="Smoothed representation")
-    plt.plot(naca_x, naca_y, label="NACA0025 representation")
+    plt.plot(naca_x, naca_y, label="NACA 0025 representation")
     plt.xlabel("Axial coordinate $x$ [m]")
     plt.ylabel("Radial coordinate $z$ [m]")
     plt.grid(which='major')
