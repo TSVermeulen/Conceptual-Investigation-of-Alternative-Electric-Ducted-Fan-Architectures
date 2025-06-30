@@ -48,7 +48,7 @@ ensure_repo_paths()
 
 # Import interfacing modules
 import config  # type: ignore
-from Submodels.Parameterizations import AirfoilParameterization # type: ignore
+from Submodels.Parameterizations import AirfoilParameterization  # type: ignore
 _PARAMETERISATION = AirfoilParameterization()
 
 class DesignVectorInterface:

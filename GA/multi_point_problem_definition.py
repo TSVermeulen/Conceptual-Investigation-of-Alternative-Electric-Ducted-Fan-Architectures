@@ -486,7 +486,6 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                 if idx != 0:
                     # Only update tflow file for the second-onward point, since the initial point is written when first generating the input files
                     self.ComputeMTFLOInputs(oper_idx=idx)
-                    # self.SetOmega(oper_idx=idx)
 
                 MTFLOW_interface = self._MTFLOW_caller(operating_conditions=self.oper,
                                                        ref_length=self.Lref,

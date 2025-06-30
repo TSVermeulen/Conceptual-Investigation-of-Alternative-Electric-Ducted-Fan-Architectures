@@ -189,7 +189,7 @@ class DesignVector:
 
 
 if __name__ == "__main__":
-    import  config # type: ignore
+    import config # type: ignore
     test = DesignVector()
     vector = test.construct_vector(config)
     print(vector)
