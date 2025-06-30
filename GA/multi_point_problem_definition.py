@@ -416,10 +416,20 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
 
     def ComputeMTFLOInputs(self,
-                           oper_idx: int) -> None:
+                           oper_idx: int) -> bool:
         """
         Compute the correct MTFLO input file based on the operating condition, accounting for the 
         possible presence of variable pitch. 
+
+        Parameters
+        ----------
+        - oper_idx : int
+            Integer of the operating point index. 
+        
+        Returns
+        -------
+        - input_generated : bool
+            Boolean to indicate if the MTFLO inputs have been generated successfully. 
         """
 
         # Set the correct pitch angle in the blading params dictionary
@@ -433,11 +443,37 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         # First set the correct nondimensional rotational rate
         self.ComputeOmega(oper_idx)
 
-        self._fileHandlingMTFLO(analysis_name=self.analysis_name,
-                                ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
-                                                                         design_params=self.blade_design_parameters,
-                                                                         plot=False)  # Generate the MTFLO input file
+        try:
+            self._fileHandlingMTFLO(analysis_name=self.analysis_name,
+                                    ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
+                                                                            design_params=self.blade_design_parameters,
+                                                                            plot=False)  # Generate the MTFLO input file
+            input_generated = True
 
+        except ValueError as e:
+            # Any value error that might occur while generating the MTFLO input file will indicate an invalid design
+            input_generated = False 
+            if self.verbose:
+                error_code = "INVALID_DESIGN"
+                print(f"[{error_code}] Invalid design vector encountered: {e}")
+        except Exception as e:
+            # If any unexpected errors occur, log them as well
+            input_generated = False
+            if self.verbose:
+                import traceback
+                traceback.print_exc()
+                error_code = f"UNEXPECTED_{type(e).__name__}"
+                print(f"[{error_code}] Traceback:\n{traceback.format_exc()}")  # Use traceback for more specific error information.
+
+        if not input_generated:
+            # Set parameters equal to the config values in case of a crash so that the constraint/objective value calculations do not crash
+            self.Lref = config.BLADE_DIAMETERS[0]
+            self.duct_variables = copy.copy(config.DUCT_VALUES)
+            self.centerbody_variables = copy.copy(config.CENTERBODY_VALUES)
+            self.blade_blading_parameters = copy.copy(config.STAGE_BLADING_PARAMETERS)
+            self.blade_design_parameters = copy.copy(config.STAGE_DESIGN_VARIABLES)
+
+        return input_generated
 
     def _evaluate(self,
                   x:dict,
@@ -485,7 +521,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
 
                 if idx != 0:
                     # Only update tflow file for the second-onward point, since the initial point is written when first generating the input files
-                    self.ComputeMTFLOInputs(oper_idx=idx)
+                    design_okay = self.ComputeMTFLOInputs(oper_idx=idx)
 
                 MTFLOW_interface = self._MTFLOW_caller(operating_conditions=self.oper,
                                                        ref_length=self.Lref,
@@ -493,24 +529,29 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                                                        grid_checked=valid_grid,
                                                        run_viscous=True,
                                                        **kwargs)
+                if design_okay:
+                    # Duplicate check required for a multi-point analysis
+                    try:
+                        # Run MTFLOW
+                        exit_flag = MTFLOW_interface.caller(external_inputs=True,
+                                                            output_type=OutputType.FORCES_ONLY)
 
-                try:
-                    # Run MTFLOW
-                    exit_flag = MTFLOW_interface.caller(external_inputs=True,
-                                                        output_type=OutputType.FORCES_ONLY)
+                        # Extract outputs
+                        output_handler = self._output_processing(analysis_name=self.analysis_name)
+                        MTFLOW_outputs[idx] = output_handler.GetAllVariables(output_type=0)
+                    except Exception as e:
+                        exit_flag = ExitFlag.CRASH
+                        MTFLOW_outputs[idx] = self.CRASH_OUTPUTS
+                        if self.verbose:
+                            print(f"[MTFLOW_ERROR] OP={idx}, case={self.analysis_name}: {e}")
 
-                    # Extract outputs
-                    output_handler = self._output_processing(analysis_name=self.analysis_name)
-                    MTFLOW_outputs[idx] = output_handler.GetAllVariables(output_type=0)
-                except Exception as e:
-                    exit_flag = ExitFlag.CRASH
+                    # Set valid_grid to true to skip the grid checking routines for the next operating point if the solver exited with a converged/non-converged solution.
+                    if exit_flag in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE, ExitFlag.CHOKING):
+                        valid_grid = True
+                else:
+                    # If any of the operating points are infeasible, set crash outputs and break out of the loop to avoid useless calculation of other operating points.
                     MTFLOW_outputs[idx] = self.CRASH_OUTPUTS
-                    if self.verbose:
-                        print(f"[MTFLOW_ERROR] OP={idx}, case={self.analysis_name}: {e}")
-
-                # Set valid_grid to true to skip the grid checking routines for the next operating point if the solver exited with a converged/non-converged solution.
-                if exit_flag in (ExitFlag.SUCCESS, ExitFlag.NON_CONVERGENCE, ExitFlag.CHOKING):
-                    valid_grid = True
+                    break
 
         # Obtain objective(s)
         # The out dictionary is updated in-place
