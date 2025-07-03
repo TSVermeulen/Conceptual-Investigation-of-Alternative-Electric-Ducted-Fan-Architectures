@@ -491,11 +491,12 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         - bool 
             Boolean indicating if all boundary layers converged. 
         """
-
-        if outputs["Element 2"]["top Xtr"] == 0 or outputs["Element 2"]["bot Xtr"] == 0 or outputs["Axis Body"]["Xtr"] == 0:
-            return False
-        else:
+       
+        validBL = not ((outputs["grouped_data"]["Element 2"]["top Xtr"] == 0) or (outputs["grouped_data"]["Element 2"]["bot Xtr"] == 0) or (outputs["grouped_data"]["Axis Body"]["Xtr"] == 0))
+        if validBL:
             return True
+        else:
+            return False
         
 
     def _evaluate(self,

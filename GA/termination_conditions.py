@@ -52,7 +52,7 @@ def GetTerminationConditions():
         # Set termination conditions for a single objective optimisation
         term_conditions = TerminationCollection(RobustTermination(SingleObjectiveSpaceTermination(tol=1E-5,
                                                                                                   only_feas=True),
-                                                                                                  period=15),  # Chance in objective value termination condition
+                                                                                                  period=15),  # Change in objective value termination condition
                                                 get_termination("n_gen", config.MAX_GENERATIONS),  # Maximum generation count termination condition
                                                 RobustTermination(DesignSpaceTermination(tol=1E-3),
                                                                   period=15),  # Maximum change in design vector termination condition
@@ -63,7 +63,7 @@ def GetTerminationConditions():
         # Set termination conditions for a multiobjective optimisation
         term_conditions = TerminationCollection(RobustTermination(MultiObjectiveSpaceTermination(tol=1E-3,
                                                                                           only_feas=True),
-                                                                                          period=10),  # Chance in objective value termination condition
+                                                                                          period=10),  # Change in objective value termination condition
                                                 get_termination("n_gen", config.MAX_GENERATIONS),  # Maximum generation count termination condition
                                                 RobustTermination(DesignSpaceTermination(tol=1E-3),
                                                                   period=10),  # Maximum change in design vector termination condition
