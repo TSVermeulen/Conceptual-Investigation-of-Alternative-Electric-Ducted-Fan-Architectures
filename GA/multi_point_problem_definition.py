@@ -551,7 +551,6 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                 else:
                     # If any of the operating points are infeasible, set crash outputs and break out of the loop to avoid useless calculation of other operating points.
                     MTFLOW_outputs[idx] = self.CRASH_OUTPUTS
-                    break
 
         # Obtain objective(s)
         # The out dictionary is updated in-place

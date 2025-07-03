@@ -70,12 +70,12 @@ class ObjectiveID(IntEnum):
     ENERGY = auto()
     
 # Define the (multi-point) operating conditions
-multi_oper = [{"Inlet_Mach": 0.125,  # ~take-off condition
-               "N_crit": 9,
-               "atmos": Atmosphere(0),
-               "Omega": -11.42397,
-               "RPS": 47,
-               "flight_phase_time": 15*60},
+multi_oper = [#{"Inlet_Mach": 0.125,  # ~take-off condition
+            #    "N_crit": 9,
+            #    "atmos": Atmosphere(0),
+            #    "Omega": -11.42397,
+            #    "RPS": 47,
+            #    "flight_phase_time": 15*60},
               {"Inlet_Mach": 0.2,  # loiter condition at ~125kts
                "N_crit": 9,
                "atmos": Atmosphere(3048),
@@ -160,8 +160,8 @@ def _load_blading(omega: float,
     propeller_parameters = {"root_LE_coordinate": 0.1495672948767407, 
                             "rotational_rate": omega, 
                             "RPS": RPS,
-                            "RPS_lst": [RPS, multi_oper[1]["RPS"]],
-                            # "RPS_lst": [RPS],
+                            # "RPS_lst": [RPS, multi_oper[1]["RPS"]],
+                            "RPS_lst": [RPS],
                             "ref_blade_angle": ref_blade_angle, 
                             "ref_blade_angle_lst": [ref_blade_angle],
                             "reference_section_blade_angle": 0, 
@@ -173,8 +173,8 @@ def _load_blading(omega: float,
     horizontal_strut_parameters = {"root_LE_coordinate": 0.57785, 
                                    "rotational_rate": 0, 
                                    "RPS": 0,
-                                   "RPS_lst": [0, 0],
-                                #    "RPS_lst": [0],
+                                #    "RPS_lst": [0, 0],
+                                   "RPS_lst": [0],
                                    "ref_blade_angle": 0, 
                                    "ref_blade_angle_lst": [0], 
                                    "reference_section_blade_angle": 0, 
@@ -187,8 +187,8 @@ def _load_blading(omega: float,
     diagonal_strut_parameters = {"root_LE_coordinate": 0.577723, 
                                  "rotational_rate": 0, 
                                  "RPS": 0,
-                                 "RPS_lst": [0, 0],
-                                #  "RPS_lst": [0],
+                                #  "RPS_lst": [0, 0],
+                                 "RPS_lst": [0],
                                  "ref_blade_angle": 0, 
                                  "ref_blade_angle_lst": [0], 
                                  "reference_section_blade_angle": 0, 
@@ -248,13 +248,13 @@ STAGE_BLADING_PARAMETERS, STAGE_DESIGN_VARIABLES = _load_blading(multi_oper[0]["
                                                                  REFERENCE_BLADE_ANGLES[0])
 
 # Define the target thrust/power and efficiency for use in constraints
-P_ref_constr = [3.5043 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # take-off power
-                0.46250 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # endurance power
-                # 0.21720 * (0.5 * multi_oper[2]["atmos"].density[0] * multi_oper[2]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # combat power
+P_ref_constr = [#3.5043 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # take-off power
+                0.46250 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # endurance power
+                # 0.21720 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 3 * BLADE_DIAMETERS[0] ** 2),  # combat power
                 ]  # Reference Power in Watts derived from baseline analysis
-T_ref_constr = [2.3293 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # take-off thrust
-                0.36832 * (0.5 * multi_oper[1]["atmos"].density[0] * multi_oper[1]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # endurance thrust
-                # 0.16605 * (0.5 * multi_oper[2]["atmos"].density[0] * multi_oper[2]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # combat thrust
+T_ref_constr = [#2.3293 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # take-off thrust
+                0.36832 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # endurance thrust
+                # 0.16605 * (0.5 * multi_oper[0]["atmos"].density[0] * multi_oper[0]["Vinl"] ** 2 * BLADE_DIAMETERS[0] ** 2),  # combat thrust
                 ] # Reference Thrust in Newtons derived from baseline analysis
 
 deviation_range = 0.01  # +/- x% of the reference value for the constraints
@@ -306,7 +306,7 @@ MAX_EVALUATIONS = 11000
 # Define the initial population parameter spreads, used to construct a biased initial population 
 SPREAD_CONTINUOUS = 0.5  # Relative spread (+/- %) applied to continous variables around their reference values
 ZERO_NOISE = 0.25  # % noise added to zero values to avoid stagnation
-SPREAD_DISCRETE = (-3, 17)  # Absolute range for discrete variables (referene value -3 to reference value + 17)
+SPREAD_DISCRETE = (0, 12)  # Absolute range for discrete variables (reference value to reference value + 17)
 
 # Repair operator controls
 PROFILE_FEASIBILITY_OFFSET = 0.05  # Offset value to avoid bezier control points lying on x_t/x_c
@@ -316,9 +316,11 @@ MAX_ONE2ONE_ATTEMPTS = 200  # Maximum number of attempts to enforce one-to-one o
 ARCHIVE_STATEFILES = False  # Bool to control if the statefiles should be archived after each evaluation. 
 PROBLEM_TYPE = "single_point"  # Either "single_point" or "multi_point". Defines the type of problem loaded in the main file. 
 RESERVED_THREADS = 0  # Threads reserved for the operating system and any other programs.
-THREADS_PER_EVALUATION = 2  # Number of threads per MTFLOW evaluation: one for running MTSET/MTSOL/MTFLO and one for polling outputs
+THREADS_PER_EVALUATION = 1  # Number of threads per MTFLOW evaluation: one for running MTSET/MTSOL/MTFLO and one for polling outputs
 
 # Postprocessing visualisation controls
-# ref_objectives = np.array([-0.74376, 1])  # ref objective values for endurance cruise condition
+ref_objectives = np.array([-0.74376])  # ref objective values for endurance cruise condition
 # ref_objectives = np.array([-0.66469])  # ref objective values for take-off condition
-ref_objectives = np.array([-0.7645])  # ref objective values for combat condition
+# ref_objectives = np.array([-0.7645, 1])  # ref objective values for combat condition
+
+# ref_objectives = np.array([-0.8272, 1.04689])  # objective obtained from SOO with frontal area constraint
