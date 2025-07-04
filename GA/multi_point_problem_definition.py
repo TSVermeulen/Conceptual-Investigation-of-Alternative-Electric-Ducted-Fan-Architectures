@@ -474,29 +474,6 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self.blade_design_parameters = copy.copy(config.STAGE_DESIGN_VARIABLES)
 
         return input_generated
-    
-
-    def _check_output_validity(self,
-                               outputs: dict[str, Any]) -> bool:
-        """
-        Check if all boundary layers converged. 
-
-        Parameters
-        ----------
-        - outputs : dict[str, Any]
-            Output dictionary from the MTFLOW analysis.
-        
-        Returns
-        -------
-        - bool 
-            Boolean indicating if all boundary layers converged. 
-        """
-       
-        validBL = not ((outputs["grouped_data"]["Element 2"]["top Xtr"] == 0) or (outputs["grouped_data"]["Element 2"]["bot Xtr"] == 0) or (outputs["grouped_data"]["Axis Body"]["Xtr"] == 0))
-        if validBL:
-            return True
-        else:
-            return False
         
 
     def _evaluate(self,
@@ -561,12 +538,12 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                                                             output_type=OutputType.FORCES_ONLY)
 
                         # Extract outputs
-                        output_handler = self._output_processing(analysis_name=self.analysis_name)
-                        MTFLOW_outputs[idx] = output_handler.GetAllVariables(output_type=0)
-                        
-                        if not self._check_output_validity(MTFLOW_outputs[idx]):
+                        if exit_flag != ExitFlag.CRASH:
+                            output_handler = self._output_processing(analysis_name=self.analysis_name)
+                            MTFLOW_outputs[idx] = output_handler.GetAllVariables(output_type=0)
+                        else:
                             MTFLOW_outputs[idx] = self.CRASH_OUTPUTS
-                        
+                                                
                     except Exception as e:
                         exit_flag = ExitFlag.CRASH
                         MTFLOW_outputs[idx] = self.CRASH_OUTPUTS

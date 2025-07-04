@@ -64,7 +64,7 @@ from utils import ensure_repo_paths  # type: ignore
 ensure_repo_paths()
 
 # Import interface submodels and other dependencies
-from Submodels.MTSOL_call import OutputType # type: ignore
+from Submodels.MTSOL_call import OutputType, ExitFlag # type: ignore
 from objectives import Objectives  # type: ignore
 from constraints import Constraints  # type: ignore
 from init_designvector import DesignVector  # type: ignore
@@ -357,30 +357,7 @@ class OptimizationProblem(ElementwiseProblem):
             self.blade_design_parameters = copy.copy(config.STAGE_DESIGN_VARIABLES)
 
         return output_generated
-    
-
-    def _check_output_validity(self,
-                               outputs: dict[str, Any]) -> bool:
-        """
-        Check if all boundary layers converged. 
-
-        Parameters
-        ----------
-        - outputs : dict[str, Any]
-            Output dictionary from the MTFLOW analysis.
-        
-        Returns
-        -------
-        - bool 
-            Boolean indicating if all boundary layers converged. 
-        """
-
-        validBL = not ((outputs["grouped_data"]["Element 2"]["top Xtr"] == 0) or (outputs["grouped_data"]["Element 2"]["bot Xtr"] == 0) or (outputs["grouped_data"]["Axis Body"]["Xtr"] == 0))
-        if validBL:
-            return True
-        else:
-            return False
-        
+           
 
     def _evaluate(self,
                   x: dict[str, float | int],
@@ -429,15 +406,16 @@ class OptimizationProblem(ElementwiseProblem):
 
             try:
                 # Run MTFLOW
-                MTFLOW_interface.caller(external_inputs=True,
-                                        output_type=OutputType.FORCES_ONLY)
+                exit_flag = MTFLOW_interface.caller(external_inputs=True,
+                                                    output_type=OutputType.FORCES_ONLY)
 
                 # Extract outputs
-                output_handler = self._output_processing(analysis_name=self.analysis_name)
-                MTFLOW_outputs = output_handler.GetAllVariables(output_type=0)
-                
-                if not self._check_output_validity(MTFLOW_outputs):
+                if exit_flag != ExitFlag.CRASH:
+                    output_handler = self._output_processing(analysis_name=self.analysis_name)
+                    MTFLOW_outputs = output_handler.GetAllVariables(output_type=0)
+                else:
                     MTFLOW_outputs = self.CRASH_OUTPUTS
+
 
             except Exception as e:
                 if self.verbose:
