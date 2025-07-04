@@ -933,7 +933,7 @@ class MTSOL_call:
         Returns
         -------
         - eta: float
-            Efficiency 
+            Efficiency
         """
 
         try:
@@ -941,7 +941,7 @@ class MTSOL_call:
         except Exception:
             eta = 0
         return eta
-    
+
 
     def HandleExitFlag(self,
                        exit_flag: ExitFlag,
@@ -1215,11 +1215,11 @@ class MTSOL_call:
                         self.GenerateSolverOutput(output_type=output_type)
 
                     # Get the viscous efficiency and check it is lower than the inviscid efficiency
-                    # If not, set the exit flag to crash to enable appropriate downstream handling. 
+                    # If not, set the exit flag to crash to enable appropriate downstream handling.
                     eta_visc = self.GetEtaOutput()
                     if eta_visc > eta_invisc:
                         total_exit_flag = ExitFlag.CRASH
-                
+
 
             # Close the MTSOL tool
             # If no output is generated, need to write an additional white line to close MTSOL

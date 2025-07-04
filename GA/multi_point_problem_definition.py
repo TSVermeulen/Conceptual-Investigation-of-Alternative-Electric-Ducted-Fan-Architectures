@@ -418,25 +418,25 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
     def ComputeMTFLOInputs(self,
                            oper_idx: int) -> bool:
         """
-        Compute the correct MTFLO input file based on the operating condition, accounting for the 
-        possible presence of variable pitch. 
+        Compute the correct MTFLO input file based on the operating condition, accounting for the
+        possible presence of variable pitch.
 
         Parameters
         ----------
         - oper_idx : int
-            Integer of the operating point index. 
-        
+            Integer of the operating point index.
+
         Returns
         -------
         - input_generated : bool
-            Boolean to indicate if the MTFLO inputs have been generated successfully. 
+            Boolean to indicate if the MTFLO inputs have been generated successfully.
         """
 
         # Set the correct pitch angle in the blading params dictionary
         # Loop over all stages
         for blading_params in self.blade_blading_parameters:
             if len(blading_params["ref_blade_angle_lst"]) == len(self.multi_oper):
-                # Only update variable pitch if it is used, otherwise leave it as constant. 
+                # Only update variable pitch if it is used, otherwise leave it as constant.
                 blading_params["ref_blade_angle"] = blading_params["ref_blade_angle_lst"][oper_idx]
 
         # Overwrite the MTFLOW input file to the correect inputs
@@ -446,13 +446,13 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
         try:
             self._fileHandlingMTFLO(analysis_name=self.analysis_name,
                                     ref_length=self.Lref).GenerateMTFLOInput(blading_params=self.blade_blading_parameters,
-                                                                            design_params=self.blade_design_parameters,
-                                                                            plot=False)  # Generate the MTFLO input file
+                                                                             design_params=self.blade_design_parameters,
+                                                                             plot=False)  # Generate the MTFLO input file
             input_generated = True
 
         except ValueError as e:
             # Any value error that might occur while generating the MTFLO input file will indicate an invalid design
-            input_generated = False 
+            input_generated = False
             if self.verbose:
                 error_code = "INVALID_DESIGN"
                 print(f"[{error_code}] Invalid design vector encountered: {e}")
@@ -474,7 +474,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
             self.blade_design_parameters = copy.copy(config.STAGE_DESIGN_VARIABLES)
 
         return input_generated
-        
+
 
     def _evaluate(self,
                   x:dict,
@@ -542,8 +542,10 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                             output_handler = self._output_processing(analysis_name=self.analysis_name)
                             MTFLOW_outputs[idx] = output_handler.GetAllVariables(output_type=0)
                         else:
+                            # If the solver outputs are invalid, set the crash outputs and break out of the loop to avoid useless calculation of other operating points.
                             MTFLOW_outputs[idx] = self.CRASH_OUTPUTS
-                                                
+                            break
+
                     except Exception as e:
                         exit_flag = ExitFlag.CRASH
                         MTFLOW_outputs[idx] = self.CRASH_OUTPUTS
@@ -556,6 +558,7 @@ class MultiPointOptimizationProblem(ElementwiseProblem):
                 else:
                     # If any of the operating points are infeasible, set crash outputs and break out of the loop to avoid useless calculation of other operating points.
                     MTFLOW_outputs[idx] = self.CRASH_OUTPUTS
+                    break
 
         # Obtain objective(s)
         # The out dictionary is updated in-place

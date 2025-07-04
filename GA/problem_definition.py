@@ -53,7 +53,6 @@ import copy
 import datetime
 import contextlib
 from pathlib import Path
-from typing import Any
 
 # Import 3rd party libraries
 import numpy as np
@@ -64,7 +63,7 @@ from utils import ensure_repo_paths  # type: ignore
 ensure_repo_paths()
 
 # Import interface submodels and other dependencies
-from Submodels.MTSOL_call import OutputType, ExitFlag # type: ignore
+from Submodels.MTSOL_call import OutputType, ExitFlag  # type: ignore
 from objectives import Objectives  # type: ignore
 from constraints import Constraints  # type: ignore
 from init_designvector import DesignVector  # type: ignore
@@ -415,7 +414,6 @@ class OptimizationProblem(ElementwiseProblem):
                     MTFLOW_outputs = output_handler.GetAllVariables(output_type=0)
                 else:
                     MTFLOW_outputs = self.CRASH_OUTPUTS
-
 
             except Exception as e:
                 if self.verbose:
