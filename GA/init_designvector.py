@@ -167,7 +167,7 @@ class DesignVector:
             vector.append(Real(bounds=(0, 0.4)))  # root_LE_coordinate
             for _ in range(stage_config["pitch_angles"]):  # Assign each pitch angle to in case of variable pitch
                 vector.append(Real(bounds=(0.1, 5 * np.pi/18)))  # ref_blade_angle from [~5.7deg to 50 deg]
-            vector.append(Integer(bounds=(3, 20)))  # blade_count
+            vector.append(Integer(bounds=(3, 15)))  # blade_count
             if stage_config['is_rotating']:
                 for _ in range(num_operating_points):
                     vector.append(Real(bounds=(20, 80)))  # blade RPS

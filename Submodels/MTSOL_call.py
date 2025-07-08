@@ -926,6 +926,23 @@ class MTSOL_call:
             return False
 
 
+    def GetEtaOutput(self) -> float:
+        """
+        Function to get the current efficiency.
+
+        Returns
+        -------
+        - eta: float
+            Efficiency
+        """
+
+        try:
+            _, _, eta = output_processing(analysis_name=self.analysis_name).GetCTCPEtaP()
+        except Exception:
+            eta = 0
+        return eta
+
+
     def HandleExitFlag(self,
                        exit_flag: ExitFlag,
                        handle_type : str,
@@ -1163,6 +1180,9 @@ class MTSOL_call:
             # There is a probability that by then running a viscous case, convergence to the correct solution may still be obtained.
             # Only runs the viscous case if the exit flag is correct and if the inviscid analysis was physical (i.e. has an efficiency < 100%)
             if run_viscous and total_exit_flag in (ExitFlag.SUCCESS, ExitFlag.COMPLETED, ExitFlag.NON_CONVERGENCE) and self.CheckInviscidOutput():
+                # Get the inviscid efficiency
+                eta_invisc = self.GetEtaOutput()
+
                 # Toggle viscous on all surfaces
                 self.ToggleViscous()  # Set the viscous Reynolds number
                 self.SetViscous([1, 3, 4], mode="enable")
@@ -1189,9 +1209,17 @@ class MTSOL_call:
                                         handle_type='Viscous',
                                         update_statefile=generate_output)
 
+
                     if generate_output:
                         # Generate the requested solver outputs based on output_type
                         self.GenerateSolverOutput(output_type=output_type)
+
+                    # Get the viscous efficiency and check it is lower than the inviscid efficiency
+                    # If not, set the exit flag to crash to enable appropriate downstream handling.
+                    eta_visc = self.GetEtaOutput()
+                    if eta_visc > eta_invisc:
+                        total_exit_flag = ExitFlag.CRASH
+
 
             # Close the MTSOL tool
             # If no output is generated, need to write an additional white line to close MTSOL

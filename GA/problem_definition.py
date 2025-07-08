@@ -63,7 +63,7 @@ from utils import ensure_repo_paths  # type: ignore
 ensure_repo_paths()
 
 # Import interface submodels and other dependencies
-from Submodels.MTSOL_call import OutputType # type: ignore
+from Submodels.MTSOL_call import OutputType, ExitFlag  # type: ignore
 from objectives import Objectives  # type: ignore
 from constraints import Constraints  # type: ignore
 from init_designvector import DesignVector  # type: ignore
@@ -356,7 +356,7 @@ class OptimizationProblem(ElementwiseProblem):
             self.blade_design_parameters = copy.copy(config.STAGE_DESIGN_VARIABLES)
 
         return output_generated
-
+           
 
     def _evaluate(self,
                   x: dict[str, float | int],
@@ -405,12 +405,16 @@ class OptimizationProblem(ElementwiseProblem):
 
             try:
                 # Run MTFLOW
-                MTFLOW_interface.caller(external_inputs=True,
-                                        output_type=OutputType.FORCES_ONLY)
+                exit_flag = MTFLOW_interface.caller(external_inputs=True,
+                                                    output_type=OutputType.FORCES_ONLY)
 
                 # Extract outputs
-                output_handler = self._output_processing(analysis_name=self.analysis_name)
-                MTFLOW_outputs = output_handler.GetAllVariables(output_type=0)
+                if exit_flag != ExitFlag.CRASH:
+                    output_handler = self._output_processing(analysis_name=self.analysis_name)
+                    MTFLOW_outputs = output_handler.GetAllVariables(output_type=0)
+                else:
+                    MTFLOW_outputs = self.CRASH_OUTPUTS
+
             except Exception as e:
                 if self.verbose:
                     print(f"[MTFLOW_ERROR] case={self.analysis_name}: {e}")
