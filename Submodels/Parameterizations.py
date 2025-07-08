@@ -697,9 +697,9 @@ class AirfoilParameterization:
                                                                                    bezier_thickness,
                                                                                    bezier_camber_x,
                                                                                    bezier_camber)
-
+        
         # Validate profile shape by checking one-to-one of the x-arrays
-        if not (np.all(np.diff(upper_x) >= 0) and np.all(np.diff(lower_x) >= 0)):
+        if (not np.all(np.diff(upper_x) >= 0) and not np.all(np.diff(lower_x) >= 0)):
             raise ValueError("The parameterization for the profile is infeasible.")
 
         return upper_x, upper_y, lower_x, lower_y
